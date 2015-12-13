@@ -37,6 +37,6 @@
 </ul>
 {% if view.request.is_ajax and count > MIN_FOR_FILTER %}
     <script type="text/javascript">
-        window.activate_quicksearches($('#filter-issues-assigned input.quicksearch'));
+        setTimeout(function() { window.activate_quicksearches($('#filter-issues-assigned input.quicksearch')); }, 250);
     </script>
 {% endif %}{% endspaceless %}

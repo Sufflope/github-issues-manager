@@ -18,6 +18,6 @@
 {% endif %}
 {% if view.request.is_ajax %}
     <script type="text/javascript">
-        window.activate_quicksearches($('#tab-{{ tab.class.slug }}-search input.quicksearch'));
+        setTimeout(function() { window.activate_quicksearches($('#tab-{{ tab.class.slug }}-search input.quicksearch')); }, 250);
     </script>
 {% endif %}{% endspaceless %}
