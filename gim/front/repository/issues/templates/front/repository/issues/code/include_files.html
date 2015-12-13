@@ -119,7 +119,7 @@
 {% endfor %}
 </ul>
 {% if view.request.is_ajax and nb_changed_files > 1 %}
-    <script type="text/javascript">
+    <script data-cfasync="false" type="text/javascript">
         setTimeout(function() { window.activate_quicksearches($('#{{ id_prefix }}-files-search input.quicksearch')); }, 250);
     </script>
 {% endif %}
