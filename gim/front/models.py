@@ -13,6 +13,8 @@ from django.template.defaultfilters import escape
 from django.utils.functional import cached_property
 
 from markdown import markdown
+from markdown.extensions.codehilite import CodeHiliteExtension
+from pymdownx.github import GithubExtension
 
 from limpyd import model as lmodel, fields as lfields
 
@@ -29,11 +31,8 @@ def html_content(self, body_field='body'):
     if html is None:
         html = markdown(getattr(self, body_field),
                         extensions=[
-                            'fenced_code',
-                            'nl2br',
-                            'smart_strong',
-                            'sane_lists',
-                            'codehilite',
+                            GithubExtension(),
+                            CodeHiliteExtension(guess_lang=False),
                         ]
                     )
     return html

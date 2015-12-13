@@ -310,28 +310,28 @@ WORKERS_REDIS_CONFIG = {
 
 CACHES = {
     'default': {
-        'BACKEND': 'redis_cache.cache.RedisCache',
-        'LOCATION': '%s:%d:%d' % (
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://%s:%d/%d' % (
                 get_env_variable('CACHE_DEFAULT_REDIS_HOST', default='localhost'),
                 int(get_env_variable('CACHE_DEFAULT_REDIS_PORT', default=6379)),
                 int(get_env_variable('CACHE_DEFAULT_REDIS_DB', default=1)),
             ),
         'TIMEOUT': 30*24*60*60,  # 30 days
         'OPTIONS': {
-            'CLIENT_CLASS': 'redis_cache.client.DefaultClient',
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'PARSER_CLASS': 'redis.connection.HiredisParser',
             'PICKLE_VERSION': 2,
         }
     },
     'issues_tag': {
-        'BACKEND': 'redis_cache.cache.RedisCache',
-        'LOCATION': '%s:%d:%d' % (
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://%s:%d/%d' % (
                 get_env_variable('CACHE_ISSUES_TAG_REDIS_HOST', default='localhost'),
                 int(get_env_variable('CACHE_ISSUES_TAG_REDIS_PORT', default=6379)),
                 int(get_env_variable('CACHE_ISSUES_TAG_REDIS_DB', default=2)),
             ),
         'OPTIONS': {
-            'CLIENT_CLASS': 'redis_cache.client.DefaultClient',
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'PARSER_CLASS': 'redis.connection.HiredisParser',
             'PICKLE_VERSION': 2,
         }
