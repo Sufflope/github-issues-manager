@@ -127,8 +127,7 @@ class CountersPart(RepositoryDashboardPartView):
             counters['prs'] = 0
 
         # count assigned only if owner or collaborator
-        subscription = Subscription.objects.filter(repository=self.repository, user=self.request.user)
-        if len(subscription) and subscription[0].state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+        if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
             counters['assigned'] = base_filter.filter(assignee=self.request.user).count()
 
         return counters

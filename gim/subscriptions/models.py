@@ -94,6 +94,8 @@ class Subscription(models.Model):
         unique_together = [('user', 'repository'), ]
         index_together = [('user', 'state'), ]
 
+    STATES = SUBSCRIPTION_STATES
+
     def __unicode__(self):
         return u'%s for %s (%s)' % (self.repository.name,
                                     self.user.username,

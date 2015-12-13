@@ -3,6 +3,54 @@
 
     <li class='clear-all-filters'><a href="{{ root_issues_url }}?state=open"><i class="fa fa-times"> </i> Clear filters</a></li>
 
+
+    {% with assigned_url=current_repository|base_url_issues_filtered_by_assigned:user createdy_url=current_repository|base_url_issues_filtered_by_created_by:user current_url=view.request.path|add:'?'|add:view.request.META.QUERY_STRING %}
+
+        <li class="accordion-group dark-nav">
+            <span class="glow"></span>
+            <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#default-filters">
+                Default filters
+                <i class="fa fa-caret-down"></i>
+            </a>
+
+            <ul id="default-filters" class="collapse">
+                {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
+                    {% with default_filter_url=assigned_url|add:'?state=open' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="Open assigned to you">Open assigned to you</a>
+                    </li>
+                    {% endwith %}
+                {% endif %}
+                {% with default_filter_url=createdy_url|add:'?state=open' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="Open created by you">Open created by you</a>
+                    </li>
+                {% endwith %}
+                {% with default_filter_url=createdy_url|add:'?state=open&amp;pr=yes' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="Your open pull requests">Your open pull requests</a>
+                    </li>
+                {% endwith %}
+                {% with default_filter_url=root_issues_url|add:'?state=open' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="All open issues">All open issues</a>
+                    </li>
+                {% endwith %}
+                {% with default_filter_url=current_repository|base_url_issues_filtered_by_assigned:'__none__'|add:'?state=open' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="All open not assigned">All open not assigned</a>
+                    </li>
+                {% endwith %}
+                {% with default_filter_url=root_issues_url|add:'?state=open&amp;pr=yes' %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="All open pull requests">All open pull requests</a>
+                    </li>
+                {% endwith %}
+            </ul>
+        </li>
+
+    {% endwith %}
+
     {# List of issues creators #}
     {% if issues_creators.count %}
         {{ issues_creators.part|safe }}
