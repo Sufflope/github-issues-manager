@@ -1,3 +1,5 @@
+-r base.txt
+
 buildout-versions-checker==1.4
 djangorecipe==1.7
 flake8==2.1.0

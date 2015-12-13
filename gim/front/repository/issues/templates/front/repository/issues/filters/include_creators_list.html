@@ -18,7 +18,7 @@
     {% endfor %}
 </ul>
 {% if view.request.is_ajax and count > MIN_FOR_FILTER %}
-    <script type="text/javascript">
-        window.activate_quicksearches($('#filter-issues-creators input.quicksearch'));
+    <script data-cfasync="false" type="text/javascript">
+        setTimeout(function() { window.activate_quicksearches($('#filter-issues-creators input.quicksearch')); }, 250);
     </script>
 {% endif %}{% endspaceless %}
