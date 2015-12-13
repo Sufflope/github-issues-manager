@@ -4,6 +4,8 @@ from operator import attrgetter, itemgetter
 
 from limpyd_jobs import STATUSES
 
+from django.utils.termcolors import colorize
+
 from gim.hooks.tasks import CheckRepositoryHook, CheckRepositoryEvents
 
 from ..models import GithubUser, Repository
@@ -60,6 +62,57 @@ def print_queues():
         if len(sub_queues) > 1:
             for i, q in enumerate(sub_queues):
                 print('%30s  %4d  %4d  %4d' % (' ', q['priority'], q['waiting'], q['delayed']))
+
+
+def diff_queues(old_data=None):
+    queues = OrderedDict()
+    for q in Queue.collection().sort(by='name', alpha=True).instances():
+        waiting = q.waiting.llen()
+        delayed = q.delayed.zcard()
+        if waiting + delayed == 0:
+            continue
+        name, priority = q.hmget('name', 'priority')
+        queues.setdefault(name, []).append({
+            'priority': int(priority),
+            'waiting': waiting,
+            'delayed': delayed,
+        })
+
+    data = {}
+    if not old_data:
+        old_data = {}
+
+    for name in queues:
+        sub_queues = sorted(queues[name], key=itemgetter('priority'), reverse=True)
+
+        data[name] = {}
+        old_data.setdefault(name, {})
+
+        for p in old_data[name]:
+            data[name][p] = [0, 0]
+
+        for q in sub_queues:
+            p = q['priority']
+            data[name][p] = [q['waiting'], q['delayed']]
+            old_data[name].setdefault(p, [0, 0])
+
+            if data[name][p] == old_data[name][p] == [0, 0]:
+                del data[name][p]
+                del old_data[name][p]
+                continue
+
+            waiting_output = '%5s' % q['waiting']
+            if data[name][p][0] != old_data[name][p][0]:
+                waiting_color = 'green' if data[name][p][0] < old_data[name][p][0] else 'red'
+                waiting_output = colorize(waiting_output, fg=waiting_color, opts=['bold'])
+            delayed_output = '%5s' % q['delayed']
+            if data[name][p][1] != old_data[name][p][1]:
+                delayed_color = 'green' if data[name][p][1] < old_data[name][p][1] else 'red'
+                delayed_output = colorize(delayed_output, fg=delayed_color, opts=['bold'])
+
+            print('%30s  %4d  %s  %s' % (name, p, waiting_output, delayed_output))
+
+    return data
 
 
 def delete_empty_queues(dry_run=False, max_priority=0):
