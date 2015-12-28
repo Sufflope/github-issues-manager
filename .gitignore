@@ -102,3 +102,8 @@ Vagrantfile*
 
 # Supervisor (dev)
 supervisor/
+
+
+# Crossbar
+gim/crossbar/.crossbar/*
+!gim/crossbar/.crossbar/config.json

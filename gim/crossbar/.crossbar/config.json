@@ -1,0 +1,121 @@
+{
+   "controller": {
+   },
+    "workers": [
+        {
+            "type": "router",
+            "options": {
+                "pythonpath": [".."]
+            },
+            "realms": [
+                {
+                    "name": "gim",
+                    "roles": [
+                        {
+                            "name": "authenticator",
+                            "permissions": [
+                                {
+                                    "uri": "gim.authenticate",
+                                    "register": true
+                                }
+                            ]
+                        },
+                        {
+                            "name": "frontend",
+                            "permissions": [
+                                {
+                                    "uri": "gim.front.*",
+                                    "subscribe": true
+                                },
+                                {
+                                    "uri": "gim.ping",
+                                    "subscribe": true
+                                },
+                                {
+                                    "uri": "gim.reconcile",
+                                    "call": true
+                                }
+                            ]
+                        },
+                        {
+                            "name": "backend",
+                            "permissions": [
+                                {
+                                    "uri": "*",
+                                    "publish": true
+                                },
+                                {
+                                    "uri": "gim.ping",
+                                    "publish": true
+                                },
+                                {
+                                    "uri": "gim.reconcile",
+                                    "register": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "transports": [
+                {
+                    "type": "web",
+                    "endpoint": {
+                        "type": "tcp",
+                        "port": 8888
+                    },
+                    "paths": {
+                        "/": {
+                            "type": "wsgi",
+                            "module": "gim.wsgi",
+                            "object": "application"
+                        },
+                        "static": {
+                            "type": "static",
+                            "directory": "../../static"
+                        },
+                        "ws": {
+                            "type": "websocket",
+                            "debug": true,
+                            "auth": {
+                                "wampcra": {
+                                    "type": "dynamic",
+                                    "authenticator": "gim.authenticate"
+                                }
+                            }
+                        },
+                        "ws-publish": {
+                            "type": "publisher",
+                            "realm": "gim",
+                            "role": "backend",
+                            "options": {
+                                "key": "foo",
+                                "secret": "bar"
+                            }
+                        }
+                    }
+                }
+            ],
+            "components": [
+                {
+                    "type": "class",
+                    "classname": "authenticator.GimAuthenticator",
+                    "realm": "gim",
+                    "role": "authenticator"
+                },
+                {
+                    "type": "class",
+                    "classname": "pinger.Pinger",
+                    "realm": "gim",
+                    "role": "backend"
+                },
+                {
+                    "type": "class",
+                    "classname": "reconciler.GimReconciler",
+                    "realm": "gim",
+                    "role": "backend"
+                }
+            ]
+        }
+    ]
+}

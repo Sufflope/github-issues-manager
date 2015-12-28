@@ -46,6 +46,10 @@
                 </ul>
             </div>
         </div>
+        <div id="ws-alert" class="waiting{% if user and user.is_authenticated %} visible{% endif %}">
+            <div class="message">Loading...</div>
+            <button class="close" title="close">×</button>
+        </div>
     </header>
 
     {% include "front/messages.html" %}
@@ -57,6 +61,12 @@
     <script type="text/javascript">
         var select2_statics = {css: '{% static "front/css/select.2.css" %}', js: '{% static "front/js/select.2.js" %}'};
         var default_avatar = "{{ default_avatar }}";
+        var auth_keys = {
+          key1: "{{ auth_keys.key1 }}",
+          key2: "{{ auth_keys.key2 }}"
+        };
+        var WS_uri = "{{ WS.uri }}";
+        var WS_last_msg_id = {{ WS.last_msg_id }};
     </script>
     <script src="{% static "front/js/ago.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/jquery-2.1.1.min.js" %}" type="text/javascript"></script>
@@ -69,6 +79,7 @@
     <script src="{% static "front/js/classy.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/jquery.deferrable.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/jquery.focusable.js" %}" type="text/javascript"></script>
+    <script src="{% static "front/js/autobahn.min.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/front.js" %}" type="text/javascript"></script>
     {% block js_footer %}{% endblock js_footer %}
 </body>
