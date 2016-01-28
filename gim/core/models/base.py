@@ -536,8 +536,9 @@ class GithubObject(models.Model):
                         update_fields.append(etag_field)
 
         if last_page_field and hasattr(self, last_page_field) and last_page is not None:
-            setattr(self, last_page_field, last_page)
-            update_fields.append(last_page_field)
+            if last_page != getattr(self, last_page_field):
+                setattr(self, last_page_field, last_page)
+                update_fields.append(last_page_field)
 
         # save main object if needed
         if update_fields:
