@@ -562,6 +562,10 @@ class GithubObject(models.Model):
         gh_callable.delete()
         self.delete()
 
+    def defaults_create_values(self):
+        """Default values to use to update data got from github"""
+        return {}
+
     def dist_edit(self, gh, mode, fields=None, values=None):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to

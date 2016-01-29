@@ -24,7 +24,9 @@ class WithRepositoryMixin(object):
                                                meta_base_name=meta_base_name)
 
     def defaults_create_values(self):
-        return {'fk': {'repository': self.repository}}
+        values = super(WithRepositoryMixin, self).defaults_create_values()
+        values.setdefault('fk', {})['repository'] = self.repository
+        return values
 
 
 class WithIssueMixin(WithRepositoryMixin):
@@ -51,7 +53,7 @@ class WithIssueMixin(WithRepositoryMixin):
 
     def defaults_create_values(self):
         values = super(WithIssueMixin, self).defaults_create_values()
-        values['fk']['issue'] = self.issue
+        values.setdefault('fk', {})['issue'] = self.issue
         return values
 
 
@@ -79,5 +81,5 @@ class WithCommitMixin(WithRepositoryMixin):
 
     def defaults_create_values(self):
         values = super(WithCommitMixin, self).defaults_create_values()
-        values['fk']['commit'] = self.commit
+        values.setdefault('fk', {})['commit'] = self.commit
         return values
