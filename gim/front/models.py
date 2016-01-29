@@ -326,7 +326,7 @@ class _Issue(models.Model):
         Update in redis the saved hash
         """
         hash_obj, _ = Hash.get_or_connect(
-                                type=self.__class__.__name__, obj_id=self.pk)
+                                type=self.model_name, obj_id=self.pk)
         hash_obj.hash.hset(self.hash)
 
     @property
@@ -335,7 +335,7 @@ class _Issue(models.Model):
         Return the saved hash, create it if not exist
         """
         hash_obj, created = Hash.get_or_connect(
-                                type=self.__class__.__name__, obj_id=self.pk)
+                                type=self.model_name, obj_id=self.pk)
         if created:
             self.update_saved_hash()
         return hash_obj.hash.hget()
@@ -796,7 +796,7 @@ def hash_check(sender, instance, created, **kwargs):
 
     # get the limpyd instance storing the hash, create it if not exists
     hash_obj, hash_obj_created = Hash.get_or_connect(
-                        type=instance.__class__.__name__, obj_id=instance.pk)
+                        type=instance.model_name, obj_id=instance.pk)
 
     if created:
         hash_changed = True

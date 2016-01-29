@@ -1,3 +1,5 @@
+from django.utils.functional import cached_property
+
 __all__ = [
     'GITHUB_STATUS_CHOICES',
 ]
@@ -78,6 +80,10 @@ class GithubObject(models.Model):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+    @cached_property
+    def model_name(self):
+        return self.__class__.__name__
 
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None,
                                                         meta_base_name=None):
