@@ -1008,6 +1008,8 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
     """
     Override SimpleAjaxIssueView to add commit and its comments
     """
+
+    url_name = 'issue.commit'
     ajax_template_name = 'front/repository/issues/code/include_commit_files.html'
 
     issue_related_name = 'commit__issues'

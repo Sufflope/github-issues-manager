@@ -86,15 +86,13 @@ class _Repository(models.Model):
         }
 
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:home', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('home')
 
     def get_view_url(self, url_name):
-        return reverse_lazy('front:repository:%s' % url_name,
-                                  kwargs=self.get_reverse_kwargs())
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
 
     def get_issues_filter_url(self):
-        kwargs = self.get_reverse_kwargs()
-        return reverse('front:repository:issues', kwargs=kwargs)
+        return self.get_view_url('issues')
 
     def get_issues_user_filter_url_for_username(self, filter_type, username):
         """
@@ -115,8 +113,7 @@ class _Repository(models.Model):
     get_issues_user_filter_url_for_username._cache = {}
 
     def get_create_issue_url(self):
-        return reverse_lazy('front:repository:issue.create',
-                                  kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.create')
 
 contribute_to_model(_Repository, core_models.Repository)
 
@@ -135,13 +132,16 @@ class _LabelType(models.Model):
             'label_type_id': self.id
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import LabelTypeEdit
-        return reverse_lazy('front:repository:%s' % LabelTypeEdit.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(LabelTypeEdit.url_name)
 
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import LabelTypeDelete
-        return reverse_lazy('front:repository:%s' % LabelTypeDelete.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(LabelTypeDelete.url_name)
 
     @property
     def hash(self):
@@ -222,13 +222,16 @@ class _Milestone(models.Model):
             'milestone_id': self.id
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import MilestoneEdit
-        return reverse_lazy('front:repository:%s' % MilestoneEdit.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(MilestoneEdit.url_name)
 
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import MilestoneDelete
-        return reverse_lazy('front:repository:%s' % MilestoneDelete.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(MilestoneDelete.url_name)
 
 
 contribute_to_model(_Milestone, core_models.Milestone)
@@ -250,8 +253,11 @@ class _Issue(models.Model):
             'issue_number': self.number
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue')
 
     def get_created_url(self):
         kwargs = self.get_reverse_kwargs()
@@ -260,37 +266,40 @@ class _Issue(models.Model):
         return reverse_lazy('front:repository:issue.created', kwargs=kwargs)
 
     def edit_field_url(self, field):
-        return reverse_lazy('front:repository:issue.edit.%s' % field, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.edit.%s' % field)
 
     def issue_comment_create_url(self):
-        return reverse_lazy('front:repository:issue.comment.create', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentCreateView
+        return self.get_view_url(IssueCommentCreateView.url_name)
 
     def pr_comment_create_url(self):
         if not hasattr(self, '_pr_comment_create_url'):
-            self._pr_comment_create_url = reverse_lazy('front:repository:issue.pr_comment.create',
-                                                       kwargs=self.get_reverse_kwargs())
+            from gim.front.repository.issues.views import PullRequestCommentCreateView
+            self._pr_comment_create_url = self.get_view_url(PullRequestCommentCreateView.url_name)
         return self._pr_comment_create_url
 
     def ajax_files_url(self):
-        return reverse_lazy('front:repository:issue.files', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.files')
 
     def ajax_commits_url(self):
-        return reverse_lazy('front:repository:issue.commits', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.commits')
 
     def ajax_review_url(self):
-        return reverse_lazy('front:repository:issue.review', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.review')
 
     def ajax_commit_base_url(self):
         kwargs = self.get_reverse_kwargs()
         kwargs['commit_sha'] = '0' * 40
-        return reverse_lazy('front:repository:issue.commit', kwargs=kwargs)
+        from gim.front.repository.issues.views import CommitAjaxIssueView
+        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name, kwargs=kwargs)
 
     def commit_comment_create_url(self):
         if not hasattr(self, '_commit_comment_create_url'):
             kwargs = self.get_reverse_kwargs()
             kwargs['commit_sha'] = '0' * 40
-            self._commit_comment_create_url = reverse_lazy('front:repository:issue.commit_comment.create',
-                                                       kwargs=kwargs)
+            from gim.front.repository.issues.views import CommitCommentCreateView
+            self._commit_comment_create_url = reverse_lazy('front:repository:%s' % CommitCommentCreateView.url_name,
+                                                           kwargs=kwargs)
         return self._commit_comment_create_url
 
     @property
@@ -711,14 +720,20 @@ class _IssueComment(models.Model):
             'comment_pk': self.pk,
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue.comment', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentView
+        return self.get_view_url(IssueCommentView.url_name)
 
     def get_edit_url(self):
-        return reverse_lazy('front:repository:issue.comment.edit', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentEditView
+        return self.get_view_url(IssueCommentEditView.url_name)
 
     def get_delete_url(self):
-        return reverse_lazy('front:repository:issue.comment.delete', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentDeleteView
+        return self.get_view_url(IssueCommentDeleteView.url_name)
 
 contribute_to_model(_IssueComment, core_models.IssueComment)
 
@@ -742,14 +757,20 @@ class _PullRequestComment(models.Model):
             'comment_pk': self.pk,
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentView
+        return self.get_view_url(PullRequestCommentView.url_name)
 
     def get_edit_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment.edit', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentEditView
+        return self.get_view_url(PullRequestCommentEditView.url_name)
 
     def get_delete_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment.delete', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentDeleteView
+        return self.get_view_url(PullRequestCommentDeleteView.url_name)
 
 contribute_to_model(_PullRequestComment, core_models.PullRequestComment)
 
