@@ -6,7 +6,8 @@ import re
 
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models import ForeignKey
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
 from django.template.defaultfilters import escape
@@ -19,11 +20,14 @@ from pymdownx.github import GithubExtension
 from limpyd import model as lmodel, fields as lfields
 
 from gim.core import models as core_models, get_main_limpyd_database
+from gim.core.models.base import GithubObject
 from gim.core.utils import contribute_to_model, cached_method
 
 from gim.events.models import EventPart
 
 from gim.subscriptions import models as subscriptions_models
+
+from .ws import Ws
 
 
 def html_content(self, body_field='body'):
@@ -683,7 +687,6 @@ class _Commit(models.Model):
             return (self.committer.email or self.committer_email) == self.author_email
         return self.author_email == self.committer_email
 
-
 contribute_to_model(_Commit, core_models.Commit)
 
 
@@ -840,3 +843,140 @@ def hash_check(sender, instance, created, **kwargs):
         # if not an issue, add a job to update the templates of all related issues
         for issue in instance.get_related_issues():
             UpdateIssueCacheTemplate.add_job(issue.id)
+
+
+def publish_update(instance, message_type):
+    """Publish a message when something happen to an instance."""
+
+    base_data =  {
+        'model': str(instance.model_name),
+        'id': str(instance.pk),
+    }
+
+    if getattr(instance, 'front_uuid', None):
+        base_data['front_uuid'] = str(instance.front_uuid)
+
+    try:
+        base_data['url'] = str(instance.get_absolute_url())
+    except Exception:
+        pass
+
+    parents = [
+        (str(fk.related.parent_model.__name__), str(getattr(instance, fk.attname)), str(fk.name), base_data)
+        for fk in [
+            f for f
+            in instance._meta.fields
+            if isinstance(f, ForeignKey) and getattr(instance, f.attname)
+        ]
+    ]
+
+    # Special case for commit & commit comment: we also want to ping PRs that hold this commit
+    if isinstance(instance, (core_models.CommitComment, core_models.Commit)):
+
+        commit = instance if isinstance(instance, core_models.Commit) else instance.commit
+
+        from gim.front.repository.issues.views import CommitAjaxIssueView, CommitCommentView
+
+        def get_url(issue):
+            issue_kwargs = issue.get_reverse_kwargs()
+
+            if isinstance(instance, core_models.CommitComment):
+                return reverse(
+                    'front:repository:%s' % CommitCommentView.url_name,
+                     kwargs=dict(issue_kwargs,
+                         commit_sha=commit.sha,
+                         comment_pk=instance.id,
+                     )
+                )
+
+            if isinstance(instance, core_models.Commit):
+                return reverse(
+                    'front:repository:%s' % CommitAjaxIssueView.url_name,
+                     kwargs=dict(issue_kwargs,
+                         commit_sha=commit.sha,
+                     )
+                )
+
+        parents += [
+            (str(core_models.Issue.__name__), str(issue.id), 'issues', dict(base_data, url=get_url(issue)))
+            for issue
+            in commit.issues.all().select_related('repository__owner')
+        ]
+
+    # Publish for the object itself and for each FK
+    for topic, data in [
+                (
+                    'front.model.%(message_type)s.%(model)s.%(id)s',
+                    base_data
+                )
+            ] + [
+                (
+                    'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s.%(model)s.%(id)s',
+                    dict(
+                        parent_model=parent_model,
+                        parent_id=parent_id,
+                        parent_field=parent_field,
+                        **parent_data
+                    )
+                )
+                for (parent_model, parent_id, parent_field, parent_data)
+                in parents
+            ]:
+
+        Ws.publish(topic % dict(message_type=message_type, **data), **data)
+
+
+@receiver(post_save, dispatch_uid="publish_github_updated")
+def publish_github_updated(sender, instance, created, **kwargs):
+    """Publish a message each time a github object is created/updated."""
+
+    # Only for github objects
+    if not isinstance(instance, GithubObject):
+        return
+
+    # But not all
+    if isinstance(instance, core_models.PullRequestCommentEntryPoint):
+        # It's not a real github object
+        return
+
+    # That we got from github
+    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+        return
+
+    # Ignore some cases
+    update_fields = kwargs.get('update_fields', [])
+    if update_fields:
+
+        # Remove fields that are not real updates
+        update_fields = set([
+            f for f in update_fields
+            if not f.endswith('fetched_at') and not f.endswith('etag')
+        ])
+
+        # If no field left, we're good
+        if not update_fields:
+            return
+
+        # If issue and only the comments count is updated, ignore
+        if isinstance(instance, core_models.Issue):
+            if update_fields in ({'pr_comments_count'}, {'commits_comments_count'}):
+                return
+
+    print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
+
+    publish_update(instance, 'updated')
+
+
+@receiver(post_delete, dispatch_uid="publish_github_deleted")
+def publish_github_deleted(sender, instance, **kwargs):
+    """Publish a message each time a github object is deleted."""
+
+    # Only for github objects
+    if not isinstance(instance, GithubObject):
+        return
+
+    # That we are not currently deleting before creating from github
+    if instance.github_status == instance.GITHUB_STATUS_CHOICES.WAITING_CREATE:
+        return
+
+    publish_update(instance, 'deleted')
