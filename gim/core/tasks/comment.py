@@ -91,10 +91,6 @@ class CommentEditJob(IssueCommentJob):
             else:
                 raise
 
-        message = u'Your comment on the %s on <strong>%s</strong> was correctly %sd' % (
-            self.obj_message_part(comment), comment.repository.full_name, mode)
-        messages.success(self.gh_user, message)
-
         self.after_run(gh, comment)
 
         return None

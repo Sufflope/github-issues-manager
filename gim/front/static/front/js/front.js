@@ -1,4 +1,25 @@
 $().ready(function() {
+
+    var UUID = (function() {
+        /**
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var self = {};
+        var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
+        self.generate = function() {
+            var d0 = Math.random()*0xffffffff| 0, d1 = Math.random()*0xffffffff| 0,
+                d2 = Math.random()*0xffffffff| 0, d3 = Math.random()*0xffffffff|0;
+            return lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
+                lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
+                lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
+                lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
+        };
+        return self;
+    })();
+
     function GetVendorAttribute(prefixedAttributes) {
        var tmp = document.createElement("div");
        var result = "";
@@ -1350,6 +1371,7 @@ $().ready(function() {
         $modal: $('#modal-issue-view'),
         $modal_body: null,  // set in __init__
         $modal_container: null,  // set in __init__
+        WS_subscribed_id: null,  // id of issue currently tracked by WS
 
         get_url_for_ident: (function IssueDetail__get_url_for_ident (issue_ident) {
             var number = issue_ident.number.toString(),
@@ -1375,6 +1397,7 @@ $().ready(function() {
             // set waypoints
             IssueDetail.set_issue_waypoints($node, is_modal);
             IssueDetail.scroll_tabs($node, true);
+            IssueDetail.subscribe_updates($node);
         }), // on_issue_loaded
 
         get_scroll_context: (function IssueDetail__get_scroll_context ($node, is_modal) {
@@ -1496,6 +1519,14 @@ $().ready(function() {
         }), // get_issue_ident
 
         set_issue_ident: (function IssueDetail__set_issue_ident($node, issue_ident) {
+            if (issue_ident.number && issue_ident.repository) {
+                var actual_ident = IssueDetail.get_issue_ident($node);
+                if (actual_ident.number && actual_ident.repository) {
+                    if (actual_ident.number != issue_ident.number || actual_ident.repository != issue_ident.repository) {
+                        IssueDetail.unsubscribe_updates();
+                    }
+                }
+            }
             $node.data('number', issue_ident.number);
             $node.data('repository', issue_ident.repository);
         }), // set_issue_ident
@@ -2403,6 +2434,48 @@ $().ready(function() {
 
         }), // on_commit_click
 
+        subscribe_updates: (function IssueDetail__subscribe_updates ($node) {
+            var issue_id = $node.children('article').data('issue-id');
+            if (issue_id != IssueDetail.WS_subscribed_id) {
+                IssueDetail.WS_subscribed_id = issue_id;
+                WS.subscribe(
+                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_update_alerts',
+                    IssueDetail.on_update_alert,
+                    'prefix'
+                );
+                WS.subscribe(
+                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_delete_alerts',
+                    IssueDetail.on_delete_alert,
+                    'prefix'
+                );
+            }
+        }), // subscribe_updates
+
+        unsubscribe_updates: (function IssueDetail__subscribe_updates () {
+            if (IssueDetail.WS_subscribed_id) {
+                WS.unsubscribe(
+                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_update_alerts'
+                );
+                WS.unsubscribe(
+                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_delete_alerts'
+                );
+                IssueDetail.WS_subscribed_id = null;
+            }
+
+        }), // unsubscribe_updates
+
+        on_update_alert: (function IssueDetail__on_update_alert (topic, args, kwargs, subscription) {
+            IssueEditor.on_update_alert(topic, args, kwargs, subscription);
+        }), // on_update_alert
+
+        on_delete_alert: (function IssueDetail__on_delete_alert (topic, args, kwargs, subscription) {
+            IssueEditor.on_delete_alert(topic, args, kwargs, subscription);
+        }), // on_delete_alert
+
         init: (function IssueDetail__init () {
             // init modal container
             IssueDetail.$modal_body = IssueDetail.$modal.children('.modal-body'),
@@ -2961,7 +3034,8 @@ $().ready(function() {
             context = {
                 issue_ident: IssueDetail.get_issue_ident($node),
                 $form: $form,
-                $node: $node
+                $node: $node,
+                uuid: UUID.generate()
             };
             return context;
         }), // get_form_context
@@ -2979,8 +3053,9 @@ $().ready(function() {
         }), // handle_form
 
         post_form: (function IssueEditor__post_form($form, context, on_done, on_failed, data, action) {
-            if (typeof data == 'undefined') { data = $form.serialize(); }
+            if (typeof data == 'undefined') { data = $form.serializeArray(); }
             if (typeof action == 'undefined') { action = $form.attr('action'); }
+            data.push({name:'front_uuid', value: context.uuid});
             $.post(action, data)
                 .done($.proxy(on_done, context))
                 .fail($.proxy(on_failed, context));
@@ -3028,12 +3103,22 @@ $().ready(function() {
                 return false;
             }
 
+            $form.closest('li.issue-comment')[0].setAttribute('data-front-uuid', context.uuid);
+
             IssueEditor.post_form($form, context, IssueEditor.on_comment_submit_done,
                                                   IssueEditor.on_comment_submit_failed);
         }), // on_comment_submit
 
         on_comment_submit_done: (function IssueEditor__on_comment_submit_done (data) {
-            this.$form.closest('li').replaceWith(data);
+            var $node = $('li.issue-comment[data-front-uuid=' + this.uuid + ']');
+            if ($node.length) {
+                var $data = $(data);
+                if ($data.filter('.comment-create-placeholder').length) {
+                    // Remove the existing placeholder if we have a new one
+                    $node.prev('.comment-create-placeholder').remove();
+                }
+                $node.replaceWith($data);
+            }
         }), // on_comment_submit_done
 
         on_comment_submit_failed: (function IssueEditor__on_comment_submit_failed () {
@@ -3158,40 +3243,69 @@ $().ready(function() {
 
         }), // on_new_entry_point_click
 
-        // CANCEL COMMENTS
-        on_comment_create_cancel_click: (function IssueEditor__on_comment_create_cancel_click (ev) {
-            var $button = $(this),
-                $li = $button.closest('li.issue-comment'),
-                $form = $li.find('form');
+        // CANCEL/DELETE COMMENTS
+        remove_comment: (function IssueEditor__remove_comment ($li) {
+
+            if ($li.length > 1) {
+                $li.each(function() {
+                    IssueEditor.remove_comment($(this));
+                });
+                return;
+            }
+
+            var $form = $li.find('form'),
+                removed = false,
+                $placeholder = $li.prev('.comment-create-placeholder'),
+                $pr_parent = $li.parents('.code-comments');
 
             IssueEditor.disable_form($form);
 
             // it's an answer to a previous PR comment
-            var $placeholder = $li.prev('.comment-create-placeholder');
             if ($placeholder.length) {
                 $li.remove();
+                removed = true
+            }
+
+            // it's in a pr entry point
+            if ($pr_parent.length) {
+                if (!removed) {
+                    $li.remove();
+                    removed = true;
+                }
+                // Do we have other comments
+                if (!$pr_parent.find('.issue-comment').length) {
+                    // If no we can remove the entry point
+                    var $prev = $pr_parent.prev();
+                    var $next = $pr_parent.next();
+                    $pr_parent.remove();
+                    if ($next.length) {
+                        // combine the two block
+                        $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
+                        $next.remove();
+                    }
+                    return false;
+                }
+            }
+
+            if ($placeholder.length && removed) {
                 $placeholder.show();
                 return false;
             }
 
-            // its a new pr entry point
-            var $pr_parent = $li.parent().parent();
-            if ($pr_parent.hasClass('code-comments')) {
-                var $prev = $pr_parent.prev();
-                var $next = $pr_parent.next();
-                $pr_parent.remove();
-                if ($next.length) {
-                    // combine the two block
-                    $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
-                    $next.remove();
-                }
+            // It's a template !
+            if ($li.hasClass('comment-create-container')) {
+                $li.find('textarea').val('');
+                IssueEditor.enable_form($form);
                 return false;
             }
 
-            // its the bottom comment form
-            $li.find('textarea').val('');
-            IssueEditor.enable_form($form);
-            return false;
+            // other case, simply delete the comment
+            $li.remove()
+
+        }), // remove_comment
+
+        on_comment_create_cancel_click: (function IssueEditor__on_comment_create_cancel_click (ev) {
+            IssueEditor.remove_comment($(this).closest('li.issue-comment'));
         }), //on_comment_create_cancel_click
 
         on_comment_edit_or_delete_cancel_click: (function IssueEditor__on_comment_edit_or_delete_cancel_click (ev) {
@@ -3483,6 +3597,40 @@ $().ready(function() {
             this.$form.find('button.loading').removeClass('loading');
             alert('A problem prevented us to do your action !');
         }), // on_issue_edit_submit_fail
+
+        on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs, subscription) {
+            // Replace "waiting" comments
+            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment')) {
+
+                var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', li.issue-comment[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $nodes = $(selector);
+                if ($nodes.length) {
+                    $.get(kwargs.url).done(function(data) {
+                        $nodes.replaceWith(data);
+                    });
+                }
+
+            }
+        }), // on_update_alert
+
+        on_delete_alert: (function IssueEditor__on_delete_alert (topic, args, kwargs, subscription) {
+            // Remove "waiting deletion" comments
+            if (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment') {
+
+                var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', li.issue-comment[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $nodes = $(selector);
+                if ($nodes.length) {
+                    IssueEditor.remove_comment($nodes);
+                }
+
+            }
+        }), // on_delete_alert
 
         create: {
             allowed_path_re: new RegExp('^/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issues/|dashboard/$)'),

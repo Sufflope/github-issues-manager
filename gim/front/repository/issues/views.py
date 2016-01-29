@@ -1426,10 +1426,6 @@ class BaseCommentEditMixin(LinkedToUserFormViewMixin, LinkedToIssueFormViewMixin
                                mode=self.edit_mode,
                                gh=self.request.user.get_connection())
 
-        messages.success(self.request,
-            u'Your comment on the %s will be %s shortly' % (
-                                self.obj_message_part(), self.verb))
-
         return response
 
 

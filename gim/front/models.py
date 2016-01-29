@@ -42,6 +42,19 @@ def html_content(self, body_field='body'):
     return html
 
 
+class FrontEditable(models.Model):
+
+    front_uuid = models.CharField(max_length=36, blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def defaults_create_values(self):
+        values = self.old_defaults_create_values()
+        values.setdefault('simple', {})['front_uuid'] = self.front_uuid
+        return values
+
+
 class _GithubUser(models.Model):
     AVATAR_START = re.compile('^https?://\d+\.')
 
@@ -164,7 +177,7 @@ class _LabelType(models.Model):
 contribute_to_model(_LabelType, core_models.LabelType)
 
 
-class _Label(models.Model):
+class _Label(FrontEditable):
     class Meta:
         abstract = True
 
@@ -183,10 +196,10 @@ class _Label(models.Model):
         """
         return core_models.Issue.objects.filter(labels=self)
 
-contribute_to_model(_Label, core_models.Label)
+contribute_to_model(_Label, core_models.Label, {'defaults_create_values'})
 
 
-class _Milestone(models.Model):
+class _Milestone(FrontEditable):
     class Meta:
         abstract = True
 
@@ -237,11 +250,10 @@ class _Milestone(models.Model):
         from gim.front.repository.dashboard.views import MilestoneDelete
         return self.get_view_url(MilestoneDelete.url_name)
 
+contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
-contribute_to_model(_Milestone, core_models.Milestone)
 
-
-class _Issue(models.Model):
+class _Issue(FrontEditable):
     class Meta:
         abstract = True
 
@@ -500,8 +512,7 @@ class _Issue(models.Model):
             files.append(file)
         return files
 
-
-contribute_to_model(_Issue, core_models.Issue)
+contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
 
 class GroupedItems(list):
@@ -704,7 +715,7 @@ class _WaitingSubscription(models.Model):
 contribute_to_model(_WaitingSubscription, subscriptions_models.WaitingSubscription)
 
 
-class _IssueComment(models.Model):
+class _IssueComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -738,10 +749,10 @@ class _IssueComment(models.Model):
         from gim.front.repository.issues.views import IssueCommentDeleteView
         return self.get_view_url(IssueCommentDeleteView.url_name)
 
-contribute_to_model(_IssueComment, core_models.IssueComment)
+contribute_to_model(_IssueComment, core_models.IssueComment, {'defaults_create_values'})
 
 
-class _PullRequestComment(models.Model):
+class _PullRequestComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -775,10 +786,10 @@ class _PullRequestComment(models.Model):
         from gim.front.repository.issues.views import PullRequestCommentDeleteView
         return self.get_view_url(PullRequestCommentDeleteView.url_name)
 
-contribute_to_model(_PullRequestComment, core_models.PullRequestComment)
+contribute_to_model(_PullRequestComment, core_models.PullRequestComment, {'defaults_create_values'})
 
 
-class _CommitComment(models.Model):
+class _CommitComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -786,7 +797,7 @@ class _CommitComment(models.Model):
     def html_content(self):
         return html_content(self)
 
-contribute_to_model(_CommitComment, core_models.CommitComment)
+contribute_to_model(_CommitComment, core_models.CommitComment, {'defaults_create_values'})
 
 
 class Hash(lmodel.RedisModel):
