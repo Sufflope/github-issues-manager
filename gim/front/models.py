@@ -654,7 +654,7 @@ class _Commit(models.Model):
     def all_entry_points(self):
         if not hasattr(self, '_all_entry_points'):
             self._all_entry_points = list(self.commit_comments_entry_points
-                                .annotate(nb_comments=models.Count('comments'))
+                                .annotate(nb_comments=models.Count('comments'))  # cannot exclude wating_deleted for now
                                 .filter(nb_comments__gt=0)
                                 .select_related('user', 'repository__owner')
                                 .prefetch_related('comments__user'))
@@ -967,11 +967,6 @@ def publish_github_updated(sender, instance, created, **kwargs):
         # If no field left, we're good
         if not update_fields:
             return
-
-        # If issue and only the comments count is updated, ignore
-        if isinstance(instance, core_models.Issue):
-            if update_fields in ({'pr_comments_count'}, {'commits_comments_count'}):
-                return
 
     print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
 

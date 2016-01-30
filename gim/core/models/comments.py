@@ -180,6 +180,23 @@ class IssueComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
     def github_callable_create_identifiers(self):
         return self.issue.github_callable_identifiers_for_comments
 
+    def save(self, *args, **kwargs):
+        """
+        If it's a creation, update the comments_count of the issue
+        """
+        is_new = not bool(self.pk)
+        super(IssueComment, self).save(*args, **kwargs)
+        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
+            self.issue.update_comments_count()
+
+    def delete(self, *args, **kwargs):
+        """Update the comments_count of the issue"""
+        issue = self.issue
+
+        super(IssueComment, self).delete(*args, **kwargs)
+
+        issue.update_comments_count()
+
 
 class CommentEntryPointMixin(GithubObject):
     commit_sha = models.CharField(max_length=40, blank=True, null=True)
@@ -315,10 +332,20 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         """
         is_new = not bool(self.pk)
         super(PullRequestComment, self).save(*args, **kwargs)
-        if is_new:
+        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
             self.issue.update_pr_comments_count()
         else:
             self.entry_point.update_starting_point(save=True)
+
+    def delete(self, *args, **kwargs):
+        """Update the pr_comments_count of the issue and the entry_point"""
+        issue = self.issue
+        entry_point = self.entry_point
+
+        super(PullRequestComment, self).delete(*args, **kwargs)
+
+        entry_point.update_starting_point(save=True)
+        issue.update_pr_comments_count()
 
 
 class CommitCommentEntryPoint(CommentEntryPointMixin):
@@ -458,7 +485,17 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
 
         super(CommitComment, self).save(*args, **kwargs)
 
-        if is_new:
+        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
             self.commit.update_comments_count()
         else:
             self.entry_point.update_starting_point(save=True)
+
+    def delete(self, *args, **kwargs):
+        """Update the pr_comments_count of the commit and the entry_point"""
+        commit = self.commit
+        entry_point = self.entry_point
+
+        super(CommitComment, self).delete(*args, **kwargs)
+
+        entry_point.update_starting_point(save=True)
+        commit.update_comments_count()
