@@ -27,7 +27,7 @@ from gim.events.models import EventPart
 
 from gim.subscriptions import models as subscriptions_models
 
-from .ws import Ws
+from gim.ws import publisher
 
 
 def html_content(self, body_field='body'):
@@ -864,6 +864,10 @@ def publish_update(instance, message_type):
         'id': str(instance.pk),
     }
 
+    repository_id = None
+    if isinstance(instance, core_models.Repository):
+        repository_id = instance.pk
+
     if getattr(instance, 'front_uuid', None):
         base_data['front_uuid'] = str(instance.front_uuid)
 
@@ -914,6 +918,12 @@ def publish_update(instance, message_type):
             in commit.issues.all().select_related('repository__owner')
         ]
 
+    if not repository_id:
+        for parent_model, parent_id, parent_field, __ in parents:
+            if parent_model == 'Repository' and parent_field == 'repository':
+                repository_id = parent_id
+                break
+
     # Publish for the object itself and for each FK
     for topic, data in [
                 (
@@ -934,20 +944,26 @@ def publish_update(instance, message_type):
                 in parents
             ]:
 
-        Ws.publish(topic % dict(message_type=message_type, **data), **data)
+        message_repository_id = repository_id
+        if data.get('parent_model', 'None') == 'Repository' and data['parent_field'] == 'repository':
+            message_repository_id = data['parent_id']
+
+        publisher.publish(
+            topic=topic % dict(message_type=message_type, **data),
+            repository_id=message_repository_id,
+            **data
+        )
 
 
 @receiver(post_save, dispatch_uid="publish_github_updated")
 def publish_github_updated(sender, instance, created, **kwargs):
     """Publish a message each time a github object is created/updated."""
 
-    # Only for github objects
-    if not isinstance(instance, GithubObject):
-        return
-
-    # But not all
-    if isinstance(instance, core_models.PullRequestCommentEntryPoint):
-        # It's not a real github object
+    # Only for objects we care about
+    if not isinstance(instance, (core_models.IssueComment,
+                                 core_models.PullRequestComment,
+                                 core_models.CommitComment,
+                                 )):
         return
 
     # That we got from github
@@ -977,8 +993,11 @@ def publish_github_updated(sender, instance, created, **kwargs):
 def publish_github_deleted(sender, instance, **kwargs):
     """Publish a message each time a github object is deleted."""
 
-    # Only for github objects
-    if not isinstance(instance, GithubObject):
+    # Only for objects we care about
+    if not isinstance(instance, (core_models.IssueComment,
+                                 core_models.PullRequestComment,
+                                 core_models.CommitComment,
+                                 )):
         return
 
     # That we are not currently deleting before creating from github

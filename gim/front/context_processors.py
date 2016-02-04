@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.signing import Signer
 
 from gim.core.models import GITHUB_STATUS_CHOICES
-from gim.front.ws import Ws
+from gim.ws import publisher
 
 
 def auth_keys(request):
@@ -38,7 +38,7 @@ def default_context_data(request):
         'auth_keys': auth_keys(request),
         'WS': {
             'uri': request.get_host() + '/ws',
-            'last_msg_id': int(Ws.history.get_last_msg_id() or 0),
+            'last_msg_id': publisher.get_last_msg_id(),
         }
     }
 

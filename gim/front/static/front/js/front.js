@@ -211,35 +211,38 @@ $().ready(function() {
             );
         }), // run_callback
 
-        reconcile: (function WS__reconcile (from_msg_id, to_msg_id) {
-            if (!from_msg_id) {
+        reconcile: (function WS__reconcile (last_received_id, next_received_id, iteration) {
+            if (!last_received_id) {
                 WS.after_reconcile();
                 return;
             }
 
-            var topics = [];
-            var added_topics = {};
+            var topics_rules = [];
+            var added_rules = {};
             $.each(WS.subscriptions, function(topic, topic_subscriptions) {
                 for (var i=0; i < topic_subscriptions.length; i++) {
                     var state = topic_subscriptions[i].state;
                     if (state == 'subscribed' || state == 'ready') {
                         var key = [topic, topic_subscriptions[i].match];
-                        if (typeof added_topics[key] != 'undefined') { continue; }
-                        topics.push(key);
-                        added_topics[key] = true;
+                        if (typeof added_rules[key] != 'undefined') { continue; }
+                        topics_rules.push(key);
+                        added_rules[key] = true;
                     }
                 }
             });
 
-            if (!topics.length) {
+            if (!topics_rules.length) {
                 WS.after_reconcile();
                 return;
             }
 
+            iteration = iteration || 1;
+
             WS.session.call('gim.reconcile', [], {
-                from_msg_id: from_msg_id,
-                to_msg_id: to_msg_id || null,
-                topics: topics
+                last_received_id: last_received_id,
+                next_received_id: next_received_id || null,
+                topics_rules: topics_rules,
+                iteration: iteration
             }).then(
                 function (result) {
 
@@ -249,45 +252,62 @@ $().ready(function() {
                     }
 
                     var complete = false;
-
                     // Run the callbacks for events fired while we were offline
-                    for (var i=0; i < result.missed_entries.length; i++) {
-                        var entry = result.missed_entries[i];
+                    for (var i=0; i < result.missed_messages.length; i++) {
+                        var entry = result.missed_messages[i],
+                            details = {extra: entry.kwargs.ws_extra};
 
+                        delete entry.kwargs.ws_extra;
+
+                        // We can stop managing data received during reconcile if we also received
+                        // the same messages in pubsub mode
                         if (WS.reconcile_mode.first_received_msg_id &&
-                            entry.details.extra.msg_id >= WS.reconcile_mode.first_received_msg_id) {
+                                details.extra.msg_id >= WS.reconcile_mode.first_received_msg_id) {
                             complete = true;
                             break;
                         }
 
-                        var topic_subscriptions = WS.subscriptions[entry.details.extra.subscribed_topic];
-                        if (!topic_subscriptions || !topic_subscriptions.length) {
-                            continue;
-                        }
+                        // Go through all subscriptions for this message
+                        for (var j=0; j < details.extra.subscribed.length; j++) {
+                            var subscribed = details.extra.subscribed[j],
+                                subscribed_topic = subscribed[0],
+                                subscribed_match = subscribed[1],
+                                topic_subscriptions = WS.subscriptions[subscribed_topic];
 
-                        for (var j=0; j < topic_subscriptions.length; j++) {
-                            var subscription = topic_subscriptions[j];
-                            if (subscription.state != 'ready' && subscription.state != 'subscribed') {
+                            if (!topic_subscriptions || !topic_subscriptions.length) {
                                 continue;
                             }
-                            if (subscription.match != entry.details.extra.subscribed_match) {
-                                continue
-                            }
-                            entry.details.extra.reconcile_mode = true;
-                            subscription.callback(entry.args, entry.kwargs, entry.details);
-                        }
 
-                    } // for
+                            // Go through all the subscriptions for the topic
+                            for (var k=0; k < topic_subscriptions.length; k++) {
+                                var subscription = topic_subscriptions[j];
+                                if (subscription.state != 'ready' && subscription.state != 'subscribed') {
+                                    continue;
+                                }
+                                if (subscription.match != subscribed_match) {
+                                    continue
+                                }
+
+                                // We have a match, we can call the callback
+                                details.extra.reconcile_mode = true;
+                                subscription.callback(entry.args, entry.kwargs, details);
+
+                            } // for topic_subscriptions
+
+                        } // for details.extra.subscribed
+
+                    } // for result.missed_messages
 
                     if (!complete && result.max_msg_id < result.last_msg_id) {
-                        WS.reconcile(result.max_msg_id, WS.reconcile_mode.first_received_msg_id);
+                        WS.reconcile(result.max_msg_id, WS.reconcile_mode.first_received_msg_id, iteration+1);
                     } else {
                         WS.after_reconcile(result.last_msg_id);
                     }
-                },
+
+                }, // then
                 function (error) {
                     WS.error_reconcile();
-                }
+                } // error
             );
 
         }), // reconcile
@@ -542,7 +562,7 @@ $().ready(function() {
             WS.subscribe_onconnect();
             // Run reconciliation to get all messages sent while offline
             WS.reconcile(WS.last_msg_id);
-            // Not the reconciliation is over, all messages received while offline and during the
+            // Now the reconciliation is over, all messages received while offline and during the
             // reconciliation where played.
 
             WS.subscribe('gim.ping', 'ping', WS.receive_ping);
@@ -556,7 +576,10 @@ $().ready(function() {
                     message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please refresh the page.</p>';
                     break;
                 case 'unsupported':
-                    message = 'Connection cannot be opened (!<p>Real-time capabilities are unsupported by your browser.</p>';
+                    message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
+                    break;
+                case 'unreachable':
+                    message = 'Connection cannot be opened!<p>Real-time capabilities are disabled until the real-time server goes back.</p>';
                     break;
                 default:
                     message = 'Connection lost!<p>Real-time capabilities are disabled until reconnect.</p>';
