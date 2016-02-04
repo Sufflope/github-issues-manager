@@ -257,57 +257,53 @@ class GithubObjectManager(BaseManager):
             updated_fields = []
 
             # store simple fields if needed
-            save_simples = False
             if fields['simple']:
-                save_simples = True
-
-                if not to_create:
-                    obj_fields = dict((f, getattr(obj, f)) for f in fields['simple'])
-                    save_simples = obj_fields != fields['simple']
-
-                if save_simples:
-                    for field, value in fields['simple'].iteritems():
-                        if not hasattr(obj, field):
-                            continue
-                        updated_fields.append(field)
-                        setattr(obj, field, value)
+                for field, value in fields['simple'].iteritems():
+                    if not hasattr(obj, field):
+                        # Ignore fields not in model
+                        continue
+                    if getattr(obj, field) == value:
+                        # Ignore not-updated fields
+                        continue
+                    updated_fields.append(field)
+                    setattr(obj, field, value)
 
             # store FKs if needed
-            save_fks = False
             if fields['fk']:
-                save_fks = True
-
-                if not to_create:
-                    obj_fields = dict((f, getattr(obj, '%s_id' % f)) for f in fields['fk'] if hasattr(obj, '%s_id' % f))
-                    fk_fields = dict((f, fields['fk'][f].id if fields['fk'][f] else None) for f in fields['fk'])
-                    save_fks = obj_fields != fk_fields
-
                 for field, value in fields['fk'].iteritems():
-                    if not hasattr(obj, '%s_id' % field):
+                    pk_field = '%s_id' % field
+                    if not hasattr(obj, pk_field):
+                        # Ignore fields not in model
                         continue
-                    if save_fks:
+                    pk_value = value.id if value else None
+                    if pk_value is None and not obj._meta.get_field(field).null:
                         # do not set None FKs if not allowed
-                        if value is None and not obj._meta.get_field(field).null:
-                            continue
-                        updated_fields.append(field)
-                        setattr(obj, field, value)
+                        continue
+                    if getattr(obj, pk_field) == pk_value:
+                        # Ignore not-updated fields
+                        continue
+                    updated_fields.append(field)
+                    setattr(obj, field, value)
                     # fill the django cache for FKs
                     if value and not isinstance(value, (int, long, basestring)):
                         setattr(obj, '_%s_cache' % field, value)
 
             # always update these two fields
             setattr(obj, fetched_at_field, datetime.utcnow())
+            new_status = obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED
             obj.github_status = obj.GITHUB_STATUS_CHOICES.FETCHED
 
             # force update or insert to avoid a exists() call in db
             if to_create:
                 save_params = {'force_insert': True}
             else:
+                updated_fields.append(fetched_at_field)
+                if new_status:
+                    updated_fields.append('github_status')
                 save_params = {
                     'force_update': True,
                     # only save updated fields
-                    'update_fields': updated_fields + [fetched_at_field,
-                                                       'github_status'],
+                    'update_fields': updated_fields,
                 }
 
             try:

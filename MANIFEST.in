@@ -1,5 +1,6 @@
 include README.md
 include MANIFEST.in
+include gim/crossbar/.crossbar/config.json
 recursive-include requirements *.txt
 recursive-include gim *.html *.js *.css *.gif *.jpg *.png
 recursive-include gim/front/static/front/fonts *

@@ -1,3 +1,4 @@
+@import "ceaser-easing";
 @import "bootstrap/variables";
 @import "compass/css3/box-sizing";
 @import "bootstrap-correct";
@@ -53,6 +54,77 @@ body {
     padding: 0;
     margin-bottom: 15px;
 
+}
+
+// display of websocket alert bar
+#ws-alert {
+    position: absolute;
+
+    top: -10px;
+    left: 50%;
+    @include transform(translateX(-50%) translateY(-100%));
+    @include transition(
+        background-color .3s,
+        border-color .3s,
+        transform .8s ceaser($easeInOutBack),
+        opacity .8s ceaser($easeInOutQuint)
+    );
+
+    min-height: 20px;
+    padding: 19px 10px 7px;
+
+    &.with-close {
+        padding-right: 20px;
+    }
+
+    border: solid black 3px;
+    border-top: none;
+    @include border-radius(0 0 10px 10px);
+    @include box-shadow(1px 1px 3px 0.3px rgba(0, 0, 0, 0.5));
+
+    background: black;
+    color: white;
+    font-weight: bold;
+
+    opacity: 0;
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
+    p {
+        margin-top: 0.5em;
+        margin-bottom: 0;
+        &:last-of-type {
+            margin-bottom: 2px;
+        }
+    }
+    &.ko {
+        background-color: $state-closed-color;
+        border-color:darken($state-closed-color, 10%);
+    }
+
+    &.ok {
+        background-color: $state-open-color;
+        border-color:darken($state-open-color, 10%);
+    }
+
+    &.waiting {
+        background-color: #d89a3e;
+        border-color:darken(#d89a3e, 10%);
+    }
+
+    &.visible {
+        @include transform(translateX(-50%) translateY(0));
+        opacity: 1;
+    }
+
+    .close {
+        display: none;
+        position: absolute;
+        top: 15px;
+        right: 5px;
+    }
 }
 
 // message are positionned on the top right corner

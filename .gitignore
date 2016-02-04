@@ -35,6 +35,7 @@ htmlcov/
 .tox/
 .coverage
 .cache
+_trial_temp
 nosetests.xml
 coverage.xml
 
@@ -102,3 +103,8 @@ Vagrantfile*
 
 # Supervisor (dev)
 supervisor/
+
+
+# Crossbar
+gim/crossbar/.crossbar/*
+!gim/crossbar/.crossbar/config.json
