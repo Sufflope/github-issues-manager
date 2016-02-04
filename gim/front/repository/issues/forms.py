@@ -254,7 +254,7 @@ class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneeFormPart,
 
 class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
     class Meta:
-        fields = ['body', ]
+        fields = ['body', 'front_uuid', ]
 
     def __init__(self, *args, **kwargs):
         super(BaseCommentEditForm, self).__init__(*args, **kwargs)

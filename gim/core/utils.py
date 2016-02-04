@@ -4,7 +4,7 @@ from functools import wraps
 from django.db import models
 
 
-def contribute_to_model(contrib, destination):
+def contribute_to_model(contrib, destination, to_backup=None):
     """
     Update ``contrib`` model based on ``destination``.
 
@@ -59,10 +59,23 @@ def contribute_to_model(contrib, destination):
         destination._meta.db_table = contrib._meta.db_table
 
     # Add (or replace) properties and methods
-    protected_items = dir(models.Model) + ['Meta', '_meta']
-    for k, v in contrib.__dict__.items():
-        if k not in protected_items:
-            setattr(destination, k, v)
+
+    if to_backup:
+        for attr in to_backup:
+            try:
+                setattr(destination, 'old_%s' % attr, getattr(destination, attr))
+            except AttributeError:
+                pass
+
+    attrs =  set(dir(contrib)) - set(dir(models.Model) + ['Meta', '_meta'])
+    mro = [klass for klass in contrib.mro() if klass not in models.Model.mro()]
+    for attr in attrs:
+        # If attributes are defined on a parent class, we cannot use getattr to get it, because
+        # the method will be unbound, so we have to find the class in the mro
+        for klass in mro:
+            if attr in klass.__dict__:
+                setattr(destination, attr, klass.__dict__[attr])
+                break
 
 
 def queryset_iterator(queryset, chunksize=1000):

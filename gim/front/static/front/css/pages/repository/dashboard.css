@@ -957,7 +957,7 @@ div.selector span {
   margin: 0 !important;
   z-index: 200;
   background-color: #f0f0f0 !important;
-  background: url('/static/front/css/images/bg.png?1412039761') !important;
+  background: url('/static/front/css/images/bg.png?1450021794') !important;
 }
 /* line 253, ../../../../../sass/components/_issue.scss */
 .issue-container.big-issue .stuck {
@@ -2819,7 +2819,7 @@ table.commits-list td .comments-count {
 .datepicker table tr td.selected, .datepicker table tr td.selected:hover, .datepicker table tr td.selected.disabled, .datepicker table tr td.selected.disabled:hover {
   color: #fff;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
-  background-color: #9e9e9e;
+  background-color: #9f9f9f;
   background-image: -moz-linear-gradient(top, #b3b3b3, gray);
   background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#b3b3b3), to(gray));
   background-image: -webkit-linear-gradient(top, #b3b3b3, gray);
@@ -2849,7 +2849,7 @@ table.commits-list td .comments-count {
 .datepicker table tr td.active, .datepicker table tr td.active:hover, .datepicker table tr td.active.disabled, .datepicker table tr td.active.disabled:hover {
   color: #fff;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
-  background-color: #006ccc;
+  background-color: #006dcc;
   background-image: -moz-linear-gradient(top, #08c, #0044cc);
   background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#08c), to(#0044cc));
   background-image: -webkit-linear-gradient(top, #08c, #0044cc);
@@ -2857,7 +2857,7 @@ table.commits-list td .comments-count {
   background-image: linear-gradient(to bottom, #0088cc, #0044cc);
   background-repeat: repeat-x;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#FF0088CC', endColorstr='#FF0044CC', GradientType=0);
-  border-color: #0044cc #0044cc #002a80;
+  border-color: #0044cc #0044cc #002b80;
   border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25);
   *background-color: #0044cc;
   /* Darken IE7 buttons by default so they stand out more given they won't have borders */
@@ -2869,7 +2869,7 @@ table.commits-list td .comments-count {
 .datepicker table tr td.active:hover, .datepicker table tr td.active:focus, .datepicker table tr td.active:active, .datepicker table tr td.active.active, .datepicker table tr td.active.disabled, .datepicker table tr td.active[disabled], .datepicker table tr td.active:hover:hover, .datepicker table tr td.active:hover:focus, .datepicker table tr td.active:hover:active, .datepicker table tr td.active:hover.active, .datepicker table tr td.active:hover.disabled, .datepicker table tr td.active:hover[disabled], .datepicker table tr td.active.disabled:hover, .datepicker table tr td.active.disabled:focus, .datepicker table tr td.active.disabled:active, .datepicker table tr td.active.disabled.active, .datepicker table tr td.active.disabled.disabled, .datepicker table tr td.active.disabled[disabled], .datepicker table tr td.active.disabled:hover:hover, .datepicker table tr td.active.disabled:hover:focus, .datepicker table tr td.active.disabled:hover:active, .datepicker table tr td.active.disabled:hover.active, .datepicker table tr td.active.disabled:hover.disabled, .datepicker table tr td.active.disabled:hover[disabled] {
   color: #fff;
   background-color: #0044cc;
-  *background-color: #003bb3;
+  *background-color: #003cb3;
 }
 /* line 509, ../../../../../core-admin/stylesheets/bootstrap/_mixins.scss */
 .datepicker table tr td.active:active, .datepicker table tr td.active.active, .datepicker table tr td.active:hover:active, .datepicker table tr td.active:hover.active, .datepicker table tr td.active.disabled:active, .datepicker table tr td.active.disabled.active, .datepicker table tr td.active.disabled:hover:active, .datepicker table tr td.active.disabled:hover.active {
@@ -2902,7 +2902,7 @@ table.commits-list td .comments-count {
 .datepicker table tr td span.active, .datepicker table tr td span.active:hover, .datepicker table tr td span.active.disabled, .datepicker table tr td span.active.disabled:hover {
   color: #fff;
   text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
-  background-color: #006ccc;
+  background-color: #006dcc;
   background-image: -moz-linear-gradient(top, #08c, #0044cc);
   background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#08c), to(#0044cc));
   background-image: -webkit-linear-gradient(top, #08c, #0044cc);
@@ -2910,7 +2910,7 @@ table.commits-list td .comments-count {
   background-image: linear-gradient(to bottom, #0088cc, #0044cc);
   background-repeat: repeat-x;
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#FF0088CC', endColorstr='#FF0044CC', GradientType=0);
-  border-color: #0044cc #0044cc #002a80;
+  border-color: #0044cc #0044cc #002b80;
   border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25);
   *background-color: #0044cc;
   /* Darken IE7 buttons by default so they stand out more given they won't have borders */
@@ -2922,7 +2922,7 @@ table.commits-list td .comments-count {
 .datepicker table tr td span.active:hover, .datepicker table tr td span.active:focus, .datepicker table tr td span.active:active, .datepicker table tr td span.active.active, .datepicker table tr td span.active.disabled, .datepicker table tr td span.active[disabled], .datepicker table tr td span.active:hover:hover, .datepicker table tr td span.active:hover:focus, .datepicker table tr td span.active:hover:active, .datepicker table tr td span.active:hover.active, .datepicker table tr td span.active:hover.disabled, .datepicker table tr td span.active:hover[disabled], .datepicker table tr td span.active.disabled:hover, .datepicker table tr td span.active.disabled:focus, .datepicker table tr td span.active.disabled:active, .datepicker table tr td span.active.disabled.active, .datepicker table tr td span.active.disabled.disabled, .datepicker table tr td span.active.disabled[disabled], .datepicker table tr td span.active.disabled:hover:hover, .datepicker table tr td span.active.disabled:hover:focus, .datepicker table tr td span.active.disabled:hover:active, .datepicker table tr td span.active.disabled:hover.active, .datepicker table tr td span.active.disabled:hover.disabled, .datepicker table tr td span.active.disabled:hover[disabled] {
   color: #fff;
   background-color: #0044cc;
-  *background-color: #003bb3;
+  *background-color: #003cb3;
 }
 /* line 509, ../../../../../core-admin/stylesheets/bootstrap/_mixins.scss */
 .datepicker table tr td span.active:active, .datepicker table tr td span.active.active, .datepicker table tr td span.active:hover:active, .datepicker table tr td span.active:hover.active, .datepicker table tr td span.active.disabled:active, .datepicker table tr td span.active.disabled.active, .datepicker table tr td span.active.disabled:hover:active, .datepicker table tr td span.active.disabled:hover.active {

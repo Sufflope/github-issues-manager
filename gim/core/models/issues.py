@@ -361,18 +361,27 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
               + (self.pr_comments_count or 0)
               + (self.commits_comments_count or 0))
 
+    def update_comments_count(self):
+        count = self.comments.exclude(
+            github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
+        if self.comments_count != count:
+            self.comments_count = count
+            self.save(update_fields=['comments_count'])
+
     def update_pr_comments_count(self):
         if self.is_pull_request:
-            count = self.pr_comments.count()
-            if count:
+            count = self.pr_comments.exclude(
+                github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
+            if self.pr_comments_count != count:
                 self.pr_comments_count = count
                 self.save(update_fields=['pr_comments_count'])
 
     def update_commits_comments_count(self):
         if self.is_pull_request:
             from .comments import CommitComment
-            count = CommitComment.objects.filter(commit__issues__pk=self.pk).count()
-            if count:
+            count = CommitComment.objects.filter(commit__issues__pk=self.pk).exclude(
+                github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
+            if self.commits_comments_count != count:
                 self.commits_comments_count = count
                 self.save(update_fields=['commits_comments_count'])
 

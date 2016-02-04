@@ -1,4 +1,25 @@
 $().ready(function() {
+
+    var UUID = (function() {
+        /**
+         * Fast UUID generator, RFC4122 version 4 compliant.
+         * @author Jeff Ward (jcward.com).
+         * @license MIT license
+         * @link http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/21963136#21963136
+         **/
+        var self = {};
+        var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
+        self.generate = function() {
+            var d0 = Math.random()*0xffffffff| 0, d1 = Math.random()*0xffffffff| 0,
+                d2 = Math.random()*0xffffffff| 0, d3 = Math.random()*0xffffffff|0;
+            return lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
+                lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
+                lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
+                lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
+        };
+        return self;
+    })();
+
     function GetVendorAttribute(prefixedAttributes) {
        var tmp = document.createElement("div");
        var result = "";
@@ -12,7 +33,7 @@ $().ready(function() {
 
     var $document = $(document),
         $body = $('body'),
-        main_repository = $body.data('repository')
+        main_repository = $body.data('repository'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
 
@@ -101,6 +122,550 @@ $().ready(function() {
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
         ev.which == 27 && $('.modal.in').modal('hide');
     }));
+
+
+    var WS = {
+
+        session: null,
+        alert_ko_done: false,
+
+        reconcile_mode: {
+            active: false,
+            first_received_msg_id: null,
+            queue: []
+        },
+
+        last_msg_id: WS_last_msg_id,
+
+        subscriptions: {},
+
+        $alert: {
+            container: $('#ws-alert'),
+            message: null,
+            close: null
+        },
+        alert_time: null,
+
+        get_subscribe_callback: (function WS__get_subscribe_callback (subscription, original_callback) {
+            return function(args, kwargs, details) {
+
+                if (typeof kwargs.ws_extra != 'undefined') {
+                    details.extra = kwargs.ws_extra;
+                    delete kwargs.ws_extra;
+                }
+
+                if (typeof details.extra != 'undefined') {
+                    if (!details.extra.reconcile_mode && typeof details.extra.msg_id != 'undefined') {
+                        if (WS.reconcile_mode.active && !WS.reconcile_mode.first_received_msg_id) {
+                            WS.reconcile_mode.first_received_msg_id = details.extra.msg_id;
+                        }
+                    }
+                    if (typeof details.extra.topic != 'undefined' && !details.topic) {
+                        details.topic = details.extra.topic;
+                    }
+                } else {
+                    details.extra = {
+                        reconcile_mode: false
+                    };
+                }
+
+                if (subscription.state != 'ready' && subscription.state != 'subscribed') { return; }
+
+                details.topic = details.topic || subscription.topic;
+
+                var action = {
+                    subscription: subscription,
+                    original_callback: original_callback,
+                    args: args,
+                    kwargs: kwargs,
+                    details: details
+                };
+
+
+                if (WS.reconcile_mode.active && !details.extra.reconcile_mode) {
+                    WS.reconcile_mode.queue.push(action);
+                    return;
+                }
+
+                WS.run_callback(action);
+
+            };
+        }), // get_subscribe_callback
+
+        run_callback: (function WS__run_callback (action) {
+            if (action.details.extra.msg_id) {
+                // TODO: big problem here, it means that we cannot run more than one callback
+                // for the same publication, but it's exactly why we can have many subscriptions for
+                // the same topic !! something has to be rewritten...
+                if (action.details.extra.msg_id <= WS.last_msg_id) {
+                    return;
+                }
+                WS.last_msg_id = action.details.extra.msg_id;
+            }
+
+            action.original_callback(
+                action.details.topic,
+                action.args,
+                action.kwargs,
+                action.subscription
+            );
+        }), // run_callback
+
+        reconcile: (function WS__reconcile (last_received_id, next_received_id, iteration) {
+            if (!last_received_id) {
+                WS.after_reconcile();
+                return;
+            }
+
+            var topics_rules = [];
+            var added_rules = {};
+            $.each(WS.subscriptions, function(topic, topic_subscriptions) {
+                for (var i=0; i < topic_subscriptions.length; i++) {
+                    var state = topic_subscriptions[i].state;
+                    if (state == 'subscribed' || state == 'ready') {
+                        var key = [topic, topic_subscriptions[i].match];
+                        if (typeof added_rules[key] != 'undefined') { continue; }
+                        topics_rules.push(key);
+                        added_rules[key] = true;
+                    }
+                }
+            });
+
+            if (!topics_rules.length) {
+                WS.after_reconcile();
+                return;
+            }
+
+            iteration = iteration || 1;
+
+            WS.session.call('gim.reconcile', [], {
+                last_received_id: last_received_id,
+                next_received_id: next_received_id || null,
+                topics_rules: topics_rules,
+                iteration: iteration
+            }).then(
+                function (result) {
+
+                    if (result.error) {
+                        WS.error_reconcile(result.error.message);
+                        return;
+                    }
+
+                    var complete = false;
+                    // Run the callbacks for events fired while we were offline
+                    for (var i=0; i < result.missed_messages.length; i++) {
+                        var entry = result.missed_messages[i],
+                            details = {extra: entry.kwargs.ws_extra};
+
+                        delete entry.kwargs.ws_extra;
+
+                        // We can stop managing data received during reconcile if we also received
+                        // the same messages in pubsub mode
+                        if (WS.reconcile_mode.first_received_msg_id &&
+                                details.extra.msg_id >= WS.reconcile_mode.first_received_msg_id) {
+                            complete = true;
+                            break;
+                        }
+
+                        // Go through all subscriptions for this message
+                        for (var j=0; j < details.extra.subscribed.length; j++) {
+                            var subscribed = details.extra.subscribed[j],
+                                subscribed_topic = subscribed[0],
+                                subscribed_match = subscribed[1],
+                                topic_subscriptions = WS.subscriptions[subscribed_topic];
+
+                            if (!topic_subscriptions || !topic_subscriptions.length) {
+                                continue;
+                            }
+
+                            // Go through all the subscriptions for the topic
+                            for (var k=0; k < topic_subscriptions.length; k++) {
+                                var subscription = topic_subscriptions[j];
+                                if (subscription.state != 'ready' && subscription.state != 'subscribed') {
+                                    continue;
+                                }
+                                if (subscription.match != subscribed_match) {
+                                    continue
+                                }
+
+                                // We have a match, we can call the callback
+                                details.extra.reconcile_mode = true;
+                                subscription.callback(entry.args, entry.kwargs, details);
+
+                            } // for topic_subscriptions
+
+                        } // for details.extra.subscribed
+
+                    } // for result.missed_messages
+
+                    if (!complete && result.max_msg_id < result.last_msg_id) {
+                        WS.reconcile(result.max_msg_id, WS.reconcile_mode.first_received_msg_id, iteration+1);
+                    } else {
+                        WS.after_reconcile(result.last_msg_id);
+                    }
+
+                }, // then
+                function (error) {
+                    WS.error_reconcile();
+                } // error
+            );
+
+        }), // reconcile
+
+        start_reconcile: (function WS__start_reconcile () {
+            WS.reconcile_mode.active = true;
+            WS.reconcile_mode.queue = [];
+            WS.reconcile_mode.first_received_msg_id = null;
+        }), // start_reconcile
+
+        after_reconcile: (function WS__after_reconcile (last_msg_id) {
+            // Run the callbacks for events fired during the reconciliation
+            // This works even if other are added during the loop because length is
+            // recomputed each time
+            for (var k=0; k < WS.reconcile_mode.queue.length; k++) {
+                WS.run_callback(WS.reconcile_mode.queue[k]);
+            }
+
+            // The reconciliate data included the very last message sent so if we didn't
+            // receive more recent, we know it's the most recent one on the server (it
+            // will reduce data to fetch for the next reconciliation)
+            if (last_msg_id && last_msg_id > WS.last_msg_id) {
+                WS.last_msg_id = last_msg_id;
+            }
+
+            // reconcile is done !
+            WS.end_reconcile();
+
+            WS.alert('Connected!<p>Real-time capabilities are enabled.</p>', 'ok', 1500, true);
+        }), // after_reconcile
+
+        end_reconcile: (function WS__end_reconcile () {
+            WS.reconcile_mode.active = false;
+            WS.reconcile_mode.queue = [];
+            WS.reconcile_mode.first_received_msg_id = null;
+        }), // end_reconcile
+
+        error_reconcile: (function WS__error_reconcile (error_message) {
+            if (!error_message) {
+                error_message = 'There was a problem synchronizing data sent when you were offline.';
+            }
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please refresh the page.</p>', 'ko', null, true);
+            WS.connection.close();
+            WS.end_reconcile();
+        }), // error_reconcile
+
+        subscribe: (function WS__subscribe (topic, name, callback, match) {
+            // Create topic entry if it doesn't exist
+            if (typeof WS.subscriptions[topic] === 'undefined') {
+                WS.subscriptions[topic] = [];
+            }
+
+            var subscription;
+
+            var existing = $.grep(WS.subscriptions[topic], function(sub) {
+                return (sub.name == name) && (sub.match == (match || 'exact')) && (
+                    sub.state == 'subscribed' || sub.state == 'ready' || sub.state == 'unsubscribed'
+                );
+            });
+
+            if (existing.length) {
+                subscription = existing[0];
+                switch (subscription.state) {
+                    case 'subscribed':
+                    case 'ready':
+                        return;
+                    case 'unsubscribed':
+                        subscription.state = 'subscribed';
+                        subscription.remote_id = null;
+                }
+            }
+
+            if (!subscription) {
+                var ws_args = {};
+                if (match) {
+                    ws_args.match = match;
+                }
+
+                // Prepare the subscription and add it locally
+                subscription = {
+                    topic: topic,
+                    name: name,
+                    callback: null,
+                    // Will host the subscription id returned by the server
+                    remote_id: null,
+                    /* Valid states:
+                      - subscribed: sub added locally, not on the server
+                      - ready: added locally and on the server
+                      - unsubscribed: removed locally and not on the server
+                      - deleted: removed locally and on the server (can be removed from the list)
+                     */
+                    state: 'subscribed',
+                    match: match || 'exact',
+                    ws_args: ws_args
+                };
+                subscription.callback = WS.get_subscribe_callback(subscription, callback);
+                WS.subscriptions[topic].push(subscription);
+            }
+
+            // Subscribe on the server if ready (if not, it will be done on the next connect)
+            WS.subscribe_remotely(subscription);
+
+        }), // subscribe
+
+        subscribe_remotely: (function WS__subscribe_remotely (subscription) {
+            if (!subscription.remote_id && WS.session && WS.session.isOpen) {
+                WS.session.subscribe(subscription.topic, subscription.callback, subscription.ws_args).then(
+                    function (remote_id) {
+                        // We can now mark the subscription as subscribed locally and remotely
+                        subscription.state = 'ready';
+                        // And save the remote_id that will be used for the unsubscribe
+                        subscription.remote_id = remote_id;
+                    }
+                );
+            } // if session
+        }), // subscribe_remotely
+
+        subscribe_onconnect: (function WS__subscribe_onconnect () {
+
+            // Arrange remote subscription to easier checks
+            var remote = {};
+            if (WS.session) {
+                for (var i = 0; i < WS.session.subscriptions.length; i++) {
+                    var topic_subscriptions = WS.session.subscriptions[i];
+                    for (var j = 0; j < topic_subscriptions.length; j++) {
+                        var subscription = topic_subscriptions[j];
+                        if (typeof remote[subscription.topic] === 'undefined') {
+                            remote[subscription.topic] = [];
+                        }
+                        remote[subscription.topic].push(subscription);
+                    }
+                }
+            }
+
+            $.each(WS.subscriptions, function(topic, topic_subscriptions) {
+
+                // Stop if the connection is lost
+                if (!WS.session || !WS.session.isOpen) { return false; }
+
+                var remote_topic_subscriptions = [];
+                if (typeof remote[topic] !== 'undefined') {
+                    remote_topic_subscriptions = remote[topic];
+                }
+
+                for (var k=0; k < topic_subscriptions.length; k++) {
+                    var subscription = topic_subscriptions[k];
+
+                    // Mark as not subscribed remotely the one subscribed before we lost the
+                    // connection and that are not subscribed remotely anymore
+                    if (subscription.state == 'ready' && $.inArray(subscription.remote_id, remote_topic_subscriptions) == -1) {
+                        subscription.state = 'subscribed';
+                        subscription.remote_id = null;
+                    }
+
+                    // Subscribe remotely the one subscribed when WS was not connected, or marked
+                    // above
+                    if (subscription.state == 'subscribed') {
+                        WS.subscribe_remotely(subscription);
+                    }
+
+                }
+
+            });
+
+        }), // subscribe_onconnect
+
+        unsubscribe: (function WS__unsubscribe (topic, name) {
+            // Do nothing if the topic doesn't exist
+            if (typeof WS.subscriptions[topic] === 'undefined') { return; }
+
+            for (var i=0; i < WS.subscriptions[topic].length; i++) {
+
+                // Immediatly invoked function to avoid closure+loop problem
+                (function(subscription) {
+
+                    var current_state = subscription.state;
+
+                    if (current_state != 'subscribed' && current_state != 'ready') {
+                        return;
+                    }
+
+                    if (!name || name && subscription.name == name) {
+                        // Start by marking the subscription unsubscribed locally
+                        subscription.state = 'unsubscribed';
+
+                        // Unsubscribe remotely if it was subscribed remotely and we have a connection
+                        // (if not, it will be done on the next connect
+                        if (current_state == 'ready') {
+                            WS.unsubscribe_remotely(subscription);
+                        }
+
+                    } // if name
+                })(WS.subscriptions[topic][i]);
+
+            } // for
+
+        }), // unsubscribe
+
+        unsubscribe_remotely: (function WS__unsubscribe_remotely (subscription) {
+            if (subscription.remote_id && WS.session && WS.session.isOpen) {
+                WS.session.unsubscribe(subscription.remote_id).then(
+                    function(gone) {
+                        subscription.state = 'deleted';
+                        subscription.remote_id = null;
+                    }
+                ); // then
+            } // if session
+        }), // unsubscribe_remotely
+
+        unsubscribe_onconnect: (function WS__unsubscribe_onconnect () {
+
+            $.each(WS.subscriptions, function(topic, topic_subscriptions) {
+
+                // Stop if the connection is lost
+                if (!WS.session || !WS.session.isOpen) { return false; }
+
+                for (var i=0; i < topic_subscriptions.length; i++) {
+                    var subscription = topic_subscriptions[i];
+                    if (subscription.state != 'unsubscribed') { continue; }
+
+                    WS.unsubscribe_remotely(subscription);
+                }
+
+            });
+
+        }), // unsubscribe_onconnect
+
+        receive_ping: (function WS__receive_ping (topic, args, kwargs, subscription) {
+            if (kwargs.last_msg_id && !WS.reconcile_mode.active) {
+                WS.last_msg_id = kwargs.last_msg_id;
+            }
+        }), // receive_ping
+
+        onchallenge: (function WS__onchallenge (session, method, extra) {
+            if (method === 'wampcra') {
+                return autobahn.auth_cra.sign(auth_keys.key2, extra.challenge);
+            }
+        }), // onchallenge
+
+        onopen: (function WS__onopen (session, details) {
+            if (WS.session) {
+                WS.alert('Reconnecting for real-time capabilities...', 'waiting');
+            }
+            WS.session = session;
+
+            // Unsubscribe remotely all topics we unsubscribed locally while offline
+            WS.unsubscribe_onconnect();
+            // Mark the reconciliation as begun to not really run callback if we receive some data
+            WS.start_reconcile();
+            // Subscribe remotely all topics we subscribed locally while offline
+            // But callbacks will not be executed until the reconciliation is done
+            WS.subscribe_onconnect();
+            // Run reconciliation to get all messages sent while offline
+            WS.reconcile(WS.last_msg_id);
+            // Now the reconciliation is over, all messages received while offline and during the
+            // reconciliation where played.
+
+            WS.subscribe('gim.ping', 'ping', WS.receive_ping);
+        }), // onopen
+
+        onclose: (function WS__onclose (reason, details) {
+            var message, timeout;
+            switch (reason) {
+                case 'closed':
+                    timeout = 5000;  // to not display it if the page is closing
+                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please refresh the page.</p>';
+                    break;
+                case 'unsupported':
+                    message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
+                    break;
+                case 'unreachable':
+                    message = 'Connection cannot be opened!<p>Real-time capabilities are disabled until the real-time server goes back.</p>';
+                    break;
+                default:
+                    message = 'Connection lost!<p>Real-time capabilities are disabled until reconnect.</p>';
+            }
+
+            if (timeout) {
+                WS.alert_timer = setTimeout(function() { WS.alert(message, 'ko', null, true); }, timeout);
+            } else {
+                WS.alert(message, 'ko', null, true);
+            }
+        }), // onclose
+
+        alert: (function WS__alert (html, mode, duration, allow_close) {
+
+            if (mode == 'ko') {
+                if (WS.alert_ko_done) { return; }
+                WS.alert_ko_done = true;
+            } else {
+                WS.alert_ko_done = false;
+            }
+
+            if (WS.alert_timer) {
+                clearTimeout(WS.alert_timer);
+                WS.alert_timer = null;
+            }
+
+            WS.$alert.close.toggle(allow_close);
+            WS.$alert.container.toggleClass('with-close', allow_close);
+
+            WS.$alert.container.removeClass('ok ko waiting').addClass(mode+' visible');
+
+            WS.$alert.message.html(html);
+
+            if (duration) {
+                WS.alert_timer = setTimeout(function() {
+                    WS.$alert.container.removeClass('visible');
+                }, duration);
+            }
+        }), // alert
+
+        alert_close: (function WS__alert_close () {
+            if (WS.alert_timer) {
+                clearTimeout(WS.alert_timer);
+                WS.alert_timer = null;
+            }
+            WS.$alert.container.removeClass('visible');
+        }), // alert_close
+
+        on_window_unload: (function WS__on_window_unload () {
+            // avoid displaying the "disconnected" red box
+            WS.alert_ko_done = true
+        }), // on_window_unload
+
+        init: (function WS__init () {
+            if (!auth_keys.key1) {
+                // no websocket if not authenticated
+                return;
+            }
+
+            WS.$alert.message = WS.$alert.container.children('.message');
+            WS.$alert.close = WS.$alert.container.children('.close');
+            WS.$alert.close.on('click', WS.alert_close);
+            WS.alert('Connecting for real-time capabilities...', 'waiting');
+
+            WS.URI = (document.location.protocol === "http:" ? "ws:" : "wss:") + "//" + WS_uri;
+            WS.connection = new autobahn.Connection({
+                url: WS.URI,
+                realm: 'gim',
+                authmethods: ["wampcra"],
+                authid: auth_keys.key1,
+                onchallenge: WS.onchallenge,
+                max_retries: -1,
+                max_retry_delay: 30,
+                retry_delay_growth: 1.1,
+                initial_retry_delay: 5
+            });
+            WS.connection.onopen = WS.onopen;
+            WS.connection.onclose = WS.onclose;
+            WS.connection.open();
+
+            $(window).on('unload', WS.on_window_unload);
+
+        }) // init
+    }; // WS
+    WS.init();
+    window.WS = WS;
 
 
     var IssuesListIssue = (function IssuesListIssue__constructor (node, issues_list_group) {
@@ -829,6 +1394,7 @@ $().ready(function() {
         $modal: $('#modal-issue-view'),
         $modal_body: null,  // set in __init__
         $modal_container: null,  // set in __init__
+        WS_subscribed_id: null,  // id of issue currently tracked by WS
 
         get_url_for_ident: (function IssueDetail__get_url_for_ident (issue_ident) {
             var number = issue_ident.number.toString(),
@@ -854,6 +1420,7 @@ $().ready(function() {
             // set waypoints
             IssueDetail.set_issue_waypoints($node, is_modal);
             IssueDetail.scroll_tabs($node, true);
+            IssueDetail.subscribe_updates($node);
         }), // on_issue_loaded
 
         get_scroll_context: (function IssueDetail__get_scroll_context ($node, is_modal) {
@@ -975,6 +1542,14 @@ $().ready(function() {
         }), // get_issue_ident
 
         set_issue_ident: (function IssueDetail__set_issue_ident($node, issue_ident) {
+            if (issue_ident.number && issue_ident.repository) {
+                var actual_ident = IssueDetail.get_issue_ident($node);
+                if (actual_ident.number && actual_ident.repository) {
+                    if (actual_ident.number != issue_ident.number || actual_ident.repository != issue_ident.repository) {
+                        IssueDetail.unsubscribe_updates();
+                    }
+                }
+            }
             $node.data('number', issue_ident.number);
             $node.data('repository', issue_ident.repository);
         }), // set_issue_ident
@@ -1882,6 +2457,48 @@ $().ready(function() {
 
         }), // on_commit_click
 
+        subscribe_updates: (function IssueDetail__subscribe_updates ($node) {
+            var issue_id = $node.children('article').data('issue-id');
+            if (issue_id != IssueDetail.WS_subscribed_id) {
+                IssueDetail.WS_subscribed_id = issue_id;
+                WS.subscribe(
+                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_update_alerts',
+                    IssueDetail.on_update_alert,
+                    'exact'
+                );
+                WS.subscribe(
+                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_delete_alerts',
+                    IssueDetail.on_delete_alert,
+                    'exact'
+                );
+            }
+        }), // subscribe_updates
+
+        unsubscribe_updates: (function IssueDetail__subscribe_updates () {
+            if (IssueDetail.WS_subscribed_id) {
+                WS.unsubscribe(
+                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_update_alerts'
+                );
+                WS.unsubscribe(
+                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'IssueDetail__on_delete_alerts'
+                );
+                IssueDetail.WS_subscribed_id = null;
+            }
+
+        }), // unsubscribe_updates
+
+        on_update_alert: (function IssueDetail__on_update_alert (topic, args, kwargs, subscription) {
+            IssueEditor.on_update_alert(topic, args, kwargs, subscription);
+        }), // on_update_alert
+
+        on_delete_alert: (function IssueDetail__on_delete_alert (topic, args, kwargs, subscription) {
+            IssueEditor.on_delete_alert(topic, args, kwargs, subscription);
+        }), // on_delete_alert
+
         init: (function IssueDetail__init () {
             // init modal container
             IssueDetail.$modal_body = IssueDetail.$modal.children('.modal-body'),
@@ -2440,7 +3057,8 @@ $().ready(function() {
             context = {
                 issue_ident: IssueDetail.get_issue_ident($node),
                 $form: $form,
-                $node: $node
+                $node: $node,
+                uuid: UUID.generate()
             };
             return context;
         }), // get_form_context
@@ -2458,8 +3076,9 @@ $().ready(function() {
         }), // handle_form
 
         post_form: (function IssueEditor__post_form($form, context, on_done, on_failed, data, action) {
-            if (typeof data == 'undefined') { data = $form.serialize(); }
+            if (typeof data == 'undefined') { data = $form.serializeArray(); }
             if (typeof action == 'undefined') { action = $form.attr('action'); }
+            data.push({name:'front_uuid', value: context.uuid});
             $.post(action, data)
                 .done($.proxy(on_done, context))
                 .fail($.proxy(on_failed, context));
@@ -2507,12 +3126,22 @@ $().ready(function() {
                 return false;
             }
 
+            $form.closest('li.issue-comment')[0].setAttribute('data-front-uuid', context.uuid);
+
             IssueEditor.post_form($form, context, IssueEditor.on_comment_submit_done,
                                                   IssueEditor.on_comment_submit_failed);
         }), // on_comment_submit
 
         on_comment_submit_done: (function IssueEditor__on_comment_submit_done (data) {
-            this.$form.closest('li').replaceWith(data);
+            var $node = $('li.issue-comment[data-front-uuid=' + this.uuid + ']');
+            if ($node.length) {
+                var $data = $(data);
+                if ($data.filter('.comment-create-placeholder').length) {
+                    // Remove the existing placeholder if we have a new one
+                    $node.prev('.comment-create-placeholder').remove();
+                }
+                $node.replaceWith($data);
+            }
         }), // on_comment_submit_done
 
         on_comment_submit_failed: (function IssueEditor__on_comment_submit_failed () {
@@ -2637,40 +3266,69 @@ $().ready(function() {
 
         }), // on_new_entry_point_click
 
-        // CANCEL COMMENTS
-        on_comment_create_cancel_click: (function IssueEditor__on_comment_create_cancel_click (ev) {
-            var $button = $(this),
-                $li = $button.closest('li.issue-comment'),
-                $form = $li.find('form');
+        // CANCEL/DELETE COMMENTS
+        remove_comment: (function IssueEditor__remove_comment ($li) {
+
+            if ($li.length > 1) {
+                $li.each(function() {
+                    IssueEditor.remove_comment($(this));
+                });
+                return;
+            }
+
+            var $form = $li.find('form'),
+                removed = false,
+                $placeholder = $li.prev('.comment-create-placeholder'),
+                $pr_parent = $li.parents('.code-comments');
 
             IssueEditor.disable_form($form);
 
             // it's an answer to a previous PR comment
-            var $placeholder = $li.prev('.comment-create-placeholder');
             if ($placeholder.length) {
                 $li.remove();
+                removed = true
+            }
+
+            // it's in a pr entry point
+            if ($pr_parent.length) {
+                if (!removed) {
+                    $li.remove();
+                    removed = true;
+                }
+                // Do we have other comments
+                if (!$pr_parent.find('.issue-comment').length) {
+                    // If no we can remove the entry point
+                    var $prev = $pr_parent.prev();
+                    var $next = $pr_parent.next();
+                    $pr_parent.remove();
+                    if ($next.length) {
+                        // combine the two block
+                        $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
+                        $next.remove();
+                    }
+                    return false;
+                }
+            }
+
+            if ($placeholder.length && removed) {
                 $placeholder.show();
                 return false;
             }
 
-            // its a new pr entry point
-            var $pr_parent = $li.parent().parent();
-            if ($pr_parent.hasClass('code-comments')) {
-                var $prev = $pr_parent.prev();
-                var $next = $pr_parent.next();
-                $pr_parent.remove();
-                if ($next.length) {
-                    // combine the two block
-                    $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
-                    $next.remove();
-                }
+            // It's a template !
+            if ($li.hasClass('comment-create-container')) {
+                $li.find('textarea').val('');
+                IssueEditor.enable_form($form);
                 return false;
             }
 
-            // its the bottom comment form
-            $li.find('textarea').val('');
-            IssueEditor.enable_form($form);
-            return false;
+            // other case, simply delete the comment
+            $li.remove()
+
+        }), // remove_comment
+
+        on_comment_create_cancel_click: (function IssueEditor__on_comment_create_cancel_click (ev) {
+            IssueEditor.remove_comment($(this).closest('li.issue-comment'));
         }), //on_comment_create_cancel_click
 
         on_comment_edit_or_delete_cancel_click: (function IssueEditor__on_comment_edit_or_delete_cancel_click (ev) {
@@ -2962,6 +3620,40 @@ $().ready(function() {
             this.$form.find('button.loading').removeClass('loading');
             alert('A problem prevented us to do your action !');
         }), // on_issue_edit_submit_fail
+
+        on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs, subscription) {
+            // Replace "waiting" comments
+            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment')) {
+
+                var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', li.issue-comment[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $nodes = $(selector);
+                if ($nodes.length) {
+                    $.get(kwargs.url).done(function(data) {
+                        $nodes.replaceWith(data);
+                    });
+                }
+
+            }
+        }), // on_update_alert
+
+        on_delete_alert: (function IssueEditor__on_delete_alert (topic, args, kwargs, subscription) {
+            // Remove "waiting deletion" comments
+            if (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment') {
+
+                var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', li.issue-comment[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $nodes = $(selector);
+                if ($nodes.length) {
+                    IssueEditor.remove_comment($nodes);
+                }
+
+            }
+        }), // on_delete_alert
 
         create: {
             allowed_path_re: new RegExp('^/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issues/|dashboard/$)'),

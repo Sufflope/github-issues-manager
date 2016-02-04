@@ -1,3 +1,5 @@
+from django.utils.functional import cached_property
+
 __all__ = [
     'GITHUB_STATUS_CHOICES',
 ]
@@ -78,6 +80,10 @@ class GithubObject(models.Model):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+    @cached_property
+    def model_name(self):
+        return self.__class__.__name__
 
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None,
                                                         meta_base_name=None):
@@ -536,8 +542,9 @@ class GithubObject(models.Model):
                         update_fields.append(etag_field)
 
         if last_page_field and hasattr(self, last_page_field) and last_page is not None:
-            setattr(self, last_page_field, last_page)
-            update_fields.append(last_page_field)
+            if last_page != getattr(self, last_page_field):
+                setattr(self, last_page_field, last_page)
+                update_fields.append(last_page_field)
 
         # save main object if needed
         if update_fields:
@@ -554,6 +561,10 @@ class GithubObject(models.Model):
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
         gh_callable.delete()
         self.delete()
+
+    def defaults_create_values(self):
+        """Default values to use to update data got from github"""
+        return {}
 
     def dist_edit(self, gh, mode, fields=None, values=None):
         """

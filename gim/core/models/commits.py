@@ -88,7 +88,8 @@ class Commit(WithRepositoryMixin, GithubObject):
         return self.authored_at
 
     def update_comments_count(self):
-        self.comments_count = self.commit_comments.count()
+        self.comments_count = self.commit_comments.exclude(
+            github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
         self.save(update_fields=['comments_count'])
         for issue in self.issues.all():
             issue.update_commits_comments_count()

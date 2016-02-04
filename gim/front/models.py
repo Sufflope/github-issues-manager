@@ -6,7 +6,8 @@ import re
 
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models import ForeignKey
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
 from django.template.defaultfilters import escape
@@ -19,11 +20,14 @@ from pymdownx.github import GithubExtension
 from limpyd import model as lmodel, fields as lfields
 
 from gim.core import models as core_models, get_main_limpyd_database
+from gim.core.models.base import GithubObject
 from gim.core.utils import contribute_to_model, cached_method
 
 from gim.events.models import EventPart
 
 from gim.subscriptions import models as subscriptions_models
+
+from gim.ws import publisher
 
 
 def html_content(self, body_field='body'):
@@ -36,6 +40,19 @@ def html_content(self, body_field='body'):
                         ]
                     )
     return html
+
+
+class FrontEditable(models.Model):
+
+    front_uuid = models.CharField(max_length=36, blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def defaults_create_values(self):
+        values = self.old_defaults_create_values()
+        values.setdefault('simple', {})['front_uuid'] = self.front_uuid
+        return values
 
 
 class _GithubUser(models.Model):
@@ -86,15 +103,13 @@ class _Repository(models.Model):
         }
 
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:home', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('home')
 
     def get_view_url(self, url_name):
-        return reverse_lazy('front:repository:%s' % url_name,
-                                  kwargs=self.get_reverse_kwargs())
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
 
     def get_issues_filter_url(self):
-        kwargs = self.get_reverse_kwargs()
-        return reverse('front:repository:issues', kwargs=kwargs)
+        return self.get_view_url('issues')
 
     def get_issues_user_filter_url_for_username(self, filter_type, username):
         """
@@ -115,8 +130,7 @@ class _Repository(models.Model):
     get_issues_user_filter_url_for_username._cache = {}
 
     def get_create_issue_url(self):
-        return reverse_lazy('front:repository:issue.create',
-                                  kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.create')
 
 contribute_to_model(_Repository, core_models.Repository)
 
@@ -135,13 +149,16 @@ class _LabelType(models.Model):
             'label_type_id': self.id
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import LabelTypeEdit
-        return reverse_lazy('front:repository:%s' % LabelTypeEdit.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(LabelTypeEdit.url_name)
 
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import LabelTypeDelete
-        return reverse_lazy('front:repository:%s' % LabelTypeDelete.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(LabelTypeDelete.url_name)
 
     @property
     def hash(self):
@@ -160,7 +177,7 @@ class _LabelType(models.Model):
 contribute_to_model(_LabelType, core_models.LabelType)
 
 
-class _Label(models.Model):
+class _Label(FrontEditable):
     class Meta:
         abstract = True
 
@@ -179,10 +196,10 @@ class _Label(models.Model):
         """
         return core_models.Issue.objects.filter(labels=self)
 
-contribute_to_model(_Label, core_models.Label)
+contribute_to_model(_Label, core_models.Label, {'defaults_create_values'})
 
 
-class _Milestone(models.Model):
+class _Milestone(FrontEditable):
     class Meta:
         abstract = True
 
@@ -222,19 +239,21 @@ class _Milestone(models.Model):
             'milestone_id': self.id
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import MilestoneEdit
-        return reverse_lazy('front:repository:%s' % MilestoneEdit.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(MilestoneEdit.url_name)
 
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import MilestoneDelete
-        return reverse_lazy('front:repository:%s' % MilestoneDelete.url_name, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url(MilestoneDelete.url_name)
+
+contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
 
-contribute_to_model(_Milestone, core_models.Milestone)
-
-
-class _Issue(models.Model):
+class _Issue(FrontEditable):
     class Meta:
         abstract = True
 
@@ -250,8 +269,11 @@ class _Issue(models.Model):
             'issue_number': self.number
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue')
 
     def get_created_url(self):
         kwargs = self.get_reverse_kwargs()
@@ -260,37 +282,40 @@ class _Issue(models.Model):
         return reverse_lazy('front:repository:issue.created', kwargs=kwargs)
 
     def edit_field_url(self, field):
-        return reverse_lazy('front:repository:issue.edit.%s' % field, kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.edit.%s' % field)
 
     def issue_comment_create_url(self):
-        return reverse_lazy('front:repository:issue.comment.create', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentCreateView
+        return self.get_view_url(IssueCommentCreateView.url_name)
 
     def pr_comment_create_url(self):
         if not hasattr(self, '_pr_comment_create_url'):
-            self._pr_comment_create_url = reverse_lazy('front:repository:issue.pr_comment.create',
-                                                       kwargs=self.get_reverse_kwargs())
+            from gim.front.repository.issues.views import PullRequestCommentCreateView
+            self._pr_comment_create_url = self.get_view_url(PullRequestCommentCreateView.url_name)
         return self._pr_comment_create_url
 
     def ajax_files_url(self):
-        return reverse_lazy('front:repository:issue.files', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.files')
 
     def ajax_commits_url(self):
-        return reverse_lazy('front:repository:issue.commits', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.commits')
 
     def ajax_review_url(self):
-        return reverse_lazy('front:repository:issue.review', kwargs=self.get_reverse_kwargs())
+        return self.get_view_url('issue.review')
 
     def ajax_commit_base_url(self):
         kwargs = self.get_reverse_kwargs()
         kwargs['commit_sha'] = '0' * 40
-        return reverse_lazy('front:repository:issue.commit', kwargs=kwargs)
+        from gim.front.repository.issues.views import CommitAjaxIssueView
+        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name, kwargs=kwargs)
 
     def commit_comment_create_url(self):
         if not hasattr(self, '_commit_comment_create_url'):
             kwargs = self.get_reverse_kwargs()
             kwargs['commit_sha'] = '0' * 40
-            self._commit_comment_create_url = reverse_lazy('front:repository:issue.commit_comment.create',
-                                                       kwargs=kwargs)
+            from gim.front.repository.issues.views import CommitCommentCreateView
+            self._commit_comment_create_url = reverse_lazy('front:repository:%s' % CommitCommentCreateView.url_name,
+                                                           kwargs=kwargs)
         return self._commit_comment_create_url
 
     @property
@@ -326,7 +351,7 @@ class _Issue(models.Model):
         Update in redis the saved hash
         """
         hash_obj, _ = Hash.get_or_connect(
-                                type=self.__class__.__name__, obj_id=self.pk)
+                                type=self.model_name, obj_id=self.pk)
         hash_obj.hash.hset(self.hash)
 
     @property
@@ -335,7 +360,7 @@ class _Issue(models.Model):
         Return the saved hash, create it if not exist
         """
         hash_obj, created = Hash.get_or_connect(
-                                type=self.__class__.__name__, obj_id=self.pk)
+                                type=self.model_name, obj_id=self.pk)
         if created:
             self.update_saved_hash()
         return hash_obj.hash.hget()
@@ -487,8 +512,7 @@ class _Issue(models.Model):
             files.append(file)
         return files
 
-
-contribute_to_model(_Issue, core_models.Issue)
+contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
 
 class GroupedItems(list):
@@ -630,7 +654,7 @@ class _Commit(models.Model):
     def all_entry_points(self):
         if not hasattr(self, '_all_entry_points'):
             self._all_entry_points = list(self.commit_comments_entry_points
-                                .annotate(nb_comments=models.Count('comments'))
+                                .annotate(nb_comments=models.Count('comments'))  # cannot exclude wating_deleted for now
                                 .filter(nb_comments__gt=0)
                                 .select_related('user', 'repository__owner')
                                 .prefetch_related('comments__user'))
@@ -674,6 +698,16 @@ class _Commit(models.Model):
             return (self.committer.email or self.committer_email) == self.author_email
         return self.author_email == self.committer_email
 
+    def get_reverse_kwargs_for_issue(self, issue):
+        return dict(
+            issue.get_reverse_kwargs(),
+            commit_sha=self.commit.sha,
+        )
+
+    def get_absolute_url_for_issue(self, issue):
+        from gim.front.repository.issues.views import CommitAjaxIssueView
+        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name,
+                            kwargs=self.get_reverse_kwargs_for_issue(issue))
 
 contribute_to_model(_Commit, core_models.Commit)
 
@@ -692,7 +726,7 @@ class _WaitingSubscription(models.Model):
 contribute_to_model(_WaitingSubscription, subscriptions_models.WaitingSubscription)
 
 
-class _IssueComment(models.Model):
+class _IssueComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -711,19 +745,25 @@ class _IssueComment(models.Model):
             'comment_pk': self.pk,
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue.comment', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentView
+        return self.get_view_url(IssueCommentView.url_name)
 
     def get_edit_url(self):
-        return reverse_lazy('front:repository:issue.comment.edit', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentEditView
+        return self.get_view_url(IssueCommentEditView.url_name)
 
     def get_delete_url(self):
-        return reverse_lazy('front:repository:issue.comment.delete', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import IssueCommentDeleteView
+        return self.get_view_url(IssueCommentDeleteView.url_name)
 
-contribute_to_model(_IssueComment, core_models.IssueComment)
+contribute_to_model(_IssueComment, core_models.IssueComment, {'defaults_create_values'})
 
 
-class _PullRequestComment(models.Model):
+class _PullRequestComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -742,19 +782,25 @@ class _PullRequestComment(models.Model):
             'comment_pk': self.pk,
         }
 
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
     def get_absolute_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentView
+        return self.get_view_url(PullRequestCommentView.url_name)
 
     def get_edit_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment.edit', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentEditView
+        return self.get_view_url(PullRequestCommentEditView.url_name)
 
     def get_delete_url(self):
-        return reverse_lazy('front:repository:issue.pr_comment.delete', kwargs=self.get_reverse_kwargs())
+        from gim.front.repository.issues.views import PullRequestCommentDeleteView
+        return self.get_view_url(PullRequestCommentDeleteView.url_name)
 
-contribute_to_model(_PullRequestComment, core_models.PullRequestComment)
+contribute_to_model(_PullRequestComment, core_models.PullRequestComment, {'defaults_create_values'})
 
 
-class _CommitComment(models.Model):
+class _CommitComment(FrontEditable):
     class Meta:
         abstract = True
 
@@ -762,7 +808,19 @@ class _CommitComment(models.Model):
     def html_content(self):
         return html_content(self)
 
-contribute_to_model(_CommitComment, core_models.CommitComment)
+    def get_reverse_kwargs_for_issue(self, issue):
+        return dict(
+            issue.get_reverse_kwargs(),
+            commit_sha=self.commit.sha,
+            comment_pk=self.pk,
+        )
+
+    def get_absolute_url_for_issue(self, issue):
+        from gim.front.repository.issues.views import CommitCommentView
+        return reverse_lazy('front:repository:%s' % CommitCommentView.url_name,
+                            kwargs=self.get_reverse_kwargs_for_issue(issue))
+
+contribute_to_model(_CommitComment, core_models.CommitComment, {'defaults_create_values'})
 
 
 class Hash(lmodel.RedisModel):
@@ -796,7 +854,7 @@ def hash_check(sender, instance, created, **kwargs):
 
     # get the limpyd instance storing the hash, create it if not exists
     hash_obj, hash_obj_created = Hash.get_or_connect(
-                        type=instance.__class__.__name__, obj_id=instance.pk)
+                        type=instance.model_name, obj_id=instance.pk)
 
     if created:
         hash_changed = True
@@ -819,3 +877,159 @@ def hash_check(sender, instance, created, **kwargs):
         # if not an issue, add a job to update the templates of all related issues
         for issue in instance.get_related_issues():
             UpdateIssueCacheTemplate.add_job(issue.id)
+
+
+PUBLISHABLE = {
+    core_models.IssueComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.PullRequestComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.CommitComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issues',
+             lambda self: self.commit.issues.all().select_related('commit', 'repository__owner'),
+             lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
+             ),
+        ],
+    },
+    # core_models.Commit: {
+    #     'self': False,
+    #     'parents': [
+    #         ('Issue', 'issues',
+    #          lambda self: self.issues.all().select_related('repository__owner'),
+    #          lambda self, issue: {'url': self.get_absolute_url_for_issue(issue)}
+    #          ),
+    #     ],
+    # },
+    # core_models.Issue: {
+    #     'self': True,
+    # },
+    # core_models.Repository: {
+    #     'self': True,
+    # },
+}
+PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
+
+
+def publish_update(instance, message_type):
+    """Publish a message when something happen to an instance."""
+
+    conf = PUBLISHABLE[instance.__class__]
+
+    base_data =  {
+        'model': str(instance.model_name),
+        'id': str(instance.pk),
+    }
+
+    if isinstance(instance, core_models.Repository):
+        repository_id = instance.pk
+    else:
+        repository_id = getattr(instance, 'repository_id', None)
+
+    if getattr(instance, 'front_uuid', None):
+        base_data['front_uuid'] = str(instance.front_uuid)
+
+    try:
+        base_data['url'] = str(instance.get_absolute_url())
+    except Exception:
+        pass
+
+    parents = [
+        (
+            model_name,
+            str(getattr(obj, 'pk', obj)),
+            field_name,
+            dict(base_data, **more_data(instance, obj)) if more_data else base_data
+        )
+        for model_name, field_name, get_objects, more_data
+        in conf.get('parents', [])
+        for obj in get_objects(instance)
+    ]
+
+    to_publish = [
+        (
+            'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s',
+            dict(
+                parent_model=parent_model,
+                parent_id=parent_id,
+                parent_field=parent_field,
+                **parent_data
+            )
+        )
+        for (parent_model, parent_id, parent_field, parent_data)
+        in parents
+    ]
+
+    if conf.get('self'):
+        to_publish += [
+            (
+                'front.model.%(message_type)s.%(model)s.%(id)s',
+                base_data
+            )
+        ]
+
+    for topic, data in to_publish:
+        message_repository_id = repository_id
+        if data.get('parent_model', 'None') == 'Repository' and data['parent_field'] == 'repository':
+            message_repository_id = data['parent_id']
+
+        publisher.publish(
+            topic=topic % dict(message_type=message_type, **data),
+            repository_id=message_repository_id,
+            **data
+        )
+
+
+@receiver(post_save, dispatch_uid="publish_github_updated")
+def publish_github_updated(sender, instance, created, **kwargs):
+    """Publish a message each time a github object is created/updated."""
+
+    # Only for objects we care about
+    if not isinstance(instance, PUBLISHABLE_MODELS):
+        return
+
+    # That we got from github
+    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+        return
+
+    # Ignore some cases
+    update_fields = kwargs.get('update_fields', [])
+    if update_fields:
+
+        # Remove fields that are not real updates
+        update_fields = set([
+            f for f in update_fields
+            if not f.endswith('fetched_at') and not f.endswith('etag')
+        ])
+
+        # If no field left, we're good
+        if not update_fields:
+            return
+
+    print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
+
+    publish_update(instance, 'updated')
+
+
+@receiver(post_delete, dispatch_uid="publish_github_deleted")
+def publish_github_deleted(sender, instance, **kwargs):
+    """Publish a message each time a github object is deleted."""
+
+    # Only for objects we care about
+    if not isinstance(instance, PUBLISHABLE_MODELS):
+        return
+
+    # That we are not currently deleting before creating from github
+    if instance.github_status == instance.GITHUB_STATUS_CHOICES.WAITING_CREATE:
+        return
+
+    publish_update(instance, 'deleted')

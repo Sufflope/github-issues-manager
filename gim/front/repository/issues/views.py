@@ -1008,6 +1008,8 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
     """
     Override SimpleAjaxIssueView to add commit and its comments
     """
+
+    url_name = 'issue.commit'
     ajax_template_name = 'front/repository/issues/code/include_commit_files.html'
 
     issue_related_name = 'commit__issues'
@@ -1423,10 +1425,6 @@ class BaseCommentEditMixin(LinkedToUserFormViewMixin, LinkedToIssueFormViewMixin
         self.job_model.add_job(self.object.pk,
                                mode=self.edit_mode,
                                gh=self.request.user.get_connection())
-
-        messages.success(self.request,
-            u'Your comment on the %s will be %s shortly' % (
-                                self.obj_message_part(), self.verb))
 
         return response
 
