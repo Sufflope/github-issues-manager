@@ -114,7 +114,7 @@ def prepare_zrangebyscore_bounds(first_msg_id, last_msg_id):
 
 
 class HistoryMixin(ModelWithDynamicFieldMixin, lmodel.RedisModel):
-    namespace = 'ws'
+    namespace = 'ws2'  # `2` for protocol version number
     database = get_main_limpyd_database()
     abstract = True
 
@@ -373,7 +373,9 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
 
     def lock_publishing(self, **kwargs):
         if 'sleep' not in kwargs:
-            kwargs['sleep'] = '0.001'
+            kwargs['sleep'] = 0.001
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 10
         return Lock(self.database.connection, self.lock_key, **kwargs)
 
     def publish(self, topic, repository_id=None, *args, **kwargs):
@@ -519,7 +521,9 @@ class AsyncPublisher(AsyncHistoryMixin):
 
     def lock_publishing(self, **kwargs):
         if 'sleep' not in kwargs:
-            kwargs['sleep'] = '0.001'
+            kwargs['sleep'] = 0.001
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 10
         return txLock(self.redis_connection, self.lock_key, **kwargs)
 
     @inlineCallbacks
@@ -711,7 +715,9 @@ class txLock(object):
             if self.timeout:
                 # convert to milliseconds
                 timeout = int(self.timeout * 1000)
-                yield self.redis.pexpire(self.name, timeout)
+                # "pexpire" not supported by txredisapi
+                # yield self.redis.pexpire(self.name, timeout)
+                yield self.redis.execute_command('PEXPIRE', self.name, timeout)
             returnValue(True)
         returnValue(False)
 

@@ -790,7 +790,7 @@ class PublisherTestCase(UsingSyncRedis):
         self.assertIs(result2, result1)
 
     def test_lock_key(self):
-        self.assertEqual(self.publisher.lock_key, 'ws:publisher:%s:lock' % self.sPK)
+        self.assertEqual(self.publisher.lock_key, 'ws2:publisher:%s:lock' % self.sPK)
 
     def test_lock_publishing(self):
         lock = self.publisher.lock_publishing()
@@ -1130,7 +1130,7 @@ class AsyncPublisherTestCase(UsingAsyncRedis):
         self.assertEqual(call_kwargs, kwargs)
 
     def test_lock_key(self):
-        self.assertEqual(self.publisher.lock_key, 'ws:publisher:%s:lock' % self.sPK)
+        self.assertEqual(self.publisher.lock_key, 'ws2:publisher:%s:lock' % self.sPK)
 
     def test_lock_publishing(self):
         lock = self.publisher.lock_publishing()

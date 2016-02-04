@@ -2465,13 +2465,13 @@ $().ready(function() {
                     'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
                     'IssueDetail__on_update_alerts',
                     IssueDetail.on_update_alert,
-                    'prefix'
+                    'exact'
                 );
                 WS.subscribe(
                     'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
                     'IssueDetail__on_delete_alerts',
                     IssueDetail.on_delete_alert,
-                    'prefix'
+                    'exact'
                 );
             }
         }), // subscribe_updates

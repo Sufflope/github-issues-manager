@@ -698,6 +698,17 @@ class _Commit(models.Model):
             return (self.committer.email or self.committer_email) == self.author_email
         return self.author_email == self.committer_email
 
+    def get_reverse_kwargs_for_issue(self, issue):
+        return dict(
+            issue.get_reverse_kwargs(),
+            commit_sha=self.commit.sha,
+        )
+
+    def get_absolute_url_for_issue(self, issue):
+        from gim.front.repository.issues.views import CommitAjaxIssueView
+        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name,
+                            kwargs=self.get_reverse_kwargs_for_issue(issue))
+
 contribute_to_model(_Commit, core_models.Commit)
 
 
@@ -797,6 +808,18 @@ class _CommitComment(FrontEditable):
     def html_content(self):
         return html_content(self)
 
+    def get_reverse_kwargs_for_issue(self, issue):
+        return dict(
+            issue.get_reverse_kwargs(),
+            commit_sha=self.commit.sha,
+            comment_pk=self.pk,
+        )
+
+    def get_absolute_url_for_issue(self, issue):
+        from gim.front.repository.issues.views import CommitCommentView
+        return reverse_lazy('front:repository:%s' % CommitCommentView.url_name,
+                            kwargs=self.get_reverse_kwargs_for_issue(issue))
+
 contribute_to_model(_CommitComment, core_models.CommitComment, {'defaults_create_values'})
 
 
@@ -856,17 +879,61 @@ def hash_check(sender, instance, created, **kwargs):
             UpdateIssueCacheTemplate.add_job(issue.id)
 
 
+PUBLISHABLE = {
+    core_models.IssueComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.PullRequestComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.CommitComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issues',
+             lambda self: self.commit.issues.all().select_related('commit', 'repository__owner'),
+             lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
+             ),
+        ],
+    },
+    # core_models.Commit: {
+    #     'self': False,
+    #     'parents': [
+    #         ('Issue', 'issues',
+    #          lambda self: self.issues.all().select_related('repository__owner'),
+    #          lambda self, issue: {'url': self.get_absolute_url_for_issue(issue)}
+    #          ),
+    #     ],
+    # },
+    # core_models.Issue: {
+    #     'self': True,
+    # },
+    # core_models.Repository: {
+    #     'self': True,
+    # },
+}
+PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
+
+
 def publish_update(instance, message_type):
     """Publish a message when something happen to an instance."""
+
+    conf = PUBLISHABLE[instance.__class__]
 
     base_data =  {
         'model': str(instance.model_name),
         'id': str(instance.pk),
     }
 
-    repository_id = None
     if isinstance(instance, core_models.Repository):
         repository_id = instance.pk
+    else:
+        repository_id = getattr(instance, 'repository_id', None)
 
     if getattr(instance, 'front_uuid', None):
         base_data['front_uuid'] = str(instance.front_uuid)
@@ -877,73 +944,40 @@ def publish_update(instance, message_type):
         pass
 
     parents = [
-        (str(fk.related.parent_model.__name__), str(getattr(instance, fk.attname)), str(fk.name), base_data)
-        for fk in [
-            f for f
-            in instance._meta.fields
-            if isinstance(f, ForeignKey) and getattr(instance, f.attname)
-        ]
+        (
+            model_name,
+            str(getattr(obj, 'pk', obj)),
+            field_name,
+            dict(base_data, **more_data(instance, obj)) if more_data else base_data
+        )
+        for model_name, field_name, get_objects, more_data
+        in conf.get('parents', [])
+        for obj in get_objects(instance)
     ]
 
-    # Special case for commit & commit comment: we also want to ping PRs that hold this commit
-    if isinstance(instance, (core_models.CommitComment, core_models.Commit)):
+    to_publish = [
+        (
+            'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s',
+            dict(
+                parent_model=parent_model,
+                parent_id=parent_id,
+                parent_field=parent_field,
+                **parent_data
+            )
+        )
+        for (parent_model, parent_id, parent_field, parent_data)
+        in parents
+    ]
 
-        commit = instance if isinstance(instance, core_models.Commit) else instance.commit
-
-        from gim.front.repository.issues.views import CommitAjaxIssueView, CommitCommentView
-
-        def get_url(issue):
-            issue_kwargs = issue.get_reverse_kwargs()
-
-            if isinstance(instance, core_models.CommitComment):
-                return reverse(
-                    'front:repository:%s' % CommitCommentView.url_name,
-                     kwargs=dict(issue_kwargs,
-                         commit_sha=commit.sha,
-                         comment_pk=instance.id,
-                     )
-                )
-
-            if isinstance(instance, core_models.Commit):
-                return reverse(
-                    'front:repository:%s' % CommitAjaxIssueView.url_name,
-                     kwargs=dict(issue_kwargs,
-                         commit_sha=commit.sha,
-                     )
-                )
-
-        parents += [
-            (str(core_models.Issue.__name__), str(issue.id), 'issues', dict(base_data, url=get_url(issue)))
-            for issue
-            in commit.issues.all().select_related('repository__owner')
+    if conf.get('self'):
+        to_publish += [
+            (
+                'front.model.%(message_type)s.%(model)s.%(id)s',
+                base_data
+            )
         ]
 
-    if not repository_id:
-        for parent_model, parent_id, parent_field, __ in parents:
-            if parent_model == 'Repository' and parent_field == 'repository':
-                repository_id = parent_id
-                break
-
-    # Publish for the object itself and for each FK
-    for topic, data in [
-                (
-                    'front.model.%(message_type)s.%(model)s.%(id)s',
-                    base_data
-                )
-            ] + [
-                (
-                    'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s.%(model)s.%(id)s',
-                    dict(
-                        parent_model=parent_model,
-                        parent_id=parent_id,
-                        parent_field=parent_field,
-                        **parent_data
-                    )
-                )
-                for (parent_model, parent_id, parent_field, parent_data)
-                in parents
-            ]:
-
+    for topic, data in to_publish:
         message_repository_id = repository_id
         if data.get('parent_model', 'None') == 'Repository' and data['parent_field'] == 'repository':
             message_repository_id = data['parent_id']
@@ -960,10 +994,7 @@ def publish_github_updated(sender, instance, created, **kwargs):
     """Publish a message each time a github object is created/updated."""
 
     # Only for objects we care about
-    if not isinstance(instance, (core_models.IssueComment,
-                                 core_models.PullRequestComment,
-                                 core_models.CommitComment,
-                                 )):
+    if not isinstance(instance, PUBLISHABLE_MODELS):
         return
 
     # That we got from github
@@ -994,10 +1025,7 @@ def publish_github_deleted(sender, instance, **kwargs):
     """Publish a message each time a github object is deleted."""
 
     # Only for objects we care about
-    if not isinstance(instance, (core_models.IssueComment,
-                                 core_models.PullRequestComment,
-                                 core_models.CommitComment,
-                                 )):
+    if not isinstance(instance, PUBLISHABLE_MODELS):
         return
 
     # That we are not currently deleting before creating from github
