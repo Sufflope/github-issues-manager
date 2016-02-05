@@ -343,6 +343,12 @@ CACHES = {
     },
 }
 
+CROSSBAR_REST_HOST = get_env_variable('CROSSBAR_REST_HOST', default='http://127.0.0.1')  # with scheme
+CROSSBAR_REST_PORT = get_env_variable('CROSSBAR_REST_PORT', default='8888')
+CROSSBAR_REST_KEY = str(get_env_variable('CROSSBAR_REST_KEY'))
+CROSSBAR_REST_SECRET = str(get_env_variable('CROSSBAR_REST_SECRET'))
+CROSSBAR_WS_HOST = get_env_variable('CROSSBAR_WS_HOST', default=None)  # without scheme, needed only if != web domain
+
 BRAND_SHORT_NAME = get_env_variable('BRAND_SHORT_NAME', default='G.I.M')
 BRAND_LONG_NAME = get_env_variable('BRAND_LONG_NAME', default='Github Issues Manager')
 

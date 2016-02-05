@@ -89,8 +89,8 @@
                             "realm": "gim",
                             "role": "backend",
                             "options": {
-                                "key": "foo",
-                                "secret": "bar"
+                                "key": "default-key",
+                                "secret": "default-secret"
                             }
                         }
                     }
