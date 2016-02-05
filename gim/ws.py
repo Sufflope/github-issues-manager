@@ -343,7 +343,10 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
 
     @cached_property
     def http_client(self):
-        return Client("http://127.0.0.1:8888/ws-publish", key='foo', secret='bar')
+        return Client("%(host)s:%(port)s/ws-publish" % {
+            'host': settings.CROSSBAR_REST_HOST,
+            'port': settings.CROSSBAR_REST_PORT,
+        }, key=settings.CROSSBAR_REST_KEY, secret=settings.CROSSBAR_REST_SECRET)
 
     def send_message(self, msg_id, topic, repository_id=None, *args, **kwargs):
         try:

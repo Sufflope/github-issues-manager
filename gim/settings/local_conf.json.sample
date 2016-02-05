@@ -4,9 +4,15 @@
     "DEBUG": false,
     "ALLOWED_HOSTS": ["my.doma.in", ],
 
-    "GITHUB_CLIENT_ID": "FILL IT FROM GITHUB",
+    "GITHUB_CLIENT_ID": "FILL IT FROM GITHUB",/
     "GITHUB_CLIENT_SECRET": "FILL IT FROM GITHUB",
     "GITHUB_HOOK_URL": "http://my.doma.in/hooks/github/web/",
+
+    // "CROSSBAR_REST_HOST": "",  # with scheme
+    // "CROSSBAR_REST_PORT": "",
+    "CROSSBAR_REST_KEY": "default-key",
+    "CROSSBAR_REST_SECRET": "default-secret",
+    // "CROSSBAR_WS_HOST": "",  # without scheme, needed only if != web domain
 
     "BRAND_SHORT_NAME": "G.I.M",
     "BRAND_LONG_NAME": "Github Issues Manager",

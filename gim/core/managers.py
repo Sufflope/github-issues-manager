@@ -309,8 +309,10 @@ class GithubObjectManager(BaseManager):
             try:
                 obj.save(**save_params)
             except IntegrityError, e:
-                logger.error('Integrity error [%s] when saving object %s: %s', e, obj.__class__, vars(obj))
-                raise
+                message = 'Integrity error [%s] when saving object %s: %s'
+                args = (e, obj.__class__, vars(obj))
+                logger.error(message, *args)
+                raise IntegrityError(message % args)
 
             return obj, False
 
