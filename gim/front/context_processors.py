@@ -37,7 +37,8 @@ def default_context_data(request):
         'GITHUB_STATUSES': GITHUB_STATUS_CHOICES,
         'auth_keys': auth_keys(request),
         'WS': {
-            'uri': (settings.CROSSBAR_WS_HOST or request.get_host()) + '/ws',
+            'uri': (settings.WS_SUBDOMAIN + '.' if settings.WS_SUBDOMAIN else '') +
+                   request.get_host() + '/ws',
             'last_msg_id': publisher.get_last_msg_id(),
         }
     }

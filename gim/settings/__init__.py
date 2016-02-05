@@ -197,7 +197,9 @@ DEBUG_TOOLBAR_CONFIG = {
 }
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_COOKIE_AGE = 3600 * 24 * 31  # 31 days
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
@@ -283,6 +285,8 @@ if isinstance(ALLOWED_HOSTS, basestring):
     # if got from json, it's already a list, but not from env
     ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 
+SESSION_COOKIE_DOMAIN = get_env_variable('SESSION_COOKIE_DOMAIN', default=None) or None
+
 GITHUB_CLIENT_ID = get_env_variable('GITHUB_CLIENT_ID')
 GITHUB_CLIENT_SECRET = get_env_variable('GITHUB_CLIENT_SECRET')
 
@@ -347,7 +351,7 @@ CROSSBAR_REST_HOST = get_env_variable('CROSSBAR_REST_HOST', default='http://127.
 CROSSBAR_REST_PORT = get_env_variable('CROSSBAR_REST_PORT', default='8888')
 CROSSBAR_REST_KEY = str(get_env_variable('CROSSBAR_REST_KEY'))
 CROSSBAR_REST_SECRET = str(get_env_variable('CROSSBAR_REST_SECRET'))
-CROSSBAR_WS_HOST = get_env_variable('CROSSBAR_WS_HOST', default=None)  # without scheme, needed only if != web domain
+WS_SUBDOMAIN = get_env_variable('WS_SUBDOMAIN', default=None) or None
 
 BRAND_SHORT_NAME = get_env_variable('BRAND_SHORT_NAME', default='G.I.M')
 BRAND_LONG_NAME = get_env_variable('BRAND_LONG_NAME', default='Github Issues Manager')
