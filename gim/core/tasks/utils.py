@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 from operator import attrgetter, itemgetter
 
@@ -64,55 +64,80 @@ def print_queues():
                 print('%30s  %4d  %4d  %4d' % (' ', q['priority'], q['waiting'], q['delayed']))
 
 
-def diff_queues(old_data=None):
-    queues = OrderedDict()
-    for q in Queue.collection().sort(by='name', alpha=True).instances():
+def diff_queues(old_data=None, sort_by='name'):
+    assert sort_by in ('name', 'priority')
+
+    new_queues = {}
+
+    # Get existing queues
+    for order, q in enumerate(Queue.collection().sort(by=sort_by, alpha=(sort_by == 'name')).instances()):
         waiting = q.waiting.llen()
         delayed = q.delayed.zcard()
         if waiting + delayed == 0:
             continue
         name, priority = q.hmget('name', 'priority')
-        queues.setdefault(name, []).append({
-            'priority': int(priority),
+        priority = - int(priority or 0)  # `-` to sort easily
+        new_queues[(name, priority)] = {
+            'name': name,
+            'priority': priority,
+            'order': order,
             'waiting': waiting,
+            'no_waiting': waiting == 0,
+            'old_waiting': 0,
             'delayed': delayed,
-        })
+            'old_delayed': 0,
+        }
 
-    data = {}
-    if not old_data:
-        old_data = {}
 
-    for name in queues:
-        sub_queues = sorted(queues[name], key=itemgetter('priority'), reverse=True)
+    # Add old data
+    queues = new_queues.copy()
+    for key, value in old_data.items() or []:
+        if key in queues:
+            queues[key].update({
+                'old_waiting': value['waiting'],
+                'old_delayed': value['delayed'],
+            })
+            continue
 
-        data[name] = {}
-        old_data.setdefault(name, {})
+        queues[key] = {
+            'name': key[0],
+            'priority': key[1],
+            'order': 9999,
+            'waiting': 0,
+            'no_waiting': True,
+            'old_waiting': value['waiting'],
+            'delayed': 0,
+            'old_delayed': value['delayed'],
+        }
 
-        for p in old_data[name]:
-            data[name][p] = [0, 0]
+    # Final sort ( https://wiki.python.org/moin/HowTo/Sorting#Sort_Stability_and_Complex_Sorts )
+    sorted_queues = queues.values()
+    sort_keys = ('name', 'priority') if sort_by == 'name' else ('no_waiting', 'priority', 'order')
+    for sort_key in sort_keys[::-1]:
+        sorted_queues = sorted(sorted_queues, key=itemgetter(sort_key))
 
-        for q in sub_queues:
-            p = q['priority']
-            data[name][p] = [q['waiting'], q['delayed']]
-            old_data[name].setdefault(p, [0, 0])
+    # Display
+    for queue in sorted_queues:
+        changed = False
+        waiting_output = '%5s' % queue['waiting']
+        if queue['waiting'] != queue['old_waiting']:
+            changed = True
+            waiting_color = 'green' if queue['waiting'] < queue['old_waiting'] else 'red'
+            waiting_output = colorize(waiting_output, fg=waiting_color, opts=['bold'])
+        delayed_output = '%5s' % queue['delayed']
+        if queue['delayed'] != queue['old_delayed']:
+            changed = True
+            delayed_color = 'green' if queue['delayed'] < queue['old_delayed'] else 'red'
+            delayed_output = colorize(delayed_output, fg=delayed_color, opts=['bold'])
 
-            if data[name][p] == old_data[name][p] == [0, 0]:
-                del data[name][p]
-                del old_data[name][p]
-                continue
+        name_output = '%30s' % queue['name']
+        if changed:
+            name_output = colorize(name_output, opts=['bold'])
 
-            waiting_output = '%5s' % q['waiting']
-            if data[name][p][0] != old_data[name][p][0]:
-                waiting_color = 'green' if data[name][p][0] < old_data[name][p][0] else 'red'
-                waiting_output = colorize(waiting_output, fg=waiting_color, opts=['bold'])
-            delayed_output = '%5s' % q['delayed']
-            if data[name][p][1] != old_data[name][p][1]:
-                delayed_color = 'green' if data[name][p][1] < old_data[name][p][1] else 'red'
-                delayed_output = colorize(delayed_output, fg=delayed_color, opts=['bold'])
+        print('%s  %4d  %s  %s' % (name_output, -queue['priority'], waiting_output, delayed_output))
 
-            print('%30s  %4d  %s  %s' % (name, p, waiting_output, delayed_output))
-
-    return data
+    # Return only new queues, not old ones without items
+    return new_queues
 
 
 def delete_empty_queues(dry_run=False, max_priority=0):
