@@ -309,11 +309,19 @@ class GithubObjectManager(BaseManager):
             try:
                 obj.save(**save_params)
             except IntegrityError, e:
-                # If it's because of a user, manage it
-                from .models import GithubUser
+
+                # If it's because of a user or repository, manage it
+                from .models import GithubUser, Repository
+
                 if isinstance(obj, GithubUser):
                     from .tasks.githubuser import ManageDualUser
                     ManageDualUser.add_job(obj.username, new_github_id=obj.github_id)
+                if isinstance(obj, Repository):
+                    from .tasks.repository import ManageDualRepository
+                    ManageDualRepository.add_job(
+                        '%s/%s' % (obj.owner_id, obj.name),
+                        new_github_id=obj.github_id
+                    )
 
                 # Log and raise the error, with useful data
                 message = 'Integrity error [%s] when saving object %s: %s'
