@@ -192,7 +192,7 @@ class Job(LimpydJob):
         else:
 
             # if we have a repository, get one following permission
-            repository = getattr(self, 'repository')
+            repository = getattr(self, 'repository', None)
             if repository:
                 if repository.private and permission not in ('admin', 'push', 'pull'):
                     # force correct permission if repository is private

@@ -215,7 +215,7 @@ def requeue_job(job, priority=0):
     job.queue.enqueue_job(job)
 
 
-def update_user_related_stuff(username, gh=None, dry_run=False):
+def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
     """
     Fetch for update all stuff related to the user.
     Needed before deleting a user which was deleted on the Github side.
@@ -223,11 +223,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
     if not dry_run and not gh:
         raise Exception('If dry_run set to False, you must pass gh')
 
-    u = GithubUser.objects.get(username=username)
+    user = user or GithubUser.objects.get(username=username)
 
     issues_fetched = set()
+    rest = defaultdict(int)
 
-    repositories = u.owned_repositories.all()
+    repositories = user.owned_repositories.all()
     if len(repositories):
         print('Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
         if not dry_run:
@@ -236,11 +237,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     r.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
                     print('Failure while updating repository %s: %s' % (r.id, e))
-            repositories = u.owned_repositories.all()
+            repositories = user.owned_repositories.all()
             if len(repositories):
+                rest['Repository'] += len(repositories)
                 print('STILL Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
 
-    milestones = u.milestones.all()
+    milestones = user.milestones.all()
     if len(milestones):
         print('Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
         if not dry_run:
@@ -249,12 +251,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     m.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
                     print('Failure while updating milestone %s: %s' % (m.id, e))
-            milestones = u.milestones.all()
+            milestones = user.milestones.all()
             if len(milestones):
+                rest['Milestone'] += len(milestones)
                 print('STILL Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
 
     for field, name in [('commits_authored', 'Authored'), ('commits_commited', 'Commited')]:
-        commits = getattr(u, field).all()
+        commits = getattr(user, field).all()
         if len(commits):
             print('%s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
             if not dry_run:
@@ -263,12 +266,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                         c.fetch(gh=gh, force_fetch=True)
                     except Exception as e:
                         print('Failure while updating commit %s: %s' % (c.id, e))
-                commits = getattr(u, field).all()
+                commits = getattr(user, field).all()
                 if len(commits):
+                    rest['Commit'] += len(commits)
                     print('STILL %s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
 
     for field, name in [('created_issues', 'Created'), ('assigned_issues', 'Assigned'), ('closed_issues', 'Closed'), ('merged_prs', 'Merged')]:
-        issues = getattr(u, field).all()
+        issues = getattr(user, field).all()
         if len(issues):
             print('%s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
             if not dry_run:
@@ -280,12 +284,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     except Exception as e:
                         print('Failure while updating issue %s: %s' % (i.id, e))
                     issues_fetched.add(i.id)
-                issues = getattr(u, field).all()
+                issues = getattr(user, field).all()
                 if len(issues):
+                    rest['Issue'] += len(issues)
                     print('STILL %s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
 
     for field, name in [('issue_comments', 'Simple'), ('pr_comments', 'Code')]:
-        comments = getattr(u, field).all()
+        comments = getattr(user, field).all()
         if len(comments):
             print('%s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
             if not dry_run:
@@ -297,11 +302,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     except Exception as e:
                         print('Failure while updating issue %s for comment %s: %s' % (c.issue.id, c.id, e))
                     issues_fetched.add(c.issue_id)
-                comments = getattr(u, field).all()
+                comments = getattr(user, field).all()
                 if len(comments):
+                    rest[comments[0].model_name] += len(comments)
                     print('STILL %s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
 
-    entry_points = u.pr_comments_entry_points.all()
+    entry_points = user.pr_comments_entry_points.all()
     if len(entry_points):
         print('Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
         if not dry_run:
@@ -310,11 +316,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     ep.update_starting_point()
                 except Exception as e:
                     print('Failure while updating entry-point %s: %s' % (ep.id, e))
-            entry_points = u.pr_comments_entry_points.all()
+            entry_points = user.pr_comments_entry_points.all()
             if len(entry_points):
+                rest['PullRequestCommentEntryPoint'] += len(entry_points)
                 print('STILL Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
 
-    events = u.issues_events.all()
+    events = user.issues_events.all()
     if len(events):
         print('Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
         if not dry_run:
@@ -326,9 +333,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                 except Exception as e:
                     print('Failure while updating issue %s for event %s: %s' % (ev.issue.id, ev.id, e))
                 issues_fetched.add(ev.issue_id)
-            events = u.issues_events.all()
+            events = user.issues_events.all()
             if len(events):
+                rest['Event'] += len(events)
                 print('STILL Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
+
+    return rest
 
 
 def requeue_all_repositories():
