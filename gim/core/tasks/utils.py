@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from datetime import datetime
 from operator import attrgetter, itemgetter
 
@@ -64,55 +64,80 @@ def print_queues():
                 print('%30s  %4d  %4d  %4d' % (' ', q['priority'], q['waiting'], q['delayed']))
 
 
-def diff_queues(old_data=None):
-    queues = OrderedDict()
-    for q in Queue.collection().sort(by='name', alpha=True).instances():
+def diff_queues(old_data=None, sort_by='name'):
+    assert sort_by in ('name', 'priority')
+
+    new_queues = {}
+
+    # Get existing queues
+    for order, q in enumerate(Queue.collection().sort(by=sort_by, alpha=(sort_by == 'name')).instances()):
         waiting = q.waiting.llen()
         delayed = q.delayed.zcard()
         if waiting + delayed == 0:
             continue
         name, priority = q.hmget('name', 'priority')
-        queues.setdefault(name, []).append({
-            'priority': int(priority),
+        priority = - int(priority or 0)  # `-` to sort easily
+        new_queues[(name, priority)] = {
+            'name': name,
+            'priority': priority,
+            'order': order,
             'waiting': waiting,
+            'no_waiting': waiting == 0,
+            'old_waiting': 0,
             'delayed': delayed,
-        })
+            'old_delayed': 0,
+        }
 
-    data = {}
-    if not old_data:
-        old_data = {}
 
-    for name in queues:
-        sub_queues = sorted(queues[name], key=itemgetter('priority'), reverse=True)
+    # Add old data
+    queues = new_queues.copy()
+    for key, value in old_data.items() or []:
+        if key in queues:
+            queues[key].update({
+                'old_waiting': value['waiting'],
+                'old_delayed': value['delayed'],
+            })
+            continue
 
-        data[name] = {}
-        old_data.setdefault(name, {})
+        queues[key] = {
+            'name': key[0],
+            'priority': key[1],
+            'order': 9999,
+            'waiting': 0,
+            'no_waiting': True,
+            'old_waiting': value['waiting'],
+            'delayed': 0,
+            'old_delayed': value['delayed'],
+        }
 
-        for p in old_data[name]:
-            data[name][p] = [0, 0]
+    # Final sort ( https://wiki.python.org/moin/HowTo/Sorting#Sort_Stability_and_Complex_Sorts )
+    sorted_queues = queues.values()
+    sort_keys = ('name', 'priority') if sort_by == 'name' else ('no_waiting', 'priority', 'order')
+    for sort_key in sort_keys[::-1]:
+        sorted_queues = sorted(sorted_queues, key=itemgetter(sort_key))
 
-        for q in sub_queues:
-            p = q['priority']
-            data[name][p] = [q['waiting'], q['delayed']]
-            old_data[name].setdefault(p, [0, 0])
+    # Display
+    for queue in sorted_queues:
+        changed = False
+        waiting_output = '%5s' % queue['waiting']
+        if queue['waiting'] != queue['old_waiting']:
+            changed = True
+            waiting_color = 'green' if queue['waiting'] < queue['old_waiting'] else 'red'
+            waiting_output = colorize(waiting_output, fg=waiting_color, opts=['bold'])
+        delayed_output = '%5s' % queue['delayed']
+        if queue['delayed'] != queue['old_delayed']:
+            changed = True
+            delayed_color = 'green' if queue['delayed'] < queue['old_delayed'] else 'red'
+            delayed_output = colorize(delayed_output, fg=delayed_color, opts=['bold'])
 
-            if data[name][p] == old_data[name][p] == [0, 0]:
-                del data[name][p]
-                del old_data[name][p]
-                continue
+        name_output = '%30s' % queue['name']
+        if changed:
+            name_output = colorize(name_output, opts=['bold'])
 
-            waiting_output = '%5s' % q['waiting']
-            if data[name][p][0] != old_data[name][p][0]:
-                waiting_color = 'green' if data[name][p][0] < old_data[name][p][0] else 'red'
-                waiting_output = colorize(waiting_output, fg=waiting_color, opts=['bold'])
-            delayed_output = '%5s' % q['delayed']
-            if data[name][p][1] != old_data[name][p][1]:
-                delayed_color = 'green' if data[name][p][1] < old_data[name][p][1] else 'red'
-                delayed_output = colorize(delayed_output, fg=delayed_color, opts=['bold'])
+        print('%s  %4d  %s  %s' % (name_output, -queue['priority'], waiting_output, delayed_output))
 
-            print('%30s  %4d  %s  %s' % (name, p, waiting_output, delayed_output))
-
-    return data
+    # Return only new queues, not old ones without items
+    return new_queues
 
 
 def delete_empty_queues(dry_run=False, max_priority=0):
@@ -190,7 +215,7 @@ def requeue_job(job, priority=0):
     job.queue.enqueue_job(job)
 
 
-def update_user_related_stuff(username, gh=None, dry_run=False):
+def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
     """
     Fetch for update all stuff related to the user.
     Needed before deleting a user which was deleted on the Github side.
@@ -198,11 +223,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
     if not dry_run and not gh:
         raise Exception('If dry_run set to False, you must pass gh')
 
-    u = GithubUser.objects.get(username=username)
+    user = user or GithubUser.objects.get(username=username)
 
     issues_fetched = set()
+    rest = defaultdict(int)
 
-    repositories = u.owned_repositories.all()
+    repositories = user.owned_repositories.all()
     if len(repositories):
         print('Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
         if not dry_run:
@@ -211,11 +237,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     r.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
                     print('Failure while updating repository %s: %s' % (r.id, e))
-            repositories = u.owned_repositories.all()
+            repositories = user.owned_repositories.all()
             if len(repositories):
+                rest['Repository'] += len(repositories)
                 print('STILL Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
 
-    milestones = u.milestones.all()
+    milestones = user.milestones.all()
     if len(milestones):
         print('Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
         if not dry_run:
@@ -224,12 +251,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     m.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
                     print('Failure while updating milestone %s: %s' % (m.id, e))
-            milestones = u.milestones.all()
+            milestones = user.milestones.all()
             if len(milestones):
+                rest['Milestone'] += len(milestones)
                 print('STILL Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
 
     for field, name in [('commits_authored', 'Authored'), ('commits_commited', 'Commited')]:
-        commits = getattr(u, field).all()
+        commits = getattr(user, field).all()
         if len(commits):
             print('%s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
             if not dry_run:
@@ -238,12 +266,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                         c.fetch(gh=gh, force_fetch=True)
                     except Exception as e:
                         print('Failure while updating commit %s: %s' % (c.id, e))
-                commits = getattr(u, field).all()
+                commits = getattr(user, field).all()
                 if len(commits):
+                    rest['Commit'] += len(commits)
                     print('STILL %s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
 
     for field, name in [('created_issues', 'Created'), ('assigned_issues', 'Assigned'), ('closed_issues', 'Closed'), ('merged_prs', 'Merged')]:
-        issues = getattr(u, field).all()
+        issues = getattr(user, field).all()
         if len(issues):
             print('%s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
             if not dry_run:
@@ -255,12 +284,13 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     except Exception as e:
                         print('Failure while updating issue %s: %s' % (i.id, e))
                     issues_fetched.add(i.id)
-                issues = getattr(u, field).all()
+                issues = getattr(user, field).all()
                 if len(issues):
+                    rest['Issue'] += len(issues)
                     print('STILL %s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
 
     for field, name in [('issue_comments', 'Simple'), ('pr_comments', 'Code')]:
-        comments = getattr(u, field).all()
+        comments = getattr(user, field).all()
         if len(comments):
             print('%s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
             if not dry_run:
@@ -272,11 +302,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     except Exception as e:
                         print('Failure while updating issue %s for comment %s: %s' % (c.issue.id, c.id, e))
                     issues_fetched.add(c.issue_id)
-                comments = getattr(u, field).all()
+                comments = getattr(user, field).all()
                 if len(comments):
+                    rest[comments[0].model_name] += len(comments)
                     print('STILL %s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
 
-    entry_points = u.pr_comments_entry_points.all()
+    entry_points = user.pr_comments_entry_points.all()
     if len(entry_points):
         print('Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
         if not dry_run:
@@ -285,11 +316,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                     ep.update_starting_point()
                 except Exception as e:
                     print('Failure while updating entry-point %s: %s' % (ep.id, e))
-            entry_points = u.pr_comments_entry_points.all()
+            entry_points = user.pr_comments_entry_points.all()
             if len(entry_points):
+                rest['PullRequestCommentEntryPoint'] += len(entry_points)
                 print('STILL Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
 
-    events = u.issues_events.all()
+    events = user.issues_events.all()
     if len(events):
         print('Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
         if not dry_run:
@@ -301,9 +333,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False):
                 except Exception as e:
                     print('Failure while updating issue %s for event %s: %s' % (ev.issue.id, ev.id, e))
                 issues_fetched.add(ev.issue_id)
-            events = u.issues_events.all()
+            events = user.issues_events.all()
             if len(events):
+                rest['Event'] += len(events)
                 print('STILL Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
+
+    return rest
 
 
 def requeue_all_repositories():

@@ -2,12 +2,22 @@ __all__ = [
     'FetchAvailableRepositoriesJob',
 ]
 
-from limpyd import fields
+import sys
+
+try:
+    from cStringIO import StringIO
+except:
+    from StringIO import StringIO
+
 from async_messages import messages
+from limpyd import fields
 
+from gim.core.managers import MODE_UPDATE
 from gim.core.models import GithubUser
+from gim.github import ApiNotFoundError
 
-from .base import DjangoModelJob
+from .base import DjangoModelJob, Job
+from .utils import update_user_related_stuff
 
 
 class UserJob(DjangoModelJob):
@@ -75,3 +85,84 @@ class FetchAvailableRepositoriesJob(UserJob):
         Make a new fetch later
         """
         self.clone(delayed_for=60*60*3)  # once per 3h
+
+
+class ManageDualUser(Job):
+    """
+    Job that tries to resolve a new github user that cannot be inserted because one with the same
+    username but a different github_id already exist.
+    """
+
+    queue_name = 'manage-dual-user'
+
+    new_github_id = fields.InstanceHashField()
+    resolution = fields.InstanceHashField()
+    update_related_output = fields.InstanceHashField()
+
+    clonable_fields = ('gh', 'new_github_id')
+
+    def run(self, queue):
+        """
+        Will return `False` if nothing had to be done, `True`.
+        Will raise if we cannot be sure at the end that the problem was solved.
+        """
+
+        super(ManageDualUser, self).run(queue)
+
+        username, new_github_id = self.hmget('identifier', 'new_github_id')
+        new_github_id = int(new_github_id)
+
+        try:
+            user = GithubUser.objects.exclude(github_id=new_github_id).get(username=username)
+        except GithubUser.DoesNotExist:
+            # Something already corrected the problem
+            self.resolution.hset('Problem already managed')
+            return False
+
+        # Toekn to fetch the user and get the related data
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        # Start by fetching the existing user, maybe he just changed its name
+        try:
+
+            GithubUser.objects.get_from_github(
+                gh=gh,
+                identifiers=('user', user.github_id),  # Check by id, not username
+                modes=MODE_UPDATE,
+                force_update=True,
+            )
+
+        except ApiNotFoundError:
+            # Ok the user was deleted, we have to update all related objects
+
+            old_stdout = sys.stdout
+            try:
+                new_stdout = StringIO()
+                sys.stdout = new_stdout
+                rest = update_user_related_stuff(username, gh, user=user)
+            finally:
+                sys.stdout = old_stdout
+
+            self.update_related_output.hset(new_stdout.getvalue())
+
+            if rest:
+                # Some data are still tied to the user: we have a problem
+                raise Exception('There is still some data tied to the user')
+
+            # Ok we're good, we can delete the user
+            user.delete()
+            self.resolution.hset('User deleted')
+            return True
+
+        else:
+            # Check that the username has changed
+            user = GithubUser.objects.get(pk=user.pk)
+
+            # If the username is the same, it will raise and the job will be postponed
+            assert user.username != username, 'Username is still the same'
+
+            # We're ok
+            self.resolution.hset('User has a new username: %s' % user.username)
+            return True

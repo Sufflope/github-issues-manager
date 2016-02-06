@@ -9,9 +9,9 @@ from django.contrib.auth.models import UserManager
 
 from .ghpool import Connection, ApiError
 
-MODE_CREATE = set(('create', ))
-MODE_UPDATE = set(('update', ))
-MODE_ALL = set(('create', 'update'))
+MODE_CREATE = {'create'}
+MODE_UPDATE = {'update'}
+MODE_ALL = MODE_CREATE | MODE_UPDATE
 
 
 logger = logging.getLogger('django')
@@ -309,8 +309,27 @@ class GithubObjectManager(BaseManager):
             try:
                 obj.save(**save_params)
             except IntegrityError, e:
+
+                # If it's because of a user or repository, manage it
+                from .models import GithubUser, Repository
+
+                if isinstance(obj, GithubUser):
+                    from .tasks.githubuser import ManageDualUser
+                    ManageDualUser.add_job(obj.username, new_github_id=obj.github_id)
+                if isinstance(obj, Repository):
+                    from .tasks.repository import ManageDualRepository
+                    ManageDualRepository.add_job(
+                        '%s/%s' % (obj.owner_id, obj.name),
+                        new_github_id=obj.github_id
+                    )
+
+                # Log and raise the error, with useful data
                 message = 'Integrity error [%s] when saving object %s: %s'
-                args = (e, obj.__class__, vars(obj))
+                vars_obj = {
+                    k: v for k, v in vars(obj).items()
+                    if k != '_state' and not (k.startswith('_') and k.endswith('_cache'))
+                }
+                args = (e, obj.model_name, vars_obj)
                 logger.error(message, *args)
                 raise IntegrityError(message % args)
 

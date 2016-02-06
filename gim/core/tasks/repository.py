@@ -15,7 +15,9 @@ from random import randint
 from limpyd import fields
 from async_messages import messages
 
+from gim.core.managers import MODE_UPDATE
 from gim.core.models import Repository, GithubUser
+from gim.github import ApiNotFoundError
 from gim.subscriptions.models import WaitingSubscription, WAITING_SUBSCRIPTION_STATES
 
 from .base import DjangoModelJob, Job
@@ -444,3 +446,76 @@ class FetchForUpdate(RepositoryJob):
         """
         FetchCollaborators.add_job(self.object.id)
         self.clone(delayed_for=60 * 13 + randint(0, 60 * 4))
+
+
+class ManageDualRepository(Job):
+    """
+    Job that tries to resolve a new github repository that cannot be inserted because one with the
+    same username+name but a different github_id already exist.
+    """
+
+    queue_name = 'manage-dual-repo'
+    permission = 'read'
+
+    new_github_id = fields.InstanceHashField()
+    resolution = fields.InstanceHashField()
+    update_related_output = fields.InstanceHashField()
+
+    clonable_fields = ('gh', 'new_github_id')
+
+    def run(self, queue):
+        """
+        Will return `False` if nothing had to be done, `True`.
+        Will raise if we cannot be sure at the end that the problem was solved.
+        """
+
+        super(ManageDualRepository, self).run(queue)
+
+        repository_name, new_github_id = self.hmget('identifier', 'new_github_id')
+        new_github_id = int(new_github_id)
+
+        # Get the different parts of the identifier
+        owner_id, repo_name = repository_name.split('/')
+        owner_id = int(owner_id)
+
+        try:
+            self.repository = Repository.objects.exclude(github_id=new_github_id).get(
+                owner_id=owner_id, name=repo_name)
+        except Repository.DoesNotExist:
+            # Something already corrected the problem
+            self.resolution.hset('Problem already managed')
+            return False
+
+        # Token to fetch the repository
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        # Start by fetching the existing repository, maybe someone just changed its owner/name
+        try:
+
+            Repository.objects.get_from_github(
+                gh=gh,
+                identifiers=('repositories', self.repository.github_id),  # Check by id, not owner+name
+                modes=MODE_UPDATE,
+                force_update=True,
+            )
+
+        except ApiNotFoundError:
+            # Ok the repository was deleted, we can delete it
+            self.repository.delete()
+            self.resolution.hset('Repository deleted')
+            return True
+
+        else:
+            # Check that the owner/name has changed
+            self.repository = Repository.objects.get(pk=self.repository.pk)
+
+            # If the username is the same, it will raise and the job will be postponed
+            assert (self.repository.owner_id, self.repository.name) != (owner_id, repo_name),\
+                'Owner+name is still the same'
+
+            # We're ok
+            self.resolution.hset('Repository has a new owner+name: %s/%s' % (
+                self.repository.owner_id, self.repository.name))
+            return True
