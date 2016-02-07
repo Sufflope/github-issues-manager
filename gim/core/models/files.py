@@ -28,7 +28,7 @@ class FileMixin(models.Model):
     nb_additions = models.PositiveIntegerField(blank=True, null=True)
     nb_deletions = models.PositiveIntegerField(blank=True, null=True)
     patch = models.TextField(blank=True, null=True)
-    sha = models.CharField(max_length=40, blank=True, null=True)
+    sha = models.CharField(max_length=40, blank=True, null=True, db_index=True)
 
     github_matching = dict(GithubObject.github_matching)
     github_matching.update({
@@ -44,7 +44,7 @@ class FileMixin(models.Model):
 class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):
     repository = models.ForeignKey('Repository', related_name='pr_files')
     issue = models.ForeignKey('Issue', related_name='files')
-    tree = models.CharField(max_length=40, blank=True, null=True)
+    tree = models.CharField(max_length=40, blank=True, null=True, db_index=True)
 
     objects = PullRequestFileManager()
     github_ignore = GithubObjectWithId.github_ignore + ('nb_additions', 'nb_deletions',

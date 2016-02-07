@@ -1031,12 +1031,11 @@ class WithCommitManager(WithRepositoryManager):
         if not fields:
             return None
 
-        repository = fields['fk'].get('repository')
-
         # add the commit if needed
         if not fields['fk'].get('commit'):
             if sha:
                 try:
+                    repository = fields['fk'].get('repository')
                     commit = repository.commits.get(sha=sha)
                 except Commit.DoesNotExist:
                     pass

@@ -199,9 +199,9 @@ class IssueComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
 
 
 class CommentEntryPointMixin(GithubObject):
-    commit_sha = models.CharField(max_length=40, blank=True, null=True)
-    position = models.PositiveIntegerField(blank=True, null=True)
-    path = models.TextField(blank=True, null=True)
+    commit_sha = models.CharField(max_length=40, blank=True, null=True, db_index=True)
+    position = models.PositiveIntegerField(blank=True, null=True, db_index=True)
+    path = models.TextField(blank=True, null=True, db_index=True)
     diff_hunk = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(db_index=True, blank=True, null=True)
     updated_at = models.DateTimeField(db_index=True, blank=True, null=True)
@@ -234,8 +234,8 @@ class PullRequestCommentEntryPoint(CommentEntryPointMixin):
     issue = models.ForeignKey('Issue', related_name='pr_comments_entry_points')
     user = models.ForeignKey('GithubUser', related_name='pr_comments_entry_points', blank=True, null=True)
 
-    original_commit_sha = models.CharField(max_length=40, blank=True, null=True)
-    original_position = models.PositiveIntegerField(blank=True, null=True)
+    original_commit_sha = models.CharField(max_length=40, blank=True, null=True, db_index=True)
+    original_position = models.PositiveIntegerField(blank=True, null=True, db_index=True)
 
     objects = PullRequestCommentEntryPointManager()
 

@@ -617,7 +617,7 @@ class LabelType(models.Model):
 
 class Label(WithRepositoryMixin, GithubObject):
     repository = models.ForeignKey('Repository', related_name='labels')
-    name = models.TextField()
+    name = models.TextField(db_index=True)
     lower_name = models.TextField(db_index=True)
     color = models.CharField(max_length=6)
     api_url = models.TextField(blank=True, null=True)
