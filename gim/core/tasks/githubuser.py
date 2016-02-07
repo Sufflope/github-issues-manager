@@ -137,6 +137,10 @@ class ManageDualUser(Job):
         except ApiNotFoundError:
             # Ok the user was deleted, we have to update all related objects
 
+            # But you start by changing it's username
+            user.username = ('to-delete--%s--%s' % (user.github_id, user.username))[:255]
+            user.save(update_fields=['username'])
+
             old_stdout = sys.stdout
             try:
                 new_stdout = StringIO()
