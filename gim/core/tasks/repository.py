@@ -11,6 +11,7 @@ __all__ = [
 from datetime import timedelta
 from dateutil.parser import parse
 from random import randint
+from threading import local
 
 from limpyd import fields
 from limpyd_jobs import STATUSES
@@ -22,6 +23,8 @@ from gim.github import ApiNotFoundError
 from gim.subscriptions.models import WaitingSubscription, WAITING_SUBSCRIPTION_STATES
 
 from .base import DjangoModelJob, Job
+
+thread_data = local()
 
 
 class RepositoryJob(DjangoModelJob):
@@ -287,7 +290,12 @@ class FirstFetch(Job):
 
         # fetch the repository if never fetched
         if not repository.first_fetch_done:
-            repository.fetch_all(gh=self.gh, force_fetch=True, two_steps=True)
+            # We don't publish things (comments...) when we first create a repository
+            thread_data.skip_publish = True
+            try:
+                repository.fetch_all(gh=self.gh, force_fetch=True, two_steps=True)
+            finally:
+                thread_data.skip_publish = False
             FetchCollaborators.add_job(repository.id)
 
         # and convert waiting subscriptions to real ones
@@ -372,9 +380,14 @@ class FirstFetchStep2(RepositoryJob):
         except:
             self._to_ignore = None
 
-        counts = self.repository.fetch_all_step2(gh=gh, force_fetch=True,
-                        start_page=self._start_page, max_pages=self._max_pages,
-                        to_ignore=self._to_ignore, issues_state='closed')
+        # We don't publish things (comments...) when we first create a repository
+        thread_data.skip_publish = True
+        try:
+            counts = self.repository.fetch_all_step2(gh=gh, force_fetch=True,
+                            start_page=self._start_page, max_pages=self._max_pages,
+                            to_ignore=self._to_ignore, issues_state='closed')
+        finally:
+            thread_data.skip_publish = False
 
         return counts
 
