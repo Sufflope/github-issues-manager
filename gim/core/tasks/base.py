@@ -1,6 +1,8 @@
-from threading import local
-
 import json
+
+from ssl import SSLError
+from threading import local
+from urllib2 import URLError
 
 from django.conf import settings
 from django.db import DatabaseError
@@ -106,6 +108,19 @@ class Worker(LimpydWorker):
             self.end_forced = True
 
         return fields
+
+    def execute(self, job, queue):
+        """Delay job when github is not reachable."""
+        try:
+            job_result = super(Worker, self).execute(job, queue)
+        except (URLError, SSLError):
+            # we'll try again in 15 seconds without changing the priority
+            job.status.hset(STATUSES.DELAYED)
+            job.delayed_until.hset(compute_delayed_until(delayed_for=15))
+            job.tries.hincrby(1)
+            return None
+
+        return job_result
 
 
 class JobMetaClass(MetaRedisModel):
