@@ -88,7 +88,6 @@ def diff_queues(old_data=None, sort_by='name'):
             'old_delayed': 0,
         }
 
-
     # Add old data
     queues = new_queues.copy()
     for key, value in old_data.items() or []:

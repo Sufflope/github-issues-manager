@@ -43,7 +43,12 @@ class SearchReferenceCommitForEvent(EventJob):
     def run(self, queue):
         super(SearchReferenceCommitForEvent, self).run(queue)
 
-        event = self.event
+        try:
+            event = self.event
+        except IssueEvent.DoesNotExist:
+            # The event doesn't exist anymore, we can cancel the job
+            self.status.hset(STATUSES.CANCELED)
+            return None
 
         try:
             # try to find the matching commit

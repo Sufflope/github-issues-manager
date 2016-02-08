@@ -11,8 +11,10 @@ __all__ = [
 from datetime import timedelta
 from dateutil.parser import parse
 from random import randint
+from threading import local
 
 from limpyd import fields
+from limpyd_jobs import STATUSES
 from async_messages import messages
 
 from gim.core.managers import MODE_UPDATE
@@ -21,6 +23,8 @@ from gim.github import ApiNotFoundError
 from gim.subscriptions.models import WaitingSubscription, WAITING_SUBSCRIPTION_STATES
 
 from .base import DjangoModelJob, Job
+
+thread_data = local()
 
 
 class RepositoryJob(DjangoModelJob):
@@ -33,8 +37,14 @@ class RepositoryJob(DjangoModelJob):
     @property
     def repository(self):
         if not hasattr(self, '_repository'):
-            self._repository = self.object
+            try:
+                self._repository = self.object
+            except Repository.DoesNotExist:
+                # We can cancel the job if the repository does not exist anymore
+                self.hmset(status=STATUSES.CANCELED, cancel_on_error=1)
+                raise
         return self._repository
+
 
 
 class FetchClosedIssuesWithNoClosedBy(RepositoryJob):
@@ -280,7 +290,12 @@ class FirstFetch(Job):
 
         # fetch the repository if never fetched
         if not repository.first_fetch_done:
-            repository.fetch_all(gh=self.gh, force_fetch=True, two_steps=True)
+            # We don't publish things (comments...) when we first create a repository
+            thread_data.skip_publish = True
+            try:
+                repository.fetch_all(gh=self.gh, force_fetch=True, two_steps=True)
+            finally:
+                thread_data.skip_publish = False
             FetchCollaborators.add_job(repository.id)
 
         # and convert waiting subscriptions to real ones
@@ -365,9 +380,14 @@ class FirstFetchStep2(RepositoryJob):
         except:
             self._to_ignore = None
 
-        counts = self.repository.fetch_all_step2(gh=gh, force_fetch=True,
-                        start_page=self._start_page, max_pages=self._max_pages,
-                        to_ignore=self._to_ignore, issues_state='closed')
+        # We don't publish things (comments...) when we first create a repository
+        thread_data.skip_publish = True
+        try:
+            counts = self.repository.fetch_all_step2(gh=gh, force_fetch=True,
+                            start_page=self._start_page, max_pages=self._max_pages,
+                            to_ignore=self._to_ignore, issues_state='closed')
+        finally:
+            thread_data.skip_publish = False
 
         return counts
 

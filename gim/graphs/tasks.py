@@ -10,5 +10,5 @@ class UpdateGraphsData(RepositoryJob):
 
     def run(self, queue):
         from .limpyd_models import GraphData
-        graph, _ = GraphData.get_or_connect(repository_id=self.identifier.hget())
+        graph, _ = GraphData.get_or_connect(repository_id=self.repository.pk)
         graph.reset_issues_and_prs_by_day()

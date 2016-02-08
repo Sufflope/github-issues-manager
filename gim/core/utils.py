@@ -4,7 +4,7 @@ from functools import wraps
 from django.db import models
 
 
-def contribute_to_model(contrib, destination, to_backup=None):
+def contribute_to_model(contrib, destination, to_backup=None, force_from_base_model=None):
     """
     Update ``contrib`` model based on ``destination``.
 
@@ -67,7 +67,8 @@ def contribute_to_model(contrib, destination, to_backup=None):
             except AttributeError:
                 pass
 
-    attrs =  set(dir(contrib)) - set(dir(models.Model) + ['Meta', '_meta'])
+    attrs =  set(dir(contrib)) - (set(dir(models.Model) + ['Meta', '_meta']) -
+                                  set(force_from_base_model or []))
     mro = [klass for klass in contrib.mro() if klass not in models.Model.mro()]
     for attr in attrs:
         # If attributes are defined on a parent class, we cannot use getattr to get it, because

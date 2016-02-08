@@ -7,6 +7,7 @@ import unittest
 import txredisapi as txredis
 
 from django.conf import settings
+from limpyd.exceptions import DoesNotExist
 from mock import call, patch
 from redis.lock import Lock
 from twisted.internet.defer import inlineCallbacks
@@ -460,6 +461,26 @@ class RepositoryHistoryTestCase(UsingSyncRedis):
         result = entry.get_messages(0.5, 1)
         self.assertEqual(result, [])
 
+    def test_get_all_message_ids(self):
+
+        entry = ws.RepositoryHistory(pk=666)
+
+        result = entry.get_all_message_ids()
+        self.assertEqual(result, [])
+
+        messages_foo = entry.messages.get_for('foo')
+        messages_bar = entry.messages.get_for('bar.xxx')
+        messages_baz = entry.messages.get_for('baz.yyy.baz')
+
+        messages_foo.zadd(2, json.dumps({'foo': 'msg-2'}))
+        messages_bar.zadd(3, json.dumps({'bar': 'msg-3'}))
+        messages_foo.zadd(4, json.dumps({'foo': 'msg-4'}))
+        messages_foo.zadd(5, json.dumps({'foo': 'msg-5'}))
+        messages_baz.zadd(6, json.dumps({'baz': 'msg-6'}))
+
+        result = entry.get_all_message_ids()
+        self.assertEqual(set(result), {2, 3, 4, 5, 6, 6})
+
 
 class AsyncRepositoryHistoryTestCase(UsingAsyncRedis):
 
@@ -741,6 +762,61 @@ class AsyncRepositoryHistoryTestCase(UsingAsyncRedis):
 
         result = yield entry.get_messages(0.5, 1)
         self.assertEqual(result, [])
+
+    @inlineCallbacks
+    def test_get_all_message_ids(self):
+
+        entry = yield ws.AsyncRepositoryHistory.get_for(666)
+
+        result = yield entry.get_all_message_ids()
+        self.assertEqual(result, [])
+
+        messages_foo = entry.source_object.messages.get_for('foo')
+        messages_bar = entry.source_object.messages.get_for('bar.xxx')
+        messages_baz = entry.source_object.messages.get_for('baz.yyy.baz')
+
+        yield self.db.zadd(messages_foo.key, 2, json.dumps({'foo': 'msg-2'}))
+        yield self.db.zadd(messages_bar.key, 3, json.dumps({'bar': 'msg-3'}))
+        yield self.db.zadd(messages_foo.key, 4, json.dumps({'foo': 'msg-4'}))
+        yield self.db.zadd(messages_foo.key, 5, json.dumps({'foo': 'msg-5'}))
+        yield self.db.zadd(messages_baz.key, 6, json.dumps({'baz': 'msg-6'}))
+        yield self.db.sadd(entry.source_object.messages._inventory.key,
+                           ['foo', 'bar.xxx', 'baz.yyy.baz'])
+
+        result = yield entry.get_all_message_ids()
+        self.assertEqual(set(result), {2, 3, 4, 5, 6, 6})
+
+    @inlineCallbacks
+    def test_delete(self):
+        repo1 = yield ws.AsyncRepositoryHistory.get_for(666)
+        repo2 = yield ws.AsyncRepositoryHistory.get_for(667)
+
+        messages_1 = repo1.source_object.messages.get_for('foo')
+        messages_2 = repo2.source_object.messages.get_for('bar.xxx')
+
+        yield self.db.zadd(messages_1.key, 1, json.dumps({'foo': 'msg-1'}))
+        yield repo1.save_last_sent_message(1)
+        yield self.db.set(repo1.source_object.last_msg_id.key, 1)
+        yield self.db.sadd(repo1.source_object.messages._inventory.key, ['foo'])
+
+        yield self.db.zadd(messages_2.key, 2, json.dumps({'bar': 'msg-2'}))
+        yield repo2.save_last_sent_message(1)
+        yield self.db.set(repo2.source_object.last_msg_id.key, 1)
+        yield self.db.sadd(repo2.source_object.messages._inventory.key, ['bar.xxx'])
+
+        # Delete repo2
+        yield repo2.delete()
+
+        # No keys in redis for this repository anymore
+        keys = yield self.db.keys(repo2.source_object.make_key(
+            repo2.source_object._name,
+            repo2.source_object._pk,
+            '*'
+        ))
+        self.assertEqual(keys, [])
+        # And check it is removed from the repositories collection
+        collection = yield self.db.smembers(repo2.source_object.pk.collection_key)
+        self.assertEqual(collection, {666})
 
 
 class PublisherTestCase(UsingSyncRedis):
@@ -1075,6 +1151,32 @@ class PublisherTestCase(UsingSyncRedis):
              'gim.foo', [], '666'),
         ])
 
+    def test_remove_repository(self):
+        # Add some messages
+        with patch.object(self.publisher.http_client, 'publish'):
+            self.publisher.publish('foo', 666, 1, b=2)  # id 1
+            self.publisher.publish('foo', 667, 11, b=22)  # id 2
+            self.publisher.publish('foo', None, 111, b=222)  # id 3
+            self.publisher.publish('bar', 666, 1111, b=2222)  # id 4
+            self.publisher.publish('bar', 667, 11111, b=22222)  # id 5
+            self.publisher.publish('bar', None, 111111, b=222222)  # id 6
+
+        self.publisher.remove_repository(667)
+
+        # The repository must have been deleted
+        with self.assertRaises(DoesNotExist):
+            ws.RepositoryHistory.get(667)
+
+        # No traces of the repository in the publisher
+        repositories = self.publisher.repositories.zrange(0, -1, withscores=True)
+        self.assertEqual(repositories, [
+            ('1:666', 1),
+            ('2:', 2),
+            ('3:', 3),
+            ('4:666', 4),
+            ('5:', 5),
+            ('6:', 6),
+        ])
 
 class FakeCrossbar:
     @inlineCallbacks
@@ -1428,6 +1530,37 @@ class AsyncPublisherTestCase(UsingAsyncRedis):
              'gim.foo', [], '666'),
             (2, {'topic': 'gim.foo', 'msg_id': 2, 'args': [11], 'kwargs': {'b': 22}},
              'gim.foo', [], '666'),
+        ])
+
+    @inlineCallbacks
+    def test_remove_repository(self):
+        # Add some messages
+        with patch.object(FakeCrossbar, 'publish'):
+            yield self.publisher.publish('foo', 666, 1, b=2)  # id 1
+            yield self.publisher.publish('foo', 667, 11, b=22)  # id 2
+            yield self.publisher.publish('foo', None, 111, b=222)  # id 3
+            yield self.publisher.publish('bar', 666, 1111, b=2222)  # id 4
+            yield self.publisher.publish('bar', 667, 11111, b=22222)  # id 5
+            yield self.publisher.publish('bar', None, 111111, b=222222)  # id 6
+
+        repository = yield ws.AsyncRepositoryHistory.get_for(667)
+
+        yield self.publisher.remove_repository(667)
+
+        # The repository must have been deleted
+        collection = yield self.db.smembers(repository.source_object.pk.collection_key)
+        self.assertEqual(collection, {666})
+
+        # No traces of the repository in the publisher
+        repositories = yield self.db.zrange(self.publisher.source_object.repositories.key, 0, -1,
+                                            withscores=True)
+        self.assertEqual(repositories, [
+            ('1:666', 1),
+            ('2:', 2),
+            ('3:', 3),
+            ('4:666', 4),
+            ('5:', 5),
+            ('6:', 6),
         ])
 
 

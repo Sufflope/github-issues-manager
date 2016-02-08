@@ -2,6 +2,7 @@
 
 from collections import Counter, OrderedDict
 from operator import attrgetter
+from threading import local
 import re
 
 from django.core.urlresolvers import reverse, reverse_lazy
@@ -28,6 +29,9 @@ from gim.events.models import EventPart
 from gim.subscriptions import models as subscriptions_models
 
 from gim.ws import publisher
+
+
+thread_data = local()
 
 
 def html_content(self, body_field='body'):
@@ -132,7 +136,19 @@ class _Repository(models.Model):
     def get_create_issue_url(self):
         return self.get_view_url('issue.create')
 
-contribute_to_model(_Repository, core_models.Repository)
+    def delete(self, using=None):
+        pk = self.pk
+
+        # When deleting a repository we don't publish when things (comments...) are deleted
+        thread_data.skip_publish = True
+        try:
+            self.old_delete(using)
+        finally:
+            thread_data.skip_publish = False
+
+        publisher.remove_repository(pk)
+
+contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 
 
 class _LabelType(models.Model):
@@ -1001,6 +1017,10 @@ def publish_github_updated(sender, instance, created, **kwargs):
     if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
+    # Only if we didn't specifically say to not publish
+    if getattr(thread_data, 'skip_publish', False):
+        return
+
     # Ignore some cases
     update_fields = kwargs.get('update_fields', [])
     if update_fields:
@@ -1026,6 +1046,10 @@ def publish_github_deleted(sender, instance, **kwargs):
 
     # Only for objects we care about
     if not isinstance(instance, PUBLISHABLE_MODELS):
+        return
+
+    # Only if we didn't specifically say to not publish
+    if getattr(thread_data, 'skip_publish', False):
         return
 
     # That we are not currently deleting before creating from github
