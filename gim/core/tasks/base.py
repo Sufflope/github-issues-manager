@@ -27,10 +27,10 @@ from gim.core.models import GithubUser
 from . import JobRegistry
 
 logger.addHandler(settings.WORKERS_LOGGER_CONFIG['handler'])
+thread_data = local()
 
 
 def get_jobs_limpyd_database():
-    thread_data = local()
     if not hasattr(thread_data, 'main_limpyd_database'):
         thread_data.main_limpyd_database = PipelineDatabase(**settings.WORKERS_REDIS_CONFIG)
     return thread_data.main_limpyd_database
