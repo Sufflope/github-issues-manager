@@ -42,6 +42,26 @@ NAMESPACE = 'gim'
 class Queue(LimpydQueue):
     namespace = NAMESPACE
 
+    @classmethod
+    def get_all_by_priority(cls, names):
+        """
+        Return all the queues with the given names, sorted by priorities (higher
+        priority first), then by name
+        """
+        names = cls._get_iterable_for_names(names)
+
+        queues = cls.get_all(names)
+
+        ordered_names = dict([(name, index) for index, name in enumerate(names)])
+
+        def get_sort_key(queue):
+            name, priority = queue.hmget('name', 'priority')
+            return (-int(priority or 0), ordered_names.get(name, 999999))
+
+        # sort all queues by priority
+        queues.sort(key=get_sort_key)
+
+        return queues
 
 class Error(LimpydError):
     namespace = NAMESPACE
