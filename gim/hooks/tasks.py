@@ -23,7 +23,9 @@ class CheckRepositoryEvents(RepositoryJob):
         Get the last events of the repository to update data and fetch updated
         issues. Return the delay before a new fetch as told by github
         """
-        repository = self.object
+
+        # Do a check for repository existence before
+        repository = self.repository
 
         if repository.hook_set or not repository.has_subscriptions():
             # now the hook seems set, stop going on the "check-events" mode,
@@ -72,7 +74,9 @@ class CheckRepositoryHook(RepositoryJob):
         start checking events every minute (if one already exists, no new one
         will be added)
         """
-        repository = self.object
+
+        # Do a check for repository existence before
+        repository = self.repository
 
         gh = self.gh
         if not gh:

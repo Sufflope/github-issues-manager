@@ -13,6 +13,7 @@ from dateutil.parser import parse
 from random import randint
 
 from limpyd import fields
+from limpyd_jobs import STATUSES
 from async_messages import messages
 
 from gim.core.managers import MODE_UPDATE
@@ -33,8 +34,14 @@ class RepositoryJob(DjangoModelJob):
     @property
     def repository(self):
         if not hasattr(self, '_repository'):
-            self._repository = self.object
+            try:
+                self._repository = self.object
+            except Repository.DoesNotExist:
+                # We can cancel the job if the repository does not exist anymore
+                self.hmset(status=STATUSES.CANCELED, cancel_on_error=1)
+                raise
         return self._repository
+
 
 
 class FetchClosedIssuesWithNoClosedBy(RepositoryJob):

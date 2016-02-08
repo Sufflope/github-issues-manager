@@ -41,7 +41,12 @@ class FetchIssueByNumber(Job):
     def repository(self):
         if not hasattr(self, '_repository'):
             repository_id, issue_number = self.identifier.hget().split('#')
-            self._repository = Repository.objects.get(id=repository_id)
+            try:
+                self._repository = Repository.objects.get(id=repository_id)
+            except Repository.DoesNotExist:
+                # We can cancel the job if the repository does not exist anymore
+                self.hmset(status=STATUSES.CANCELED, cancel_on_error=1)
+                raise
         return self._repository
 
     def run(self, queue):
