@@ -113,7 +113,14 @@ class Worker(LimpydWorker):
         """Delay job when github is not reachable."""
         try:
             job_result = super(Worker, self).execute(job, queue)
-        except (URLError, SSLError):
+        except (URLError, SSLError, ApiError) as exception:
+
+            if isinstance(exception, ApiError) and getattr(exception, 'code', None) != 500:
+                # If the error from Github is other than 500, we don't manage it here
+                raise
+                # But in case of 500, we don't have a problem on our side, so it's like a
+                # network error so we wait
+
             # we'll try again in 15 seconds without changing the priority
             job.status.hset(STATUSES.DELAYED)
             job.delayed_until.hset(compute_delayed_until(delayed_for=15))

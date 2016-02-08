@@ -847,6 +847,20 @@ class Hash(lmodel.RedisModel):
     obj_id = lfields.InstanceHashField(indexable=True)
     hash = lfields.InstanceHashField()
 
+    @classmethod
+    def get_or_connect(cls, **kwargs):
+        """Manage the case where we have more than one entry...We should not, but still """
+        try:
+            return super(Hash, cls).get_or_connect(**kwargs)
+        except ValueError:
+
+            hashes = Hash.collection(**kwargs).instances()[1:]
+            for hash in hashes:
+                hash.delete()
+
+            # It should be ok. If not, we have another problem, so we let it raises
+            return super(Hash, cls).get_or_connect(**kwargs)
+
 
 @receiver(post_save, dispatch_uid="hash_check")
 def hash_check(sender, instance, created, **kwargs):
