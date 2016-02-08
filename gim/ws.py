@@ -419,7 +419,13 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
     def send_messages(self, messages):
         for msg_id, topic, repository, args, kwargs in messages:
             add_ws_extra_details(kwargs, topic, msg_id)
-            self.send_message(msg_id, topic, repository, *args, **kwargs)
+            try:
+                self.send_message(msg_id, topic, repository, *args, **kwargs)
+            except Exception:
+                logger.exception('Message %d could not be sent on %s (repo %s)', msg_id, topic,
+                                 repository)
+            else:
+                logger.info('Message %d sent on %s (repo %s)', msg_id, topic, repository)
 
     @property
     def lock_key(self):
@@ -450,14 +456,9 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
             msg_id = self.save_message(topic, repository_id, *args, **kwargs)
 
             # We can now send our message
-            try:
-                self.send_messages([
-                    (msg_id, topic, repository_id, args, kwargs)
-                ])
-            except Exception:
-                logger.exception('Message %d could not be sent on %s (repo %s)', msg_id, topic, repository_id)
-            else:
-                logger.info('Message %d sent on %s (repo %s)', msg_id, topic, repository_id)
+            self.send_messages([
+                (msg_id, topic, repository_id, args, kwargs)
+            ])
 
         return msg_id
 
@@ -590,7 +591,13 @@ class AsyncPublisher(AsyncHistoryMixin):
     def send_messages(self, messages):
         for msg_id, topic, repository, args, kwargs in messages:
             add_ws_extra_details(kwargs, topic, msg_id)
-            yield self.send_message(msg_id, topic, repository, *args, **kwargs)
+            try:
+                yield self.send_message(msg_id, topic, repository, *args, **kwargs)
+            except Exception:
+                logger.exception('Message %d could not be sent on %s (repo %s)', msg_id, topic,
+                                 repository)
+            else:
+                logger.info('Message %d sent on %s (repo %s)', msg_id, topic, repository)
 
     @property
     def lock_key(self):
@@ -621,12 +628,9 @@ class AsyncPublisher(AsyncHistoryMixin):
             add_ws_extra_details(kwargs, topic, msg_id)
 
             # We can now send our message
-            try:
-                yield self.send_message(msg_id, topic, repository_id, *args, **kwargs)
-            except Exception:
-                logger.exception('Message %d could not be sent on %s (repo %s)', msg_id, topic, repository_id)
-            else:
-                logger.info('Message %d sent on %s (repo %s)', msg_id, topic, repository_id)
+            yield self.send_messages([
+                (msg_id, topic, repository_id, args, kwargs)
+            ])
         finally:
             yield lock.release()
 
