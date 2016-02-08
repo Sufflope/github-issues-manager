@@ -3,6 +3,7 @@ import logging
 import re
 import time
 import uuid
+from itertools import chain
 
 import txredisapi as txredis
 
@@ -165,7 +166,7 @@ class HistoryMixin(ModelWithDynamicFieldMixin, lmodel.RedisModel):
             return []
 
         all_topics = self.all_topics()
-        topics = sorted(restrict_topics(self.all_topics(), topics_rules).items())
+        topics = sorted(restrict_topics(all_topics, topics_rules).items())
 
         if not topics:
             return []
@@ -186,6 +187,22 @@ class HistoryMixin(ModelWithDynamicFieldMixin, lmodel.RedisModel):
             ]
 
         return sorted(messages)
+
+    def get_all_message_ids(self):
+
+        all_topics = self.all_topics()
+        first, last = prepare_zrangebyscore_bounds(None, None)
+
+        with self.database.pipeline() as pipeline:
+            for topic in all_topics:
+                self.messages.get_for(topic).zrangebyscore(first, last, withscores=True)
+            pipeline_result = pipeline.execute()
+
+        ids = []
+        for index, topic_rule in enumerate(all_topics):
+            ids += [int(msg_id) for message, msg_id in pipeline_result[index]]
+
+        return ids
 
 
 class AsyncHistoryMixin(object):
@@ -295,6 +312,44 @@ class AsyncHistoryMixin(object):
             ]
 
         returnValue(sorted(messages))
+
+    @inlineCallbacks
+    def get_all_message_ids(self):
+
+        all_topics = yield self.all_topics()
+        first, last = prepare_zrangebyscore_bounds(None, None)
+
+        pipeline = yield self.redis_connection.multi()
+        for topic in all_topics:
+            pipeline.zrangebyscore(self.source_object.messages.get_for(topic).key, first, last,
+                                   withscores=True)
+        pipeline_result = yield pipeline.commit()
+
+        ids = []
+        for index, topic_rule in enumerate(all_topics):
+            ids += map(int, pipeline_result[index][1::2])
+
+        returnValue(ids)
+
+    @inlineCallbacks
+    def delete(self):
+        # If we were in sync mode it would be simple: ``self.source_object.delete()``
+        # In async mode, we don't have limpyd so we have to do it all ourselves
+
+        repository = self.source_object
+        topics = yield self.all_topics()
+
+        # We remove all the keys related to the repository
+        self.redis_connection.delete([
+            repository.last_msg_id.key,
+            repository.last_msg_id_sent.key,
+            repository.messages.key,
+        ] + [
+            repository.messages.get_for(topic).key for topic in topics
+        ])
+
+        # And we remove the repository from the repositories collection
+        yield self.redis_connection.srem(repository.pk.collection_key, [int(repository._pk)])
 
 
 class RepositoryHistory(HistoryMixin, ModelWithDynamicFieldMixin, lmodel.RedisModel):
@@ -459,6 +514,25 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
 
         return sorted(messages)
 
+    def remove_repository(self, repository_id):
+        repository = RepositoryHistory.get_for(repository_id)
+
+        # We'll need all the msg ids used for this repository, to replace them in the main
+        # ``repositories`` hash of the publisher
+        ids = repository.get_all_message_ids()
+
+        # No we can do the replacement
+        with self.database.pipeline() as pipeline:
+            # Remove the old entries
+            self.repositories.zrem(*['%s:%s' % (id, repository_id) for id in ids])
+            # Add then them without the repository part
+            self.repositories.zadd(**{('%s:' % id): id for id in ids})
+
+            pipeline.execute()
+
+        # And then we can delete all stored messages for this repository
+        repository.delete()
+
 
 class AsyncPublisher(AsyncHistoryMixin):
 
@@ -616,6 +690,29 @@ class AsyncPublisher(AsyncHistoryMixin):
                 ]
 
         returnValue(sorted(messages))
+
+    @inlineCallbacks
+    def remove_repository(self, repository_id):
+        repository = yield AsyncRepositoryHistory.get_for(repository_id)
+
+        # We'll need all the msg ids used for this repository, to replace them in the main
+        # ``repositories`` hash of the publisher
+        ids = yield repository.get_all_message_ids()
+
+        # No we can do the replacement
+        pipeline = yield self.redis_connection.multi()
+        # Remove the old entries
+        pipeline.zrem(self.source_object.repositories.key,
+                      *['%s:%s' % (id, repository_id) for id in ids])
+        # Add then them without the repository part
+        pipeline.zadd(self.source_object.repositories.key,
+                      *chain.from_iterable((id, '%s:' % id) for id in ids))
+
+        pipeline.commit()
+
+        # And then we can delete all stored messages for this repository
+        yield repository.delete()
+
 
 class txLock(object):
     """

@@ -137,12 +137,16 @@ class _Repository(models.Model):
         return self.get_view_url('issue.create')
 
     def delete(self, using=None):
+        pk = self.pk
+
         # When deleting a repository we don't publish when things (comments...) are deleted
         thread_data.skip_publish = True
         try:
             self.old_delete(using)
         finally:
             thread_data.skip_publish = False
+
+        publisher.remove_repository(pk)
 
 contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 
