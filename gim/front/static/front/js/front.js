@@ -674,8 +674,10 @@ $().ready(function() {
         this.$link = this.$node.find(IssuesListIssue.link_selector);
 
         this.set_issue_ident({
-            number: this.$node.data('number'),
-            repository: this.$node.data('repository')
+            number: this.$node.data('issue-number'),
+            id: this.$node.data('issue-id'),
+            repository: this.$node.data('repository'),
+            repository_id: this.$node.data('repository-id')
         });
     }); // IssuesListIssue__constructor
 
@@ -685,7 +687,9 @@ $().ready(function() {
     IssuesListIssue.prototype.set_issue_ident = (function IssuesListIssue__set_issue_ident (issue_ident) {
         this.issue_ident = issue_ident;
         this.number = issue_ident.number;
+        this.id = issue_ident.id;
         this.repository = issue_ident.repository;
+        this.repository_id = issue_ident.repository_id;
     }); // IssuesListIssue__set_issue_ident
 
     IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (group_method, stop) {
@@ -1535,8 +1539,10 @@ $().ready(function() {
 
         get_issue_ident: (function IssueDetail__get_issue_ident($node) {
             return {
-                number: $node.data('number'),
-                repository: $node.data('repository')
+                number: $node.data('issue-number'),
+                id: $node.data('issue-id'),
+                repository: $node.data('repository'),
+                repository_id: $node.data('repository-id')
             };
         }), // get_issue_ident
 
@@ -1549,8 +1555,10 @@ $().ready(function() {
                     }
                 }
             }
-            $node.data('number', issue_ident.number);
+            $node.data('issue-number', issue_ident.number);
+            $node.data('issue-id', issue_ident.id);
             $node.data('repository', issue_ident.repository);
+            $node.data('repository-id', issue_ident.repository_id);
         }), // set_issue_ident
 
         get_container_waiting_for_issue: (function IssueDetail__get_container_waiting_for_issue (issue_ident, force_popup, force_load) {
@@ -1590,7 +1598,7 @@ $().ready(function() {
         clear_container: (function IssueDetail__clear_container (error, force_popup) {
             var container = IssueDetail.get_container(force_popup);
             IssueDetail.unset_issue_waypoints(container.$node);
-            IssueDetail.set_issue_ident(container.$node, {number: 0, repository: ''});
+            IssueDetail.set_issue_ident(container.$node, {number: 0, id: null, repository: '', repository_id: null});
             IssueDetail.fill_container(container, '<p class="empty-area">' + (error ? error + ' :(' : '...') + '</p>');
         }), // clear_container
 
@@ -2546,7 +2554,7 @@ $().ready(function() {
             }
 
             // waypoints for loaded issue
-            if (IssueDetail.$main_container.data('number')) {
+            if (IssueDetail.$main_container.data('issue-number')) {
                 IssueDetail.on_issue_loaded(IssueDetail.$main_container, false);
             }
 
@@ -2904,7 +2912,7 @@ $().ready(function() {
             // handle link only if current repository
             if (matches && (matches[1] == repository || matches[1] == main_repository)) {
                 $link.data('repository', matches[1])
-                     .data('number', matches[2])
+                     .data('issue-number', matches[2])
                      .addClass('issue-link');
             }
         }, // update_link
@@ -2922,10 +2930,12 @@ $().ready(function() {
         handle_issue_link: function(ev) {
             var $link = $(this),
                 issue_ident = {
-                    number: $link.data('number'),
-                    repository: $link.data('repository')
+                    number: $link.data('issue-number'),
+                    id: $link.data('issue-number-id'),
+                    repository: $link.data('repository'),
+                    repository_id: $link.data('repository-id')
                 };
-            if (!issue_ident.repository || ! issue_ident.number) { return; }
+            if (!issue_ident.repository || !issue_ident.number) { return; }
             ev.stopPropagation();
             ev.preventDefault();
             IssuesListIssue.open_issue(issue_ident, true);
@@ -3747,11 +3757,13 @@ $().ready(function() {
             display_created_issue: (function IssueEditor_create__display_created_issue (html) {
                 var $html = $('<div/>').html(html),
                     $article = $html.children('article:first-of-type'),
-                    number = $article.data('number'),
+                    number = $article.data('issue-number'),
                     context = {
                         issue_ident: {
                             repository: $article.data('repository'),
-                            number: number || 'pk-' + $article.data('issue-id')
+                            repository_id: $article.data('repository_id'),
+                            number: number || 'pk-' + $article.data('issue-id'),
+                            id: $article.data('issue-id')
                         }
                     },
                     container = IssueDetail.get_container_waiting_for_issue(context.issue_ident, true, true);
@@ -3852,11 +3864,13 @@ $().ready(function() {
 
         on_issue_link_click: (function Activity__on_issue_link_click () {
             var $link = $(this),
-                $block = $link.data('number') ? $link : $link.closest('.box-section'),
+                $block = $link.data('issue-number') ? $link : $link.closest('.box-section'),
                 issue = new IssuesListIssue({}, null);
             issue.set_issue_ident({
-                number: $block.data('number'),
-                repository: $block.data('repository')
+                number: $block.data('issue-number'),
+                id: $block.data('issue-id'),
+                repository: $block.data('repository'),
+                repository_id: $block.data('repository-id')
             });
             issue.get_html_and_display($link.attr('href'), true);
             return false;

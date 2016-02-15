@@ -33,7 +33,7 @@
                         <div class="box-content">
                 {% endifchanged %}
             {% endif %}
-            <div class="box-section" data-number="{{ entry.issue.number }}" data-repository="{{ entry.issue.repository.full_name }}">
+            <div class="box-section" data-issue-number="{{ entry.issue.number }}" data-issue-id="{{ entry.issue.id }}" data-repository="{{ entry.issue.repository.full_name }}" data-repository-id="{{ entry.issue.repository.id }}">
                 <h3>
                     <a href="{{ entry.issue.get_absolute_url }}">
                         {% if entry.issue.is_pull_request %}<i class="fa fa-code" title="It's a pull request"> </i> {% endif %}
@@ -270,7 +270,7 @@
                         {% if related_issue %}
                             {% if related_issue.is_pull_request %}a pull request{% else %}an issue{% endif %}:</p>
                             <blockquote>
-                                <a class="referenced_issue" href="{{ related_issue.get_absolute_url }}" target='_blank' data-number="{{ related_issue.number }}" data-repository="{{related_issue.repository.full_name }}"><strong><span class="text-{{ related_issue.state }}">#{{ related_issue.number }}</span> {{ related_issue.title }}</strong></a>
+                                <a class="referenced_issue" href="{{ related_issue.get_absolute_url }}" target='_blank' data-issue-number="{{ related_issue.number }}" data-issue-id="{{ related_issue.id }}" data-repository="{{related_issue.repository.full_name }}" data-repository-id="{{ related_issue.repository.id }}"><strong><span class="text-{{ related_issue.state }}">#{{ related_issue.number }}</span> {{ related_issue.title }}</strong></a>
                             </blockquote>
                         {% else %}
                             an issue</p>
@@ -293,7 +293,7 @@
                         {% if related_issue %}
                             {% if related_issue.is_pull_request %}a pull request{% else %}an issue{% endif %}:</p>
                             <blockquote>
-                                <a class="referenced_issue" href="{{ related_issue.get_absolute_url }}" target='_blank' data-number="{{ related_issue.number }}" data-repository="{{related_issue.repository.full_name }}"><strong><span class="text-{{ related_issue.state }}">#{{ related_issue.number }}</span> {{ related_issue.title }}</strong></a>
+                                <a class="referenced_issue" href="{{ related_issue.get_absolute_url }}" target='_blank' data-issue-number="{{ related_issue.number }}" data-issue-id="{{ related_issue.id }}" data-repository="{{related_issue.repository.full_name }}" data-repository-id="{{ related_issue.repository.id }}"><strong><span class="text-{{ related_issue.state }}">#{{ related_issue.number }}</span> {{ related_issue.title }}</strong></a>
                             </blockquote>
                         {% else %}
                             an issue</p>

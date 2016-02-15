@@ -1,6 +1,6 @@
 {% load staticfiles querystring frontutils issues_tags %}{% spaceless %}
 {% static 'front/img/default-avatar.png' as default_avatar %}
-{% with issue_labels=issue.labels.all %}<li id="issue-{{ issue.number }}" class="box-section news issue-item state-{{ issue.state }}" data-number="{{ issue.number }}" data-repository="{{ issue.repository.full_name }}" data-search="{{ issue.user.username }} #{{ issue.number }} {{ issue.title }}{% if issue.milestone %} {{ issue.milestone.title }}{% endif %}{% for label in issue_labels %}{% if label.label_type_id %} {{ label.label_type.name }}:{{ label.typed_name }}{% endif %}{% endfor %}{% for label in issue_labels %}{% if not label.label_type_id %} {{ label.name }}{% endif %}{% endfor %}">
+{% with issue_labels=issue.labels.all %}<li id="issue-{{ issue.number }}" class="box-section news issue-item state-{{ issue.state }}" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" data-search="{{ issue.user.username }} #{{ issue.number }} {{ issue.title }}{% if issue.milestone %} {{ issue.milestone.title }}{% endif %}{% for label in issue_labels %}{% if label.label_type_id %} {{ label.label_type.name }}:{{ label.typed_name }}{% endif %}{% endfor %}{% for label in issue_labels %}{% if not label.label_type_id %} {{ label.name }}{% endif %}{% endfor %}">
     <div class="issue-item-header">
         <div class="issue-item-times">
             <span title="Created on {{ issue.created_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.created_at|date:'r' }}">{{ issue.created_at|ago:True }}</span>
@@ -34,7 +34,7 @@
     <a href="" title="Created by {{ issue.user.username }}" class="avatar js-filter-trigger" data-filter='created_by:{{ issue.user.username }}'><img class="avatar-small img-circle" src="{{ issue.user.avatar_url|default:default_avatar }}" alt="{{ issue.user.username }}"></a>
     <div class="news-content">
         <div class="news-title">
-            <a href="{{ issue.get_absolute_url }}" class="issue-link" data-number="{{ issue.number }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
+            <a href="{{ issue.get_absolute_url }}" class="issue-link" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
                 <strong class="text-{{ issue.state }}">#{{ issue.number }}</strong> - {{ issue.title }}
             </a>
         </div>
