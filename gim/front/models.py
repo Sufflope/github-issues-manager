@@ -388,9 +388,13 @@ class _Issue(FrontEditable):
         template = 'front/repository/issues/include_issue_item_for_cache.html'
 
         # mnimize queries
-        issue = self.__class__.objects.filter(id=self.id)\
-                .select_related('user', 'assignee', 'created_by', 'milestone')\
-                .prefetch_related('labels__label_type')[0]
+        issue = self.__class__.objects.filter(
+            id=self.id
+        ).select_related(
+            'repository__owner', 'user', 'assignee', 'created_by', 'closed_by', 'milestone'
+        ).prefetch_related(
+            'labels__label_type'
+        )[0]
 
         context = Context({
             'issue': issue,
