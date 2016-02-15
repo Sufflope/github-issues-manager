@@ -162,7 +162,7 @@
                             </a>
                             <ul class="unstyled box issues-group-issues">
                         {% endif %}
-                        {% for issue in group.list %}{# {% block one-issue %} #}{% issue_cache 0 issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{# {% endblock one-issue %} #}{% endfor %}
+                        {% for issue in group.list %}{# {% block one-issue %} #}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{# {% endblock one-issue %} #}{% endfor %}
                         </ul>
                     </div>
                 {% endfor %}
@@ -173,7 +173,7 @@
         {% endif %}
     </section>
 
-    <section id='main-issue-container' class="span7 issue-container"{% if current_issue %} data-number="{{ current_issue.number }}" data-repository="{{ current_issue.repository.full_name }}"{% endif %}>
+    <section id='main-issue-container' class="span7 issue-container"{% if current_issue %} data-issue-number="{{ current_issue.number }}" data-issue-id="{{ current_issue.id }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}"{% endif %}>
         {% include "front/repository/issues/issue.html" %}
     </section>
 

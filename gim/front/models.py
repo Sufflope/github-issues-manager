@@ -291,6 +291,9 @@ class _Issue(FrontEditable):
     def get_absolute_url(self):
         return self.get_view_url('issue')
 
+    def get_websocket_data_url(self):
+        return self.get_view_url('issue.summary')
+
     def get_created_url(self):
         kwargs = self.get_reverse_kwargs()
         del kwargs['issue_number']
@@ -388,9 +391,13 @@ class _Issue(FrontEditable):
         template = 'front/repository/issues/include_issue_item_for_cache.html'
 
         # mnimize queries
-        issue = self.__class__.objects.filter(id=self.id)\
-                .select_related('user', 'assignee', 'created_by', 'milestone')\
-                .prefetch_related('labels__label_type')[0]
+        issue = self.__class__.objects.filter(
+            id=self.id
+        ).select_related(
+            'repository__owner', 'user', 'assignee', 'created_by', 'closed_by', 'milestone'
+        ).prefetch_related(
+            'labels__label_type'
+        )[0]
 
         context = Context({
             'issue': issue,
@@ -940,9 +947,10 @@ PUBLISHABLE = {
     #          ),
     #     ],
     # },
-    # core_models.Issue: {
-    #     'self': True,
-    # },
+    core_models.Issue: {
+        'self': True,
+        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
+    },
     # core_models.Repository: {
     #     'self': True,
     # },
@@ -950,15 +958,25 @@ PUBLISHABLE = {
 PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
-def publish_update(instance, message_type):
+def publish_update(instance, message_type, extra_data):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
 
-    base_data =  {
+    base_data = {
         'model': str(instance.model_name),
         'id': str(instance.pk),
     }
+    if 'more_data' in conf:
+        extra_data.update(conf['more_data'](instance))
+    if extra_data:
+        base_data.update(extra_data)
+
+    if hasattr(instance, 'saved_hash'):
+        try:
+            base_data['hash'] = instance.saved_hash
+        except Exception:
+            pass
 
     if isinstance(instance, core_models.Repository):
         repository_id = instance.pk
@@ -969,7 +987,10 @@ def publish_update(instance, message_type):
         base_data['front_uuid'] = str(instance.front_uuid)
 
     try:
-        base_data['url'] = str(instance.get_absolute_url())
+        if hasattr(instance, 'get_websocket_data_url'):
+            base_data['url'] = str(instance.get_websocket_data_url())
+        else:
+            base_data['url'] = str(instance.get_absolute_url())
     except Exception:
         pass
 
@@ -987,7 +1008,8 @@ def publish_update(instance, message_type):
 
     to_publish = [
         (
-            'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s',
+            'front.Repository.%(repository_id)s.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
+            'front.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
             dict(
                 parent_model=parent_model,
                 parent_id=parent_id,
@@ -1002,18 +1024,22 @@ def publish_update(instance, message_type):
     if conf.get('self'):
         to_publish += [
             (
-                'front.model.%(message_type)s.%(model)s.%(id)s',
+                'front.Repository.%(repository_id)s.model.%(message_type)s.is.%(model)s.%(id)s',
+                'front.model.%(message_type)s.is.%(model)s.%(id)s',
                 base_data
             )
         ]
 
-    for topic, data in to_publish:
+    for topic_with_repo, topic_without_repo, data in to_publish:
         message_repository_id = repository_id
         if data.get('parent_model', 'None') == 'Repository' and data['parent_field'] == 'repository':
             message_repository_id = data['parent_id']
 
+        topic = topic_with_repo if message_repository_id else topic_without_repo
+
         publisher.publish(
-            topic=topic % dict(message_type=message_type, **data),
+            topic=topic % dict(
+                message_type=message_type, repository_id=message_repository_id, **data),
             repository_id=message_repository_id,
             **data
         )
@@ -1051,7 +1077,11 @@ def publish_github_updated(sender, instance, created, **kwargs):
 
     print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
 
-    publish_update(instance, 'updated')
+    extra_data = {}
+    if created:
+        extra_data['new'] = True
+
+    publish_update(instance, 'updated', extra_data)
 
 
 @receiver(post_delete, dispatch_uid="publish_github_deleted")

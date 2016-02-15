@@ -16,7 +16,7 @@
             {% endif %}
         </ul>
     </nav>
-    <article data-issue-id="{{ current_issue.pk }}" data-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}">
+    <article data-issue-id="{{ current_issue.pk }}" data-issue-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}">
         <div class="area-top state-{{ current_issue.state }}">
             <header>
                 <div class="btn btn-default repository-name">

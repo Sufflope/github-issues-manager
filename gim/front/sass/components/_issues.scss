@@ -1,3 +1,5 @@
+@import "compass/css3/animation";
+
 .issues-list {
     > .alert {
         margin: 0;
@@ -72,6 +74,28 @@
     } // &.without-details
 } // .issues-list
 
+@include keyframes(breathing-active-color) {
+    0% {
+        background: $active-color;
+        color: darken($active-color, 40%);
+    }
+
+    35% {
+        background: #eee;
+        color: $body-text-color;
+    }
+
+    84% {
+        background: $active-color;
+        color: darken($active-color, 40%);
+    }
+
+    100% {
+        background: $active-color;
+        color: darken($active-color, 40%);
+    }
+}
+
 .issue-item {
     padding: 5px;
     padding-top: 0;
@@ -134,9 +158,10 @@
         cursor: default;
         i {
             font-size: inherit;
-            color: #bbb;
+            color: inherit;
             width: auto;
             margin: 0 1px 0 2px;
+            opacity: 0.5;
         }
     }
     .news-content {
@@ -181,6 +206,12 @@
         padding-right: 5px;
     }
     @extend %issue-state-marker;
+
+    &.recent {
+        .issue-item-times {
+            @include animation(breathing-active-color 5s infinite normal);
+        }
+    }
 }
 .issues-list.without-details .issue-item:after {
     width: 3px;
