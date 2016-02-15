@@ -291,6 +291,9 @@ class _Issue(FrontEditable):
     def get_absolute_url(self):
         return self.get_view_url('issue')
 
+    def get_websocket_data_url(self):
+        return self.get_view_url('issue.summary')
+
     def get_created_url(self):
         kwargs = self.get_reverse_kwargs()
         del kwargs['issue_number']
@@ -944,9 +947,9 @@ PUBLISHABLE = {
     #          ),
     #     ],
     # },
-    # core_models.Issue: {
-    #     'self': True,
-    # },
+    core_models.Issue: {
+        'self': True,
+    },
     # core_models.Repository: {
     #     'self': True,
     # },
@@ -964,6 +967,12 @@ def publish_update(instance, message_type):
         'id': str(instance.pk),
     }
 
+    if hasattr(instance, 'saved_hash'):
+        try:
+            base_data['hash'] = instance.saved_hash
+        except Exception:
+            pass
+
     if isinstance(instance, core_models.Repository):
         repository_id = instance.pk
     else:
@@ -973,7 +982,10 @@ def publish_update(instance, message_type):
         base_data['front_uuid'] = str(instance.front_uuid)
 
     try:
-        base_data['url'] = str(instance.get_absolute_url())
+        if hasattr(instance, 'get_websocket_data_url'):
+            base_data['url'] = str(instance.get_websocket_data_url())
+        else:
+            base_data['url'] = str(instance.get_absolute_url())
     except Exception:
         pass
 

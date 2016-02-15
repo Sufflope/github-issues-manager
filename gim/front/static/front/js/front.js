@@ -33,6 +33,7 @@ $().ready(function() {
     var $document = $(document),
         $body = $('body'),
         main_repository = $body.data('repository'),
+        main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
 
@@ -667,12 +668,7 @@ $().ready(function() {
 
     var IssuesListIssue = (function IssuesListIssue__constructor (node, issues_list_group) {
         this.group = issues_list_group;
-
-        this.node = node;
-        this.node.IssuesListIssue = this;
-        this.$node = $(node);
-        this.$link = this.$node.find(IssuesListIssue.link_selector);
-
+        this.prepare(node);
         this.set_issue_ident({
             number: this.$node.data('issue-number'),
             id: this.$node.data('issue-id'),
@@ -683,6 +679,13 @@ $().ready(function() {
 
     IssuesListIssue.selector = '.issue-item';
     IssuesListIssue.link_selector = '.issue-link';
+
+    IssuesListIssue.prototype.prepare = (function IssuesListIssue__prepare (node) {
+        this.node = node;
+        this.node.IssuesListIssue = this;
+        this.$node = $(node);
+        this.$link = this.$node.find(IssuesListIssue.link_selector);
+    }); // IssuesListIssue__prepare
 
     IssuesListIssue.prototype.set_issue_ident = (function IssuesListIssue__set_issue_ident (issue_ident) {
         this.issue_ident = issue_ident;
@@ -730,6 +733,7 @@ $().ready(function() {
             }
             this.group.current_issue = this;
             this.group.unset_active();
+            this.$node.removeClass('recent');
             this.$node.addClass('active');
             var issue = this;
             if (this.group.collapsed) {
@@ -795,6 +799,17 @@ $().ready(function() {
             issue.get_html_and_display(url, force_popup, force_load, no_loading);
         }
     }); // IssuesListIssue_open_issue
+
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
+        var existing_hash = this.$node.data('issue-hash'), issue=this;
+        if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
+        $.get(kwargs.url).done(function(data) {
+            var $data = $(data);
+            $data.addClass('recent');
+            issue.$node.replaceWith($data);
+            issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+        });
+    }); // IssuesListIssue__on_update_alert
 
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
         this.list = issues_list;
@@ -1005,6 +1020,17 @@ $().ready(function() {
         return issue;
     }); // IssuesListGroup__get_issue_by_ident
 
+    IssuesListGroup.prototype.get_issue_by_id = (function IssuesListGroup__get_issue_by_id(issue_id) {
+        var issue = null;
+        for (var i = 0; i < this.issues.length; i++) {
+            if (this.issues[i].id == issue_id) {
+                issue = this.issues[i];
+                break;
+            }
+        }
+        return issue;
+    }); // IssuesListGroup__get_issue_by_id
+
     IssuesListGroup.prototype.update_filtered_issues = (function IssuesListGroup__update_filtered_issues () {
         this.filtered_issues = [];
         for (var i = 0; i < this.issues.length; i++) {
@@ -1060,6 +1086,7 @@ $().ready(function() {
         IssuesListIssue.init_events();
         IssuesListGroup.init_events();
         IssuesList.init_events();
+        IssuesList.subscribe_updates();
     }); // IssuesList_init_all
 
     IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
@@ -1093,6 +1120,22 @@ $().ready(function() {
         $document.on('click', '#close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '#open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
     }); // IssuesList_init_event
+
+    IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
+        WS.subscribe(
+            'gim.front.Repository.' + main_repository_id + '.model.updated.is.Issue.',
+            'IssuesList__on_update_alert',
+            IssuesList.on_update_alert,
+            'prefix'
+        );
+    }); // IssuesList_subscribe_updates
+
+    IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs, subscription) {
+        var issue = IssuesList.get_issue_by_id(kwargs.id);
+        if (issue) {
+            issue.on_update_alert(topic, args, kwargs, subscription);
+        }
+    }); // IssuesList_on_update_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
         var continue_issue_search = this.$search_input.val() !== '';
@@ -1281,6 +1324,24 @@ $().ready(function() {
         }
         return issue;
     }); // IssuesList__get_issue_by_ident
+
+    IssuesList.get_issue_by_id = (function IssuesList_get_issue_by_id(issue_id) {
+        var issue = null;
+        for (var i = 0; i < IssuesList.all.length; i++) {
+            issue = IssuesList.all[i].get_issue_by_id(issue_id);
+            if (issue) { break; }
+        }
+        return issue;
+    }); // IssuesList_get_issue_by_id
+
+    IssuesList.prototype.get_issue_by_id = (function IssuesList__get_issue_by_id(issue_id) {
+        var issue = null;
+        for (var i = 0; i < this.groups.length; i++) {
+            issue = this.groups[i].get_issue_by_id(issue_id);
+            if (issue) { break; }
+        }
+        return issue;
+    }); // IssuesList__get_issue_by_id
 
     IssuesList.init_all();
 
@@ -2468,13 +2529,13 @@ $().ready(function() {
                 IssueDetail.WS_subscribed_ident = issue_ident;
                 WS.subscribe(
                     'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alerts',
+                    'IssueDetail__on_update_alert',
                     IssueDetail.on_update_alert,
                     'exact'
                 );
                 WS.subscribe(
                     'gim.front.model.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alerts',
+                    'IssueDetail__on_delete_alert',
                     IssueDetail.on_delete_alert,
                     'exact'
                 );
@@ -2485,11 +2546,11 @@ $().ready(function() {
             if (IssueDetail.WS_subscribed_ident) {
                 WS.unsubscribe(
                     'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alerts'
+                    'IssueDetail__on_update_alert'
                 );
                 WS.unsubscribe(
                     'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alerts'
+                    'IssueDetail__on_delete_alert'
                 );
                 IssueDetail.WS_subscribed_ident = null;
             }
