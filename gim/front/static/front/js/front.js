@@ -1087,6 +1087,14 @@ $().ready(function() {
         IssuesListGroup.init_events();
         IssuesList.init_events();
         IssuesList.subscribe_updates();
+
+        setInterval(function() {
+            var $lists = $(IssuesList.selector);
+            for (var i = 0; i < $lists.length; i++) {
+                replace_time_ago($lists[i]);
+            }
+        }, 60000);
+
     }); // IssuesList_init_all
 
     IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
