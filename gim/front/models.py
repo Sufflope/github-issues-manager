@@ -987,7 +987,8 @@ def publish_update(instance, message_type):
 
     to_publish = [
         (
-            'front.model.%(message_type)s.%(parent_model)s.%(parent_id)s',
+            'front.Repository.%(repository_id)s.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
+            'front.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
             dict(
                 parent_model=parent_model,
                 parent_id=parent_id,
@@ -1002,18 +1003,22 @@ def publish_update(instance, message_type):
     if conf.get('self'):
         to_publish += [
             (
-                'front.model.%(message_type)s.%(model)s.%(id)s',
+                'front.Repository.%(repository_id)s.model.%(message_type)s.is.%(model)s.%(id)s',
+                'front.model.%(message_type)s.is.%(model)s.%(id)s',
                 base_data
             )
         ]
 
-    for topic, data in to_publish:
+    for topic_with_repo, topic_without_repo, data in to_publish:
         message_repository_id = repository_id
         if data.get('parent_model', 'None') == 'Repository' and data['parent_field'] == 'repository':
             message_repository_id = data['parent_id']
 
+        topic = topic_with_repo if message_repository_id else topic_without_repo
+
         publisher.publish(
-            topic=topic % dict(message_type=message_type, **data),
+            topic=topic % dict(
+                message_type=message_type, repository_id=message_repository_id, **data),
             repository_id=message_repository_id,
             **data
         )

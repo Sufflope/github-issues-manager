@@ -1397,7 +1397,7 @@ $().ready(function() {
         $modal: $('#modal-issue-view'),
         $modal_body: null,  // set in __init__
         $modal_container: null,  // set in __init__
-        WS_subscribed_id: null,  // id of issue currently tracked by WS
+        WS_subscribed_ident: null,  // ident issue currently tracked by WS
 
         get_url_for_ident: (function IssueDetail__get_url_for_ident (issue_ident) {
             var number = issue_ident.number.toString(),
@@ -2463,17 +2463,17 @@ $().ready(function() {
         }), // on_commit_click
 
         subscribe_updates: (function IssueDetail__subscribe_updates ($node) {
-            var issue_id = $node.children('article').data('issue-id');
-            if (issue_id != IssueDetail.WS_subscribed_id) {
-                IssueDetail.WS_subscribed_id = issue_id;
+            var issue_ident = IssueDetail.get_issue_ident($node);
+            if (!IssueDetail.WS_subscribed_ident || issue_ident.id != IssueDetail.WS_subscribed_ident.id) {
+                IssueDetail.WS_subscribed_ident = issue_ident;
                 WS.subscribe(
-                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
                     'IssueDetail__on_update_alerts',
                     IssueDetail.on_update_alert,
                     'exact'
                 );
                 WS.subscribe(
-                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'gim.front.model.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
                     'IssueDetail__on_delete_alerts',
                     IssueDetail.on_delete_alert,
                     'exact'
@@ -2482,16 +2482,16 @@ $().ready(function() {
         }), // subscribe_updates
 
         unsubscribe_updates: (function IssueDetail__subscribe_updates () {
-            if (IssueDetail.WS_subscribed_id) {
+            if (IssueDetail.WS_subscribed_ident) {
                 WS.unsubscribe(
-                    'gim.front.model.updated.Issue.' + IssueDetail.WS_subscribed_id,
+                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
                     'IssueDetail__on_update_alerts'
                 );
                 WS.unsubscribe(
-                    'gim.front.model.deleted.Issue.' + IssueDetail.WS_subscribed_id,
+                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
                     'IssueDetail__on_delete_alerts'
                 );
-                IssueDetail.WS_subscribed_id = null;
+                IssueDetail.WS_subscribed_ident = null;
             }
 
         }), // unsubscribe_updates
