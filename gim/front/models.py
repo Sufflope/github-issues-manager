@@ -949,6 +949,7 @@ PUBLISHABLE = {
     # },
     core_models.Issue: {
         'self': True,
+        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
     },
     # core_models.Repository: {
     #     'self': True,
@@ -957,15 +958,19 @@ PUBLISHABLE = {
 PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
-def publish_update(instance, message_type):
+def publish_update(instance, message_type, extra_data):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
 
-    base_data =  {
+    base_data = {
         'model': str(instance.model_name),
         'id': str(instance.pk),
     }
+    if 'more_data' in conf:
+        extra_data.update(conf['more_data'](instance))
+    if extra_data:
+        base_data.update(extra_data)
 
     if hasattr(instance, 'saved_hash'):
         try:
@@ -1072,7 +1077,11 @@ def publish_github_updated(sender, instance, created, **kwargs):
 
     print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
 
-    publish_update(instance, 'updated')
+    extra_data = {}
+    if created:
+        extra_data['new'] = True
+
+    publish_update(instance, 'updated', extra_data)
 
 
 @receiver(post_delete, dispatch_uid="publish_github_deleted")
