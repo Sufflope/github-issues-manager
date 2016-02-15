@@ -958,7 +958,7 @@ PUBLISHABLE = {
 PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
-def publish_update(instance, message_type, extra_data):
+def publish_update(instance, message_type, extra_data=None):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
