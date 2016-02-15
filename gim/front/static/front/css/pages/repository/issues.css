@@ -206,22 +206,22 @@ p.state-closed {
   background-color: #e6f1f4;
 }
 
-/* line 2, ../../../../../sass/components/_issues.scss */
+/* line 4, ../../../../../sass/components/_issues.scss */
 .issues-list > .alert {
   margin: 0;
   padding-right: 14px;
 }
-/* line 5, ../../../../../sass/components/_issues.scss */
+/* line 7, ../../../../../sass/components/_issues.scss */
 .issues-list > .alert .btn {
   margin: 8px auto 0;
   display: block;
   max-width: 13em;
 }
-/* line 10, ../../../../../sass/components/_issues.scss */
+/* line 12, ../../../../../sass/components/_issues.scss */
 .issues-list > .alert + .box {
   border-top-width: 1px;
 }
-/* line 14, ../../../../../sass/components/_issues.scss */
+/* line 16, ../../../../../sass/components/_issues.scss */
 .issues-list .box {
   margin-bottom: 0;
   -moz-border-radius: 0;
@@ -231,68 +231,122 @@ p.state-closed {
   border-left-width: 0;
   border-right-width: 0;
 }
-/* line 21, ../../../../../sass/components/_issues.scss */
+/* line 23, ../../../../../sass/components/_issues.scss */
 .issues-list .box-content {
   margin-bottom: -1px;
 }
-/* line 24, ../../../../../sass/components/_issues.scss */
+/* line 26, ../../../../../sass/components/_issues.scss */
 .issues-list a.js-filter-trigger {
   cursor: default;
 }
-/* line 27, ../../../../../sass/components/_issues.scss */
+/* line 29, ../../../../../sass/components/_issues.scss */
 .issues-list a.box-header {
   padding-left: 7px;
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 30, ../../../../../sass/components/_issues.scss */
+/* line 32, ../../../../../sass/components/_issues.scss */
 .issues-list a.box-header .title {
   font-size: 13px;
   padding-top: 5px;
   padding-bottom: 5px;
   text-transform: capitalize;
 }
-/* line 37, ../../../../../sass/components/_issues.scss */
+/* line 39, ../../../../../sass/components/_issues.scss */
 .issues-list a.box-header .box-toolbar > li {
   line-height: 27px;
   padding-right: 5px;
 }
-/* line 44, ../../../../../sass/components/_issues.scss */
+/* line 46, ../../../../../sass/components/_issues.scss */
 .issues-list .issues-group:first-child .box-header {
   border-top: 0;
 }
-/* line 47, ../../../../../sass/components/_issues.scss */
+/* line 49, ../../../../../sass/components/_issues.scss */
 .issues-list .issues-group.active a.box-header {
   padding-left: 2px;
   border-left: solid #7BC8D7 5px;
 }
-/* line 53, ../../../../../sass/components/_issues.scss */
+/* line 55, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item {
   padding: 5px;
   padding-left: 8px;
   min-height: 20px;
 }
-/* line 57, ../../../../../sass/components/_issues.scss */
+/* line 59, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item.active {
   padding-left: 3px;
 }
-/* line 60, ../../../../../sass/components/_issues.scss */
+/* line 62, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item .issue-item-header, .issues-list.without-details .issue-item .avatar, .issues-list.without-details .issue-item .issue-item-footer {
   display: none;
 }
-/* line 63, ../../../../../sass/components/_issues.scss */
+/* line 65, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item .news-content {
   margin-left: 0;
   margin-right: 0;
 }
-/* line 67, ../../../../../sass/components/_issues.scss */
+/* line 69, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item .news-title {
   margin-bottom: 0;
   min-height: 0;
 }
 
-/* line 75, ../../../../../sass/components/_issues.scss */
+@-moz-keyframes breathing-active-color {
+  0% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  35% {
+    background: #eee;
+    color: #707070;
+  }
+  84% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  100% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+}
+@-webkit-keyframes breathing-active-color {
+  0% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  35% {
+    background: #eee;
+    color: #707070;
+  }
+  84% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  100% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+}
+@keyframes breathing-active-color {
+  0% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  35% {
+    background: #eee;
+    color: #707070;
+  }
+  84% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+  100% {
+    background: #7BC8D7;
+    color: #1f5b67;
+  }
+}
+/* line 99, ../../../../../sass/components/_issues.scss */
 .issue-item {
   padding: 5px;
   padding-top: 0;
@@ -301,7 +355,7 @@ p.state-closed {
   color: #707070;
   cursor: pointer;
 }
-/* line 84, ../../../../../sass/components/_issues.scss */
+/* line 108, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-header {
   margin-top: -1px;
   margin-bottom: 5px;
@@ -309,15 +363,15 @@ p.state-closed {
   font-size: 11px;
   line-height: 15px;
 }
-/* line 90, ../../../../../sass/components/_issues.scss */
+/* line 114, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-header a {
   color: inherit;
 }
-/* line 94, ../../../../../sass/components/_issues.scss */
+/* line 118, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-pull-request, .issue-item .issue-item-milestone, .issue-item .issue-item-times {
   text-shadow: 0 1px rgba(255, 255, 255, 0.5);
 }
-/* line 97, ../../../../../sass/components/_issues.scss */
+/* line 121, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-pull-request {
   float: left;
   padding: 1px 0 2px;
@@ -330,18 +384,18 @@ p.state-closed {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 106, ../../../../../sass/components/_issues.scss */
+/* line 130, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-pull-request i {
   font-size: 14px;
 }
-/* line 110, ../../../../../sass/components/_issues.scss */
+/* line 134, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-milestone {
   margin-left: 50px;
   margin-right: 95px;
   padding: 0;
   overflow: hidden;
 }
-/* line 115, ../../../../../sass/components/_issues.scss */
+/* line 139, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-milestone a {
   font-weight: bold;
   display: inline-block;
@@ -351,13 +405,13 @@ p.state-closed {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 122, ../../../../../sass/components/_issues.scss */
+/* line 146, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-milestone i {
   position: relative;
   top: 2px;
   margin-right: 5px;
 }
-/* line 128, ../../../../../sass/components/_issues.scss */
+/* line 152, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-times {
   float: right;
   white-space: nowrap;
@@ -368,86 +422,93 @@ p.state-closed {
   border-radius: 0 0 0 2px;
   cursor: default;
 }
-/* line 135, ../../../../../sass/components/_issues.scss */
+/* line 159, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-times i {
   font-size: inherit;
-  color: #bbb;
+  color: inherit;
   width: auto;
   margin: 0 1px 0 2px;
+  opacity: 0.5;
 }
-/* line 142, ../../../../../sass/components/_issues.scss */
+/* line 167, ../../../../../sass/components/_issues.scss */
 .issue-item .news-content {
   margin-right: 5px;
 }
-/* line 145, ../../../../../sass/components/_issues.scss */
+/* line 170, ../../../../../sass/components/_issues.scss */
 .issue-item .news-title {
   font-size: 14px;
   margin-bottom: 5px;
 }
-/* line 148, ../../../../../sass/components/_issues.scss */
+/* line 173, ../../../../../sass/components/_issues.scss */
 .issue-item .news-title .label {
   margin-left: 3px;
 }
-/* line 152, ../../../../../sass/components/_issues.scss */
+/* line 177, ../../../../../sass/components/_issues.scss */
 .issue-item .avatar {
   margin-bottom: 5px;
 }
-/* line 155, ../../../../../sass/components/_issues.scss */
+/* line 180, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-link {
   outline: none !important;
   text-decoration: none !important;
 }
-/* line 159, ../../../../../sass/components/_issues.scss */
+/* line 184, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-footer {
   overflow: auto;
 }
-/* line 162, ../../../../../sass/components/_issues.scss */
+/* line 187, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-footer.with-labels {
   clear: both;
 }
-/* line 165, ../../../../../sass/components/_issues.scss */
+/* line 190, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-comments-count {
   float: right;
   margin-right: 5px;
   line-height: 24px;
   cursor: default;
 }
-/* line 170, ../../../../../sass/components/_issues.scss */
+/* line 195, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-comments-count i {
   margin-right: 2px;
 }
-/* line 174, ../../../../../sass/components/_issues.scss */
+/* line 199, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-assignee {
   float: right;
   margin-right: 5px;
 }
-/* line 179, ../../../../../sass/components/_issues.scss */
+/* line 204, ../../../../../sass/components/_issues.scss */
 .issue-item .issue-item-labels {
   padding-right: 5px;
 }
+/* line 211, ../../../../../sass/components/_issues.scss */
+.issue-item.recent .issue-item-times {
+  -moz-animation: breathing-active-color 5s infinite normal;
+  -webkit-animation: breathing-active-color 5s infinite normal;
+  animation: breathing-active-color 5s infinite normal;
+}
 
-/* line 185, ../../../../../sass/components/_issues.scss */
+/* line 216, ../../../../../sass/components/_issues.scss */
 .issues-list.without-details .issue-item:after {
   width: 3px;
 }
 
-/* line 188, ../../../../../sass/components/_issues.scss */
+/* line 219, ../../../../../sass/components/_issues.scss */
 .box-section.issue-item {
   padding-left: 13px;
 }
-/* line 191, ../../../../../sass/components/_issues.scss */
+/* line 222, ../../../../../sass/components/_issues.scss */
 .box-section.issue-item.active {
   padding-left: 8px;
   border-left: solid #7BC8D7 5px;
   border-top-color: #f0fcff;
 }
 
-/* line 200, ../../../../../sass/components/_issues.scss */
+/* line 231, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch {
   margin: 0;
   padding: 0;
 }
-/* line 203, ../../../../../sass/components/_issues.scss */
+/* line 234, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch label {
   margin: 0;
   padding: 0;
@@ -457,7 +518,7 @@ p.state-closed {
   height: 28px;
   background: white;
 }
-/* line 212, ../../../../../sass/components/_issues.scss */
+/* line 243, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch .add-on, .issues-quicksearch input, .issues-quicksearch .btn {
   border: 0;
   -moz-border-radius: 0;
@@ -466,14 +527,14 @@ p.state-closed {
   position: absolute;
   top: 0;
 }
-/* line 218, ../../../../../sass/components/_issues.scss */
+/* line 249, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch .add-on {
   border-right: solid 1px #d4d4d4;
   left: 0;
   width: 16px;
   z-index: 10;
 }
-/* line 224, ../../../../../sass/components/_issues.scss */
+/* line 255, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch input {
   display: block;
   width: 100%;
@@ -488,7 +549,7 @@ p.state-closed {
   height: 28px;
   z-index: 20;
 }
-/* line 236, ../../../../../sass/components/_issues.scss */
+/* line 267, ../../../../../sass/components/_issues.scss */
 .issues-quicksearch .btn {
   border-left: solid 1px #d4d4d4;
   right: 0;

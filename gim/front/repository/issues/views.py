@@ -800,6 +800,37 @@ class IssueView(UserIssuesView):
         return super(IssueView, self).get_template_names()
 
 
+class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
+    url_name = 'issue.summary'
+
+    ajax_only = False
+    http_method_names = ['get']
+
+    def get_context_data(self, **kwargs):
+        """
+        Add the issue in the context
+        """
+        # we bypass all the context stuff done by IssuesView by calling
+        # directly its baseclass
+        context = super(IssuesView, self).get_context_data(**kwargs)
+
+        try:
+            current_issue = self.get_current_issue()
+        except Issue.DoesNotExist:
+            raise Http404
+
+        context['issue'] = current_issue
+
+        return context
+
+
+    def get_template_names(self):
+        """
+        We'll only display messages to the user
+        """
+        return ['front/repository/issues/include_issue_item_for_cache.html']
+
+
 class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
     url_name = 'issue.ask-fetch'
     ajax_only = True

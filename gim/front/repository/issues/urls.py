@@ -1,6 +1,6 @@
 from django.conf.urls import patterns, url
 
-from .views import (IssuesView, IssueView, UserIssuesView, CreatedIssueView,
+from .views import (IssuesView, IssueView, IssueSummaryView, UserIssuesView, CreatedIssueView,
                     SimpleAjaxIssueView, FilesAjaxIssueView, CommitAjaxIssueView,
                     IssueEditState, IssueEditTitle, IssueEditBody,
                     IssueEditMilestone, IssueEditAssignee, IssueEditLabels,
@@ -22,6 +22,7 @@ urlpatterns = patterns('',
 
     # issue view
     url(r'^(?P<issue_number>\d+)/$', IssueView.as_view(), name=IssueView.url_name),
+    url(r'^(?P<issue_number>\d+)/summary/$', IssueSummaryView.as_view(), name=IssueSummaryView.url_name),
 
     # parts
     url(r'^(?P<issue_number>\d+)/files/$', FilesAjaxIssueView.as_view(), name='issue.files'),
