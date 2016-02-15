@@ -162,7 +162,7 @@
                             </a>
                             <ul class="unstyled box issues-group-issues">
                         {% endif %}
-                        {% for issue in group.list %}{# {% block one-issue %} #}{% issue_cache 0 issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{# {% endblock one-issue %} #}{% endfor %}
+                        {% for issue in group.list %}{# {% block one-issue %} #}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{# {% endblock one-issue %} #}{% endfor %}
                         </ul>
                     </div>
                 {% endfor %}
