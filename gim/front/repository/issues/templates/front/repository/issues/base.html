@@ -151,7 +151,7 @@
                                         <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                                     </ul>
                                 </a>
-                                <ul class="unstyled box-content issues-group-issues collapse" id="groupby-list-{{ uidname}}-{{ uidvalue }}">
+                                <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="groupby-list-{{ uidname}}-{{ uidvalue }}">
                             {% endwith %}
                         {% else %}
                             <a class="box-header" href='#'>
