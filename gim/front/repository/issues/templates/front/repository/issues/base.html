@@ -78,7 +78,12 @@
                             <ul class="dropdown-menu" role="menu" aria-label="Group options">
                                 {% for group_by_field in view.allowed_group_by_fields %}
                                     <li{% if issues_filter.parts.group_by == group_by_field %} class="active"{% endif %}>
-                                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_field %}">{{ group_by_field|capfirst }}</a>
+                                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_field %}">
+                                            {{ group_by_field|capfirst }}
+                                            {% if issues_filter.parts.group_by == group_by_field %}
+                                                <i class="fa fa-times"> </i>
+                                            {% endif %}
+                                        </a>
                                     </li>
                                 {% endfor %}
                                 {% if label_types|length %}
@@ -87,7 +92,12 @@
                                         {% with "type:"|add:label_type.name as label_type_group_name %}
                                             {% if label_type.labels.ready.count %}
                                                 <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
-                                                    <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">{{ label_type.name }}</a>
+                                                    <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">
+                                                        {{ label_type.name }}
+                                                        {% if issues_filter.parts.group_by == label_type_group_name %}
+                                                            <i class="fa fa-times"> </i>
+                                                        {% endif %}
+                                                    </a>
                                                 </li>
                                             {% endif %}
                                         {% endwith %}
@@ -118,7 +128,7 @@
                                 <li><a href="#" id="open-all-groups">Open all groups</a></li>
                                 <li><a href="#" id="show-shortcuts" data-toggle="modal" data-target="#shortcuts-window">Show shortcuts</a></li>
                                 <li><a href="#" id="go-to-issue" data-toggle="modal" data-target="#go-to-issue-window">Open issue...</a></li>
-                            <ul>
+                            </ul>
                         </li>
                     </ul>
                 </div>

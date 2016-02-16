@@ -228,6 +228,15 @@ body#repository_issues #main-inner {
         }
     }
 }
+#issues-list-options li.active a {
+    position: relative;
+    i.fa-times {
+        position: absolute;
+        left: 5px;
+        top: 50%;
+        @include transform(translateY(-50%));
+    }
+}
 #issues-list-options .dropdown-toggle > span:not(.selection) {
     // normal text of a navbar item
     text-align: center;
