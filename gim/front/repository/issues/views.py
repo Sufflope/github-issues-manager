@@ -816,6 +816,10 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
 
         try:
             current_issue = self.get_current_issue()
+            # Restrict to filter in querystring
+            if current_issue.pk not in \
+                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
+                raise Issue.DoesNotExist
         except Issue.DoesNotExist:
             raise Http404
 

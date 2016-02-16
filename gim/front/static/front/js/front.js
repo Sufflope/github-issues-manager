@@ -1045,6 +1045,14 @@ $().ready(function() {
         this.$count_node.text(filtered_length == total_length ? total_length : filtered_length + '/' + total_length);
     }); // update_filtered_issues
 
+    IssuesListGroup.prototype.add_issue = (function IssuesListGroup__add_issue (issue, prepend_node) {
+        if (prepend_node) {
+            this.$issues_node.prepend(issue.$node);
+        }
+        this.issues.unshift(issue);
+        this.update_filtered_issues();
+    }); // IssuesListGroup__add_issue
+
 
     var IssuesList = (function IssuesList__constructor (node) {
         this.node = node;
@@ -1142,8 +1150,21 @@ $().ready(function() {
         var issue = IssuesList.get_issue_by_id(kwargs.id);
         if (issue) {
             issue.on_update_alert(topic, args, kwargs, subscription);
+        } else {
+            IssuesList.on_create_alert(topic, args, kwargs, subscription);
         }
     }); // IssuesList_on_update_alert
+
+    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
+        // $.get(kwargs.url + window.location.search).done(function(data) {
+        $.get(kwargs.url).done(function(data) {
+            var $data = $(data), group, issue;
+            $data.addClass('recent');
+            group = IssuesList.all[0].groups[0]; // first group of first list for now
+            issue = new IssuesListIssue($data[0], group);
+            group.add_issue(issue, true);
+        });
+    }); // IssuesList_on_create_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
         var continue_issue_search = this.$search_input.val() !== '';
