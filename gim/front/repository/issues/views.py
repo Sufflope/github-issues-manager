@@ -803,7 +803,7 @@ class IssueView(UserIssuesView):
 class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
     url_name = 'issue.summary'
 
-    ajax_only = False
+    ajax_only = True
     http_method_names = ['get']
 
     def get_context_data(self, **kwargs):
