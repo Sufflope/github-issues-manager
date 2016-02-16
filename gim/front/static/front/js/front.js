@@ -1375,6 +1375,9 @@ $().ready(function() {
     IssuesList.init_all();
 
     var IssuesFilters = {
+        on_filter_show: (function IssuesFilters__on_filter_show (ev) {
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-right', false).toggleClass('fa-caret-down', true);
+        }), // on_filter_show
         on_filter_shown: (function IssuesFilters__on_filter_shown (ev) {
             var $collapse = $(ev.target);
             if ($collapse.hasClass('deferred')) {
@@ -1384,6 +1387,9 @@ $().ready(function() {
                 IssuesFilters.focus_quicksearch_filter($collapse);
             }
         }), // on_filter_shown
+        on_filter_hide: (function IssuesFilters__on_filter_hide (ev) {
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-down', false).toggleClass('fa-caret-right', true);
+        }), // on_filter_hide
         on_deferrable_loaded: (function IssuesFilters__on_deferrable_loaded (ev) {
             IssuesFilters.focus_quicksearch_filter($(ev.target));
         }), // on_deferrable_loaded
@@ -1393,7 +1399,10 @@ $().ready(function() {
         init: function() {
             var $filters = $('#issues-filters');
             if ($filters.length) {
-                $filters.find('.collapse').on('shown.collapse', IssuesFilters.on_filter_shown);
+                $filters.find('.collapse')
+                    .on('show.collapse', IssuesFilters.on_filter_show)
+                    .on('shown.collapse', IssuesFilters.on_filter_shown)
+                    .on('hide.collapse', IssuesFilters.on_filter_hide);
                 $filters.on('reloaded', IssuesFilters.on_deferrable_loaded);
             }
         }
