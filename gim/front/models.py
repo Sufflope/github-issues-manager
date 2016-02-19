@@ -968,7 +968,7 @@ def publish_update(instance, message_type, extra_data=None):
         'id': str(instance.pk),
     }
     if 'more_data' in conf:
-        extra_data.update(conf['more_data'](instance))
+        base_data.update(conf['more_data'](instance))
     if extra_data:
         base_data.update(extra_data)
 
