@@ -99,7 +99,8 @@ class FetchIssueByNumber(Job):
                         'The %s <strong>#%d</strong> from <strong>%s</strong> you asked to fetch from Github doesn\'t exist anymore!' % (
                             issue.type, issue.number, issue.repository.full_name),
                         constants.ERROR)
-                issue.delete()
+                if issue.pk:
+                    issue.delete()
                 self.deleted.hset(1)
                 return False
             else:
