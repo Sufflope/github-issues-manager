@@ -970,6 +970,7 @@ PUBLISHABLE = {
     # },
     core_models.Issue: {
         'self': True,
+        'condition': lambda self: self.signal_hash_changed if hasattr(self, 'signal_hash_changed') else self.hash_changed(),
         'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
     },
     # core_models.Repository: {
@@ -983,6 +984,9 @@ def publish_update(instance, message_type, extra_data=None):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
+
+    if conf.get('condition') and not conf['condition'](instance):
+        return
 
     base_data = {
         'model': str(instance.model_name),
