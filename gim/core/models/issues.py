@@ -1,3 +1,4 @@
+
 __all__ = [
     'LABELTYPE_EDITMODE',
     'Issue',
@@ -14,6 +15,7 @@ from django.contrib.contenttypes import generic
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.functional import cached_property
 
 from extended_choices import Choices
 from jsonfield import JSONField
@@ -527,6 +529,10 @@ class LabelType(models.Model):
         app_label = 'core'
         verbose_name = u'Group'
         ordering = ('lower_name', )
+
+    @cached_property
+    def model_name(self):
+        return self.__class__.__name__
 
     def __unicode__(self):
         return u'%s' % self.name
