@@ -241,6 +241,13 @@ class BaseIssueEditJob(IssueJob):
 
         try:
             issue = self.edited_issue = issue.dist_edit(mode=self.edit_mode, gh=gh, fields=self.editable_fields, values=self.values)
+
+            if issue.github_status != issue.GITHUB_STATUS_CHOICES.FETCHED:
+                # Maybe it was still in saving mode but we didn't have anything new to get
+                # We need to be sure to have the right status to trigger the signals
+                issue.github_status = issue.GITHUB_STATUS_CHOICES.FETCHED
+                issue.save(update_fields=['github_status'])
+
         except ApiError, e:
             message = None
 

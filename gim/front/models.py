@@ -889,6 +889,10 @@ def hash_check(sender, instance, created, **kwargs):
                       )):
         return
 
+    # Only if the data is fresh from github
+    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+        return
+
     # get the limpyd instance storing the hash, create it if not exists
     hash_obj, hash_obj_created = Hash.get_or_connect(
                         type=instance.model_name, obj_id=instance.pk)

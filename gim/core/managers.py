@@ -232,16 +232,18 @@ class GithubObjectManager(BaseManager):
         def _create_or_update(obj=None):
             # get or create a new object
             to_create = False
-            if not obj:
+            if obj:
+                already_saved = False
+            else:
                 obj, already_saved = self.get_from_identifiers(fields, saved_objects=saved_objects)
             if not obj:
                 if 'create' not in modes:
-                    return None, False
+                    return None, False, []
                 to_create = True
                 obj = self.model()
             else:
                 if 'update' not in modes:
-                    return None, False
+                    return None, False, []
                 # don't update object with old data
                 if not force_update:
                     updated_at = getattr(obj, 'updated_at', None)
@@ -250,9 +252,9 @@ class GithubObjectManager(BaseManager):
                         if new_updated_at and new_updated_at < updated_at:
                             if not already_saved:
                                 saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
-                            return obj, True
+                            return obj, True, []
                 if already_saved:
-                    return obj, True
+                    return obj, True, []
 
             updated_fields = []
 
@@ -288,10 +290,21 @@ class GithubObjectManager(BaseManager):
                     if value and not isinstance(value, (int, long, basestring)):
                         setattr(obj, '_%s_cache' % field, value)
 
-            # always update these two fields
+            # always update these the date it was fetched
             setattr(obj, fetched_at_field, datetime.utcnow())
-            new_status = obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED
-            obj.github_status = obj.GITHUB_STATUS_CHOICES.FETCHED
+
+            # and a status if changed
+            wanted_status = obj.GITHUB_STATUS_CHOICES.FETCHED
+            if updated_fields:
+                wanted_status = obj.GITHUB_STATUS_CHOICES.SAVING
+            else:
+                for field, values in fields['many'].iteritems():
+                    if not isinstance(values, dict):
+                        wanted_status = obj.GITHUB_STATUS_CHOICES.SAVING
+                        break
+
+            new_status = obj.github_status != wanted_status
+            obj.github_status = wanted_status
 
             # force update or insert to avoid a exists() call in db
             if to_create:
@@ -333,9 +346,9 @@ class GithubObjectManager(BaseManager):
                 logger.error(message, *args)
                 raise IntegrityError(message % args)
 
-            return obj, False
+            return obj, False, updated_fields
 
-        obj, already_saved = _create_or_update()
+        obj, already_saved, updated_fields = _create_or_update()
 
         if not obj:
             return None
@@ -361,14 +374,18 @@ class GithubObjectManager(BaseManager):
                     defaults=defaults,
                     saved_objects=saved_objects
                 )
+
             if not already_saved:
                 obj.update_related_field(field, [o.id for o in values])
 
-        if already_saved:
-            return obj
+        if not already_saved:
+            # save object in the cache
+            saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
 
-        # save object in the cache
-        saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
+        if obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED:
+            obj.github_status = obj.GITHUB_STATUS_CHOICES.FETCHED
+            # We pass the same updated fields as before as they may be used by the signals
+            obj.save(update_fields=list(set(updated_fields).union({'github_status'})))
 
         return obj
 

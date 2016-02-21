@@ -25,6 +25,8 @@ def validate_filled_string(value, name='comment'):
 class IssueFormMixin(LinkedToRepositoryFormMixin):
     change_updated_at = 'exact'  # 'fuzzy' / None
 
+    fuzzy_delta = timedelta(seconds=120)
+
     class Meta:
         model = Issue
 
@@ -39,17 +41,31 @@ class IssueFormMixin(LinkedToRepositoryFormMixin):
         The real update time from github will be saved via dist_edit which
         does a forced update.
         """
+        revert_status = None
+        if self.instance.github_status == GITHUB_STATUS_CHOICES.FETCHED:
+            # We'll wait to have m2m saved (in super) to run signals
+            self.instance.github_status = GITHUB_STATUS_CHOICES.SAVING
+            revert_status = GITHUB_STATUS_CHOICES.FETCHED
+
         if self.change_updated_at is not None:
             now = datetime.utcnow()
             if not self.instance.updated_at:
                 self.instance.updated_at = now
             elif self.change_updated_at == 'fuzzy':
-                if now > self.instance.updated_at + timedelta(seconds=120):
+                if now > self.instance.updated_at + self.fuzzy_delta:
                     self.instance.updated_at = now
             else:  # 'exact'
                 if now > self.instance.updated_at:
                     self.instance.updated_at = now
-        return super(IssueFormMixin, self).save(commit)
+
+        instance = super(IssueFormMixin, self).save(commit)
+
+        if revert_status:
+            # Ok now the signals could work
+            instance.github_status = revert_status
+            instance.save()
+
+        return instance
 
 
 class IssueStateForm(LinkedToUserFormMixin, IssueFormMixin):
