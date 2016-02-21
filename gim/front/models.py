@@ -59,7 +59,31 @@ class FrontEditable(models.Model):
         return values
 
 
-class _GithubUser(models.Model):
+class Hashable(object):
+
+    @property
+    def hash(self):
+        raise NotImplementedError()
+
+    def hash_changed(self, force_update=False):
+        """
+        Tells if the current hash is different of the saved one
+        """
+        hash_obj, hash_obj_created = Hash.get_or_connect(
+                        type=self.model_name, obj_id=self.pk)
+
+        hash = self.hash
+
+        if not force_update and not hash_obj_created and str(hash) == hash_obj.hash.hget():
+            return False
+
+        # save the new hash
+        hash_obj.hash.hset(hash)
+
+        return hash
+
+
+class _GithubUser(Hashable, models.Model):
     AVATAR_START = re.compile('^https?://\d+\.')
 
     class Meta:
@@ -151,7 +175,7 @@ class _Repository(models.Model):
 contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 
 
-class _LabelType(models.Model):
+class _LabelType(Hashable, models.Model):
     class Meta:
         abstract = True
 
@@ -193,7 +217,7 @@ class _LabelType(models.Model):
 contribute_to_model(_LabelType, core_models.LabelType)
 
 
-class _Label(FrontEditable):
+class _Label(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -215,7 +239,7 @@ class _Label(FrontEditable):
 contribute_to_model(_Label, core_models.Label, {'defaults_create_values'})
 
 
-class _Milestone(FrontEditable):
+class _Milestone(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -269,7 +293,7 @@ class _Milestone(FrontEditable):
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
 
-class _Issue(FrontEditable):
+class _Issue(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -356,14 +380,16 @@ class _Issue(FrontEditable):
         Hash for this issue representing its state at the current time, used to
         know if we have to reset an its cache
         """
-        return hash((self.updated_at,
-                     self.user.hash if self.user_id else None,
-                     self.closed_by.hash if self.closed_by_id else None,
-                     self.assignee.hash if self.assignee_id else None,
-                     self.milestone.hash if self.milestone_id else None,
-                     self.total_comments_count or 0,
-                     ','.join(['%d' % l.hash for l in self.labels.all()]),
-                ))
+        hash_values = (
+            self.updated_at,
+            self.user.hash if self.user_id else None,
+            self.closed_by.hash if self.closed_by_id else None,
+            self.assignee.hash if self.assignee_id else None,
+            self.milestone.hash if self.milestone_id else None,
+            self.total_comments_count or 0,
+            ','.join(['%d' % l.hash for l in self.labels.all()]),
+        )
+        return hash(hash_values)
 
     def update_saved_hash(self):
         """
@@ -390,7 +416,7 @@ class _Issue(FrontEditable):
         """
         template = 'front/repository/issues/include_issue_item_for_cache.html'
 
-        # mnimize queries
+        # minimize queries
         issue = self.__class__.objects.filter(
             id=self.id
         ).select_related(
@@ -893,20 +919,11 @@ def hash_check(sender, instance, created, **kwargs):
     if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
-    # get the limpyd instance storing the hash, create it if not exists
-    hash_obj, hash_obj_created = Hash.get_or_connect(
-                        type=instance.model_name, obj_id=instance.pk)
+    if not hasattr(instance, 'signal_hash_changed'):
+        instance.signal_hash_changed = instance.hash_changed(force_update=created)
 
-    if created:
-        hash_changed = True
-    else:
-        hash_changed = hash_obj_created or str(instance.hash) != hash_obj.hash.hget()
-
-    if not hash_changed:
+    if not instance.signal_hash_changed:
         return
-
-    # save the new hash
-    hash_obj.hash.hset(instance.hash)
 
     from gim.core.tasks.issue import UpdateIssueCacheTemplate
 
@@ -976,11 +993,10 @@ def publish_update(instance, message_type, extra_data=None):
     if extra_data:
         base_data.update(extra_data)
 
-    if hasattr(instance, 'saved_hash'):
-        try:
-            base_data['hash'] = instance.saved_hash
-        except Exception:
-            pass
+    try:
+        base_data['hash'] = instance.saved_hash
+    except Exception:
+        pass
 
     if isinstance(instance, core_models.Repository):
         repository_id = instance.pk
@@ -1078,8 +1094,6 @@ def publish_github_updated(sender, instance, created, **kwargs):
         # If no field left, we're good
         if not update_fields:
             return
-
-    print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
 
     extra_data = {}
     if created:
