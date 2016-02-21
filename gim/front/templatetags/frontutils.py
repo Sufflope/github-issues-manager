@@ -310,3 +310,40 @@ def strip(string_value):
 @register.filter
 def replace(string, filter):
     return string.replace(*filter.split(':'))
+
+
+@register.filter
+def group_by_filter_key(group_by_object):
+
+    from gim.core import models as core_models
+
+    if isinstance(group_by_object, core_models.LabelType):
+        return 'label_type:%d' % group_by_object.id
+
+    return group_by_object
+
+
+@register.filter
+def group_by_filter_value(grouper, group_field):
+
+    from gim.core import models as core_models
+
+    if grouper is None:
+        return '' if group_field == 'label_type_grouper' else '__none__'
+
+    if group_field == 'is_pull_request':
+        return 'yes' if grouper else 'no'
+
+    if group_field == 'state':
+        return grouper
+
+    if isinstance(grouper, core_models.Milestone):
+        return grouper.number
+
+    if isinstance(grouper, core_models.GithubUser):
+        return grouper.username
+
+    if isinstance(grouper, core_models.Label):
+        return grouper.name
+
+    return ''

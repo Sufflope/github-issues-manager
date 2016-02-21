@@ -811,6 +811,52 @@ $().ready(function() {
         });
     }); // IssuesListIssue__on_update_alert
 
+    IssuesListIssue.get_data_for_node = (function IssuesListIssue_get_data_for_node (node) {
+        var $this = node.jquery ? node : $(this);
+        return {$node: $this, filters: $this.data()};
+    }); // IssuesListIssue__get_data_for_node
+
+    IssuesListIssue.prototype.get_nodes_with_filter = (function IssuesListIssue__get_filters () {
+        var result = $.makeArray(this.$node.find('[data-filter]').map(IssuesListIssue.get_data_for_node)),
+            self_result = IssuesListIssue.get_data_for_node(this.$node);
+        if (self_result.filters.filter) {
+            result.unshift(self_result);
+        }
+        return result;
+    }); // IssuesListIssue__get_filters
+
+    IssuesListIssue.prototype.get_filter_for = (function IssuesListIssue__get_filter_for (filter_key) {
+        var searchable_filter, matching_filters, filter_value, filter_text,
+            filters_nodes = this.get_nodes_with_filter();
+
+        if (filter_key.indexOf('label_type:') == 0) {
+            // specific case of issues grouped by a LabelType
+            searchable_filter = filter_key.substring(11);
+            matching_filters = $.grep(filters_nodes, function(filtered_node) { return filtered_node.filters.typeId == searchable_filter; });
+            if (matching_filters.length) { // we have a filter that matches the group!
+                filter_value = matching_filters[0].filters.filter.substring(7);  // remove 'labels:' prefix
+                filter_text = matching_filters[0].$node.contents()[1].textContent;
+            } else {
+                filter_value = '';
+            }
+        } else {
+            // standard group-by
+            searchable_filter = filter_key + ':';
+            matching_filters = $.grep(filters_nodes, function(filtered_node) { return filtered_node.filters.filter.indexOf(searchable_filter) == 0; });
+            if (matching_filters.length) { // we have a filter that matches the group!
+                filter_value = matching_filters[0].filters.filter.substring(searchable_filter.length);
+                if (filter_key == 'milestone') {
+                    filter_text = matching_filters[0].$node.contents()[1].textContent;
+                } else {
+                    filter_text = filter_value;
+                }
+            } else {
+                filter_value = '__none__';
+            }
+        }
+        return {value: filter_value, text: filter_text};
+    });  // IssuesListIssue__get_filter_for
+
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
         this.list = issues_list;
 
@@ -820,6 +866,8 @@ $().ready(function() {
         this.$link = this.$node.find(IssuesListGroup.link_selector);
         this.$issues_node = this.$node.find(IssuesListGroup.issues_list_selector);
         this.$count_node = this.$node.find('.issues-count');
+
+        this.group_by_value = this.$node.data('group_by-value');
 
         this.collapsable = this.$issues_node.hasClass('collapse');
         this.collapsed = this.collapsable && !this.$issues_node.hasClass('in');
@@ -833,7 +881,8 @@ $().ready(function() {
         this.no_visible_issues = this.filtered_issues.length === 0;
     }); // IssuesListGroup__constructor
 
-    IssuesListGroup.selector = '.issues-group';
+    IssuesListGroup.selector = '.issues-group:not(.template)';
+    IssuesListGroup.template_selector = '.issues-group.template';
     IssuesListGroup.link_selector = '.box-header';
     IssuesListGroup.issues_list_selector = '.issues-group-issues';
 
@@ -1002,6 +1051,7 @@ $().ready(function() {
 
     IssuesListGroup.prototype.on_show = (function IssuesListGroup__on_show () {
         this.collapsed = false;
+        this.$node.removeClass('recent')
     }); // IssuesListGroup__on_show
 
     IssuesListGroup.prototype.on_hide = (function IssuesListGroup__on_hide () {
@@ -1058,10 +1108,13 @@ $().ready(function() {
         this.node = node;
         this.node.IssuesList = this;
         this.$node = $(node);
+        this.$empty_node = this.$node.children('.empty-area');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
             this.$search_input = $(this.$node.data('quicksearch'));
         }
+
+        this.group_by_key = this.$node.data('group_by-key');
 
         var list = this;
         this.groups = $.map(this.$node.find(IssuesListGroup.selector),
@@ -1155,14 +1208,53 @@ $().ready(function() {
         }
     }); // IssuesList_on_update_alert
 
+    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text) {
+        var $group = this.$node.find(IssuesListGroup.template_selector).clone();
+        $group.removeClass('template');
+        $group.attr('data-group_by-value', filter_value);
+        if (filter_value != '' && filter_value != '__none__') {
+            $group.find('span.title').text(filter_text);
+        }
+        var new_uuid = UUID.generate();
+        $group.children('.box-header').attr('data-target', '#group_by-list-' + new_uuid);
+        $group.children('.issues-group-issues').attr('id', 'group_by-list-' + new_uuid);
+        this.$empty_node.hide();
+        this.$node.prepend($group);
+        $group.show();
+        var group = new IssuesListGroup($group[0], this);
+        this.groups.unshift(group);
+        return group;
+    }); // IssuesList__create_group
+
+    IssuesList.prototype.get_group_for_value = (function IssuesList__get_group_for_value (value) {
+        for (var i = 0; i < this.groups.length; i++) {
+            if (this.groups[i].group_by_value == value) {
+                return this.groups[i];
+            }
+        }
+        return null;
+    }); // IssuesList__get_group_for_value
+
     IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
-        // $.get(kwargs.url + window.location.search).done(function(data) {
-        $.get(kwargs.url).done(function(data) {
-            var $data = $(data), group, issue;
+        $.get(kwargs.url + window.location.search).done(function(data) {
+            var $data = $(data),
+                issue = new IssuesListIssue($data[0], null),
+                list=IssuesList.all[0], filter, group;
             $data.addClass('recent');
-            group = IssuesList.all[0].groups[0]; // first group of first list for now
-            issue = new IssuesListIssue($data[0], group);
+            if (list.group_by_key) {
+                filter = issue.get_filter_for(list.group_by_key);
+                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+            } else {
+                // no group by: only one group
+                group = list.groups[0];
+            }
+            issue.group = group;
             group.add_issue(issue, true);
+            if (list.groups.length == 1) {
+                group.open();
+            } else {
+                group.$node.addClass('recent');
+            }
         });
     }); // IssuesList_on_create_alert
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from collections import OrderedDict
 from datetime import datetime
 import json
 from math import ceil
@@ -22,7 +23,7 @@ from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneeJob, IssueEditLabelsJob,
-                                  IssueCreateJob, FetchIssueByNumber)
+                                  IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
 
@@ -168,8 +169,32 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
     allowed_mergeables = ['no', 'yes']
     allowed_sort_fields = ['created', 'updated', ]
     allowed_sort_orders = ['asc', 'desc']
-    allowed_group_by_fields = ['state', 'creator', 'assigned', 'closed by', 'milestone', 'pull-request']
-    allowed_group_by_fields_matching = {'creator': 'user', 'assigned': 'assignee', 'pull-request': 'is_pull_request', 'closed by': 'closed_by'}
+    allowed_group_by = OrderedDict([
+        ('state', {
+            'field': 'state',
+            'name': 'state',
+        }),
+        ('created_by', {
+            'field': 'user',
+            'name': 'creator',
+        }),
+        ('assigned', {
+            'field': 'assignee',
+            'name': 'assigned',
+        }),
+        ('closed_by', {
+            'field': 'closed_by',
+            'name': 'closed by',
+        }),
+        ('milestone', {
+            'field': 'milestone',
+            'name': 'milestone',
+        }),
+        ('pr', {
+            'field': 'is_pull_request',
+            'name': 'pull-request',
+        }),
+    ])
     default_sort = ('updated', 'desc')
 
     def _get_state(self, qs_parts):
@@ -260,10 +285,10 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
         """
         group_by = qs_parts.get('group_by', None)
 
-        if group_by in self.allowed_group_by_fields:
+        if group_by in self.allowed_group_by:
 
             # group by a simple field
-            group_by = self.allowed_group_by_fields_matching.get(group_by, group_by)
+            group_by = self.allowed_group_by[group_by]['field']
 
         elif group_by and group_by.startswith('type:'):
 
@@ -822,6 +847,17 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
                 raise Issue.DoesNotExist
         except Issue.DoesNotExist:
             raise Http404
+
+
+        # Force rerender if there is a job waiting to do it
+        try:
+            job = UpdateIssueCacheTemplate.collection(identifier=current_issue.pk,
+                                           status=STATUSES.WAITING).instances()[0]
+        except IndexError:
+            pass
+        else:
+            if job.status.hget() == STATUSES.WAITING:
+                job.status.hset(STATUSES.CANCELED)
 
         context['issue'] = current_issue
 
