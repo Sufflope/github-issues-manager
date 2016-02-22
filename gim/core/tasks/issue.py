@@ -374,6 +374,12 @@ class IssueCreateJob(BaseIssueEditJob):
 
     created_pk = fields.InstanceHashField(indexable=True)
 
+    @property
+    def issue(self):
+        issue = super(IssueCreateJob, self).issue
+        issue.is_new = True
+        return issue
+
     def run(self, queue):
         result = super(IssueCreateJob, self).run(queue)
         if self.edited_issue:

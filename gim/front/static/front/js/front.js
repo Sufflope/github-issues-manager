@@ -9,13 +9,19 @@ $().ready(function() {
          **/
         var self = {};
         var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
+        var generated = {};
         self.generate = function() {
             var d0 = Math.random()*0xffffffff| 0, d1 = Math.random()*0xffffffff| 0,
                 d2 = Math.random()*0xffffffff| 0, d3 = Math.random()*0xffffffff|0;
-            return lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
+            var uuid = lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
                 lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
                 lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
                 lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
+            generated[uuid] = 1;
+            return uuid
+        };
+        self.exists = function(uuid) {
+            return typeof generated[uuid] !== 'undefined';
         };
         return self;
     })();
@@ -803,11 +809,19 @@ $().ready(function() {
     IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
         var existing_hash = this.$node.data('issue-hash'), issue=this;
         if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
+        var is_active = this.$node.hasClass('active');
+
         $.get(kwargs.url).done(function(data) {
             var $data = $(data);
-            $data.addClass('recent');
+            $data.addClass(is_active ? 'active' : 'recent');
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+
+            if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+                var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated:<br /></span>');
+                $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            }
         });
     }); // IssuesListIssue__on_update_alert
 
@@ -1255,6 +1269,14 @@ $().ready(function() {
             } else {
                 group.$node.addClass('recent');
             }
+
+            if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+                var msg_text = 'The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter';
+                var $message = $('<span>' + msg_text + ':<br /></span>');
+                $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            }
+
         });
     }); // IssuesList_on_create_alert
 
@@ -3146,30 +3168,42 @@ $().ready(function() {
 
     var MessagesManager = {
 
+        selector: '#messages',
+        $node: null,
+        template: '<li class="alert"><button type="button" class="close" title="Close" data-dismiss="alert">&times;</button></li>',
+
         extract: (function MessagesManager__extract (html) {
             // Will extract message from ajax requests to put them
             // on the main messages container
             var $fake_node = $('<div />');
             $fake_node.html(html);
-            var $new_messages = $fake_node.find('#messages');
+            var $new_messages = $fake_node.find(MessagesManager.selector);
             if ($new_messages.length) {
                 $new_messages.remove();
-                var $messages = $('#messages');
-                if ($messages.length) {
-                    $messages.append($new_messages.children());
-                } else {
-                    $body.children('header:first-of-type').after($new_messages);
-                }
-                MessagesManager.init_auto_hide();
+                MessagesManager.add_messages($new_messages.children())
                 return $fake_node.html();
             } else {
                 return html;
             }
         }), // extract
 
-        first_message: (function MessagesManager__first_message () {
-            return $('#messages').children('li.alert').first();
-        }), // first_message
+        make_message: (function MessagesManager__make_message (content, type) {
+            var $node = $(MessagesManager.template);
+            if (type) {
+                $node.addClass('alert-' + type);
+            }
+            $node.append(content);
+            return $node;
+        }), // make_messages
+
+        add_messages: (function MessagesManager__add_messages (messages) {
+            MessagesManager.$node.append(messages);
+            MessagesManager.init_auto_hide();
+        }), // add_messages
+
+        get_messages: (function MessagesManager__get_alerts () {
+            return MessagesManager.$node.children('li.alert');
+        }), // get_alerts
 
         hide_delays: {
             1: 4000,
@@ -3180,7 +3214,7 @@ $().ready(function() {
         },
 
         hide_delay: (function MessagesManager__hide_delay () {
-            var count = $('#messages').children('li.alert').length;
+            var count = MessagesManager.get_messages().length;
             return MessagesManager.hide_delays[count] || MessagesManager.hide_delays.others;
         }), // count_messages
 
@@ -3190,20 +3224,25 @@ $().ready(function() {
                 clearTimeout(MessagesManager.auto_hide_timer);
                 MessagesManager.auto_hide_timer = null;
             }
-            var $first = MessagesManager.first_message();
+            var $first = MessagesManager.get_messages().first();
             if (!$first.length) { return; }
             MessagesManager.auto_hide_timer = setTimeout(MessagesManager.auto_hide_first, MessagesManager.hide_delay());
         }), // init_auto_hide
 
         auto_hide_first: (function MessagesManager__auto_hide_first () {
-            MessagesManager.first_message().fadeOut('slow', MessagesManager.remove_first);
+            MessagesManager.get_messages().first().fadeOut('slow', MessagesManager.remove_first);
         }), // auto_hide_first
 
         remove_first: (function MessagesManager__remove_first () {
             $(this).remove();
             MessagesManager.auto_hide_timer = null;
             MessagesManager.init_auto_hide();
-        }) // remove_first
+        }), // remove_first
+
+        init: (function MessagesManager__init () {
+            MessagesManager.$node = $(MessagesManager.selector);
+            MessagesManager.init_auto_hide();
+        }) // init
 
     }; // MessagesManager
 
@@ -3212,7 +3251,7 @@ $().ready(function() {
             "text html": MessagesManager.extract
         } // converts
     }); // ajaxSetup
-    MessagesManager.init_auto_hide();
+    MessagesManager.init();
 
     var IssueEditor = {
         disable_form: (function IssueEditor__disable_form ($form) {
@@ -3551,17 +3590,17 @@ $().ready(function() {
                 url: $link.attr('href'),
                 type: 'GET',
                 success: IssueEditor.on_issue_edit_field_ready,
-                error: IssueEditor.on_issue_edit_field_ready_click_failed,
+                error: IssueEditor.on_issue_edit_field_failed,
                 context: $link
             });
             return false;
         }), // on_issue_edit_field_click
 
-        on_issue_edit_field_ready_click_failed: (function IssueEditor__on_issue_edit_field_ready_click_failed () {
+        on_issue_edit_field_failed: (function IssueEditor__on_issue_edit_field_failed () {
             var $link = this;
             $link.removeClass('loading');
              alert('A problem prevented us to do your action !');
-        }), // on_issue_edit_field_ready_click_failed
+        }), // on_issue_edit_field_failed
 
         on_issue_edit_field_ready: (function IssueEditor__on_issue_edit_field_ready (data) {
             var $link = this;
@@ -3791,13 +3830,16 @@ $().ready(function() {
             var $btn = $form.find('.btn-save');
             IssueEditor.disable_form($form);
             $btn.addClass('loading');
+            var context = IssueEditor.get_form_context($form);
+            var data = $form.serializeArray();
+            data.push({name:'front_uuid', value: context.uuid});
             $.ajax({
                 url: $form.attr('action'),
-                data: $form.serialize(),
+                data: data,
                 type: 'POST',
                 success: IssueEditor.on_issue_edit_submit_done,
                 error: IssueEditor.on_issue_edit_submit_fail,
-                context: IssueEditor.get_form_context($form)
+                context: context
             });
             return false;
         }), // on_issue_edit_field_submit
@@ -3916,7 +3958,9 @@ $().ready(function() {
                 IssueEditor.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                $.post($form.attr('action'), $form.serialize())
+                var data = $form.serializeArray();
+                data.push({name:'front_uuid', value: UUID.generate()});
+                $.post($form.attr('action'), data)
                     .done(IssueEditor.create.on_submit_done)
                     .fail(IssueEditor.create.on_submit_failed);
             }), // on_form_submit

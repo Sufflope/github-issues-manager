@@ -241,6 +241,7 @@ class GithubObjectManager(BaseManager):
                     return None, False, []
                 to_create = True
                 obj = self.model()
+                obj.is_new = True  # may serve later
             else:
                 if 'update' not in modes:
                     return None, False, []

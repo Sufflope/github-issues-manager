@@ -56,6 +56,8 @@ class FrontEditable(models.Model):
     def defaults_create_values(self):
         values = self.old_defaults_create_values()
         values.setdefault('simple', {})['front_uuid'] = self.front_uuid
+        if hasattr(self, 'is_new'):
+            values['simple']['is_new'] = self.is_new
         return values
 
 
@@ -1068,6 +1070,14 @@ def publish_update(instance, message_type, extra_data=None):
             **data
         )
 
+    # No we can remove the front_uuid field and the is_new flag
+    if getattr(instance, 'front_uuid'):
+        instance.is_new = False
+        instance.front_uuid = None
+        instance.skip_publish = True
+        instance.save(update_fields=['front_uuid'])
+        instance.skip_publish = False
+
 
 @receiver(post_save, dispatch_uid="publish_github_updated")
 def publish_github_updated(sender, instance, created, **kwargs):
@@ -1084,6 +1094,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
     # Only if we didn't specifically say to not publish
     if getattr(thread_data, 'skip_publish', False):
         return
+    if getattr(instance, 'skip_publish', False):
+        return
 
     # Ignore some cases
     update_fields = kwargs.get('update_fields', [])
@@ -1092,7 +1104,7 @@ def publish_github_updated(sender, instance, created, **kwargs):
         # Remove fields that are not real updates
         update_fields = set([
             f for f in update_fields
-            if not f.endswith('fetched_at') and not f.endswith('etag')
+            if f != 'front_uuid' and not f.endswith('fetched_at') and not f.endswith('etag')
         ])
 
         # If no field left, we're good
@@ -1100,8 +1112,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
             return
 
     extra_data = {}
-    if created:
-        extra_data['new'] = True
+    if created or getattr(instance, 'is_new', False):
+        extra_data['is_new'] = True
 
     publish_update(instance, 'updated', extra_data)
 

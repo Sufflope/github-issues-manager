@@ -216,33 +216,33 @@ class IssueLabelsFormPart(object):
 
 class IssueTitleForm(IssueTitleFormPart, IssueFormMixin):
     class Meta(IssueFormMixin.Meta):
-        fields = ['title']
+        fields = ['title', 'front_uuid']
 
 
 class IssueBodyForm(IssueBodyFormPart, IssueFormMixin):
     class Meta(IssueFormMixin.Meta):
-        fields = ['body']
+        fields = ['body', 'front_uuid']
 
 
 class IssueMilestoneForm(IssueMilestoneFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['milestone']
+        fields = ['milestone', 'front_uuid']
 
 
 class IssueAssigneeForm(IssueAssigneeFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['assignee']
+        fields = ['assignee', 'front_uuid']
 
 
 class IssueLabelsForm(IssueLabelsFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['labels']
+        fields = ['labels', 'front_uuid']
 
 
 class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,
@@ -265,7 +265,7 @@ class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneeFormPart,
                           IssueLabelsFormPart, IssueCreateForm):
 
     class Meta(IssueCreateForm.Meta):
-        fields = ['title', 'body', 'milestone', 'assignee', 'labels']
+        fields = ['title', 'body', 'milestone', 'assignee', 'labels', 'front_uuid']
 
 
 class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
