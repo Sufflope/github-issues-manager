@@ -817,6 +817,17 @@ $().ready(function() {
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
 
+            // check if we have to change group
+            var list = issue.group.list;
+            if (list.group_by_key) {
+                var filter = issue.get_filter_for(list.group_by_key);
+                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                if (group != issue.group) {
+                    list.change_issue_group(issue, group);
+                    group.$node.addClass('recent');
+                }
+            }
+
             if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
                 var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated:<br /></span>');
                 $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
@@ -1122,6 +1133,7 @@ $().ready(function() {
         if (prepend_node) {
             this.$issues_node.prepend(issue.$node);
         }
+        issue.group = this;
         this.issues.unshift(issue);
         this.update_filtered_issues();
     }); // IssuesListGroup__add_issue
@@ -1286,6 +1298,22 @@ $().ready(function() {
         return null;
     }); // IssuesList__get_group_for_value
 
+    IssuesList.prototype.change_issue_group = (function IssuesList__change_issue_group (issue, new_group) {
+        var orig_group = issue.group;
+
+        var index = orig_group.issues.indexOf(issue);
+        if (index > -1) {
+            orig_group.issues.splice(index, 1);
+        }
+        new_group.add_issue(issue, true);
+        if (!orig_group.issues.length) {
+            this.remove_group(orig_group);
+        } else {
+            orig_group.update_filtered_issues();
+        }
+
+    }); // IssuesList__change_issue_group
+
     IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data),
@@ -1299,7 +1327,6 @@ $().ready(function() {
                 // no group by: only one group
                 group = list.groups.length ? list.groups[0] : list.create_group(null, null);
             }
-            issue.group = group;
             group.add_issue(issue, true);
             if (list.groups.length == 1) {
                 group.open();
