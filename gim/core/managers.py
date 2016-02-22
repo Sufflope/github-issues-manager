@@ -976,7 +976,7 @@ class CommitManager(WithRepositoryManager):
     get_object_fields_from_dict method, to get the issue and the repository,
     and to reformat data in a flat way to match the model.
     Provides also an enhanced create_or_update_from_dict that will trigger a
-    FetchCommitBySha job if files where not provided
+    FetchCommitBySha job if files or comments where not provided
     """
 
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
@@ -986,9 +986,15 @@ class CommitManager(WithRepositoryManager):
         if 'commit' in data:
             c = data['commit']
 
-            for field in 'message', 'comment_count':
-                if field in c:
-                    data[field] = c[field]
+            if 'message' in c:
+                data['message'] = c['message']
+
+            if 'comment_count' in c and 'files' in 'data':
+                # In the list of commits of a PR, the comment_count is bugged (often 0)
+                # But we know that we are in this case because we don't have the files of the commit
+                # So we can keep the comment_count only if we have files, ie only when we directly
+                # fetch the commit
+                data['comment_count'] = c['comment_count']
 
             for user_type, date_field in (('author', 'authored'), ('committer', 'committed')):
                 if user_type in c:
@@ -1018,12 +1024,18 @@ class CommitManager(WithRepositoryManager):
         obj = super(CommitManager, self).create_or_update_from_dict(data, modes,
                         defaults, fetched_at_field, saved_objects, force_update)
 
-        if obj and not obj.files_fetched_at:
+        # We got commits from the list of commits of a PR, so we don't have files and comments
+        if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
+            kwargs = {}
+            if not obj.files_fetched_at:
+                kwargs['force_fetch'] = 1
+            else:
+                kwargs['fetch_comments_only'] = 1
+            if not obj.commit_comments_fetched_at:
+                kwargs['fetch_comments'] = 1
+
             from gim.core.tasks import FetchCommitBySha
-            FetchCommitBySha.add_job(
-                '%s#%s' % (obj.repository_id, obj.sha),
-                force_fetch='1',
-            )
+            FetchCommitBySha.add_job( '%s#%s' % (obj.repository_id, obj.sha), **kwargs)
 
         return obj
 
