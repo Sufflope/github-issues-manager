@@ -380,10 +380,16 @@ class _Issue(Hashable, FrontEditable):
     def hash(self):
         """
         Hash for this issue representing its state at the current time, used to
-        know if we have to reset an its cache
+        know if we have to reset its cache
         """
-        hash_values = (
-            self.updated_at,
+
+        hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request')
+        if self.is_pull_request:
+            hashable_fields += ('base_sha', 'head_sha', 'merged')
+            if self.state == 'open' and not self.merged:
+                hashable_fields += ('mergeable', 'mergeable_state')
+
+        hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
             self.user.hash if self.user_id else None,
             self.closed_by.hash if self.closed_by_id else None,
             self.assignee.hash if self.assignee_id else None,
@@ -391,6 +397,11 @@ class _Issue(Hashable, FrontEditable):
             self.total_comments_count or 0,
             ','.join(['%d' % l.hash for l in self.labels.all()]),
         )
+
+        if self.is_pull_request:
+            commits_part = ','.join(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True))
+            hash_values += (commits_part, )
+
         return hash(hash_values)
 
     def update_saved_hash(self):
@@ -987,7 +998,7 @@ def publish_update(instance, message_type, extra_data=None):
 
     conf = PUBLISHABLE[instance.__class__]
 
-    if conf.get('condition') and not conf['condition'](instance):
+    if message_type != 'deleted' and conf.get('condition') and not conf['condition'](instance):
         return
 
     base_data = {
@@ -1104,7 +1115,9 @@ def publish_github_updated(sender, instance, created, **kwargs):
         # Remove fields that are not real updates
         update_fields = set([
             f for f in update_fields
-            if f != 'front_uuid' and not f.endswith('fetched_at') and not f.endswith('etag')
+            if f not in ('front_uuid', ) and
+                not f.endswith('fetched_at') and
+                not f.endswith('etag')
         ])
 
         # If no field left, we're good
