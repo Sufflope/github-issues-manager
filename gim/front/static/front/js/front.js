@@ -811,7 +811,7 @@ $().ready(function() {
         if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
         var is_active = this.$node.hasClass('active');
 
-        $.get(kwargs.url).done(function(data) {
+        $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data);
             $data.addClass(is_active ? 'active' : 'recent');
             issue.$node.replaceWith($data);
@@ -821,6 +821,15 @@ $().ready(function() {
                 var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated:<br /></span>');
                 $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            }
+        }).fail(function(response) {
+            if (response.status == 404 && issue.group) {
+                issue.group.remove_issue(issue);
+                if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+                    var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated and does not match your filter anymore:<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+                }
             }
         });
     }); // IssuesListIssue__on_update_alert
@@ -1117,6 +1126,20 @@ $().ready(function() {
         this.update_filtered_issues();
     }); // IssuesListGroup__add_issue
 
+    IssuesListGroup.prototype.remove_issue = (function IssuesListGroup__remove_issue (issue) {
+        var index = this.issues.indexOf(issue);
+        if (index > -1) {
+            this.issues.splice(index, 1);
+        }
+        issue.group = null;
+        issue.$node.remove();
+        if (!this.issues.length) {
+            this.list.remove_group(this);
+        } else {
+            this.update_filtered_issues();
+        }
+    }); // IssuesListGroup__remove_issue
+
 
     var IssuesList = (function IssuesList__constructor (node) {
         this.node = node;
@@ -1225,8 +1248,10 @@ $().ready(function() {
     IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text) {
         var $group = this.$node.find(IssuesListGroup.template_selector).clone();
         $group.removeClass('template');
-        $group.attr('data-group_by-value', filter_value);
-        if (filter_value != '' && filter_value != '__none__') {
+        if (filter_value != null) {
+            $group.attr('data-group_by-value', filter_value);
+        }
+        if (filter_text != null && filter_value != '' && filter_value != '__none__') {
             $group.find('span.title').text(filter_text);
         }
         var new_uuid = UUID.generate();
@@ -1239,6 +1264,18 @@ $().ready(function() {
         this.groups.unshift(group);
         return group;
     }); // IssuesList__create_group
+
+    IssuesList.prototype.remove_group = (function IssuesList__remove_group (group) {
+        var index = this.groups.indexOf(group);
+        if (index > -1) {
+            this.groups.splice(index, 1);
+        }
+        group.$node.remove();
+        group.list = null;
+        if (!this.groups.length) {
+            this.$empty_node.show();
+        }
+    }); // IssuesList__remove_group
 
     IssuesList.prototype.get_group_for_value = (function IssuesList__get_group_for_value (value) {
         for (var i = 0; i < this.groups.length; i++) {
@@ -1260,7 +1297,7 @@ $().ready(function() {
                 group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
             } else {
                 // no group by: only one group
-                group = list.groups[0];
+                group = list.groups.length ? list.groups[0] : list.create_group(null, null);
             }
             issue.group = group;
             group.add_issue(issue, true);

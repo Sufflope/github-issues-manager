@@ -174,7 +174,7 @@
                 {% else %}
                     <div class='box issues-group'>
                         <a class="box-header" href='#'>
-                            <span class="title">{% if issues_filter.parts.keys|length > 2%}Filtered{% else %}All{% endif %} issues</span>
+                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
                             <ul class="unstyled box-toolbar">
                                 <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                             </ul>
@@ -185,24 +185,26 @@
                     </div>
                 {% endif %}
             {% endfor %}
-            {% if issues_filter.objects.group_by_field %}
-                <div class='box issues-group template' data-group_by-value="" style="display:none">
-                    <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
-                        <span class="title">
+            <div class='box issues-group template' style="display:none">
+                <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
+                    <span class="title">
+                        {% if issues_filter.objects.group_by_field %}
                             No
                             {% if issues_filter.objects.group_by_field == 'label_type_grouper' %}
                                 {{ issues_filter.objects.group_by.name|lower }}
                             {% else %}
                                 {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|lower }}
                             {% endif %}
-                        </span>
-                        <ul class="unstyled box-toolbar">
-                            <li><span class="label label-inverse issues-count">1</span></li>
-                        </ul>
-                    </a>
-                    <ul class="unstyled box-content issues-group-issues collapse" id="group_by-list-template"></ul>
-                </div>
-            {% endif %}
+                        {% else %}
+                            {% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues
+                        {% endif %}
+                    </span>
+                    <ul class="unstyled box-toolbar">
+                        <li><span class="label label-inverse issues-count">1</span></li>
+                    </ul>
+                </a>
+                <ul class="unstyled box-content issues-group-issues collapse" id="group_by-list-template"></ul>
+            </div>
         </div>
     </section>
 

@@ -72,7 +72,7 @@ class IssueStateForm(LinkedToUserFormMixin, IssueFormMixin):
     user_attribute = None  # don't update issue's user
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['state']
+        fields = ['state', 'front_uuid']
 
     def clean_state(self):
         new_state = self.cleaned_data.get('state')
