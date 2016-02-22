@@ -828,6 +828,10 @@ $().ready(function() {
                 }
             }
 
+            if (is_active) {
+                issue.set_current(true);
+            }
+
             if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
                 var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated:<br /></span>');
                 $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
@@ -1148,6 +1152,7 @@ $().ready(function() {
         if (!this.issues.length) {
             this.list.remove_group(this);
         } else {
+            this.current_issue = null;
             this.update_filtered_issues();
         }
     }); // IssuesListGroup__remove_issue
@@ -1174,10 +1179,8 @@ $().ready(function() {
     IssuesList.selector = '.issues-list';
     IssuesList.all = [];
     IssuesList.current = null;
-    IssuesList.prev_current = null;
 
     IssuesList.prototype.unset_current = (function IssuesList__unset_current () {
-        IssuesList.prev_current = this;
         IssuesList.current = null;
     }); // IssuesList__unset_current
 
@@ -1281,6 +1284,12 @@ $().ready(function() {
         var index = this.groups.indexOf(group);
         if (index > -1) {
             this.groups.splice(index, 1);
+        }
+        if (this.current_group == group) {
+            group.unset_current();
+            if (this.groups.length) {
+                this.groups[index ? index - 1 : 1].set_current(false)
+            }
         }
         group.$node.remove();
         group.list = null;
