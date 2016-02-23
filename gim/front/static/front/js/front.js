@@ -3946,6 +3946,7 @@ $().ready(function() {
                 if ($nodes.length) {
                     $.get(kwargs.url).done(function(data) {
                         $nodes.replaceWith(data);
+                        MarkdownManager.update_links();
                     });
                 }
 
