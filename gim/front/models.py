@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from collections import Counter, OrderedDict
-from operator import attrgetter
+from collections import defaultdict, Counter, OrderedDict
+from operator import attrgetter, itemgetter
 from threading import local
 import re
 
@@ -1006,10 +1006,76 @@ PUBLISHABLE = {
 PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
+def unify_messages(store, topic, repository_id, *args, **kwargs):
+    """Keep only the last message for a topic/instance each time we receive one in the store"""
+
+    store['__order__'] = store.get('__order__', 0) + 1
+
+    message = {
+        'message': {
+            'topic': topic,
+            'repository_id': repository_id,
+            'args': args,
+            'kwargs': kwargs,
+        },
+        'order': store['__order__']
+    }
+
+    if 'model' in kwargs and 'id' in kwargs:
+        model, pk = kwargs['model'], kwargs['id']
+        store.setdefault('__instances__', {}).setdefault(model, {})
+
+        # If it's the first time, we register the 'previous hash'
+        if pk not in store.setdefault('__hashes__', {}).setdefault(model, {}):
+            # Store the previous hash, or None
+            store['__hashes__'][model][pk] = kwargs.get('previous_hash', None)
+
+        # Else, we check if we have the same hash as the original one
+        elif store['__hashes__'][model][pk] is not None and kwargs.get('hash') == store['__hashes__'][model][pk]:
+            # In this case we skip the message, because we're back to the original
+            message = None
+            # And we don't send the stored message either
+            if pk in store['__instances__'][model]:
+                del store['__instances__'][model][pk]
+
+        # We are allowed to store the message (because no hash or the hash is not the original one)
+        if message:
+            store['__instances__'][model].setdefault(pk, {})[topic] = message
+
+    else:
+        # Not an instance, we store the message (but avoid duplication)
+        store.setdefault('__others__', {})[hash(frozenset(message['message']))] = message
+
+
+def send_unified_messages(store):
+    if not store:
+        return
+
+    messages = []
+    for model in store.get('__instances__', {}):
+        for pk in store['__instances__'][model]:
+            messages.extend(store['__instances__'][model][pk].values())
+    messages.extend(store.get('__others__', {}).values())
+
+    for container in sorted(messages, key=itemgetter('order')):
+        message = container['message']
+        publisher.publish(
+            topic=message['topic'],
+            repository_id=message['repository_id'],
+            *message['args'],
+            **message['kwargs']
+        )
+
+
 def publish_update(instance, message_type, extra_data=None):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
+
+    try:
+        previous_saved_hash = instance.saved_hash
+    except Exception:
+        previous_saved_hash = None
 
     if message_type != 'deleted' and conf.get('condition') and not conf['condition'](instance):
         return
@@ -1025,6 +1091,8 @@ def publish_update(instance, message_type, extra_data=None):
 
     try:
         base_data['hash'] = instance.saved_hash
+        if previous_saved_hash != base_data['hash']:
+            base_data['previous_hash'] = previous_saved_hash
     except Exception:
         pass
 
