@@ -111,8 +111,11 @@ class IssueCommentEditJob(CommentEditJob):
 
     def after_run(self, gh, obj, delta):
         if delta:
-            obj.issue.comments_count += delta
-            obj.issue.save(update_fields=['comments_count'])
+            issue = obj.issue
+            for key, value in self.extra_args.hgetall().items():
+                setattr(issue, key, value)
+            issue.comments_count += delta
+            issue.save(update_fields=['comments_count'])
 
 
 class PullRequestCommentEditJob(CommentEditJob):
@@ -121,8 +124,11 @@ class PullRequestCommentEditJob(CommentEditJob):
 
     def after_run(self, gh, obj, delta):
         if delta:
-            obj.issue.pr_comments_count += delta
-            obj.issue.save(update_fields=['pr_comments_count'])
+            issue = obj.issue
+            for key, value in self.extra_args.hgetall().items():
+                setattr(issue, key, value)
+            issue.pr_comments_count += delta
+            issue.save(update_fields=['pr_comments_count'])
 
 
 class CommitCommentEditJob(CommentEditJob):
@@ -134,8 +140,17 @@ class CommitCommentEditJob(CommentEditJob):
 
     def after_run(self, gh, obj, delta):
         if delta:
-            obj.commit.comments_count += delta
-            obj.commit.save(update_fields=['comments_count'])
+            # Update the commit
+            commit = obj.commit
+            commit.comments_count += delta
+            commit.save(update_fields=['comments_count'], skip_update_issues=True)
+
+            # Update all related issues
+            extra_args = self.extra_args.hgetall()
+            for issue in commit.issues.all():
+                for key, value in extra_args.items():
+                    setattr(issue, key, value)
+                issue.update_commits_comments_count()
 
 
 class SearchReferenceCommitForComment(IssueCommentJob):

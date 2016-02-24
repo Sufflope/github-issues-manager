@@ -1493,9 +1493,17 @@ class BaseCommentEditMixin(LinkedToUserFormViewMixin, LinkedToIssueFormViewMixin
         """
         response = super(BaseCommentEditMixin, self).form_valid(form)
 
+        job_kwargs = {}
+        if self.object.front_uuid:
+            job_kwargs = {'extra_args': {
+                'front_uuid': self.object.front_uuid,
+                'skip_reset_front_uuid': 1,
+            }}
+
         self.job_model.add_job(self.object.pk,
                                mode=self.edit_mode,
-                               gh=self.request.user.get_connection())
+                               gh=self.request.user.get_connection(),
+                               **job_kwargs)
 
         return response
 

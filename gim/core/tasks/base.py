@@ -153,6 +153,7 @@ class Job(LimpydJob):
     queue_name = None
     gh_args = fields.HashField()  # will store info to create a Github connection
     clonable_fields = ()
+    extra_args = fields.HashField()  # will store any kind of information depending on jobs
 
     def run(self, queue):
         return None

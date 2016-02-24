@@ -7,7 +7,7 @@ import re
 
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
-from django.db.models import ForeignKey
+from django.db.models import ForeignKey, FieldDoesNotExist
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
@@ -59,6 +59,19 @@ class FrontEditable(models.Model):
         if hasattr(self, 'is_new'):
             values['simple']['is_new'] = self.is_new
         return values
+
+    def clear_front_uuid(self):
+        # We don't call save as we are already in a save call and don't want things to be called twice
+        self.__class__.objects.filter(pk=self.pk).update(front_uuid=None)
+
+    @staticmethod
+    def isinstance(obj):
+        try:
+            obj._meta.get_field('front_uuid')
+        except FieldDoesNotExist:
+            return False
+        else:
+            return True
 
 
 class Hashable(object):
@@ -780,7 +793,7 @@ class _WaitingSubscription(models.Model):
 
     def can_add_again(self):
         """
-        Return True if the user can add the reposiory again (it is allowed if
+        Return True if the user can add the repository again (it is allowed if
         the state is FAILED)
         """
         return self.state == subscriptions_models.WAITING_SUBSCRIPTION_STATES.FAILED
@@ -1082,12 +1095,12 @@ def publish_update(instance, message_type, extra_data=None):
         )
 
     # No we can remove the front_uuid field and the is_new flag
-    if getattr(instance, 'front_uuid'):
-        instance.is_new = False
+    if hasattr(instance, 'is_new'):
+        del instance.is_new
+    if getattr(instance, 'front_uuid') and not getattr(instance, 'skip_reset_front_uuid', False):
         instance.front_uuid = None
-        instance.skip_publish = True
-        instance.save(update_fields=['front_uuid'])
-        instance.skip_publish = False
+        if instance.pk and FrontEditable.isinstance(instance):
+            instance.clear_front_uuid()
 
 
 @receiver(post_save, dispatch_uid="publish_github_updated")

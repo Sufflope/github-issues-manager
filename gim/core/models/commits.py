@@ -100,6 +100,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         this case, set these dates to now, to avoid inexpected rendering
         """
         now = datetime.utcnow()
+        skip_update_issues = kwargs.pop('skip_update_issues', False)
 
         if self.authored_at and self.authored_at > now:
             self.authored_at = now
@@ -118,9 +119,10 @@ class Commit(WithRepositoryMixin, GithubObject):
 
         super(Commit, self).save(*args, **kwargs)
 
-        update_fields = kwargs.get('update_fields', None)
-        if update_fields is None or 'comments_count' in update_fields:
-            self.update_issues_comments_count()
+        if not skip_update_issues:
+            update_fields = kwargs.get('update_fields', None)
+            if update_fields is None or 'comments_count' in update_fields:
+                self.update_issues_comments_count()
 
     def update_issues_comments_count(self):
         for issue in self.issues.all():
