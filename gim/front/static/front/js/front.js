@@ -807,7 +807,9 @@ $().ready(function() {
     }); // IssuesListIssue_open_issue
 
     IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, subscription, $containers) {
-        var existing_hash = this.$node.data('issue-hash'), issue=this;
+        var existing_hash = this.$node.data('issue-hash'), issue=this,
+            front_uuid_exists = UUID.exists(kwargs.front_uuid);
+
         if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
         var is_active = this.$node.hasClass('active');
 
@@ -832,7 +834,7 @@ $().ready(function() {
                 issue.set_current(true);
             }
 
-            if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+            if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
                     $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
@@ -842,11 +844,13 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
+                IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
                 issue.group.remove_issue(issue);
-                if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+                if (!kwargs.front_uuid || !front_uuid_exists) {
                     var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                     if ($containers.length) {
                         $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
@@ -856,6 +860,8 @@ $().ready(function() {
                         $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                     }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
+                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
                 }
             }
         });
@@ -1340,7 +1346,8 @@ $().ready(function() {
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
-                list=IssuesList.all[0], filter, group;
+                list = IssuesList.all[0], filter, group,
+                front_uuid_exists = UUID.exists(kwargs.front_uuid);
             $data.addClass('recent');
             if (list.group_by_key) {
                 filter = issue.get_filter_for(list.group_by_key);
@@ -1356,7 +1363,7 @@ $().ready(function() {
                 group.$node.addClass('recent');
             }
 
-            if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+            if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
                     $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
@@ -1366,6 +1373,11 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                if ($containers.length) {
+                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                }
+                $data.removeClass('recent');
             }
 
         });
@@ -1717,6 +1729,9 @@ $().ready(function() {
         on_issue_loaded: (function IssueDetail__on_issue_loaded ($node, focus_modal) {
             var is_modal = IssueDetail.is_modal($node),
                 complete_issue_ident = IssueDetail.get_issue_ident($node.children('article'));
+            if (!complete_issue_ident.number) {
+                complete_issue_ident.number = 'pk-' + complete_issue_ident.id;
+            }
             IssueDetail.set_issue_ident($node, complete_issue_ident);
             if (is_modal && focus_modal) {
                 // focusing $node doesn't FUCKING work
@@ -1929,6 +1944,15 @@ $().ready(function() {
                 $holder.prepend($marker);
             }
         }), // IssueDetail__mark_container_as_updated
+
+        refresh_created_issue: (function IssueDetail__refresh_created_issue ($containers, front_uuid) {
+            for (var i = 0; i < $containers.length; i++) {
+                var $container = $($containers[i]);
+                if ($container.children('article').data('front-uuid') == front_uuid) {
+                    IssueDetail.refresh({$node: $container});
+                }
+            }
+        }), // IssueDetail__refresh_created_issue
 
         fill_container: (function IssueDetail__fill_container (container, html) {
             if (typeof $().select2 != 'undefined') {
@@ -4046,6 +4070,7 @@ $().ready(function() {
             $modal_submit: null,
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
+
             get_form: function() {
                 return $('#issue-create-form');
             },
@@ -4101,10 +4126,10 @@ $().ready(function() {
                 IssueEditor.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                var data = $form.serializeArray();
-                data.push({name:'front_uuid', value: UUID.generate()});
+                var data = $form.serializeArray(), front_uuid = UUID.generate();
+                data.push({name:'front_uuid', value: front_uuid});
                 $.post($form.attr('action'), data)
-                    .done(IssueEditor.create.on_submit_done)
+                    .done($.proxy(IssueEditor.create.on_submit_done, {'front_uuid': front_uuid}))
                     .fail(IssueEditor.create.on_submit_failed);
             }), // on_form_submit
 
@@ -4120,7 +4145,7 @@ $().ready(function() {
                     IssueEditor.create.$modal_submit.removeClass('loading');
                 } else {
                     // no error, we display the issue
-                    IssueEditor.create.display_created_issue(data);
+                    IssueEditor.create.display_created_issue(data, this.front_uuid);
                 }
             }), // on_submit_done
 
@@ -4132,15 +4157,14 @@ $().ready(function() {
                 IssueEditor.create.$modal_footer.prepend('<div class="alert alert-error">A problem prevented us to save the issue</div>');
             }), // on_submit_failed
 
-            display_created_issue: (function IssueEditor_create__display_created_issue (html) {
+            display_created_issue: (function IssueEditor_create__display_created_issue (html, front_uuid) {
                 var $html = $('<div/>').html(html),
                     $article = $html.children('article:first-of-type'),
-                    number = $article.data('issue-number'),
                     context = {
                         issue_ident: {
                             repository: $article.data('repository'),
-                            repository_id: $article.data('repository_id'),
-                            number: number || 'pk-' + $article.data('issue-id'),
+                            repository_id: $article.data('repository-id'),
+                            number: $article.data('issue-number') || 'pk-' + $article.data('issue-id'),
                             id: $article.data('issue-id')
                         }
                     },
@@ -4148,6 +4172,7 @@ $().ready(function() {
                 IssueEditor.create.$modal.modal('hide');
                 context.$node = container.$node;
                 IssueEditor.display_issue($html.children(), context);
+                $article.data('front-uuid', front_uuid);
             }), // display_created_issue
 
             on_created_modal_hidden: (function IssueEditor_create__on_created_modal_hidden () {
