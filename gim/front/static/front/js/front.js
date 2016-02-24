@@ -815,7 +815,12 @@ $().ready(function() {
 
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data);
-            $data.addClass(is_active ? 'active' : 'recent');
+            if (!$containers.length) {
+                $data.addClass('recent');
+            }
+            if (is_active) {
+                $data.addClass('active');
+            }
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
 
@@ -826,7 +831,9 @@ $().ready(function() {
                 var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
                 if (group != issue.group) {
                     list.change_issue_group(issue, group);
-                    group.$node.addClass('recent');
+                    if (!$containers.length) {
+                        group.$node.addClass('recent');
+                    }
                 }
             }
 
@@ -1348,7 +1355,9 @@ $().ready(function() {
                 issue = new IssuesListIssue($data[0], null),
                 list = IssuesList.all[0], filter, group,
                 front_uuid_exists = UUID.exists(kwargs.front_uuid);
-            $data.addClass('recent');
+            if (!$containers.length) {
+                $data.addClass('recent');
+            }
             if (list.group_by_key) {
                 filter = issue.get_filter_for(list.group_by_key);
                 group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
@@ -1359,7 +1368,7 @@ $().ready(function() {
             group.add_issue(issue, true);
             if (list.groups.length == 1) {
                 group.open();
-            } else {
+            } else if (!$containers.length) {
                 group.$node.addClass('recent');
             }
 
@@ -1376,8 +1385,9 @@ $().ready(function() {
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
                 if ($containers.length) {
                     IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                } else {
+                    $data.removeClass('recent');
                 }
-                $data.removeClass('recent');
             }
 
         });
