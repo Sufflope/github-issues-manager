@@ -806,7 +806,7 @@ $().ready(function() {
         }
     }); // IssuesListIssue_open_issue
 
-    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, subscription, $containers) {
         var existing_hash = this.$node.data('issue-hash'), issue=this;
         if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
         var is_active = this.$node.hasClass('active');
@@ -833,16 +833,28 @@ $().ready(function() {
             }
 
             if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
-                var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated:<br /></span>');
-                $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                if ($containers.length) {
+                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                } else {
+                    $message = $('<span>The following ' + issue_type + ' was just updated:<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
                 issue.group.remove_issue(issue);
                 if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
-                    var $message = $('<span>The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just updated and does not match your filter anymore:<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                    if ($containers.length) {
+                        $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
+                        IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                    } else {
+                        $message = $('<span>The following ' + issue_type + ' was just updated and does not match your filter anymore:<br /></span>');
+                        $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
                 }
             }
@@ -1252,11 +1264,12 @@ $().ready(function() {
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs, subscription) {
-        var issue = IssuesList.get_issue_by_id(kwargs.id);
+        var issue = IssuesList.get_issue_by_id(kwargs.id),
+            $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
         if (issue) {
-            issue.on_update_alert(topic, args, kwargs, subscription);
+            issue.on_update_alert(topic, args, kwargs, subscription, $containers);
         } else {
-            IssuesList.on_create_alert(topic, args, kwargs, subscription);
+            IssuesList.on_create_alert(topic, args, kwargs, subscription, $containers);
         }
     }); // IssuesList_on_update_alert
 
@@ -1323,7 +1336,7 @@ $().ready(function() {
 
     }); // IssuesList__change_issue_group
 
-    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
+    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs, subscription, $containers) {
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
@@ -1344,9 +1357,14 @@ $().ready(function() {
             }
 
             if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
-                var msg_text = 'The following ' + (kwargs.is_pr ? 'pull request' : 'issue') + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter';
-                var $message = $('<span>' + msg_text + ':<br /></span>');
-                $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                if ($containers.length) {
+                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                } else {
+                    $message = $('<span>' + 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter' + ':<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             }
 
@@ -1697,7 +1715,9 @@ $().ready(function() {
         }), // get_url_for_ident
 
         on_issue_loaded: (function IssueDetail__on_issue_loaded ($node, focus_modal) {
-            var is_modal = IssueDetail.is_modal($node);
+            var is_modal = IssueDetail.is_modal($node),
+                complete_issue_ident = IssueDetail.get_issue_ident($node.children('article'));
+            IssueDetail.set_issue_ident($node, complete_issue_ident);
             if (is_modal && focus_modal) {
                 // focusing $node doesn't FUCKING work
                 setTimeout(function() {
@@ -1860,6 +1880,55 @@ $().ready(function() {
             }
             return container;
         }), // get_container_waiting_for_issue
+
+        get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
+            return $('.issue-container:visible').filter(function() {
+                var $this = $(this),
+                    container_issue_ident = IssueDetail.get_issue_ident($this);
+
+                // If we have the issue id, it's easy
+                if (issue_ident.id && container_issue_ident.id) {
+                    return (issue_ident.id == container_issue_ident.id);
+                }
+
+                // Without id we must have the number
+                if (issue_ident.number && container_issue_ident.number) {
+                    if (issue_ident.number != container_issue_ident.number) {
+                        return false;
+                    }
+                } else {
+                    // cannot know if no id and number
+                    return false;
+                }
+
+                // The number is ok, check the repository
+                if (issue_ident.repository_id && container_issue_ident.repository_id) {
+                    return (issue_ident.repository_id != container_issue_ident.repository_id);
+                }
+                if (issue_ident.repository && container_issue_ident.repository) {
+                    return (issue_ident.repository != container_issue_ident.repository);
+                }
+
+                // no repository, we cannot say
+                return false;
+            })
+        }), // IssueDetail__get_containers_for_ident
+
+        mark_containers_nodes_as_updated: (function IssueDetail__mark_containers_as_updated ($nodes, issue_type) {
+            for (var i = 0; i < $nodes.length; i++) {
+                IssueDetail.mark_container_node_as_updated($($nodes[i]), issue_type);
+            }
+        }), // IssueDetail__mark_containers_as_updated
+
+        mark_container_node_as_updated: (function IssueDetail__mark_container_node_as_updated ($node, issue_type) {
+            var $holder = $node.find('header > h3').first(),
+                $marker = $holder.children('.updated-marker');
+
+            if (!$marker.length) {
+                $marker = $('<a class="updated-marker refresh-issue" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
+                $holder.prepend($marker);
+            }
+        }), // IssueDetail__mark_container_as_updated
 
         fill_container: (function IssueDetail__fill_container (container, html) {
             if (typeof $().select2 != 'undefined') {
@@ -2587,7 +2656,7 @@ $().ready(function() {
         }), // toggle_full_screen
 
         view_on_github: (function IssueDetail__view_on_github (panel) {
-            var $link = panel.$node.find('header h3 a').first();
+            var $link = panel.$node.find('header h3 a:not(.updated-marker)').first();
             if ($link.length) {
                 window.open($link.attr('href'), '_blank');
             }
