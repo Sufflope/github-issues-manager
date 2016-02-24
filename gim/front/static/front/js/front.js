@@ -2759,7 +2759,7 @@ $().ready(function() {
                     'exact'
                 );
                 WS.subscribe(
-                    'gim.front.model.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
+                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
                     'IssueDetail__on_delete_alert',
                     IssueDetail.on_delete_alert,
                     'exact'
