@@ -341,7 +341,7 @@ class BaseCommentDeleteForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
     user_attribute = None
 
     class Meta:
-        fields = []
+        fields = ['front_uuid', ]
 
     def save(self, commit=True):
         self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE
