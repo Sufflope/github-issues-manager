@@ -1882,7 +1882,7 @@ $().ready(function() {
                 var actual_ident = IssueDetail.get_issue_ident($node);
                 if (actual_ident.number && actual_ident.repository) {
                     if (actual_ident.number != issue_ident.number || actual_ident.repository != issue_ident.repository) {
-                        IssueDetail.unsubscribe_updates();
+                        IssueDetail.unsubscribe_updates($node);
                     }
                 }
             }
@@ -2646,8 +2646,10 @@ $().ready(function() {
         }), // on_modal_show
 
         on_modal_hidden: (function IssueDetail__on_modal_hidden () {
-            var $modal = $(this);
-            IssueDetail.unset_issue_waypoints($modal.find('.issue-container'));
+            var $modal = $(this),
+                $node = $modal.find('.issue-container');
+            IssueDetail.unset_issue_waypoints($node);
+            IssueDetail.unsubscribe_updates($node);
             PanelsSwapper.select_panel($modal.data('previous-panel'));
             $modal.data('$container').html('');
         }), // on_modal_hidden
@@ -2853,35 +2855,45 @@ $().ready(function() {
 
         subscribe_updates: (function IssueDetail__subscribe_updates ($node) {
             var issue_ident = IssueDetail.get_issue_ident($node);
-            if (!IssueDetail.WS_subscribed_ident || issue_ident.id != IssueDetail.WS_subscribed_ident.id) {
-                IssueDetail.WS_subscribed_ident = issue_ident;
-                WS.subscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alert',
-                    IssueDetail.on_update_alert,
-                    'exact'
-                );
-                WS.subscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alert',
-                    IssueDetail.on_delete_alert,
-                    'exact'
-                );
+            if (!issue_ident.repository_id || !issue_ident.id) { return; }
+            var subscription = $node.data('ws-subscription');
+            if (subscription) {
+                if (subscription.repository_id == issue_ident.repository_id && subscription.id == issue_ident.id) {
+                    return;
+                }
+                IssueDetail.unsubscribe_updates($node);
             }
+            subscription = {
+                repository_id: issue_ident.repository_id,
+                id: issue_ident.id
+            }
+            WS.subscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.updated.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_update_alert',
+                IssueDetail.on_update_alert,
+                'exact'
+            );
+            WS.subscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.deleted.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_delete_alert',
+                IssueDetail.on_delete_alert,
+                'exact'
+            );
+            $node.data('ws-subscription', subscription);
         }), // subscribe_updates
 
-        unsubscribe_updates: (function IssueDetail__subscribe_updates () {
-            if (IssueDetail.WS_subscribed_ident) {
-                WS.unsubscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alert'
-                );
-                WS.unsubscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alert'
-                );
-                IssueDetail.WS_subscribed_ident = null;
-            }
+        unsubscribe_updates: (function IssueDetail__unsubscribe_updates ($node) {
+            var subscription = $node.data('ws-subscription');
+            if (!subscription || !subscription.repository_id || !subscription.id) { return; }
+            WS.unsubscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.updated.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_update_alert'
+            );
+            WS.unsubscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.deleted.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_delete_alert'
+            );
+            $node.removeData('ws-subscription');
 
         }), // unsubscribe_updates
 
