@@ -1,4 +1,6 @@
 from datetime import datetime
+from functools import partial
+from mock import patch
 
 from django.conf import settings
 from django.db import models
@@ -8,6 +10,10 @@ from gim.core.ghpool import prepare_fetch_headers, ApiError, Connection
 from gim.core.managers import SavedObjects, MODE_ALL
 from gim.core.tasks.issue import FetchIssueByNumber
 from gim.core.utils import contribute_to_model
+
+from gim.front.models import unify_messages, send_unified_messages
+from gim.ws import publisher
+
 
 from . import EVENTS
 
@@ -132,53 +138,65 @@ class _Repository(models.Model):
             # will be set to the date of last (first in list) event
             self.events_fetched_at = None
 
-            # fetch events in the reverse order (oldest first) to let use create
-            # our own events in the correct order
-            for event in reversed(events):
-                if 'created_at' not in event:
-                    continue
-                event_date = self.events_fetched_at = Connection.parse_date(event['created_at'])
-                if 'created_at' not in event or 'type' not in event or 'repo' not in event:
-                    continue
-                if event['type'] not in EVENTS.values():
-                    continue
-                if min_date and not force and event_date < min_date:
-                    # not reached the min date, continue until a good one
-                    continue
-                try:
-                    if event['type'] == 'IssuesEvent':
-                        issue = event_manager.event_issues(event['payload']['issue'],
-                                                           fetch_issue=False)
-                        if issue:
-                            issues_to_fetch.add(issue.number)
+            # We deny the ws publisher to send message, because it may send message for old
+            # events that may not be accurate, so we'll only keep the last message for each
+            # instance and send them at the end.
+            messages_store = {}
+            intercepted_publish = partial(unify_messages, messages_store)
+            try:
+                with patch.object(publisher, 'publish', side_effect=intercepted_publish):
 
-                    elif event['type'] == 'IssueCommentEvent':
-                        event['payload']['comment']['issue'] = event['payload']['issue']
-                        comment = event_manager.event_issue_comment(event['payload']['comment'],
-                                                                     fetch_issue=False)
-                        if comment:
-                            issues_to_fetch.add(comment.issue.number)
+                    # fetch events in the reverse order (oldest first) to let use create
+                    # our own events in the correct order
+                    for event in reversed(events):
+                        if 'created_at' not in event:
+                            continue
+                        event_date = self.events_fetched_at = Connection.parse_date(event['created_at'])
+                        if 'created_at' not in event or 'type' not in event or 'repo' not in event:
+                            continue
+                        if event['type'] not in EVENTS.values():
+                            continue
+                        if min_date and not force and event_date < min_date:
+                            # not reached the min date, continue until a good one
+                            continue
+                        try:
+                            if event['type'] == 'IssuesEvent':
+                                issue = event_manager.event_issues(event['payload']['issue'],
+                                                                   fetch_issue=False)
+                                if issue:
+                                    issues_to_fetch.add(issue.number)
 
-                    elif event['type'] == 'PullRequestEvent':
-                        issue = event_manager.event_pull_request(event['payload']['pull_request'],
-                                                                 fetch_issue=False)
-                        if issue:
-                            issues_to_fetch.add(issue.number)
+                            elif event['type'] == 'IssueCommentEvent':
+                                event['payload']['comment']['issue'] = event['payload']['issue']
+                                comment = event_manager.event_issue_comment(event['payload']['comment'],
+                                                                             fetch_issue=False)
+                                if comment:
+                                    issues_to_fetch.add(comment.issue.number)
 
-                    elif event['type'] == 'PullRequestReviewCommentEvent':
-                        comment = event_manager.event_pull_request_review_comment(event['payload']['comment'],
-                                                                                  fetch_issue=False)
-                        if comment:
-                            issues_to_fetch.add(comment.issue.number)
+                            elif event['type'] == 'PullRequestEvent':
+                                issue = event_manager.event_pull_request(event['payload']['pull_request'],
+                                                                         fetch_issue=False)
+                                if issue:
+                                    issues_to_fetch.add(issue.number)
 
-                    elif event['type'] == 'PushEvent':
-                        numbers = event_manager.event_push(event['payload'], fetch_issue=False)
-                        issues_to_fetch.update(numbers)
+                            elif event['type'] == 'PullRequestReviewCommentEvent':
+                                comment = event_manager.event_pull_request_review_comment(event['payload']['comment'],
+                                                                                          fetch_issue=False)
+                                if comment:
+                                    issues_to_fetch.add(comment.issue.number)
 
-                except Exception:
-                    # we don't care if we cannot manage an event, the full repos
-                    # will be fetched soon...
-                    pass
+                            elif event['type'] == 'PushEvent':
+                                numbers = event_manager.event_push(event['payload'], fetch_issue=False)
+                                issues_to_fetch.update(numbers)
+
+                        except Exception:
+                            # we don't care if we cannot manage an event, the full repos
+                            # will be fetched soon...
+                            pass
+
+            finally:
+                # We now can send the intercepted messages
+                send_unified_messages(messages_store)
 
             for number in issues_to_fetch:
                 event_manager.fetch_issue(number)

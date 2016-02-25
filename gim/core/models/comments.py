@@ -118,11 +118,11 @@ class CommentMixin(models.Model):
         if not_found:
             from gim.core.tasks.commit import FetchCommitBySha
             if isinstance(self, IssueComment):
-                from gim.core.tasks.comment import SearchReferenceCommitForComment as JobModel
+                from gim.core.tasks.comment import SearchReferenceCommitForComment as SearchJobModel
             elif isinstance(self, PullRequestComment):
-                from gim.core.tasks.comment import SearchReferenceCommitForPRComment as JobModel
+                from gim.core.tasks.comment import SearchReferenceCommitForPRComment as SearchJobModel
             else:
-                from gim.core.tasks.comment import SearchReferenceCommitForCommitComment as JobModel
+                from gim.core.tasks.comment import SearchReferenceCommitForCommitComment as SearchJobModel
 
             repos = {}
             for new in not_found:
@@ -137,10 +137,11 @@ class CommentMixin(models.Model):
                         continue
 
                 FetchCommitBySha.add_job('%s#%s' % (repos[repo_tuple].id, new[2]),
-                                                    priority=jobs_priority)
-                JobModel.add_job(self.id, delayed_for=30,
-                                 repository_id=repos[repo_tuple].id, commit_sha=new[2],
-                                 priority=jobs_priority)
+                                         priority=jobs_priority,
+                                         fetch_comments=1)
+                SearchJobModel.add_job(self.id, delayed_for=30,
+                                       repository_id=repos[repo_tuple].id, commit_sha=new[2],
+                                       priority=jobs_priority)
 
 
 class IssueComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
@@ -179,23 +180,6 @@ class IssueComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
     @property
     def github_callable_create_identifiers(self):
         return self.issue.github_callable_identifiers_for_comments
-
-    def save(self, *args, **kwargs):
-        """
-        If it's a creation, update the comments_count of the issue
-        """
-        is_new = not bool(self.pk)
-        super(IssueComment, self).save(*args, **kwargs)
-        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
-            self.issue.update_comments_count()
-
-    def delete(self, *args, **kwargs):
-        """Update the comments_count of the issue"""
-        issue = self.issue
-
-        super(IssueComment, self).delete(*args, **kwargs)
-
-        issue.update_comments_count()
 
 
 class CommentEntryPointMixin(GithubObject):
@@ -327,25 +311,21 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
 
     def save(self, *args, **kwargs):
         """
-        If it's a creation, update the pr_comments_count of the issue
         If it's an update, update the starting point of the entry-point
         """
         is_new = not bool(self.pk)
         super(PullRequestComment, self).save(*args, **kwargs)
-        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
-            self.issue.update_pr_comments_count()
-        else:
+        if not is_new and self.github_status != self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
             self.entry_point.update_starting_point(save=True)
 
     def delete(self, *args, **kwargs):
-        """Update the pr_comments_count of the issue and the entry_point"""
+        """Update the  entry_point"""
         issue = self.issue
         entry_point = self.entry_point
 
         super(PullRequestComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
-        issue.update_pr_comments_count()
 
 
 class CommitCommentEntryPoint(CommentEntryPointMixin):
@@ -397,7 +377,8 @@ class CommitCommentEntryPoint(CommentEntryPointMixin):
                 sha=self.commit_sha,
             )
             from gim.core.tasks.commit import FetchCommitBySha
-            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.commit_sha))
+            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.commit_sha),
+                                     fetch_comments=1)
 
         super(CommitCommentEntryPoint, self).save(*args, **kwargs)
 
@@ -468,7 +449,6 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
         """
         Try to get the commit if not set, using the sha, or ask for it to be
         fetched from github
-        If it's a creation, update the comments_count of the commit
         If it's an update, update the starting point of the entry-point
         """
         is_new = not bool(self.pk)
@@ -478,24 +458,22 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
                 sha=self.sha,
             )
             from gim.core.tasks.commit import FetchCommitBySha
-            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.sha))
+            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.sha),
+                                     fetch_comments=1)
 
         elif not self.commit_sha:
             self.commit_sha = self.commit.sha
 
         super(CommitComment, self).save(*args, **kwargs)
 
-        if is_new or self.github_status == self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
-            self.commit.update_comments_count()
-        else:
+        if not is_new and self.github_status != self.GITHUB_STATUS_CHOICES.WAITING_DELETE:
             self.entry_point.update_starting_point(save=True)
 
     def delete(self, *args, **kwargs):
-        """Update the pr_comments_count of the commit and the entry_point"""
+        """Update the entry_point"""
         commit = self.commit
         entry_point = self.entry_point
 
         super(CommitComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
-        commit.update_comments_count()

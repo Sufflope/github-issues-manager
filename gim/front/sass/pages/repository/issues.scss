@@ -1,4 +1,5 @@
 @import "bootstrap/variables";
+@import "variables";
 @import "gim_variables";
 
 @import "compass/css3/border-radius";
@@ -226,6 +227,15 @@ body#repository_issues #main-inner {
         &.caret {
             margin-top: -5px;
         }
+    }
+}
+#issues-list-options li.active a {
+    position: relative;
+    i.fa-times {
+        position: absolute;
+        left: 5px;
+        top: 50%;
+        @include transform(translateY(-50%));
     }
 }
 #issues-list-options .dropdown-toggle > span:not(.selection) {

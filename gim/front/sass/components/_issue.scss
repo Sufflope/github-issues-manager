@@ -18,6 +18,41 @@ $files-min-stuck-height: 49px;
 $file-list-width: 400px;
 $repo-name-height: 20px;
 
+@include keyframes(breathing-updated-marker) {
+    0% {
+        background: darken($highlight-background-color, 10%);
+    }
+
+    35% {
+        background: transparent;
+    }
+
+    84% {
+        background: darken($highlight-background-color, 10%);
+    }
+
+    100% {
+        background: darken($highlight-background-color, 10%);
+    }
+}
+@include keyframes(breathing-updated-marker-borders) {
+    0% {
+        opacity: 0;
+    }
+
+    35% {
+        opacity: 1;
+    }
+
+    84% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
 .issue-container {
     .stuck {
         position: fixed;
@@ -59,13 +94,24 @@ $repo-name-height: 20px;
                 margin-top: 4px;
                 margin-left: 50px;
                 margin-right: 65px;
+                .updated-marker {
+                    color: $link-color;
+                    background: transparent;
+                    margin-right: 10px;
+                    @include border-radius(5px);
+                    @include box-shadow(0 1px 0 #f7f7f7);
+                    @include animation(breathing-updated-marker 5s infinite normal);
+                    span {
+                        @include animation(breathing-updated-marker-borders 5s infinite normal);
+                    }
+                }
             }
             &.stuck {
                 top: $header-top + $top-border;
                 max-height: $header-stuck-height;
                 z-index: 100;
                 margin: 0;
-                padding: 2px 5px 0 2px; // override area-top
+                padding: 0 5px 2px 2px; // override area-top
                 h3 {
                     overflow: hidden;
                     @include ellipsis();

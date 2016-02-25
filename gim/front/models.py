@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from collections import Counter, OrderedDict
-from operator import attrgetter
+from collections import defaultdict, Counter, OrderedDict
+from operator import attrgetter, itemgetter
 from threading import local
 import re
 
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
-from django.db.models import ForeignKey
+from django.db.models import ForeignKey, FieldDoesNotExist
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
@@ -56,10 +56,49 @@ class FrontEditable(models.Model):
     def defaults_create_values(self):
         values = self.old_defaults_create_values()
         values.setdefault('simple', {})['front_uuid'] = self.front_uuid
+        if hasattr(self, 'is_new'):
+            values['simple']['is_new'] = self.is_new
         return values
 
+    def clear_front_uuid(self):
+        # We don't call save as we are already in a save call and don't want things to be called twice
+        self.__class__.objects.filter(pk=self.pk).update(front_uuid=None)
 
-class _GithubUser(models.Model):
+    @staticmethod
+    def isinstance(obj):
+        try:
+            obj._meta.get_field('front_uuid')
+        except FieldDoesNotExist:
+            return False
+        else:
+            return True
+
+
+class Hashable(object):
+
+    @property
+    def hash(self):
+        raise NotImplementedError()
+
+    def hash_changed(self, force_update=False):
+        """
+        Tells if the current hash is different of the saved one
+        """
+        hash_obj, hash_obj_created = Hash.get_or_connect(
+                        type=self.model_name, obj_id=self.pk)
+
+        hash = self.hash
+
+        if not force_update and not hash_obj_created and str(hash) == hash_obj.hash.hget():
+            return False
+
+        # save the new hash
+        hash_obj.hash.hset(hash)
+
+        return hash
+
+
+class _GithubUser(Hashable, models.Model):
     AVATAR_START = re.compile('^https?://\d+\.')
 
     class Meta:
@@ -151,7 +190,7 @@ class _Repository(models.Model):
 contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 
 
-class _LabelType(models.Model):
+class _LabelType(Hashable, models.Model):
     class Meta:
         abstract = True
 
@@ -193,7 +232,7 @@ class _LabelType(models.Model):
 contribute_to_model(_LabelType, core_models.LabelType)
 
 
-class _Label(FrontEditable):
+class _Label(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -215,7 +254,7 @@ class _Label(FrontEditable):
 contribute_to_model(_Label, core_models.Label, {'defaults_create_values'})
 
 
-class _Milestone(FrontEditable):
+class _Milestone(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -269,7 +308,7 @@ class _Milestone(FrontEditable):
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
 
-class _Issue(FrontEditable):
+class _Issue(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -354,16 +393,29 @@ class _Issue(FrontEditable):
     def hash(self):
         """
         Hash for this issue representing its state at the current time, used to
-        know if we have to reset an its cache
+        know if we have to reset its cache
         """
-        return hash((self.updated_at,
-                     self.user.hash if self.user_id else None,
-                     self.closed_by.hash if self.closed_by_id else None,
-                     self.assignee.hash if self.assignee_id else None,
-                     self.milestone.hash if self.milestone_id else None,
-                     self.total_comments_count or 0,
-                     ','.join(['%d' % l.hash for l in self.labels.all()]),
-                ))
+
+        hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request')
+        if self.is_pull_request:
+            hashable_fields += ('base_sha', 'head_sha', 'merged')
+            if self.state == 'open' and not self.merged:
+                hashable_fields += ('mergeable', 'mergeable_state')
+
+        hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
+            self.user.hash if self.user_id else None,
+            self.closed_by.hash if self.closed_by_id else None,
+            self.assignee.hash if self.assignee_id else None,
+            self.milestone.hash if self.milestone_id else None,
+            self.total_comments_count or 0,
+            ','.join(['%d' % l.hash for l in self.labels.all()]),
+        )
+
+        if self.is_pull_request:
+            commits_part = ','.join(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True))
+            hash_values += (commits_part, )
+
+        return hash(hash_values)
 
     def update_saved_hash(self):
         """
@@ -390,7 +442,7 @@ class _Issue(FrontEditable):
         """
         template = 'front/repository/issues/include_issue_item_for_cache.html'
 
-        # mnimize queries
+        # minimize queries
         issue = self.__class__.objects.filter(
             id=self.id
         ).select_related(
@@ -741,7 +793,7 @@ class _WaitingSubscription(models.Model):
 
     def can_add_again(self):
         """
-        Return True if the user can add the reposiory again (it is allowed if
+        Return True if the user can add the repository again (it is allowed if
         the state is FAILED)
         """
         return self.state == subscriptions_models.WAITING_SUBSCRIPTION_STATES.FAILED
@@ -889,20 +941,15 @@ def hash_check(sender, instance, created, **kwargs):
                       )):
         return
 
-    # get the limpyd instance storing the hash, create it if not exists
-    hash_obj, hash_obj_created = Hash.get_or_connect(
-                        type=instance.model_name, obj_id=instance.pk)
-
-    if created:
-        hash_changed = True
-    else:
-        hash_changed = hash_obj_created or str(instance.hash) != hash_obj.hash.hget()
-
-    if not hash_changed:
+    # Only if the data is fresh from github
+    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
-    # save the new hash
-    hash_obj.hash.hset(instance.hash)
+    if not hasattr(instance, 'signal_hash_changed'):
+        instance.signal_hash_changed = instance.hash_changed(force_update=created)
+
+    if not instance.signal_hash_changed:
+        return
 
     from gim.core.tasks.issue import UpdateIssueCacheTemplate
 
@@ -912,7 +959,7 @@ def hash_check(sender, instance, created, **kwargs):
 
     else:
         # if not an issue, add a job to update the templates of all related issues
-        for issue in instance.get_related_issues():
+        for issue in instance.get_related_issues().values_list('id', flat=True):
             UpdateIssueCacheTemplate.add_job(issue.id)
 
 
@@ -949,6 +996,7 @@ PUBLISHABLE = {
     # },
     core_models.Issue: {
         'self': True,
+        'condition': lambda self: self.signal_hash_changed if hasattr(self, 'signal_hash_changed') else self.hash_changed(),
         'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
     },
     # core_models.Repository: {
@@ -958,10 +1006,79 @@ PUBLISHABLE = {
 PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
+def unify_messages(store, topic, repository_id, *args, **kwargs):
+    """Keep only the last message for a topic/instance each time we receive one in the store"""
+
+    store['__order__'] = store.get('__order__', 0) + 1
+
+    message = {
+        'message': {
+            'topic': topic,
+            'repository_id': repository_id,
+            'args': args,
+            'kwargs': kwargs,
+        },
+        'order': store['__order__']
+    }
+
+    if 'model' in kwargs and 'id' in kwargs:
+        model, pk = kwargs['model'], kwargs['id']
+        store.setdefault('__instances__', {}).setdefault(model, {})
+
+        # If it's the first time, we register the 'previous hash'
+        if pk not in store.setdefault('__hashes__', {}).setdefault(model, {}):
+            # Store the previous hash, or None
+            store['__hashes__'][model][pk] = kwargs.get('previous_hash', None)
+
+        # Else, we check if we have the same hash as the original one
+        elif store['__hashes__'][model][pk] is not None and kwargs.get('hash') == store['__hashes__'][model][pk]:
+            # In this case we skip the message, because we're back to the original
+            message = None
+            # And we don't send the stored message either
+            if pk in store['__instances__'][model]:
+                del store['__instances__'][model][pk]
+
+        # We are allowed to store the message (because no hash or the hash is not the original one)
+        if message:
+            store['__instances__'][model].setdefault(pk, {})[topic] = message
+
+    else:
+        # Not an instance, we store the message (but avoid duplication)
+        store.setdefault('__others__', {})[hash(frozenset(message['message']))] = message
+
+
+def send_unified_messages(store):
+    if not store:
+        return
+
+    messages = []
+    for model in store.get('__instances__', {}):
+        for pk in store['__instances__'][model]:
+            messages.extend(store['__instances__'][model][pk].values())
+    messages.extend(store.get('__others__', {}).values())
+
+    for container in sorted(messages, key=itemgetter('order')):
+        message = container['message']
+        publisher.publish(
+            topic=message['topic'],
+            repository_id=message['repository_id'],
+            *message['args'],
+            **message['kwargs']
+        )
+
+
 def publish_update(instance, message_type, extra_data=None):
     """Publish a message when something happen to an instance."""
 
     conf = PUBLISHABLE[instance.__class__]
+
+    try:
+        previous_saved_hash = instance.saved_hash
+    except Exception:
+        previous_saved_hash = None
+
+    if message_type != 'deleted' and conf.get('condition') and not conf['condition'](instance):
+        return
 
     base_data = {
         'model': str(instance.model_name),
@@ -972,11 +1089,12 @@ def publish_update(instance, message_type, extra_data=None):
     if extra_data:
         base_data.update(extra_data)
 
-    if hasattr(instance, 'saved_hash'):
-        try:
-            base_data['hash'] = instance.saved_hash
-        except Exception:
-            pass
+    try:
+        base_data['hash'] = instance.saved_hash
+        if previous_saved_hash != base_data['hash']:
+            base_data['previous_hash'] = previous_saved_hash
+    except Exception:
+        pass
 
     if isinstance(instance, core_models.Repository):
         repository_id = instance.pk
@@ -1044,6 +1162,14 @@ def publish_update(instance, message_type, extra_data=None):
             **data
         )
 
+    # No we can remove the front_uuid field and the is_new flag
+    if hasattr(instance, 'is_new'):
+        del instance.is_new
+    if getattr(instance, 'front_uuid') and not getattr(instance, 'skip_reset_front_uuid', False):
+        instance.front_uuid = None
+        if instance.pk and FrontEditable.isinstance(instance):
+            instance.clear_front_uuid()
+
 
 @receiver(post_save, dispatch_uid="publish_github_updated")
 def publish_github_updated(sender, instance, created, **kwargs):
@@ -1060,6 +1186,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
     # Only if we didn't specifically say to not publish
     if getattr(thread_data, 'skip_publish', False):
         return
+    if getattr(instance, 'skip_publish', False):
+        return
 
     # Ignore some cases
     update_fields = kwargs.get('update_fields', [])
@@ -1068,18 +1196,18 @@ def publish_github_updated(sender, instance, created, **kwargs):
         # Remove fields that are not real updates
         update_fields = set([
             f for f in update_fields
-            if not f.endswith('fetched_at') and not f.endswith('etag')
+            if f not in ('front_uuid', ) and
+                not f.endswith('fetched_at') and
+                not f.endswith('etag')
         ])
 
         # If no field left, we're good
         if not update_fields:
             return
 
-    print('UPDATE FIELDS for %s #%s: %s' % (instance.model_name, instance.pk, update_fields))
-
     extra_data = {}
-    if created:
-        extra_data['new'] = True
+    if created or getattr(instance, 'is_new', False):
+        extra_data['is_new'] = True
 
     publish_update(instance, 'updated', extra_data)
 

@@ -9,13 +9,19 @@ $().ready(function() {
          **/
         var self = {};
         var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
+        var generated = {};
         self.generate = function() {
             var d0 = Math.random()*0xffffffff| 0, d1 = Math.random()*0xffffffff| 0,
                 d2 = Math.random()*0xffffffff| 0, d3 = Math.random()*0xffffffff|0;
-            return lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
+            var uuid = lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
                 lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
                 lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
                 lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
+            generated[uuid] = 1;
+            return uuid
+        };
+        self.exists = function(uuid) {
+            return typeof generated[uuid] !== 'undefined';
         };
         return self;
     })();
@@ -800,16 +806,119 @@ $().ready(function() {
         }
     }); // IssuesListIssue_open_issue
 
-    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
-        var existing_hash = this.$node.data('issue-hash'), issue=this;
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, subscription, $containers) {
+        var existing_hash = this.$node.data('issue-hash'), issue=this,
+            front_uuid_exists = UUID.exists(kwargs.front_uuid);
+
         if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
-        $.get(kwargs.url).done(function(data) {
+        var is_active = this.$node.hasClass('active');
+
+        $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data);
-            $data.addClass('recent');
+            if (!$containers.length) {
+                $data.addClass('recent');
+            }
+            if (is_active) {
+                $data.addClass('active');
+            }
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+
+            // check if we have to change group
+            var list = issue.group.list;
+            if (list.group_by_key) {
+                var filter = issue.get_filter_for(list.group_by_key);
+                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                if (group != issue.group) {
+                    list.change_issue_group(issue, group);
+                    if (!$containers.length) {
+                        group.$node.addClass('recent');
+                    }
+                }
+            }
+
+            if (is_active) {
+                issue.set_current(true);
+            }
+
+            if (!kwargs.front_uuid || !front_uuid_exists) {
+                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                if ($containers.length) {
+                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                } else {
+                    $message = $('<span>The following ' + issue_type + ' was just updated:<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                }
+                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
+                IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+            }
+        }).fail(function(response) {
+            if (response.status == 404 && issue.group) {
+                issue.group.remove_issue(issue);
+                if (!kwargs.front_uuid || !front_uuid_exists) {
+                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                    if ($containers.length) {
+                        $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
+                        IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                    } else {
+                        $message = $('<span>The following ' + issue_type + ' was just updated and does not match your filter anymore:<br /></span>');
+                        $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    }
+                    MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
+                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                }
+            }
         });
     }); // IssuesListIssue__on_update_alert
+
+    IssuesListIssue.get_data_for_node = (function IssuesListIssue_get_data_for_node (node) {
+        var $this = node.jquery ? node : $(this);
+        return {$node: $this, filters: $this.data()};
+    }); // IssuesListIssue__get_data_for_node
+
+    IssuesListIssue.prototype.get_nodes_with_filter = (function IssuesListIssue__get_filters () {
+        var result = $.makeArray(this.$node.find('[data-filter]').map(IssuesListIssue.get_data_for_node)),
+            self_result = IssuesListIssue.get_data_for_node(this.$node);
+        if (self_result.filters.filter) {
+            result.unshift(self_result);
+        }
+        return result;
+    }); // IssuesListIssue__get_filters
+
+    IssuesListIssue.prototype.get_filter_for = (function IssuesListIssue__get_filter_for (filter_key) {
+        var searchable_filter, matching_filters, filter_value, filter_text,
+            filters_nodes = this.get_nodes_with_filter();
+
+        if (filter_key.indexOf('label_type:') == 0) {
+            // specific case of issues grouped by a LabelType
+            searchable_filter = filter_key.substring(11);
+            matching_filters = $.grep(filters_nodes, function(filtered_node) { return filtered_node.filters.typeId == searchable_filter; });
+            if (matching_filters.length) { // we have a filter that matches the group!
+                filter_value = matching_filters[0].filters.filter.substring(7);  // remove 'labels:' prefix
+                filter_text = matching_filters[0].$node.contents()[1].textContent;
+            } else {
+                filter_value = '';
+            }
+        } else {
+            // standard group-by
+            searchable_filter = filter_key + ':';
+            matching_filters = $.grep(filters_nodes, function(filtered_node) { return filtered_node.filters.filter.indexOf(searchable_filter) == 0; });
+            if (matching_filters.length) { // we have a filter that matches the group!
+                filter_value = matching_filters[0].filters.filter.substring(searchable_filter.length);
+                if (filter_key == 'milestone') {
+                    filter_text = matching_filters[0].$node.contents()[1].textContent;
+                } else {
+                    filter_text = filter_value;
+                }
+            } else {
+                filter_value = '__none__';
+            }
+        }
+        return {value: filter_value, text: filter_text};
+    });  // IssuesListIssue__get_filter_for
 
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
         this.list = issues_list;
@@ -820,6 +929,8 @@ $().ready(function() {
         this.$link = this.$node.find(IssuesListGroup.link_selector);
         this.$issues_node = this.$node.find(IssuesListGroup.issues_list_selector);
         this.$count_node = this.$node.find('.issues-count');
+
+        this.group_by_value = this.$node.data('group_by-value');
 
         this.collapsable = this.$issues_node.hasClass('collapse');
         this.collapsed = this.collapsable && !this.$issues_node.hasClass('in');
@@ -833,7 +944,8 @@ $().ready(function() {
         this.no_visible_issues = this.filtered_issues.length === 0;
     }); // IssuesListGroup__constructor
 
-    IssuesListGroup.selector = '.issues-group';
+    IssuesListGroup.selector = '.issues-group:not(.template)';
+    IssuesListGroup.template_selector = '.issues-group.template';
     IssuesListGroup.link_selector = '.box-header';
     IssuesListGroup.issues_list_selector = '.issues-group-issues';
 
@@ -1002,6 +1114,7 @@ $().ready(function() {
 
     IssuesListGroup.prototype.on_show = (function IssuesListGroup__on_show () {
         this.collapsed = false;
+        this.$node.removeClass('recent')
     }); // IssuesListGroup__on_show
 
     IssuesListGroup.prototype.on_hide = (function IssuesListGroup__on_hide () {
@@ -1045,15 +1158,42 @@ $().ready(function() {
         this.$count_node.text(filtered_length == total_length ? total_length : filtered_length + '/' + total_length);
     }); // update_filtered_issues
 
+    IssuesListGroup.prototype.add_issue = (function IssuesListGroup__add_issue (issue, prepend_node) {
+        if (prepend_node) {
+            this.$issues_node.prepend(issue.$node);
+        }
+        issue.group = this;
+        this.issues.unshift(issue);
+        this.update_filtered_issues();
+    }); // IssuesListGroup__add_issue
+
+    IssuesListGroup.prototype.remove_issue = (function IssuesListGroup__remove_issue (issue) {
+        var index = this.issues.indexOf(issue);
+        if (index > -1) {
+            this.issues.splice(index, 1);
+        }
+        issue.group = null;
+        issue.$node.remove();
+        if (!this.issues.length) {
+            this.list.remove_group(this);
+        } else {
+            this.current_issue = null;
+            this.update_filtered_issues();
+        }
+    }); // IssuesListGroup__remove_issue
+
 
     var IssuesList = (function IssuesList__constructor (node) {
         this.node = node;
         this.node.IssuesList = this;
         this.$node = $(node);
+        this.$empty_node = this.$node.children('.empty-area');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
             this.$search_input = $(this.$node.data('quicksearch'));
         }
+
+        this.group_by_key = this.$node.data('group_by-key');
 
         var list = this;
         this.groups = $.map(this.$node.find(IssuesListGroup.selector),
@@ -1064,10 +1204,8 @@ $().ready(function() {
     IssuesList.selector = '.issues-list';
     IssuesList.all = [];
     IssuesList.current = null;
-    IssuesList.prev_current = null;
 
     IssuesList.prototype.unset_current = (function IssuesList__unset_current () {
-        IssuesList.prev_current = this;
         IssuesList.current = null;
     }); // IssuesList__unset_current
 
@@ -1087,6 +1225,14 @@ $().ready(function() {
         IssuesListGroup.init_events();
         IssuesList.init_events();
         IssuesList.subscribe_updates();
+
+        setInterval(function() {
+            var $lists = $(IssuesList.selector);
+            for (var i = 0; i < $lists.length; i++) {
+                replace_time_ago($lists[i]);
+            }
+        }, 60000);
+
     }); // IssuesList_init_all
 
     IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
@@ -1131,11 +1277,121 @@ $().ready(function() {
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs, subscription) {
-        var issue = IssuesList.get_issue_by_id(kwargs.id);
+        var issue = IssuesList.get_issue_by_id(kwargs.id),
+            $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
         if (issue) {
-            issue.on_update_alert(topic, args, kwargs, subscription);
+            issue.on_update_alert(topic, args, kwargs, subscription, $containers);
+        } else {
+            IssuesList.on_create_alert(topic, args, kwargs, subscription, $containers);
         }
     }); // IssuesList_on_update_alert
+
+    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text) {
+        var $group = this.$node.find(IssuesListGroup.template_selector).clone();
+        $group.removeClass('template');
+        if (filter_value != null) {
+            $group.attr('data-group_by-value', filter_value);
+        }
+        if (filter_text != null && filter_value != '' && filter_value != '__none__') {
+            $group.find('span.title').text(filter_text);
+        }
+        var new_uuid = UUID.generate();
+        $group.children('.box-header').attr('data-target', '#group_by-list-' + new_uuid);
+        $group.children('.issues-group-issues').attr('id', 'group_by-list-' + new_uuid);
+        this.$empty_node.hide();
+        this.$node.prepend($group);
+        $group.show();
+        var group = new IssuesListGroup($group[0], this);
+        this.groups.unshift(group);
+        return group;
+    }); // IssuesList__create_group
+
+    IssuesList.prototype.remove_group = (function IssuesList__remove_group (group) {
+        var index = this.groups.indexOf(group);
+        if (index > -1) {
+            this.groups.splice(index, 1);
+        }
+        if (this.current_group == group) {
+            group.unset_current();
+            if (this.groups.length) {
+                this.groups[index ? index - 1 : 1].set_current(false)
+            }
+        }
+        group.$node.remove();
+        group.list = null;
+        if (!this.groups.length) {
+            this.$empty_node.show();
+        }
+    }); // IssuesList__remove_group
+
+    IssuesList.prototype.get_group_for_value = (function IssuesList__get_group_for_value (value) {
+        for (var i = 0; i < this.groups.length; i++) {
+            if (this.groups[i].group_by_value == value) {
+                return this.groups[i];
+            }
+        }
+        return null;
+    }); // IssuesList__get_group_for_value
+
+    IssuesList.prototype.change_issue_group = (function IssuesList__change_issue_group (issue, new_group) {
+        var orig_group = issue.group;
+
+        var index = orig_group.issues.indexOf(issue);
+        if (index > -1) {
+            orig_group.issues.splice(index, 1);
+        }
+        new_group.add_issue(issue, true);
+        if (!orig_group.issues.length) {
+            this.remove_group(orig_group);
+        } else {
+            orig_group.update_filtered_issues();
+        }
+
+    }); // IssuesList__change_issue_group
+
+    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs, subscription, $containers) {
+        $.get(kwargs.url + window.location.search).done(function(data) {
+            var $data = $(data),
+                issue = new IssuesListIssue($data[0], null),
+                list = IssuesList.all[0], filter, group,
+                front_uuid_exists = UUID.exists(kwargs.front_uuid);
+            if (!$containers.length) {
+                $data.addClass('recent');
+            }
+            if (list.group_by_key) {
+                filter = issue.get_filter_for(list.group_by_key);
+                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+            } else {
+                // no group by: only one group
+                group = list.groups.length ? list.groups[0] : list.create_group(null, null);
+            }
+            group.add_issue(issue, true);
+            if (list.groups.length == 1) {
+                group.open();
+            } else if (!$containers.length) {
+                group.$node.addClass('recent');
+            }
+
+            if (!kwargs.front_uuid || !front_uuid_exists) {
+                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                if ($containers.length) {
+                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+                } else {
+                    $message = $('<span>' + 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter' + ':<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                }
+                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                if ($containers.length) {
+                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                } else {
+                    $data.removeClass('recent');
+                }
+            }
+
+        });
+    }); // IssuesList_on_create_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
         var continue_issue_search = this.$search_input.val() !== '';
@@ -1346,6 +1602,9 @@ $().ready(function() {
     IssuesList.init_all();
 
     var IssuesFilters = {
+        on_filter_show: (function IssuesFilters__on_filter_show (ev) {
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-right', false).toggleClass('fa-caret-down', true);
+        }), // on_filter_show
         on_filter_shown: (function IssuesFilters__on_filter_shown (ev) {
             var $collapse = $(ev.target);
             if ($collapse.hasClass('deferred')) {
@@ -1355,6 +1614,9 @@ $().ready(function() {
                 IssuesFilters.focus_quicksearch_filter($collapse);
             }
         }), // on_filter_shown
+        on_filter_hide: (function IssuesFilters__on_filter_hide (ev) {
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-down', false).toggleClass('fa-caret-right', true);
+        }), // on_filter_hide
         on_deferrable_loaded: (function IssuesFilters__on_deferrable_loaded (ev) {
             IssuesFilters.focus_quicksearch_filter($(ev.target));
         }), // on_deferrable_loaded
@@ -1364,7 +1626,10 @@ $().ready(function() {
         init: function() {
             var $filters = $('#issues-filters');
             if ($filters.length) {
-                $filters.find('.collapse').on('shown.collapse', IssuesFilters.on_filter_shown);
+                $filters.find('.collapse')
+                    .on('show.collapse', IssuesFilters.on_filter_show)
+                    .on('shown.collapse', IssuesFilters.on_filter_shown)
+                    .on('hide.collapse', IssuesFilters.on_filter_hide);
                 $filters.on('reloaded', IssuesFilters.on_deferrable_loaded);
             }
         }
@@ -1472,7 +1737,12 @@ $().ready(function() {
         }), // get_url_for_ident
 
         on_issue_loaded: (function IssueDetail__on_issue_loaded ($node, focus_modal) {
-            var is_modal = IssueDetail.is_modal($node);
+            var is_modal = IssueDetail.is_modal($node),
+                complete_issue_ident = IssueDetail.get_issue_ident($node.children('article'));
+            if (!complete_issue_ident.number) {
+                complete_issue_ident.number = 'pk-' + complete_issue_ident.id;
+            }
+            IssueDetail.set_issue_ident($node, complete_issue_ident);
             if (is_modal && focus_modal) {
                 // focusing $node doesn't FUCKING work
                 setTimeout(function() {
@@ -1612,7 +1882,7 @@ $().ready(function() {
                 var actual_ident = IssueDetail.get_issue_ident($node);
                 if (actual_ident.number && actual_ident.repository) {
                     if (actual_ident.number != issue_ident.number || actual_ident.repository != issue_ident.repository) {
-                        IssueDetail.unsubscribe_updates();
+                        IssueDetail.unsubscribe_updates($node);
                     }
                 }
             }
@@ -1635,6 +1905,64 @@ $().ready(function() {
             }
             return container;
         }), // get_container_waiting_for_issue
+
+        get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
+            return $('.issue-container:visible').filter(function() {
+                var $this = $(this),
+                    container_issue_ident = IssueDetail.get_issue_ident($this);
+
+                // If we have the issue id, it's easy
+                if (issue_ident.id && container_issue_ident.id) {
+                    return (issue_ident.id == container_issue_ident.id);
+                }
+
+                // Without id we must have the number
+                if (issue_ident.number && container_issue_ident.number) {
+                    if (issue_ident.number != container_issue_ident.number) {
+                        return false;
+                    }
+                } else {
+                    // cannot know if no id and number
+                    return false;
+                }
+
+                // The number is ok, check the repository
+                if (issue_ident.repository_id && container_issue_ident.repository_id) {
+                    return (issue_ident.repository_id != container_issue_ident.repository_id);
+                }
+                if (issue_ident.repository && container_issue_ident.repository) {
+                    return (issue_ident.repository != container_issue_ident.repository);
+                }
+
+                // no repository, we cannot say
+                return false;
+            })
+        }), // IssueDetail__get_containers_for_ident
+
+        mark_containers_nodes_as_updated: (function IssueDetail__mark_containers_as_updated ($nodes, issue_type) {
+            for (var i = 0; i < $nodes.length; i++) {
+                IssueDetail.mark_container_node_as_updated($($nodes[i]), issue_type);
+            }
+        }), // IssueDetail__mark_containers_as_updated
+
+        mark_container_node_as_updated: (function IssueDetail__mark_container_node_as_updated ($node, issue_type) {
+            var $holder = $node.find('header > h3').first(),
+                $marker = $holder.children('.updated-marker');
+
+            if (!$marker.length) {
+                $marker = $('<a class="updated-marker refresh-issue" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
+                $holder.prepend($marker);
+            }
+        }), // IssueDetail__mark_container_as_updated
+
+        refresh_created_issue: (function IssueDetail__refresh_created_issue ($containers, front_uuid) {
+            for (var i = 0; i < $containers.length; i++) {
+                var $container = $($containers[i]);
+                if ($container.children('article').data('front-uuid') == front_uuid) {
+                    IssueDetail.refresh({$node: $container});
+                }
+            }
+        }), // IssueDetail__refresh_created_issue
 
         fill_container: (function IssueDetail__fill_container (container, html) {
             if (typeof $().select2 != 'undefined') {
@@ -2318,8 +2646,10 @@ $().ready(function() {
         }), // on_modal_show
 
         on_modal_hidden: (function IssueDetail__on_modal_hidden () {
-            var $modal = $(this);
-            IssueDetail.unset_issue_waypoints($modal.find('.issue-container'));
+            var $modal = $(this),
+                $node = $modal.find('.issue-container');
+            IssueDetail.unset_issue_waypoints($node);
+            IssueDetail.unsubscribe_updates($node);
             PanelsSwapper.select_panel($modal.data('previous-panel'));
             $modal.data('$container').html('');
         }), // on_modal_hidden
@@ -2362,7 +2692,7 @@ $().ready(function() {
         }), // toggle_full_screen
 
         view_on_github: (function IssueDetail__view_on_github (panel) {
-            var $link = panel.$node.find('header h3 a').first();
+            var $link = panel.$node.find('header h3 a:not(.updated-marker)').first();
             if ($link.length) {
                 window.open($link.attr('href'), '_blank');
             }
@@ -2525,35 +2855,45 @@ $().ready(function() {
 
         subscribe_updates: (function IssueDetail__subscribe_updates ($node) {
             var issue_ident = IssueDetail.get_issue_ident($node);
-            if (!IssueDetail.WS_subscribed_ident || issue_ident.id != IssueDetail.WS_subscribed_ident.id) {
-                IssueDetail.WS_subscribed_ident = issue_ident;
-                WS.subscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alert',
-                    IssueDetail.on_update_alert,
-                    'exact'
-                );
-                WS.subscribe(
-                    'gim.front.model.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alert',
-                    IssueDetail.on_delete_alert,
-                    'exact'
-                );
+            if (!issue_ident.repository_id || !issue_ident.id) { return; }
+            var subscription = $node.data('ws-subscription');
+            if (subscription) {
+                if (subscription.repository_id == issue_ident.repository_id && subscription.id == issue_ident.id) {
+                    return;
+                }
+                IssueDetail.unsubscribe_updates($node);
             }
+            subscription = {
+                repository_id: issue_ident.repository_id,
+                id: issue_ident.id
+            }
+            WS.subscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.updated.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_update_alert',
+                IssueDetail.on_update_alert,
+                'exact'
+            );
+            WS.subscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.deleted.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_delete_alert',
+                IssueDetail.on_delete_alert,
+                'exact'
+            );
+            $node.data('ws-subscription', subscription);
         }), // subscribe_updates
 
-        unsubscribe_updates: (function IssueDetail__subscribe_updates () {
-            if (IssueDetail.WS_subscribed_ident) {
-                WS.unsubscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.updated.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_update_alert'
-                );
-                WS.unsubscribe(
-                    'gim.front.Repository.' + IssueDetail.WS_subscribed_ident.repository_id + '.model.deleted.isRelatedTo.Issue.' + IssueDetail.WS_subscribed_ident.id,
-                    'IssueDetail__on_delete_alert'
-                );
-                IssueDetail.WS_subscribed_ident = null;
-            }
+        unsubscribe_updates: (function IssueDetail__unsubscribe_updates ($node) {
+            var subscription = $node.data('ws-subscription');
+            if (!subscription || !subscription.repository_id || !subscription.id) { return; }
+            WS.unsubscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.updated.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_update_alert'
+            );
+            WS.unsubscribe(
+                'gim.front.Repository.' + subscription.repository_id + '.model.deleted.isRelatedTo.Issue.' + subscription.id,
+                'IssueDetail__on_delete_alert'
+            );
+            $node.removeData('ws-subscription');
 
         }), // unsubscribe_updates
 
@@ -3016,30 +3356,42 @@ $().ready(function() {
 
     var MessagesManager = {
 
+        selector: '#messages',
+        $node: null,
+        template: '<li class="alert"><button type="button" class="close" title="Close" data-dismiss="alert">&times;</button></li>',
+
         extract: (function MessagesManager__extract (html) {
             // Will extract message from ajax requests to put them
             // on the main messages container
             var $fake_node = $('<div />');
             $fake_node.html(html);
-            var $new_messages = $fake_node.find('#messages');
+            var $new_messages = $fake_node.find(MessagesManager.selector);
             if ($new_messages.length) {
                 $new_messages.remove();
-                var $messages = $('#messages');
-                if ($messages.length) {
-                    $messages.append($new_messages.children());
-                } else {
-                    $body.children('header:first-of-type').after($new_messages);
-                }
-                MessagesManager.init_auto_hide();
+                MessagesManager.add_messages($new_messages.children())
                 return $fake_node.html();
             } else {
                 return html;
             }
         }), // extract
 
-        first_message: (function MessagesManager__first_message () {
-            return $('#messages').children('li.alert').first();
-        }), // first_message
+        make_message: (function MessagesManager__make_message (content, type) {
+            var $node = $(MessagesManager.template);
+            if (type) {
+                $node.addClass('alert-' + type);
+            }
+            $node.append(content);
+            return $node;
+        }), // make_messages
+
+        add_messages: (function MessagesManager__add_messages (messages) {
+            MessagesManager.$node.append(messages);
+            MessagesManager.init_auto_hide();
+        }), // add_messages
+
+        get_messages: (function MessagesManager__get_alerts () {
+            return MessagesManager.$node.children('li.alert');
+        }), // get_alerts
 
         hide_delays: {
             1: 4000,
@@ -3050,7 +3402,7 @@ $().ready(function() {
         },
 
         hide_delay: (function MessagesManager__hide_delay () {
-            var count = $('#messages').children('li.alert').length;
+            var count = MessagesManager.get_messages().length;
             return MessagesManager.hide_delays[count] || MessagesManager.hide_delays.others;
         }), // count_messages
 
@@ -3060,20 +3412,25 @@ $().ready(function() {
                 clearTimeout(MessagesManager.auto_hide_timer);
                 MessagesManager.auto_hide_timer = null;
             }
-            var $first = MessagesManager.first_message();
+            var $first = MessagesManager.get_messages().first();
             if (!$first.length) { return; }
             MessagesManager.auto_hide_timer = setTimeout(MessagesManager.auto_hide_first, MessagesManager.hide_delay());
         }), // init_auto_hide
 
         auto_hide_first: (function MessagesManager__auto_hide_first () {
-            MessagesManager.first_message().fadeOut('slow', MessagesManager.remove_first);
+            MessagesManager.get_messages().first().fadeOut('slow', MessagesManager.remove_first);
         }), // auto_hide_first
 
         remove_first: (function MessagesManager__remove_first () {
             $(this).remove();
             MessagesManager.auto_hide_timer = null;
             MessagesManager.init_auto_hide();
-        }) // remove_first
+        }), // remove_first
+
+        init: (function MessagesManager__init () {
+            MessagesManager.$node = $(MessagesManager.selector);
+            MessagesManager.init_auto_hide();
+        }) // init
 
     }; // MessagesManager
 
@@ -3082,7 +3439,7 @@ $().ready(function() {
             "text html": MessagesManager.extract
         } // converts
     }); // ajaxSetup
-    MessagesManager.init_auto_hide();
+    MessagesManager.init();
 
     var IssueEditor = {
         disable_form: (function IssueEditor__disable_form ($form) {
@@ -3421,17 +3778,17 @@ $().ready(function() {
                 url: $link.attr('href'),
                 type: 'GET',
                 success: IssueEditor.on_issue_edit_field_ready,
-                error: IssueEditor.on_issue_edit_field_ready_click_failed,
+                error: IssueEditor.on_issue_edit_field_failed,
                 context: $link
             });
             return false;
         }), // on_issue_edit_field_click
 
-        on_issue_edit_field_ready_click_failed: (function IssueEditor__on_issue_edit_field_ready_click_failed () {
+        on_issue_edit_field_failed: (function IssueEditor__on_issue_edit_field_failed () {
             var $link = this;
             $link.removeClass('loading');
              alert('A problem prevented us to do your action !');
-        }), // on_issue_edit_field_ready_click_failed
+        }), // on_issue_edit_field_failed
 
         on_issue_edit_field_ready: (function IssueEditor__on_issue_edit_field_ready (data) {
             var $link = this;
@@ -3661,13 +4018,16 @@ $().ready(function() {
             var $btn = $form.find('.btn-save');
             IssueEditor.disable_form($form);
             $btn.addClass('loading');
+            var context = IssueEditor.get_form_context($form);
+            var data = $form.serializeArray();
+            data.push({name:'front_uuid', value: context.uuid});
             $.ajax({
                 url: $form.attr('action'),
-                data: $form.serialize(),
+                data: data,
                 type: 'POST',
                 success: IssueEditor.on_issue_edit_submit_done,
                 error: IssueEditor.on_issue_edit_submit_fail,
-                context: IssueEditor.get_form_context($form)
+                context: context
             });
             return false;
         }), // on_issue_edit_field_submit
@@ -3701,6 +4061,7 @@ $().ready(function() {
                 if ($nodes.length) {
                     $.get(kwargs.url).done(function(data) {
                         $nodes.replaceWith(data);
+                        MarkdownManager.update_links();
                     });
                 }
 
@@ -3731,6 +4092,7 @@ $().ready(function() {
             $modal_submit: null,
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
+
             get_form: function() {
                 return $('#issue-create-form');
             },
@@ -3786,8 +4148,10 @@ $().ready(function() {
                 IssueEditor.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                $.post($form.attr('action'), $form.serialize())
-                    .done(IssueEditor.create.on_submit_done)
+                var data = $form.serializeArray(), front_uuid = UUID.generate();
+                data.push({name:'front_uuid', value: front_uuid});
+                $.post($form.attr('action'), data)
+                    .done($.proxy(IssueEditor.create.on_submit_done, {'front_uuid': front_uuid}))
                     .fail(IssueEditor.create.on_submit_failed);
             }), // on_form_submit
 
@@ -3803,7 +4167,7 @@ $().ready(function() {
                     IssueEditor.create.$modal_submit.removeClass('loading');
                 } else {
                     // no error, we display the issue
-                    IssueEditor.create.display_created_issue(data);
+                    IssueEditor.create.display_created_issue(data, this.front_uuid);
                 }
             }), // on_submit_done
 
@@ -3815,15 +4179,14 @@ $().ready(function() {
                 IssueEditor.create.$modal_footer.prepend('<div class="alert alert-error">A problem prevented us to save the issue</div>');
             }), // on_submit_failed
 
-            display_created_issue: (function IssueEditor_create__display_created_issue (html) {
+            display_created_issue: (function IssueEditor_create__display_created_issue (html, front_uuid) {
                 var $html = $('<div/>').html(html),
                     $article = $html.children('article:first-of-type'),
-                    number = $article.data('issue-number'),
                     context = {
                         issue_ident: {
                             repository: $article.data('repository'),
-                            repository_id: $article.data('repository_id'),
-                            number: number || 'pk-' + $article.data('issue-id'),
+                            repository_id: $article.data('repository-id'),
+                            number: $article.data('issue-number') || 'pk-' + $article.data('issue-id'),
                             id: $article.data('issue-id')
                         }
                     },
@@ -3831,6 +4194,7 @@ $().ready(function() {
                 IssueEditor.create.$modal.modal('hide');
                 context.$node = container.$node;
                 IssueEditor.display_issue($html.children(), context);
+                $article.data('front-uuid', front_uuid);
             }), // display_created_issue
 
             on_created_modal_hidden: (function IssueEditor_create__on_created_modal_hidden () {

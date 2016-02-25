@@ -25,6 +25,8 @@ def validate_filled_string(value, name='comment'):
 class IssueFormMixin(LinkedToRepositoryFormMixin):
     change_updated_at = 'exact'  # 'fuzzy' / None
 
+    fuzzy_delta = timedelta(seconds=120)
+
     class Meta:
         model = Issue
 
@@ -39,24 +41,38 @@ class IssueFormMixin(LinkedToRepositoryFormMixin):
         The real update time from github will be saved via dist_edit which
         does a forced update.
         """
+        revert_status = None
+        if self.instance.github_status == GITHUB_STATUS_CHOICES.FETCHED:
+            # We'll wait to have m2m saved (in super) to run signals
+            self.instance.github_status = GITHUB_STATUS_CHOICES.SAVING
+            revert_status = GITHUB_STATUS_CHOICES.FETCHED
+
         if self.change_updated_at is not None:
             now = datetime.utcnow()
             if not self.instance.updated_at:
                 self.instance.updated_at = now
             elif self.change_updated_at == 'fuzzy':
-                if now > self.instance.updated_at + timedelta(seconds=120):
+                if now > self.instance.updated_at + self.fuzzy_delta:
                     self.instance.updated_at = now
             else:  # 'exact'
                 if now > self.instance.updated_at:
                     self.instance.updated_at = now
-        return super(IssueFormMixin, self).save(commit)
+
+        instance = super(IssueFormMixin, self).save(commit)
+
+        if revert_status:
+            # Ok now the signals could work
+            instance.github_status = revert_status
+            instance.save()
+
+        return instance
 
 
 class IssueStateForm(LinkedToUserFormMixin, IssueFormMixin):
     user_attribute = None  # don't update issue's user
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['state']
+        fields = ['state', 'front_uuid']
 
     def clean_state(self):
         new_state = self.cleaned_data.get('state')
@@ -200,33 +216,33 @@ class IssueLabelsFormPart(object):
 
 class IssueTitleForm(IssueTitleFormPart, IssueFormMixin):
     class Meta(IssueFormMixin.Meta):
-        fields = ['title']
+        fields = ['title', 'front_uuid']
 
 
 class IssueBodyForm(IssueBodyFormPart, IssueFormMixin):
     class Meta(IssueFormMixin.Meta):
-        fields = ['body']
+        fields = ['body', 'front_uuid']
 
 
 class IssueMilestoneForm(IssueMilestoneFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['milestone']
+        fields = ['milestone', 'front_uuid']
 
 
 class IssueAssigneeForm(IssueAssigneeFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['assignee']
+        fields = ['assignee', 'front_uuid']
 
 
 class IssueLabelsForm(IssueLabelsFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['labels']
+        fields = ['labels', 'front_uuid']
 
 
 class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,
@@ -249,7 +265,7 @@ class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneeFormPart,
                           IssueLabelsFormPart, IssueCreateForm):
 
     class Meta(IssueCreateForm.Meta):
-        fields = ['title', 'body', 'milestone', 'assignee', 'labels']
+        fields = ['title', 'body', 'milestone', 'assignee', 'labels', 'front_uuid']
 
 
 class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
@@ -325,7 +341,7 @@ class BaseCommentDeleteForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
     user_attribute = None
 
     class Meta:
-        fields = []
+        fields = ['front_uuid', ]
 
     def save(self, commit=True):
         self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE

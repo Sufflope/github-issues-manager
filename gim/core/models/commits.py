@@ -87,13 +87,6 @@ class Commit(WithRepositoryMixin, GithubObject):
     def created_at(self):
         return self.authored_at
 
-    def update_comments_count(self):
-        self.comments_count = self.commit_comments.exclude(
-            github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
-        self.save(update_fields=['comments_count'])
-        for issue in self.issues.all():
-            issue.update_commits_comments_count()
-
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None,
                                                         meta_base_name=None):
         if defaults is None:
@@ -107,6 +100,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         this case, set these dates to now, to avoid inexpected rendering
         """
         now = datetime.utcnow()
+        skip_update_issues = kwargs.pop('skip_update_issues', False)
 
         if self.authored_at and self.authored_at > now:
             self.authored_at = now
@@ -123,7 +117,16 @@ class Commit(WithRepositoryMixin, GithubObject):
             if 'update_fields' in kwargs and 'nb_changed_files' not in kwargs['update_fields']:
                 kwargs['update_fields'].append('nb_changed_files')
 
-        return super(Commit, self).save(*args, **kwargs)
+        super(Commit, self).save(*args, **kwargs)
+
+        if not skip_update_issues:
+            update_fields = kwargs.get('update_fields', None)
+            if update_fields is None or 'comments_count' in update_fields:
+                self.update_issues_comments_count()
+
+    def update_issues_comments_count(self):
+        for issue in self.issues.all():
+            issue.update_commits_comments_count()
 
     @property
     def github_callable_identifiers_for_commit_comments(self):
@@ -147,6 +150,7 @@ class Commit(WithRepositoryMixin, GithubObject):
 
         if parameters:
             final_parameters.update(parameters)
+
         return self._fetch_many('commit_comments', gh,
                                 defaults={
                                     'fk': {

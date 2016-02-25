@@ -1,3 +1,4 @@
+
 __all__ = [
     'LABELTYPE_EDITMODE',
     'Issue',
@@ -14,6 +15,7 @@ from django.contrib.contenttypes import generic
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.functional import cached_property
 
 from extended_choices import Choices
 from jsonfield import JSONField
@@ -89,7 +91,6 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     github_matching = dict(GithubObjectWithId.github_matching)
     github_matching.update({
         'comments': 'comments_count',
-        # "review_comments" is only filled if fetching a pull_request directly (we don't do it, but just in case...)
         'review_comments': 'pr_comments_count',
         'commits': 'nb_commits',
         'additions': 'nb_additions',
@@ -234,13 +235,15 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if not force_fetch and self.comments_count == 0:
             return 0
+
         final_parameters = {
             'sort': IssueComment.github_date_field[1],
             'direction': IssueComment.github_date_field[2],
         }
         if parameters:
             final_parameters.update(parameters)
-        count = self._fetch_many('comments', gh,
+
+        return self._fetch_many('comments', gh,
                                 defaults={
                                     'fk': {
                                         'issue': self,
@@ -255,14 +258,16 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
                                 },
                                 parameters=final_parameters,
                                 force_fetch=force_fetch)
-        if count and (not self.comments_count or count > self.comments_count):
-            self.comments_count = count
-            self.save(update_fields=('comments_count',))
-
-        return count
 
     def fetch_pr_comments(self, gh, force_fetch=False, parameters=None):
+        """
+        Don't fetch comments if the previous fetch of the issue told us there
+        is not pr comments for it
+        """
         from .comments import PullRequestComment
+
+        if not force_fetch and self.pr_comments_count == 0:
+            return 0
 
         final_parameters = {
             'sort': PullRequestComment.github_date_field[1],
@@ -270,6 +275,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         }
         if parameters:
             final_parameters.update(parameters)
+
         return self._fetch_many('pr_comments', gh,
                                 defaults={
                                     'fk': {
@@ -361,29 +367,19 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
               + (self.pr_comments_count or 0)
               + (self.commits_comments_count or 0))
 
-    def update_comments_count(self):
-        count = self.comments.exclude(
-            github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
-        if self.comments_count != count:
-            self.comments_count = count
-            self.save(update_fields=['comments_count'])
-
-    def update_pr_comments_count(self):
-        if self.is_pull_request:
-            count = self.pr_comments.exclude(
-                github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
-            if self.pr_comments_count != count:
-                self.pr_comments_count = count
-                self.save(update_fields=['pr_comments_count'])
-
     def update_commits_comments_count(self):
         if self.is_pull_request:
-            from .comments import CommitComment
-            count = CommitComment.objects.filter(commit__issues__pk=self.pk).exclude(
-                github_status=self.GITHUB_STATUS_CHOICES.WAITING_DELETE).count()
-            if self.commits_comments_count != count:
-                self.commits_comments_count = count
-                self.save(update_fields=['commits_comments_count'])
+            count = sum(
+                self.related_commits
+                    .exclude(deleted=True)
+                    .values_list('commit__comments_count', flat=True)
+            )
+        else:
+            count = 0
+
+        if self.commits_comments_count != count:
+            self.commits_comments_count = count
+            self.save(update_fields=['commits_comments_count'])
 
     def save(self, *args, **kwargs):
         """
@@ -493,7 +489,8 @@ class IssueEvent(WithIssueMixin, GithubObjectWithId):
 
         if needs_comit:
             from gim.core.tasks.commit import FetchCommitBySha
-            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.commit_sha))
+            FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.commit_sha),
+                                     fetch_comments=1)
             from gim.core.tasks.event import SearchReferenceCommitForEvent
             SearchReferenceCommitForEvent.add_job(self.id, delayed_for=30)
 
@@ -527,6 +524,10 @@ class LabelType(models.Model):
         app_label = 'core'
         verbose_name = u'Group'
         ordering = ('lower_name', )
+
+    @cached_property
+    def model_name(self):
+        return self.__class__.__name__
 
     def __unicode__(self):
         return u'%s' % self.name
