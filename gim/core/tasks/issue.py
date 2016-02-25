@@ -99,7 +99,8 @@ class FetchIssueByNumber(Job):
                         'The %s <strong>#%d</strong> from <strong>%s</strong> you asked to fetch from Github doesn\'t exist anymore!' % (
                             issue.type, issue.number, issue.repository.full_name),
                         constants.ERROR)
-                issue.delete()
+                if issue.pk:
+                    issue.delete()
                 self.deleted.hset(1)
                 return False
             else:
@@ -241,6 +242,13 @@ class BaseIssueEditJob(IssueJob):
 
         try:
             issue = self.edited_issue = issue.dist_edit(mode=self.edit_mode, gh=gh, fields=self.editable_fields, values=self.values)
+
+            if issue.github_status != issue.GITHUB_STATUS_CHOICES.FETCHED:
+                # Maybe it was still in saving mode but we didn't have anything new to get
+                # We need to be sure to have the right status to trigger the signals
+                issue.github_status = issue.GITHUB_STATUS_CHOICES.FETCHED
+                issue.save(update_fields=['github_status'])
+
         except ApiError, e:
             message = None
 
@@ -365,6 +373,12 @@ class IssueCreateJob(BaseIssueEditJob):
     edit_mode = 'create'
 
     created_pk = fields.InstanceHashField(indexable=True)
+
+    @property
+    def issue(self):
+        issue = super(IssueCreateJob, self).issue
+        issue.is_new = True
+        return issue
 
     def run(self, queue):
         result = super(IssueCreateJob, self).run(queue)

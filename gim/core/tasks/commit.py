@@ -24,6 +24,7 @@ class FetchCommitBySha(Job):
     deleted = fields.InstanceHashField()
     force_fetch = fields.InstanceHashField()
     fetch_comments = fields.InstanceHashField()
+    fetch_comments_only = fields.InstanceHashField()
 
     permission = 'read'
 
@@ -55,21 +56,25 @@ class FetchCommitBySha(Job):
 
         force_fetch = self.force_fetch.hget() == '1'
         fetch_comments = self.fetch_comments.hget() == '1'
+        fetch_comments_only = fetch_comments and self.fetch_comments_only.hget() == '1'
 
         try:
             commit = repository.commits.filter(sha=sha)[0]
         except (Commit.DoesNotExist, IndexError):
             commit = Commit(repository=repository, sha=sha)
         else:
-            if not force_fetch and commit.fetched_at:
+            if not force_fetch and commit.fetched_at and not fetch_comments:
                 # a commit doesn't change so is we already have it, fetch it
-                # only if we forced it
+                # only if we forced it (or if we want comments to)
                 self.status.hset(STATUSES.CANCELED)
                 return None
 
         try:
             if fetch_comments:
-                commit.fetch_all(gh, force_fetch=force_fetch)
+                if fetch_comments_only:
+                    commit.fetch_comments(gh, force_fetch=force_fetch)
+                else:
+                    commit.fetch_all(gh, force_fetch=force_fetch)
             else:
                 commit.fetch(gh, force_fetch=force_fetch)
         except ApiNotFoundError:

@@ -490,6 +490,7 @@ class Repository(GithubObjectWithId):
         }
         if parameters:
             final_parameters.update(parameters)
+
         return self._fetch_many('comments', gh,
                                 defaults={
                                     'fk': {'repository': self},
@@ -509,6 +510,7 @@ class Repository(GithubObjectWithId):
         }
         if parameters:
             final_parameters.update(parameters)
+
         return self._fetch_many('pr_comments', gh,
                                 defaults={
                                     'fk': {'repository': self},
@@ -547,6 +549,7 @@ class Repository(GithubObjectWithId):
 
         if parameters:
             final_parameters.update(parameters)
+
         return self._fetch_many('commit_comments', gh,
                                 defaults={
                                     'fk': {'repository': self},

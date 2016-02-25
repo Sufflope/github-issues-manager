@@ -56,13 +56,16 @@ class CommentEditJob(IssueCommentJob):
         except self.model.DoesNotExist:
             return None
 
+        delta = 0
         try:
             if mode == 'delete':
                 comment.dist_delete(gh)
+                delta = -1
             else:
                 comment = comment.dist_edit(mode=mode, gh=gh)
                 if mode == 'create':
                     self.created_pk.hset(comment.pk)
+                    delta = 1
 
         except ApiError, e:
             message = None
@@ -91,13 +94,9 @@ class CommentEditJob(IssueCommentJob):
             else:
                 raise
 
-        self.after_run(gh, comment)
+        self.after_run(gh, comment, delta)
 
         return None
-
-    def after_run(self, gh, obj):
-        from gim.core.tasks.issue import FetchIssueByNumber
-        FetchIssueByNumber.add_job('%s#%s' % (obj.repository_id, obj.issue.number), gh=gh)
 
     def success_message_addon(self, queue, result):
         """
@@ -110,10 +109,26 @@ class IssueCommentEditJob(CommentEditJob):
     queue_name = 'edit-issue-comment'
     model = IssueComment
 
+    def after_run(self, gh, obj, delta):
+        if delta:
+            issue = obj.issue
+            for key, value in self.extra_args.hgetall().items():
+                setattr(issue, key, value)
+            issue.comments_count += delta
+            issue.save(update_fields=['comments_count'])
+
 
 class PullRequestCommentEditJob(CommentEditJob):
     queue_name = 'edit-pr-comment'
     model = PullRequestComment
+
+    def after_run(self, gh, obj, delta):
+        if delta:
+            issue = obj.issue
+            for key, value in self.extra_args.hgetall().items():
+                setattr(issue, key, value)
+            issue.pr_comments_count += delta
+            issue.save(update_fields=['pr_comments_count'])
 
 
 class CommitCommentEditJob(CommentEditJob):
@@ -123,9 +138,19 @@ class CommitCommentEditJob(CommentEditJob):
     def obj_message_part(self, obj):
         return 'commit <strong>#%s</strong>' % (obj.commit.sha[:7])
 
-    def after_run(self, gh, obj):
-        from gim.core.tasks.commit import FetchCommitBySha
-        FetchCommitBySha.add_job('%s#%s' % (obj.repository_id, obj.commit.sha), fetch_comments=1, gh=gh)
+    def after_run(self, gh, obj, delta):
+        if delta:
+            # Update the commit
+            commit = obj.commit
+            commit.comments_count += delta
+            commit.save(update_fields=['comments_count'], skip_update_issues=True)
+
+            # Update all related issues
+            extra_args = self.extra_args.hgetall()
+            for issue in commit.issues.all():
+                for key, value in extra_args.items():
+                    setattr(issue, key, value)
+                issue.update_commits_comments_count()
 
 
 class SearchReferenceCommitForComment(IssueCommentJob):

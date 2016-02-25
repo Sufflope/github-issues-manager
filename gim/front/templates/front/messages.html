@@ -1,4 +1,4 @@
-{% if messages %}
+{% if messages or force_container %}
     <ul id="messages" class="unstyled messages">
         {% for message in messages %}
             <li class="alert{% if message.tags %} alert-{{ message.tags }}{% endif %}">

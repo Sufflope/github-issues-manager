@@ -312,7 +312,7 @@ class FirstFetch(Job):
                 messages.success(subscription.user, message)
             else:
                 subscription.state = WAITING_SUBSCRIPTION_STATES.FAILED
-                subscription.save(update_fields=('state', ))
+                subscription.save(update_fields=['state'])
 
         # save count in the job
         self.converted_subscriptions.hset(count)

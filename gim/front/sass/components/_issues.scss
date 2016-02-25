@@ -50,6 +50,13 @@
             padding-left: 2px;
             border-left: solid $active-color 5px;
         }
+        &.recent:not(.active) {
+            .issues-count {
+                font-weight: normal;
+                background-image: none;
+                @include animation(breathing-recent-issues-count 5s infinite normal);
+            }
+        }
     }
     &.without-details {
         .issue-item {
@@ -74,7 +81,7 @@
     } // &.without-details
 } // .issues-list
 
-@include keyframes(breathing-active-color) {
+@include keyframes(breathing-recent-issue-item-times) {
     0% {
         background: $active-color;
         color: darken($active-color, 40%);
@@ -93,6 +100,24 @@
     100% {
         background: $active-color;
         color: darken($active-color, 40%);
+    }
+}
+
+@include keyframes(breathing-recent-issues-count) {
+    0% {
+        background: $active-color;
+    }
+
+    35% {
+        background: $grayDark;
+    }
+
+    84% {
+        background: $active-color;
+    }
+
+    100% {
+        background: $active-color;
     }
 }
 
@@ -209,7 +234,7 @@
 
     &.recent {
         .issue-item-times {
-            @include animation(breathing-active-color 5s infinite normal);
+            @include animation(breathing-recent-issue-item-times 5s infinite normal);
         }
     }
 }

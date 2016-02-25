@@ -10,7 +10,7 @@
             <span class="glow"></span>
             <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#default-filters">
                 Default filters
-                <i class="fa fa-caret-down"></i>
+                <i class="fa fa-caret-right"></i>
             </a>
 
             <ul id="default-filters" class="collapse">
@@ -71,7 +71,7 @@
         <span class="glow"></span>
         <a class="accordion-toggle collapsed{% if issues_filter.objects.state %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-state">
             State
-            <i class="fa fa-caret-down"></i>
+            <i class="fa fa-caret-right"></i>
             {% if issues_filter.objects.state %}
                     <span class="selection">{{ issues_filter.objects.state }}</span>
                 </a>
@@ -92,7 +92,7 @@
         <span class="glow"></span>
         <a class="accordion-toggle collapsed{% if issues_filter.parts.pr %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-pr">
             Pull-request
-            <i class="fa fa-caret-down"></i>
+            <i class="fa fa-caret-right"></i>
             {% if issues_filter.parts.pr %}
                     <span class="selection">{{ issues_filter.parts.pr }}</span>
                 </a>
@@ -114,7 +114,7 @@
             <span class="glow"></span>
             <a class="accordion-toggle collapsed{% if issues_filter.parts.mergeable %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-mergeable">
                 Mergeable
-                <i class="fa fa-caret-down"></i>
+                <i class="fa fa-caret-right"></i>
                 {% if issues_filter.parts.mergeable %}
                         <span class="selection">{{ issues_filter.parts.mergeable }}</span>
                     </a>
@@ -138,7 +138,7 @@
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.objects.milestone %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-milestone">
                     Milestone
-                    <i class="fa fa-caret-down"></i>
+                    <i class="fa fa-caret-right"></i>
                     {% if issues_filter.objects.milestone %}
                             <span class="selection">
                                 {% if issues_filter.objects.milestone == '__none__' %}
@@ -180,7 +180,7 @@
                     <span class="glow"></span>
                     <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-label-type-{{ label_type.id }}">
                         {{ label_type.name }}
-                        <i class="fa fa-caret-down"></i>
+                        <i class="fa fa-caret-right"></i>
                             {% if current_label_for_label_type %}
                                 {% if current_label_for_label_type == '__none__' %}
                                         <span class="selection">(&nbsp;Not set&nbsp;)</span>
@@ -223,7 +223,7 @@
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.objects.current_labels %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-labels">
                     Labels
-                    <i class="fa fa-caret-down"></i>
+                    <i class="fa fa-caret-right"></i>
                     {% if issues_filter.objects.current_labels %}
                         {% attributes_for_list issues_filter.objects.current_labels "name" as current_label_names %}
                             <span class="selection">{{ current_label_names|join:", " }}</span>

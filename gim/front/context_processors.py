@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import uuid4
 
 from django.conf import settings
 from django.core.signing import Signer
@@ -40,6 +41,7 @@ def default_context_data(request):
             'uri': (settings.WS_SUBDOMAIN + '.' if settings.WS_SUBDOMAIN else '') +
                    request.get_host() + '/ws',
             'last_msg_id': publisher.get_last_msg_id(),
-        }
+        },
+        'new_uuid': uuid4,
     }
 
