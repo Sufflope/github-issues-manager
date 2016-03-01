@@ -4,6 +4,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.signing import Signer
 
+from gim import hashed_version
 from gim.core.models import GITHUB_STATUS_CHOICES
 from gim.ws import publisher
 
@@ -35,6 +36,7 @@ def default_context_data(request):
             },
         },
         'utcnow': datetime.utcnow(),
+        'gim_version': hashed_version,
         'GITHUB_STATUSES': GITHUB_STATUS_CHOICES,
         'auth_keys': auth_keys(request),
         'WS': {

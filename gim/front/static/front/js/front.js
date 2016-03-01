@@ -546,6 +546,9 @@ $().ready(function() {
             if (kwargs.utcnow) {
                 time_ago.update_start(kwargs.utcnow);
             }
+            if (kwargs.software_version && kwargs.software_version != window.software.version) {
+                WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:document.location.reload(true);">reload the whole page</a>.', 'waiting');
+            }
         }), // receive_ping
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
