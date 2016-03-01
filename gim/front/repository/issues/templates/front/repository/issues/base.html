@@ -10,7 +10,7 @@
 
 {% block js_footer %}
     {{ block.super }}
-    <script type="text/javascript">replace_time_ago(document.getElementById('issues-list'));</script>
+    <script type="text/javascript">time_ago.replace(document.getElementById('issues-list'));</script>
 {% endblock js_footer %}
 
 {% block main %}

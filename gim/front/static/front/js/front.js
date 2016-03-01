@@ -543,6 +543,9 @@ $().ready(function() {
             if (kwargs.last_msg_id && !WS.reconcile_mode.active) {
                 WS.last_msg_id = kwargs.last_msg_id;
             }
+            if (kwargs.utcnow) {
+                time_ago.update_start(kwargs.utcnow);
+            }
         }), // receive_ping
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
@@ -1229,7 +1232,7 @@ $().ready(function() {
         setInterval(function() {
             var $lists = $(IssuesList.selector);
             for (var i = 0; i < $lists.length; i++) {
-                replace_time_ago($lists[i]);
+                time_ago.replace($lists[i]);
             }
         }, 60000);
 
@@ -4650,7 +4653,7 @@ $().ready(function() {
             setInterval(function() {
                 var $feeds = $(Activity.selectors.main);
                 for (var i = 0; i < $feeds.length; i++) {
-                    replace_time_ago($feeds[i]);
+                    time_ago.replace($feeds[i]);
                 }
             }, 60000);
 
