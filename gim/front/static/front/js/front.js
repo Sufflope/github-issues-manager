@@ -812,7 +812,7 @@ $().ready(function() {
         }
     }); // IssuesListIssue_open_issue
 
-    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, subscription, $containers) {
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
         var existing_hash = this.$node.data('issue-hash'), issue=this,
             front_uuid_exists = UUID.exists(kwargs.front_uuid);
 
@@ -820,7 +820,8 @@ $().ready(function() {
         var is_active = this.$node.hasClass('active');
 
         $.get(kwargs.url + window.location.search).done(function(data) {
-            var $data = $(data);
+            var $data = $(data),
+                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
                 $data.addClass('recent');
             }
@@ -857,14 +858,15 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
-                IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                IssueDetail.refresh_created_issue(kwargs.front_uuid);
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
                 issue.group.remove_issue(issue);
                 if (!kwargs.front_uuid || !front_uuid_exists) {
-                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue',
+                        $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
                     if ($containers.length) {
                         $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
                         IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
@@ -873,8 +875,8 @@ $().ready(function() {
                         $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                     }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
-                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                    IssueDetail.refresh_created_issue(kwargs.front_uuid);
                 }
             }
         });
@@ -1282,13 +1284,12 @@ $().ready(function() {
         );
     }); // IssuesList_subscribe_updates
 
-    IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs, subscription) {
-        var issue = IssuesList.get_issue_by_id(kwargs.id),
-            $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
+    IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
+        var issue = IssuesList.get_issue_by_id(kwargs.id);
         if (issue) {
-            issue.on_update_alert(topic, args, kwargs, subscription, $containers);
+            issue.on_update_alert(topic, args, kwargs);
         } else {
-            IssuesList.on_create_alert(topic, args, kwargs, subscription, $containers);
+            IssuesList.on_create_alert(topic, args, kwargs);
         }
     }); // IssuesList_on_update_alert
 
@@ -1355,12 +1356,13 @@ $().ready(function() {
 
     }); // IssuesList__change_issue_group
 
-    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs, subscription, $containers) {
+    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
                 list = IssuesList.all[0], filter, group,
-                front_uuid_exists = UUID.exists(kwargs.front_uuid);
+                front_uuid_exists = UUID.exists(kwargs.front_uuid),
+                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
                 $data.addClass('recent');
             }
@@ -1389,11 +1391,8 @@ $().ready(function() {
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
-                if ($containers.length) {
-                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
-                } else {
-                    $data.removeClass('recent');
-                }
+                IssueDetail.refresh_created_issue(kwargs.front_uuid);
+                $data.removeClass('recent');
             }
 
         });
@@ -1961,7 +1960,8 @@ $().ready(function() {
             }
         }), // IssueDetail__mark_container_as_updated
 
-        refresh_created_issue: (function IssueDetail__refresh_created_issue ($containers, front_uuid) {
+        refresh_created_issue: (function IssueDetail__refresh_created_issue (front_uuid) {
+            var $containers = $('.issue-container:visible');
             for (var i = 0; i < $containers.length; i++) {
                 var $container = $($containers[i]);
                 if ($container.children('article').data('front-uuid') == front_uuid) {
