@@ -1180,7 +1180,7 @@ def publish_github_updated(sender, instance, created, **kwargs):
         return
 
     # That we got from github
-    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+    if getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
     # Only if we didn't specifically say to not publish
@@ -1225,7 +1225,7 @@ def publish_github_deleted(sender, instance, **kwargs):
         return
 
     # That we are not currently deleting before creating from github
-    if instance.github_status == instance.GITHUB_STATUS_CHOICES.WAITING_CREATE:
+    if getattr(instance, 'github_status', None) == instance.GITHUB_STATUS_CHOICES.WAITING_CREATE:
         return
 
     publish_update(instance, 'deleted')
