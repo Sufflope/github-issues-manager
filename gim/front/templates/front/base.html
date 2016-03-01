@@ -59,6 +59,10 @@
         {% block main %}{% endblock main %}
     </main>
     <script type="text/javascript">
+        var software = {
+            name: "{{ brand.short_name }}",
+            version: "{{ gim_version }}"
+        };
         var select2_statics = {css: '{% static "front/css/select.2.css" %}', js: '{% static "front/js/select.2.js" %}'};
         var default_avatar = "{{ default_avatar }}";
         var auth_keys = {
