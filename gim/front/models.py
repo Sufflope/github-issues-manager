@@ -408,7 +408,7 @@ class _Issue(Hashable, FrontEditable):
             self.assignee.hash if self.assignee_id else None,
             self.milestone.hash if self.milestone_id else None,
             self.total_comments_count or 0,
-            ','.join(['%d' % l.hash for l in self.labels.all()]),
+            ','.join(map(str, self.labels.values_list('pk', flat=True))),
         )
 
         if self.is_pull_request:
