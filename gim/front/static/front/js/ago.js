@@ -1,4 +1,4 @@
-var replace_time_ago = (function () {
+var time_ago = (function () {
     "use strict";
     var origin = new Date(document.body.getAttribute('data-base-datetime')),
         start = new Date(),
@@ -30,6 +30,14 @@ var replace_time_ago = (function () {
                 'ys': ' years ago'
             }
         };
+
+    function update_start(server_date) {
+        // When the page is reloaded from cache, the content of the body attribute may be not
+        // accurate anymore, so we provide a way to reset it, passing a date in the same format
+        // as expected in the body attribute;
+        start = new Date();
+        origin = new Date(server_date);
+    }
 
     function divmod(x, y) {
         return [(x - x % y) / y, x % y];
@@ -145,6 +153,9 @@ var replace_time_ago = (function () {
         }
     }
 
-    return update_ago;
+    return {
+        replace: update_ago,
+        update_start: update_start
+    };
 
 })();
