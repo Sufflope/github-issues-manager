@@ -408,11 +408,11 @@ class _Issue(Hashable, FrontEditable):
             self.assignee.hash if self.assignee_id else None,
             self.milestone.hash if self.milestone_id else None,
             self.total_comments_count or 0,
-            ','.join(map(str, self.labels.values_list('pk', flat=True))),
+            ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
         )
 
         if self.is_pull_request:
-            commits_part = ','.join(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True))
+            commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
             hash_values += (commits_part, )
 
         return hash(hash_values)
