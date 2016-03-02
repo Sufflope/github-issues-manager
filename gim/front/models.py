@@ -403,10 +403,10 @@ class _Issue(Hashable, FrontEditable):
                 hashable_fields += ('mergeable', 'mergeable_state')
 
         hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
-            self.user.hash if self.user_id else None,
-            self.closed_by.hash if self.closed_by_id else None,
-            self.assignee.hash if self.assignee_id else None,
-            self.milestone.hash if self.milestone_id else None,
+            self.user_id,
+            self.closed_by_id,
+            self.assignee_id,
+            self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
         )
