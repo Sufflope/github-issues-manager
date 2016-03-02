@@ -960,7 +960,7 @@ def hash_check(sender, instance, created, **kwargs):
     else:
         # if not an issue, add a job to update the templates of all related issues
         for issue_id in instance.get_related_issues().values_list('id', flat=True):
-            UpdateIssueCacheTemplate.add_job(issue_id)
+            UpdateIssueCacheTemplate.add_job(issue_id, force_regenerate=1)
 
 
 PUBLISHABLE = {
