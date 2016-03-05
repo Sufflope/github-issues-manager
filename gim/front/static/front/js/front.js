@@ -9,19 +9,25 @@ $().ready(function() {
          **/
         var self = {};
         var lut = []; for (var i=0; i<256; i++) { lut[i] = (i<16?'0':'')+(i).toString(16); }
-        var generated = {};
-        self.generate = function() {
+        var states = {};
+        self.generate = function(state) {
             var d0 = Math.random()*0xffffffff| 0, d1 = Math.random()*0xffffffff| 0,
                 d2 = Math.random()*0xffffffff| 0, d3 = Math.random()*0xffffffff|0;
             var uuid = lut[d0&0xff]+lut[d0>>8&0xff]+lut[d0>>16&0xff]+lut[d0>>24&0xff]+'-'+
                 lut[d1&0xff]+lut[d1>>8&0xff]+'-'+lut[d1>>16&0x0f|0x40]+lut[d1>>24&0xff]+'-'+
                 lut[d2&0x3f|0x80]+lut[d2>>8&0xff]+'-'+lut[d2>>16&0xff]+lut[d2>>24&0xff]+
                 lut[d3&0xff]+lut[d3>>8&0xff]+lut[d3>>16&0xff]+lut[d3>>24&0xff];
-            generated[uuid] = 1;
+            self.set_state(uuid, state || '');
             return uuid
         };
         self.exists = function(uuid) {
-            return typeof generated[uuid] !== 'undefined';
+            return typeof states[uuid] !== 'undefined';
+        };
+        self.set_state = function(uuid, state) {
+            states[uuid] = state;
+        };
+        self.has_state = function(uuid, state) {
+            return states[uuid] === state;
         };
         return self;
     })();
@@ -812,15 +818,22 @@ $().ready(function() {
         }
     }); // IssuesListIssue_open_issue
 
-    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, subscription, $containers) {
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
         var existing_hash = this.$node.data('issue-hash'), issue=this,
             front_uuid_exists = UUID.exists(kwargs.front_uuid);
 
-        if (!kwargs.hash || kwargs.hash == existing_hash) { return; }
+        if (!kwargs.hash || kwargs.hash == existing_hash) {
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
+            }
+            delete IssuesList.updating_ids[kwargs.id];
+            return;
+        }
         var is_active = this.$node.hasClass('active');
 
         $.get(kwargs.url + window.location.search).done(function(data) {
-            var $data = $(data);
+            var $data = $(data),
+                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
                 $data.addClass('recent');
             }
@@ -857,14 +870,15 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
-                IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                IssueDetail.refresh_created_issue(kwargs.front_uuid);
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
                 issue.group.remove_issue(issue);
                 if (!kwargs.front_uuid || !front_uuid_exists) {
-                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue',
+                        $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
                     if ($containers.length) {
                         $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
                         IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
@@ -873,10 +887,15 @@ $().ready(function() {
                         $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
                     }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists && $containers.length) {
-                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
+                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                    IssueDetail.refresh_created_issue(kwargs.front_uuid);
                 }
             }
+        }).always(function() {
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
+            }
+            delete IssuesList.updating_ids[kwargs.id];
         });
     }); // IssuesListIssue__on_update_alert
 
@@ -1210,6 +1229,7 @@ $().ready(function() {
     IssuesList.selector = '.issues-list';
     IssuesList.all = [];
     IssuesList.current = null;
+    IssuesList.updating_ids = {};
 
     IssuesList.prototype.unset_current = (function IssuesList__unset_current () {
         IssuesList.current = null;
@@ -1282,13 +1302,19 @@ $().ready(function() {
         );
     }); // IssuesList_subscribe_updates
 
-    IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs, subscription) {
-        var issue = IssuesList.get_issue_by_id(kwargs.id),
-            $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
+    IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
+        if (typeof IssuesList.updating_ids[kwargs.id] != 'undefined' || kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+            setTimeout(function() {
+                IssuesList.on_update_alert(topic, args, kwargs);
+            }, 100);
+            return;
+        }
+        IssuesList.updating_ids[kwargs.id] = true;
+        var issue = IssuesList.get_issue_by_id(kwargs.id);
         if (issue) {
-            issue.on_update_alert(topic, args, kwargs, subscription, $containers);
+            issue.on_update_alert(topic, args, kwargs);
         } else {
-            IssuesList.on_create_alert(topic, args, kwargs, subscription, $containers);
+            IssuesList.on_create_alert(topic, args, kwargs);
         }
     }); // IssuesList_on_update_alert
 
@@ -1355,12 +1381,13 @@ $().ready(function() {
 
     }); // IssuesList__change_issue_group
 
-    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs, subscription, $containers) {
+    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
         $.get(kwargs.url + window.location.search).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
                 list = IssuesList.all[0], filter, group,
-                front_uuid_exists = UUID.exists(kwargs.front_uuid);
+                front_uuid_exists = UUID.exists(kwargs.front_uuid),
+                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
                 $data.addClass('recent');
             }
@@ -1389,13 +1416,15 @@ $().ready(function() {
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
-                if ($containers.length) {
-                    IssueDetail.refresh_created_issue($containers, kwargs.front_uuid);
-                } else {
-                    $data.removeClass('recent');
-                }
+                IssueDetail.refresh_created_issue(kwargs.front_uuid);
+                $data.removeClass('recent');
             }
 
+        }).always(function() {
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
+            }
+            delete IssuesList.updating_ids[kwargs.id];
         });
     }); // IssuesList_on_create_alert
 
@@ -1961,7 +1990,8 @@ $().ready(function() {
             }
         }), // IssueDetail__mark_container_as_updated
 
-        refresh_created_issue: (function IssueDetail__refresh_created_issue ($containers, front_uuid) {
+        refresh_created_issue: (function IssueDetail__refresh_created_issue (front_uuid) {
+            var $containers = $('.issue-container:visible');
             for (var i = 0; i < $containers.length; i++) {
                 var $container = $($containers[i]);
                 if ($container.children('article').data('front-uuid') == front_uuid) {
@@ -3489,7 +3519,7 @@ $().ready(function() {
                 issue_ident: IssueDetail.get_issue_ident($node),
                 $form: $form,
                 $node: $node,
-                uuid: UUID.generate()
+                uuid: UUID.generate('waiting')
             };
         }), // get_form_context
 
@@ -3511,7 +3541,8 @@ $().ready(function() {
             data.push({name:'front_uuid', value: context.uuid});
             $.post(action, data)
                 .done($.proxy(on_done, context))
-                .fail($.proxy(on_failed, context));
+                .fail($.proxy(on_failed, context))
+                .always(function() {UUID.set_state(context.uuid, '');});
         }), // post_form
 
         /* CHANGE ISSUE STATE */
@@ -4027,14 +4058,10 @@ $().ready(function() {
             var context = IssueEditor.get_form_context($form);
             var data = $form.serializeArray();
             data.push({name:'front_uuid', value: context.uuid});
-            $.ajax({
-                url: $form.attr('action'),
-                data: data,
-                type: 'POST',
-                success: IssueEditor.on_issue_edit_submit_done,
-                error: IssueEditor.on_issue_edit_submit_fail,
-                context: context
-            });
+            $.post($form.attr('action'), data)
+                .done($.proxy(IssueEditor.on_issue_edit_submit_done, context))
+                .fail($.proxy(IssueEditor.on_issue_edit_submit_fail, context))
+                .always(function() {UUID.set_state(context.uuid, '');});
             return false;
         }), // on_issue_edit_field_submit
 
@@ -4056,6 +4083,12 @@ $().ready(function() {
         }), // on_issue_edit_submit_fail
 
         on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs) {
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+                setTimeout(function() {
+                    IssueEditor.on_update_alert(topic, args, kwargs);
+                }, 100);
+                return;
+            }
             // Replace "waiting" comments
             if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment')) {
 
@@ -4070,11 +4103,19 @@ $().ready(function() {
                         MarkdownManager.update_links();
                     });
                 }
-
+            }
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_update_alert
 
         on_delete_alert: (function IssueEditor__on_delete_alert (topic, args, kwargs) {
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+                setTimeout(function() {
+                    IssueEditor.on_update_alert(topic, args, kwargs);
+                }, 100);
+                return;
+            }
             // Remove "waiting deletion" comments
             if (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment') {
 
@@ -4086,7 +4127,9 @@ $().ready(function() {
                 if ($nodes.length) {
                     IssueEditor.remove_comment($nodes);
                 }
-
+            }
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_delete_alert
 
@@ -4154,11 +4197,12 @@ $().ready(function() {
                 IssueEditor.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                var data = $form.serializeArray(), front_uuid = UUID.generate();
+                var data = $form.serializeArray(), front_uuid = UUID.generate('waiting');
                 data.push({name:'front_uuid', value: front_uuid});
                 $.post($form.attr('action'), data)
                     .done($.proxy(IssueEditor.create.on_submit_done, {'front_uuid': front_uuid}))
-                    .fail(IssueEditor.create.on_submit_failed);
+                    .fail(IssueEditor.create.on_submit_failed)
+                    .always(function() {UUID.set_state(front_uuid, '');});
             }), // on_form_submit
 
             on_submit_done: (function IssueEditor_create__on_submit_done (data) {
