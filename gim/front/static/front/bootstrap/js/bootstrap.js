@@ -773,7 +773,13 @@
       selector = selector && /#/.test(selector) && selector.replace(/.*(?=#[^\s]*$)/, '') //strip for ie7
     }
 
-    $parent = selector && $(selector)
+    // https://github.com/twbs/bootstrap/pull/11421
+    // $parent = selector && $(selector)
+    $parent = selector === '#' ? $('') : selector && $(selector)
+    // the minified versions:
+    // r=n&&e(n)
+    // r=n==='#'?e(''):n&&e(n)
+
 
     if (!$parent || !$parent.length) $parent = $this.parent()
 

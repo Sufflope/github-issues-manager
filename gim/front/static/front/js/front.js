@@ -2657,7 +2657,9 @@ $().ready(function() {
             if (IssuesList.current) {
                 IssuesList.current.unset_current();
             }
-            panel.$node.focus();
+            if (!$(document.activeElement).closest(panel.$node).length) {
+                panel.$node.focus();
+            }
         }), // on_panel_activated
 
         panel_activable: (function IssueDetail__panel_activable (panel) {
