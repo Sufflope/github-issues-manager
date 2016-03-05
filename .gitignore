@@ -24,6 +24,7 @@ MANIFEST
 *.egg-info/
 .installed.cfg
 *.egg
+/gim-*/
 
 # Installer logs
 install/
@@ -103,7 +104,6 @@ Vagrantfile*
 
 # Supervisor (dev)
 supervisor/
-
 
 # Crossbar
 gim/crossbar/.crossbar/*
