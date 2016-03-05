@@ -24,6 +24,7 @@ MANIFEST
 *.egg-info/
 .installed.cfg
 *.egg
+/gim-*/
 
 # Installer logs
 install/
@@ -68,6 +69,8 @@ local_conf.json
 *.log
 *.pot
 gim/media/
+/gim/front/static/front/img/favicon.*
+/gim/front/core-admin/
 
 
 # Ignore the directory created by the "collectstatic" command
@@ -103,7 +106,6 @@ Vagrantfile*
 
 # Supervisor (dev)
 supervisor/
-
 
 # Crossbar
 gim/crossbar/.crossbar/*

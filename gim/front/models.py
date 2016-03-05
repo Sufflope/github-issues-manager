@@ -403,16 +403,16 @@ class _Issue(Hashable, FrontEditable):
                 hashable_fields += ('mergeable', 'mergeable_state')
 
         hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
-            self.user.hash if self.user_id else None,
-            self.closed_by.hash if self.closed_by_id else None,
-            self.assignee.hash if self.assignee_id else None,
-            self.milestone.hash if self.milestone_id else None,
+            self.user_id,
+            self.closed_by_id,
+            self.assignee_id,
+            self.milestone_id,
             self.total_comments_count or 0,
-            ','.join(['%d' % l.hash for l in self.labels.all()]),
+            ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
         )
 
         if self.is_pull_request:
-            commits_part = ','.join(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True))
+            commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
             hash_values += (commits_part, )
 
         return hash(hash_values)
@@ -921,91 +921,6 @@ class Hash(lmodel.RedisModel):
             return super(Hash, cls).get_or_connect(**kwargs)
 
 
-@receiver(post_save, dispatch_uid="hash_check")
-def hash_check(sender, instance, created, **kwargs):
-    """
-    Check if the hash of the object has changed since its last save and if True,
-    update the Issue if its an issue, or related issues if it's a:
-    - user
-    - milestone
-    - label_type
-    - label
-    """
-
-    if not isinstance(instance, (
-                        core_models.GithubUser,
-                        core_models.Milestone,
-                        core_models.LabelType,
-                        core_models.Label,
-                        core_models.Issue
-                      )):
-        return
-
-    # Only if the data is fresh from github
-    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
-        return
-
-    if not hasattr(instance, 'signal_hash_changed'):
-        instance.signal_hash_changed = instance.hash_changed(force_update=created)
-
-    if not instance.signal_hash_changed:
-        return
-
-    from gim.core.tasks.issue import UpdateIssueCacheTemplate
-
-    if isinstance(instance, core_models.Issue):
-        # if an issue, add a job to update its template
-        UpdateIssueCacheTemplate.add_job(instance.id)
-
-    else:
-        # if not an issue, add a job to update the templates of all related issues
-        for issue_id in instance.get_related_issues().values_list('id', flat=True):
-            UpdateIssueCacheTemplate.add_job(issue_id)
-
-
-PUBLISHABLE = {
-    core_models.IssueComment: {
-        'self': False,
-        'parents': [
-            ('Issue', 'issue', lambda self: [self.issue_id], None),
-        ],
-    },
-    core_models.PullRequestComment: {
-        'self': False,
-        'parents': [
-            ('Issue', 'issue', lambda self: [self.issue_id], None),
-        ],
-    },
-    core_models.CommitComment: {
-        'self': False,
-        'parents': [
-            ('Issue', 'issues',
-             lambda self: self.commit.issues.all().select_related('commit', 'repository__owner'),
-             lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
-             ),
-        ],
-    },
-    # core_models.Commit: {
-    #     'self': False,
-    #     'parents': [
-    #         ('Issue', 'issues',
-    #          lambda self: self.issues.all().select_related('repository__owner'),
-    #          lambda self, issue: {'url': self.get_absolute_url_for_issue(issue)}
-    #          ),
-    #     ],
-    # },
-    core_models.Issue: {
-        'self': True,
-        'condition': lambda self: self.signal_hash_changed if hasattr(self, 'signal_hash_changed') else self.hash_changed(),
-        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
-    },
-    # core_models.Repository: {
-    #     'self': True,
-    # },
-}
-PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
-
-
 def unify_messages(store, topic, repository_id, *args, **kwargs):
     """Keep only the last message for a topic/instance each time we receive one in the store"""
 
@@ -1065,6 +980,49 @@ def send_unified_messages(store):
             *message['args'],
             **message['kwargs']
         )
+
+
+PUBLISHABLE = {
+    core_models.IssueComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.PullRequestComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
+    core_models.CommitComment: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issues',
+             lambda self: self.commit.issues.all().select_related('commit', 'repository__owner'),
+             lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
+             ),
+        ],
+    },
+    # core_models.Commit: {
+    #     'self': False,
+    #     'parents': [
+    #         ('Issue', 'issues',
+    #          lambda self: self.issues.all().select_related('repository__owner'),
+    #          lambda self, issue: {'url': self.get_absolute_url_for_issue(issue)}
+    #          ),
+    #     ],
+    # },
+    core_models.Issue: {
+        'self': True,
+        'condition': lambda self: self.signal_hash_changed if hasattr(self, 'signal_hash_changed') else self.hash_changed(),
+        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
+    },
+    # core_models.Repository: {
+    #     'self': True,
+    # },
+}
+PUBLISHABLE_MODELS = tuple(PUBLISHABLE.keys())
 
 
 def publish_update(instance, message_type, extra_data=None):
@@ -1229,3 +1187,45 @@ def publish_github_deleted(sender, instance, **kwargs):
         return
 
     publish_update(instance, 'deleted')
+
+
+@receiver(post_save, dispatch_uid="hash_check")
+def hash_check(sender, instance, created, **kwargs):
+    """
+    Check if the hash of the object has changed since its last save and if True,
+    update the Issue if its an issue, or related issues if it's a:
+    - user
+    - milestone
+    - label_type
+    - label
+    """
+
+    if not isinstance(instance, (
+                        core_models.GithubUser,
+                        core_models.Milestone,
+                        core_models.LabelType,
+                        core_models.Label,
+                        core_models.Issue
+                      )):
+        return
+
+    # Only if the data is fresh from github
+    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+        return
+
+    if not hasattr(instance, 'signal_hash_changed'):
+        instance.signal_hash_changed = instance.hash_changed(force_update=created)
+
+    if not instance.signal_hash_changed:
+        return
+
+    from gim.core.tasks.issue import UpdateIssueCacheTemplate
+
+    if isinstance(instance, core_models.Issue):
+        # if an issue, add a job to update its template
+        UpdateIssueCacheTemplate.add_job(instance.id)
+
+    else:
+        # if not an issue, add a job to update the templates of all related issues
+        for issue_id in instance.get_related_issues().values_list('id', flat=True):
+            UpdateIssueCacheTemplate.add_job(issue_id, force_regenerate=1)

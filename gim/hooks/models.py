@@ -162,6 +162,7 @@ class _Repository(models.Model):
                         try:
                             if event['type'] == 'IssuesEvent':
                                 issue = event_manager.event_issues(event['payload']['issue'],
+                                                                   event['payload'].get('action'),
                                                                    fetch_issue=False)
                                 if issue:
                                     issues_to_fetch.add(issue.number)
@@ -169,24 +170,30 @@ class _Repository(models.Model):
                             elif event['type'] == 'IssueCommentEvent':
                                 event['payload']['comment']['issue'] = event['payload']['issue']
                                 comment = event_manager.event_issue_comment(event['payload']['comment'],
-                                                                             fetch_issue=False)
+                                                                            event['payload'].get('action'),
+                                                                            fetch_issue=False)
                                 if comment:
                                     issues_to_fetch.add(comment.issue.number)
 
                             elif event['type'] == 'PullRequestEvent':
                                 issue = event_manager.event_pull_request(event['payload']['pull_request'],
-                                                                         fetch_issue=False)
+                                                                         event['payload'].get('action'),
+                                                                         fetch_issue=False,
+                                                                         label=event['payload'].get('label'))
                                 if issue:
                                     issues_to_fetch.add(issue.number)
 
                             elif event['type'] == 'PullRequestReviewCommentEvent':
                                 comment = event_manager.event_pull_request_review_comment(event['payload']['comment'],
+                                                                                          event['payload'].get('action'),
                                                                                           fetch_issue=False)
                                 if comment:
                                     issues_to_fetch.add(comment.issue.number)
 
                             elif event['type'] == 'PushEvent':
-                                numbers = event_manager.event_push(event['payload'], fetch_issue=False)
+                                numbers = event_manager.event_push(event['payload'],
+                                                                   event['payload'].get('action'),
+                                                                   fetch_issue=False)
                                 issues_to_fetch.update(numbers)
 
                         except Exception:
@@ -327,7 +334,7 @@ class EventManager(object):
     def fetch_issue(self, number):
         FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, number), force_fetch=1)
 
-    def event_issues(self, payload, fetch_issue=True):
+    def event_issues(self, payload, action, fetch_issue=True):
         try:
             result = core_models.Issue.objects.create_or_update_from_dict(
                         data=payload,
@@ -344,7 +351,7 @@ class EventManager(object):
         except Exception:
             return None
 
-    def event_issue_comment(self, payload, fetch_issue=True):
+    def event_issue_comment(self, payload, action, fetch_issue=True):
         try:
             result = core_models.IssueComment.objects.create_or_update_from_dict(
                         data=payload,
@@ -361,10 +368,29 @@ class EventManager(object):
         except Exception:
             return None
 
-    def event_pull_request(self, payload, fetch_issue=True):
+    def event_pull_request(self, payload, action, fetch_issue=True, label=None):
         try:
             defaults = self.get_defaults()
             defaults.setdefault('simple', {})['is_pull_request'] = True
+
+            if action in ('labeled', 'unlabeled') and label:
+                # We don't have the labels in the pull request data, so we'll compute them
+                # But only if we already have the pull request
+                number = core_models.Issue.objects.get_number_from_url(payload['url'])
+                if number:
+                    try:
+                        issue = self.repository.issues.get(number=number)
+                    except core_models.Issue.DoesNotExist:
+                        pass
+                    else:
+                        labels = [{
+                            'url': l.api_url,
+                            'name': l.name,
+                            'color': l.color,
+                        } for l in issue.labels.all() if l.name != label['name']]
+                        if action == 'labeled':
+                            labels.append(label)
+                        payload['labels'] = labels
 
             result = core_models.Issue.objects.create_or_update_from_dict(
                         data=payload,
@@ -382,7 +408,7 @@ class EventManager(object):
         except Exception:
             return None
 
-    def event_pull_request_review_comment(self, payload, fetch_issue=True):
+    def event_pull_request_review_comment(self, payload, action, fetch_issue=True):
         try:
             defaults = self.get_defaults()
 
@@ -411,7 +437,7 @@ class EventManager(object):
         except Exception:
             return None
 
-    def event_commit_comment(self, payload, fetch_issue=True):
+    def event_commit_comment(self, payload, action, fetch_issue=True):
         try:
             defaults = self.get_defaults()
 
@@ -427,7 +453,7 @@ class EventManager(object):
         except Exception:
             return None
 
-    def event_push(self, payload, fetch_issue=True):
+    def event_push(self, payload, action, fetch_issue=True):
         """
         When a PushEvent is received, check if we have pull requests on the
         branch the push was done, and if yes, update them

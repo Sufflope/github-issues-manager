@@ -40,20 +40,27 @@ class GithubWebHook(View):
         return HttpResponse('OK')
 
     def event_issues(self, payload):
-        return self.event_manager.event_issues(payload['issue'])
+        return self.event_manager.event_issues(payload['issue'],
+                                               payload.get('action'))
 
     def event_issue_comment(self, payload):
         payload['comment']['issue'] = payload['issue']
-        return self.event_manager.event_issue_comment(payload['comment'])
+        return self.event_manager.event_issue_comment(payload['comment'],
+                                                      payload.get('action'))
 
     def event_pull_request(self, payload):
-        return self.event_manager.event_pull_request(payload['pull_request'])
+        return self.event_manager.event_pull_request(payload['pull_request'],
+                                                     payload.get('action'),
+                                                     label=payload.get('label'))
 
     def event_pull_request_review_comment(self, payload):
-        return self.event_manager.event_pull_request_review_comment(payload['comment'])
+        return self.event_manager.event_pull_request_review_comment(payload['comment'],
+                                                                    payload.get('action'))
 
     def event_commit_comment(self, payload):
-        return self.event_manager.event_commit_comment(payload['comment'])
+        return self.event_manager.event_commit_comment(payload['comment'],
+                                                       payload.get('action'))
 
     def event_push(self, payload):
-        return self.event_manager.event_push(payload)
+        return self.event_manager.event_push(payload,
+                                             payload.get('action'))
