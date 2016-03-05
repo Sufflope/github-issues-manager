@@ -19,7 +19,7 @@ Another note:
 
 The boostrap theme used is not a free one, so it's not included in this repository, and you won't be able to compile css (but you can use the compiled css we provide).
 
-The original theme is: https://wrapbootstrap.com/theme/core-admin-WB0135486 (we use v1.2, but slightly modified)
+The original theme is: https://wrapbootstrap.com/theme/core-admin-WB0135486 (we use v1.2, but slightly modified, ask for the diff)
 
 Wana talk ? [![Gitter chat](https://badges.gitter.im/twidi/github-issues-manager.png)](https://gitter.im/twidi/github-issues-manager)
 
