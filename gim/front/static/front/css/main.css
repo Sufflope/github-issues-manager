@@ -5164,35 +5164,36 @@ ol.errorlist, ul.errorlist {
   overflow: auto;
   max-height: 45%;
   max-width: 40%;
+  z-index: 1050;
 }
-/* line 326, ../../../sass/main.scss */
+/* line 327, ../../../sass/main.scss */
 .webui-popover-hover-issue .webui-popover-content > .empty-area {
   position: static;
   margin: 0;
   line-height: normal;
   overflow: hidden;
 }
-/* line 332, ../../../sass/main.scss */
+/* line 333, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error {
   padding: 5px;
 }
-/* line 334, ../../../sass/main.scss */
+/* line 335, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error .alert {
   margin-bottom: 0;
 }
-/* line 339, ../../../sass/main.scss */
+/* line 340, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top {
   -moz-border-radius: 6px 6px 0 0;
   -webkit-border-radius: 6px;
   border-radius: 6px 6px 0 0;
 }
-/* line 341, ../../../sass/main.scss */
+/* line 342, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top:after {
   -moz-border-radius: 0 6px 0 0;
   -webkit-border-radius: 0;
   border-radius: 0 6px 0 0;
 }
-/* line 345, ../../../sass/main.scss */
+/* line 346, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content .issue-body {
   border-bottom: 0;
   -moz-border-radius: 0 0 6px 6px;

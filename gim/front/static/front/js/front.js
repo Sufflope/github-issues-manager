@@ -783,8 +783,7 @@ $().ready(function() {
             IssueDetail.unset_issue_waypoints(container.$node);
         }
         if (is_popup) {
-            // open the popup with its loading spinner
-            container.$window.modal("show");
+            IssueDetail.show_modal();
         }
         $.ajax({
             url: url,
@@ -1685,6 +1684,7 @@ $().ready(function() {
         $form: $IssueByNumberWindow.find('form'),
         $input: $IssueByNumberWindow.find('form input'),
         open: (function IssueByNumber_open () {
+            $body.append(IssueByNumber.$window); // move at the end to manage zindex 
             IssueByNumber.$window.modal('show');
             return false; // stop event propagation
         }), // IssueByNumber_open
@@ -1943,11 +1943,17 @@ $().ready(function() {
             }
             IssueDetail.set_issue_ident(container.$node, issue_ident);
             if (container.$window && !container.$window.hasClass('in')) {
-                // open the popup with its loading spinner
-                container.$window.modal("show");
+                IssueDetail.show_modal();
             }
             return container;
         }), // get_container_waiting_for_issue
+
+        show_modal: (function IssueDetail__show_modal () {
+            // Move the modal at the end of all nodes to make it over in z-index
+            $body.append(IssueDetail.$modal);
+            // open the popup with its loading spinner
+            IssueDetail.$modal.modal("show");
+        }), // IssueDetail__show_modal
 
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
             return $('.issue-container:visible').filter(function() {
@@ -4190,6 +4196,7 @@ $().ready(function() {
                 IssueEditor.create.$modal_footer.hide();
                 IssueEditor.create.$modal_body.html('<p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p>');
                 IssueEditor.create.$modal_submit.removeClass('loading');
+                $body.append(IssueEditor.create.$modal); // move at the end to manage zindex
                 IssueEditor.create.$modal.modal('show');
                 $.get(window.create_issue_url)
                     .done(IssueEditor.create.on_load_done)
@@ -4795,19 +4802,51 @@ $().ready(function() {
         }, // get_ident_parent
 
         get_popover_options: function ($node) {
-            var ident = HoverIssue.get_issue_ident($node);
+            var node = $node[0],
+                ident = HoverIssue.get_issue_ident($node),
+                placement = HoverIssue.popover_options.placement,
+                $parent_popover, parent_node,
+                onShow = null, child_popover_left=null;
+
+            if ($node.closest('.issue-item, .activity-feed').length) {
+                placement = 'horizontal';
+            } else {
+                $parent_popover = $node.closest('.webui-popover-hover-issue');
+                if ($parent_popover.length) {
+                    parent_node = $parent_popover.data('trigger-element')[0];
+                    if (!parent_node.hover_issue_popover_trigger_childs) {
+                        parent_node.hover_issue_popover_trigger_childs = [];
+                    }
+                    parent_node.hover_issue_popover_trigger_childs.push(node);
+                    node.hover_issue_popover_trigger_parent = parent_node;
+
+                    placement = 'vertical';
+
+                    onShow = function($popover) {
+                        // move the new popover at the same level than the parent popover
+                        var $parent_popover = $node.closest('.webui-popover-hover-issue.in');
+                        if ($parent_popover.length) {
+                            // we save the var because on the first show, and the second show
+                            // (onsuccess), the original popover may have disappeared
+                            child_popover_left = $parent_popover.css('left');
+                        }
+                        if (child_popover_left != null) {
+                            $popover.css({left: child_popover_left});
+                        }
+                    }
+                }
+            }
+
             if (ident) {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: 'async',
                     async: {
                         type: 'GET',
                         success: function(that, data) {
+                            if (onShow) { onShow(that.getTarget()); }
                             var $content = that.getContentElement().find('.issue-content');
                             $content.find('header h3 > a').addClass('issue-link')
-                                                          .attr('title', 'Click to open full view')
-                                                          .click(function() {
-                                                              HoverIssue.remove_popover($node[0]);
-                                                          });
+                                                          .attr('title', 'Click to open full view');
                             var $count = $content.find('.issue-comments-count');
                             $count.replaceWith($('<span/>').attr('class', $count.attr('class'))
                                                            .attr('title', $count.attr('title'))
@@ -4820,14 +4859,18 @@ $().ready(function() {
                         }
                     },
                     url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
-                    content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>'
+                    content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>',
+                    placement: placement,
+                    onShow: onShow
                 });
             } else {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: '',
                     async: false,
                     content: '<div class="alert alert-error">A problem occured when we wanted to retrieve the issue content :(</div>',
+                    placement: placement,
                     onShow: function($element) {
+                        if (onShow) { onShow($element); }
                         $element.addClass('webui-error');
                     }
                 });
@@ -4842,29 +4885,56 @@ $().ready(function() {
             $node.webuiPopover(HoverIssue.get_popover_options($node))
                  .webuiPopover('show');
 
-            $node.data('plugin_webuiPopover').$target.on({
-                     mouseenter: HoverIssue.on_mouseenter,
+            node.hover_issue_popover = $node.data('plugin_webuiPopover');
+
+            node.hover_issue_popover.getTarget().on({
+                     mouseenter: function() { if ($(this).hasClass('in')) { $.proxy(HoverIssue.on_mouseenter, this)(); } },
                      mouseleave: HoverIssue.on_mouseleave
                  });
 
             if (old_url) { $node.attr('data-url', old_url); }
-
-            node.hover_issue_has_popover = true;
         }, // display_popover
 
         remove_popover: function (node) {
-            node.hover_issue_has_popover = false;
+            var popover = node.hover_issue_popover;
+            node.hover_issue_popover = null;
+
+            if (node.hover_issue_popover_trigger_parent) {
+                var parent_node = node.hover_issue_popover_trigger_parent;
+                var index = parent_node.hover_issue_popover_trigger_childs.indexOf(node);
+                if (index != -1) {
+                    parent_node.hover_issue_popover_trigger_childs.splice(index, 1);
+                }
+                if (!parent_node.hover_issue_popover_trigger_childs.length) {
+                    delete parent_node.hover_issue_popover_trigger_childs;
+                }
+                delete node.hover_issue_popover_trigger_parent;
+            }
 
             var $node = $(node);
 
-            $node.data('plugin_webuiPopover').getTarget().off({
-                mouseenter: function() { if ($(this.hasClass('in'))) { $.proxy(HoverIssue.on_mouseenter, this)(); } },
+            popover.getTarget().off({
+                mouseenter: HoverIssue.on_mouseenter,
                 mouseleave: HoverIssue.on_mouseleave
             });
 
-            $node.off('mouseleave')
-                 .one('hidden.webui.popover', function() { $node.webuiPopover('destroy'); })
-                 .webuiPopover('hide');
+            $(node).off('mouseleave', HoverIssue.on_mouseleave);
+            
+            popover.options.onHide = function() {
+                setTimeout(function() {
+                    popover.destroy();
+                    delete node.hover_issue_is_hover;
+                    delete node.hover_issue_popover;
+                    if (node.hover_issue_popover_trigger_parent) {
+                        delete node.hover_issue_popover_trigger_parent;
+                    }
+                    if (node.hover_issue_popover_trigger_childs) {
+                        delete node.hover_issue_popover_trigger_childs;
+                    }
+                }, 300);
+            };
+
+            popover.hide();
         },
 
         get_node_from_node_or_popover: function (node) {
@@ -4873,7 +4943,7 @@ $().ready(function() {
         }, // get_hover_node
 
         on_delayed_mouseenter: function () {
-            if (this.hover_issue_is_hover && !this.hover_issue_has_popover) {
+            if (this.hover_issue_is_hover && !this.hover_issue_popover) {
                 HoverIssue.display_popover(this);
             }
         }, // on_delayed_mouseenter
@@ -4887,7 +4957,7 @@ $().ready(function() {
         }, // on_mouseenter
 
         on_delayed_mouseleave: function () {
-            if (!this.hover_issue_is_hover && this.hover_issue_has_popover) {
+            if (!this.hover_issue_is_hover && this.hover_issue_popover && !this.hover_issue_popover_trigger_childs) {
                 HoverIssue.remove_popover(this);
             }
         }, // on_delayed_mouseleave
@@ -4898,16 +4968,8 @@ $().ready(function() {
             setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 500);
         }, // on_mouseleave
 
-        on_click: function () {
-            this.hover_issue_is_hover = false;
-            if (this.hover_issue_has_popover) {
-                HoverIssue.remove_popover(this);
-            }
-        }, // on_click
-
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
-            $document.on('click', HoverIssue.selector, HoverIssue.on_click);
         }, // init_events
 
         init: function () {
