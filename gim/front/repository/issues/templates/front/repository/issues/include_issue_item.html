@@ -37,7 +37,7 @@
     {% endif %}
     <div class="news-content">
         <div class="news-title">
-            <a href="{{ issue.get_absolute_url }}" class="issue-link" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
+            <a href="{{ issue.get_absolute_url }}" class="issue-item-link issue-link" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
                 <strong class="text-{{ issue.state }}">#{{ issue.number }}</strong> - {{ issue.title }}
             </a>
         </div>
