@@ -4,10 +4,12 @@
         {{ form.non_field_errors }}
     {% endif %}
     {% for field in form %}
-        {% if field.errors %}
-            {{ field.errors }}
+        {% if field.name != 'front_uuid' %}
+            {% if field.errors %}
+                {{ field.errors }}
+            {% endif %}
+            <div class="edit-field edit-field-{{ field.name }}">{{ field }}</div>
         {% endif %}
-        <div class="edit-field edit-field-{{ field.name }}">{{ field }}</div>
     {% endfor %}
     <input type='submit' name='submit' value='Create the issue' />
 </form>
