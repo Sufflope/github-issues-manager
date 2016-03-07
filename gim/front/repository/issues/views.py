@@ -37,7 +37,8 @@ from gim.front.mixins.views import (WithQueryStringViewMixin,
                                     DeferrableViewPart,
                                     WithSubscribedRepositoryViewMixin,
                                     WithAjaxRestrictionViewMixin,
-                                    DependsOnIssueViewMixin)
+                                    DependsOnIssueViewMixin,
+                                    CacheControlMixin)
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
@@ -869,6 +870,50 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
         We'll only display messages to the user
         """
         return ['front/repository/issues/include_issue_item_for_cache.html']
+
+
+class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, IssueView):
+    url_name = 'issue.no-details'
+
+    ajax_only = True
+    http_method_names = ['get']
+
+    def get_context_data(self, **kwargs):
+        """
+        Add the issue in the context
+        """
+        # we bypass all the context stuff done by IssuesView by calling
+        # directly its baseclass
+        context = super(IssuesView, self).get_context_data(**kwargs)
+
+        try:
+            current_issue = self.get_current_issue()
+            # Restrict to filter in querystring
+            if current_issue.pk not in \
+                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
+                raise Issue.DoesNotExist
+        except Issue.DoesNotExist:
+            raise Http404
+
+        activity = current_issue.get_activity()
+        involved = self.get_involved_people(current_issue, activity,
+                                                self.collaborators_ids)
+
+        context.update({
+            'current_issue': current_issue,
+            'current_issue_edit_level': None,
+            'current_issue_involved': involved,
+        })
+
+        return context
+
+
+    def get_template_names(self):
+        """
+        We'll only display messages to the user
+        """
+        return ['front/repository/issues/issue_no_details.html']
+
 
 
 class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
