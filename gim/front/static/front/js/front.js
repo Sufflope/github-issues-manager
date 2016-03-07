@@ -4800,6 +4800,10 @@ $().ready(function() {
                                                           .click(function() {
                                                               HoverIssue.remove_popover($node[0]);
                                                           });
+                            var $count = $content.find('.issue-comments-count');
+                            $count.replaceWith($('<span/>').attr('class', $count.attr('class'))
+                                                           .attr('title', $count.attr('title'))
+                                                           .html($count.html()));
                             MarkdownManager.update_links($content);
                         },
                         error: function(that, data) {
