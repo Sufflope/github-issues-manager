@@ -459,7 +459,12 @@ class GithubObject(models.Model):
                 # Example: a user is not anymore a collaborator, we keep the
                 # the user but remove the relation user <-> repository
                 try:
-                    instance_field.remove(*to_remove)
+                    try:
+                        instance_field.remove(*to_remove)
+                    except AttributeError:
+                        # In some case we need objects, not PKs
+                        to_remove = instance_field.model.objects.filter(pk__in=to_remove)
+                        instance_field.remove(*to_remove)
                 except DatabaseError, e:
                     # sqlite limits the vars passed in a request to 999
                     # In this case, we loop on the data by slice of 950 obj to remove
