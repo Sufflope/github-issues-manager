@@ -783,8 +783,7 @@ $().ready(function() {
             IssueDetail.unset_issue_waypoints(container.$node);
         }
         if (is_popup) {
-            // open the popup with its loading spinner
-            container.$window.modal("show");
+            IssueDetail.show_modal();
         }
         $.ajax({
             url: url,
@@ -1685,6 +1684,7 @@ $().ready(function() {
         $form: $IssueByNumberWindow.find('form'),
         $input: $IssueByNumberWindow.find('form input'),
         open: (function IssueByNumber_open () {
+            $body.append(IssueByNumber.$window); // move at the end to manage zindex 
             IssueByNumber.$window.modal('show');
             return false; // stop event propagation
         }), // IssueByNumber_open
@@ -1943,11 +1943,17 @@ $().ready(function() {
             }
             IssueDetail.set_issue_ident(container.$node, issue_ident);
             if (container.$window && !container.$window.hasClass('in')) {
-                // open the popup with its loading spinner
-                container.$window.modal("show");
+                IssueDetail.show_modal();
             }
             return container;
         }), // get_container_waiting_for_issue
+
+        show_modal: (function IssueDetail__show_modal () {
+            // Move the modal at the end of all nodes to make it over in z-index
+            $body.append(IssueDetail.$modal);
+            // open the popup with its loading spinner
+            IssueDetail.$modal.modal("show");
+        }), // IssueDetail__show_modal
 
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
             return $('.issue-container:visible').filter(function() {
@@ -4190,6 +4196,7 @@ $().ready(function() {
                 IssueEditor.create.$modal_footer.hide();
                 IssueEditor.create.$modal_body.html('<p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p>');
                 IssueEditor.create.$modal_submit.removeClass('loading');
+                $body.append(IssueEditor.create.$modal); // move at the end to manage zindex
                 IssueEditor.create.$modal.modal('show');
                 $.get(window.create_issue_url)
                     .done(IssueEditor.create.on_load_done)

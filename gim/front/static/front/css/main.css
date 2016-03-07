@@ -5164,7 +5164,7 @@ ol.errorlist, ul.errorlist {
   overflow: auto;
   max-height: 45%;
   max-width: 40%;
-  z-index: 1040;
+  z-index: 1050;
 }
 /* line 327, ../../../sass/main.scss */
 .webui-popover-hover-issue .webui-popover-content > .empty-area {
