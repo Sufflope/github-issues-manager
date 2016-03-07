@@ -4842,29 +4842,38 @@ $().ready(function() {
             $node.webuiPopover(HoverIssue.get_popover_options($node))
                  .webuiPopover('show');
 
-            $node.data('plugin_webuiPopover').$target.on({
-                     mouseenter: HoverIssue.on_mouseenter,
+            node.hover_issue_popover = $node.data('plugin_webuiPopover');
+
+            node.hover_issue_popover.getTarget().on({
+                     mouseenter: function() { if ($(this).hasClass('in')) { $.proxy(HoverIssue.on_mouseenter, this)(); } },
                      mouseleave: HoverIssue.on_mouseleave
                  });
 
             if (old_url) { $node.attr('data-url', old_url); }
-
-            node.hover_issue_has_popover = true;
         }, // display_popover
 
         remove_popover: function (node) {
-            node.hover_issue_has_popover = false;
+            var popover = node.hover_issue_popover;
+            node.hover_issue_popover = null;
 
             var $node = $(node);
 
-            $node.data('plugin_webuiPopover').getTarget().off({
-                mouseenter: function() { if ($(this.hasClass('in'))) { $.proxy(HoverIssue.on_mouseenter, this)(); } },
+            popover.getTarget().off({
+                mouseenter: HoverIssue.on_mouseenter,
                 mouseleave: HoverIssue.on_mouseleave
             });
 
-            $node.off('mouseleave')
-                 .one('hidden.webui.popover', function() { $node.webuiPopover('destroy'); })
-                 .webuiPopover('hide');
+            $(node).off('mouseleave', HoverIssue.on_mouseleave);
+            
+            popover.options.onHide = function() {
+                setTimeout(function() {
+                    popover.destroy();
+                    delete node.hover_issue_is_hover;
+                    delete node.hover_issue_popover;
+                }, 300);
+            };
+
+            popover.hide();
         },
 
         get_node_from_node_or_popover: function (node) {
@@ -4873,7 +4882,7 @@ $().ready(function() {
         }, // get_hover_node
 
         on_delayed_mouseenter: function () {
-            if (this.hover_issue_is_hover && !this.hover_issue_has_popover) {
+            if (this.hover_issue_is_hover && !this.hover_issue_popover) {
                 HoverIssue.display_popover(this);
             }
         }, // on_delayed_mouseenter
@@ -4887,7 +4896,7 @@ $().ready(function() {
         }, // on_mouseenter
 
         on_delayed_mouseleave: function () {
-            if (!this.hover_issue_is_hover && this.hover_issue_has_popover) {
+            if (!this.hover_issue_is_hover && this.hover_issue_popover) {
                 HoverIssue.remove_popover(this);
             }
         }, // on_delayed_mouseleave
@@ -4900,7 +4909,7 @@ $().ready(function() {
 
         on_click: function () {
             this.hover_issue_is_hover = false;
-            if (this.hover_issue_has_popover) {
+            if (this.hover_issue_popover) {
                 HoverIssue.remove_popover(this);
             }
         }, // on_click
