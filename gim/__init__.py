@@ -1,3 +1,3 @@
-__version__ = '0.6.1'
+__version__ = '0.6.2'
 
 hashed_version = str(abs(hash(__version__)))
