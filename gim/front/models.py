@@ -1015,7 +1015,7 @@ PUBLISHABLE = {
     # },
     core_models.Issue: {
         'self': True,
-        'condition': lambda self: self.signal_hash_changed if hasattr(self, 'signal_hash_changed') else self.hash_changed(),
+        'pre_publish_action': lambda self: setattr(self, 'signal_hash_changed', self.hash_changed()),
         'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
     },
     # core_models.Repository: {
@@ -1035,8 +1035,8 @@ def publish_update(instance, message_type, extra_data=None):
     except Exception:
         previous_saved_hash = None
 
-    if message_type != 'deleted' and conf.get('condition') and not conf['condition'](instance):
-        return
+    if conf.get('pre_publish_action'):
+        conf['pre_publish_action'](instance)
 
     base_data = {
         'model': str(instance.model_name),
