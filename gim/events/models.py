@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
@@ -12,6 +12,27 @@ from gim.core.utils import contribute_to_model
 from .renderers import IssueRenderer
 
 import django_m2m_descriptor_hack  # replace clear+add by remove+add
+
+
+class EventManager(models.Manager):
+    unique_fields = {'repository', 'issue', 'created_at', 'is_update', 'related_content_type', 'related_object_id', 'related_object_id', 'title'}
+
+    def clean_duplicates(self, repository, days=3):
+
+        duplicates = repository.event_set\
+            .filter(created_at__gt=datetime.utcnow()-timedelta(days=days))\
+            .values(*self.unique_fields)\
+            .order_by()\
+            .annotate(count_id=models.Count('id'))\
+            .filter(count_id__gt=1)
+
+        to_delete = []
+
+        for duplicate in duplicates:
+            entries = repository.event_set.filter(**{f: duplicate[f] for f in self.unique_fields})
+            to_delete += [e for e in entries[1:] if e.render_as_text() == entries[0].render_as_text()]
+
+        for entry in to_delete: entry.delete()
 
 
 class Event(models.Model):
@@ -31,6 +52,8 @@ class Event(models.Model):
     }
 
     renderer_ignore_fields = []
+
+    objects = EventManager()
 
     class Meta:
         ordering = ('created_at', )
