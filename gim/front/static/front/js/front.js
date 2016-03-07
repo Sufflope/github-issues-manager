@@ -4851,7 +4851,7 @@ $().ready(function() {
             });
 
             $node.off('mouseleave')
-                 .one('hidden.popover', function() { $node.webuiPopover('destroy'); })
+                 .one('hidden.webui.popover', function() { $node.webuiPopover('destroy'); })
                  .webuiPopover('hide');
         },
 
