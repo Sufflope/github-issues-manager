@@ -4795,13 +4795,35 @@ $().ready(function() {
         }, // get_ident_parent
 
         get_popover_options: function ($node) {
-            var ident = HoverIssue.get_issue_ident($node);
+            var ident = HoverIssue.get_issue_ident($node),
+                placement = HoverIssue.popover_options.placement,
+                onShow = null, child_popover_left=null;
+
+            if ($node.closest('.issue-item, .activity-feed').length) {
+                placement = 'horizontal';
+            } else if ($node.closest('.webui-popover-hover-issue').length) {
+                placement = 'vertical';
+                onShow = function($popover) {
+                    // move the new popover at the same level than the parent popover
+                    var $parent_popover = $node.closest('.webui-popover-hover-issue.in');
+                    if ($parent_popover.length) {
+                        // we save the var because on the first show, and the second show
+                        // (onsuccess), the original popover may have disappeared
+                        child_popover_left = $parent_popover.css('left');
+                    }
+                    if (child_popover_left != null) {
+                        $popover.css({left: child_popover_left});
+                    }
+                }
+            }
+
             if (ident) {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: 'async',
                     async: {
                         type: 'GET',
                         success: function(that, data) {
+                            if (onShow) { onShow(that.getTarget()); }
                             var $content = that.getContentElement().find('.issue-content');
                             $content.find('header h3 > a').addClass('issue-link')
                                                           .attr('title', 'Click to open full view')
@@ -4820,14 +4842,18 @@ $().ready(function() {
                         }
                     },
                     url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
-                    content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>'
+                    content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>',
+                    placement: placement,
+                    onShow: onShow
                 });
             } else {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: '',
                     async: false,
                     content: '<div class="alert alert-error">A problem occured when we wanted to retrieve the issue content :(</div>',
+                    placement: placement,
                     onShow: function($element) {
+                        if (onShow) { onShow($element); }
                         $element.addClass('webui-error');
                     }
                 });
