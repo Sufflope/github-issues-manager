@@ -46,6 +46,6 @@ class IssueCacheTag(CacheTag):
         compress_spaces = True
         include_pk = True
         cache_backend = 'issues_tag'
-        internal_version = "6"
+        internal_version = "7"
 
 IssueCacheTag.register(register, 'issue_cache')

@@ -288,15 +288,29 @@ class IssueTracker(ChangeTracker):
     def add_changed_event(cls, instance, changed_fields):
         from .models import Event
 
-        event, created = Event.objects.get_or_create(
-            repository=instance.repository,
-            issue=instance,
-            created_at=instance.updated_at,
-            is_update=True,
-            related_content_type=ContentType.objects.get_for_model(instance),
-            related_object_id=instance.pk,
-            title="%s #%s was changed" % (instance.type.capitalize(), instance.number),
-        )
+        def get_or_create():
+            return Event.objects.get_or_create(
+                repository=instance.repository,
+                issue=instance,
+                created_at=instance.updated_at,
+                is_update=True,
+                related_content_type=ContentType.objects.get_for_model(instance),
+                related_object_id=instance.pk,
+                title="%s #%s was changed" % (instance.type.capitalize(), instance.number),
+            )
+
+        try:
+            event, created = get_or_create()
+        except Event.MultipleObjectsReturned:
+            # Find duplicates on a short period
+            Event.objects.clean_duplicates(instance.repository)
+            try:
+                event, created = get_or_create()
+            except Event.MultipleObjectsReturned:
+                # Find duplicates on a longer perdiod
+                Event.objects.clean_duplicates(instance.repository, days=30)
+                event, created = get_or_create()
+                # If it still doesn't work, we raise
 
         instance.repository.counters.update_from_updated_issue(instance, changed_fields)
 

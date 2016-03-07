@@ -713,24 +713,32 @@ $().ready(function() {
         this.repository_id = issue_ident.repository_id;
     }); // IssuesListIssue__set_issue_ident
 
-    IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (group_method, stop) {
+    IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (group_method, stop, pass_event) {
         var decorator = function(e) {
             // ignore filter links
             if (e.target.nodeName.toUpperCase() == 'A' && e.target.className.indexOf('issue-link') == -1 || e.target.parentNode.nodeName.toUpperCase() == 'A') { return; }
 
             var issue_node = $(e.target).closest(IssuesListIssue.selector);
             if (!issue_node.length || !issue_node[0].IssuesListIssue) { return; }
-            return issue_node[0].IssuesListIssue[group_method]();
+            if (pass_event) {
+                return issue_node[0].IssuesListIssue[group_method](e);
+            } else {
+                return issue_node[0].IssuesListIssue[group_method]();
+            }
         };
         return stop ? Ev.stop_event_decorate(decorator) : decorator;
     }); // IssuesListIssue_on_issue_node_event
 
     IssuesListIssue.init_events = (function IssuesListIssue_init_events () {
-        $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true));
+        $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true, true));
     });
 
-    IssuesListIssue.prototype.on_click = (function IssuesListIssue__on_click () {
-        this.set_current(true);
+    IssuesListIssue.prototype.on_click = (function IssuesListIssue__on_click (ev) {
+        if (ev.shiftKey) {
+            this.get_html_and_display (null, true);
+        } else {
+            this.set_current(true);
+        }
         return false; // stop event propagation
     }); // IssuesListIssue__on_click
 
@@ -3401,7 +3409,7 @@ $().ready(function() {
             return false;
         }, // handle_issue_link
         handle_issue_links: function() {
-            $document.on('click', 'a.issue-link', MarkdownManager.handle_issue_link);
+            $document.on('click', 'a.issue-link:not(.issue-item-link)', MarkdownManager.handle_issue_link);
         }, // handle_issue_links
         init: function() {
             MarkdownManager.activate_email_reply_toggle();
