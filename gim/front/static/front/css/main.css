@@ -5115,6 +5115,52 @@ ol.errorlist, ul.errorlist {
   color: inherit !important;
 }
 
+/* line 287, ../../../sass/main.scss */
+.webui-popover-hover-issue {
+  -moz-box-shadow: 3px 3px 15px #000;
+  -webkit-box-shadow: 3px 3px 15px #000;
+  box-shadow: 3px 3px 15px #000;
+  padding: 0;
+  border: 0;
+  overflow: auto;
+  max-height: 45%;
+  max-width: 45%;
+}
+/* line 295, ../../../sass/main.scss */
+.webui-popover-hover-issue .webui-popover-content > .empty-area {
+  position: static;
+  margin: 0;
+  line-height: normal;
+  overflow: hidden;
+}
+/* line 301, ../../../sass/main.scss */
+.webui-popover-hover-issue.webui-error {
+  padding: 5px;
+}
+/* line 303, ../../../sass/main.scss */
+.webui-popover-hover-issue.webui-error .alert {
+  margin-bottom: 0;
+}
+/* line 308, ../../../sass/main.scss */
+.webui-popover-hover-issue .issue-content > .area-top {
+  -moz-border-radius: 6px 6px 0 0;
+  -webkit-border-radius: 6px;
+  border-radius: 6px 6px 0 0;
+}
+/* line 310, ../../../sass/main.scss */
+.webui-popover-hover-issue .issue-content > .area-top:after {
+  -moz-border-radius: 0 6px 0 0;
+  -webkit-border-radius: 0;
+  border-radius: 0 6px 0 0;
+}
+/* line 314, ../../../sass/main.scss */
+.webui-popover-hover-issue .issue-content .issue-body {
+  border-bottom: 0;
+  -moz-border-radius: 0 0 6px 6px;
+  -webkit-border-radius: 0;
+  border-radius: 0 0 6px 6px;
+}
+
 @media (max-width: 1023px) {
   /* line 4, ../../../sass/_responsive.scss */
   .navbar-fixed-top .user_avatar .dropdown-toggle > span > span:not(.caret) {

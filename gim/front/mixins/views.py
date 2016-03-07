@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.forms.forms import NON_FIELD_ERRORS
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils.cache import patch_response_headers
 from django.utils.functional import cached_property
 
 from gim.core.models import Repository, Issue
@@ -426,3 +427,15 @@ class DeferrableViewPart(object):
         )
         response.render()
         return response.content
+
+
+class CacheControlMixin(object):
+    cache_timeout = 60
+
+    def get_cache_timeout(self):
+        return self.cache_timeout
+
+    def dispatch(self, *args, **kwargs):
+        response = super(CacheControlMixin, self).dispatch(*args, **kwargs)
+        patch_response_headers(response, self.get_cache_timeout())
+        return response

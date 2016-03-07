@@ -53,17 +53,10 @@ $repo-name-height: 20px;
     }
 }
 
-.issue-container {
-    .stuck {
-        position: fixed;
-        @include calc(width, $stuck-width);
-        right: $scrollbar-width;
-    }
+.issue-content {
 
-    position: relative;
-
-    > article > .area-top {
-        @include box-shadow(rgba(black, 0.07) 0 1px 1px -1px );
+    & > .area-top {
+        @include box-shadow(rgba(black, 0.07) 0 1px 1px -1px);
         header {
 
             overflow: auto;
@@ -147,91 +140,76 @@ $repo-name-height: 20px;
         padding-bottom: 5px;
         min-height: 95px;
         margin-bottom: 0;
-    }
-    &.with-repository {
-        > article > .area-top {
-            header {
-                padding-top: 2px + $repo-name-height;
-                .repository-name {
-                    display: block;
-                }
-                &.stuck {
-                    max-height: $header-stuck-height + $repo-name-height + $header-top-padding;
-                    padding-top: 2px + $repo-name-height + $header-top-padding;
-                }
+
+        .issue-pull-request {
+            position: absolute;
+            top: 65px;
+            left: 15px;
+            width: 40px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .issue-milestone .no-milestone,
+        .issue-assigne .no-assignee {
+            color: #ccc;
+        }
+
+        .issue-footer-infos {
+            > div {
+                overflow: auto;
+                border: 1px solid #ccc;
+                @include box-shadow(0 0 6px -1px rgba(0, 0, 0, 0.15) inset, 1px 1px 0 #eee);
+                float: right;
+                @include border-radius(4px);
+                margin-right: 1px;
+                margin-bottom: 1px;
+                margin-left: 10px;
             }
         }
-        .issue-nav {
-            top: 41px;
+        .issue-footer-info-part {
+            margin: 0;
+            padding: 2px 6px;
+            line-height: 26px;
+            border-left: solid 1px #f0f0f0;
+            border-right: solid 1px #ddd;
+            display: table-cell;
+            vertical-align: middle;
+            &:first-child {
+                @include border-radius(4px 0 0 4px);
+                border-left: none;
+            }
+            &:last-child {
+                @include border-radius(0 4px 4px 0);
+                border-right: none;
+            }
+            &:first-child:last-child {
+                @include border-radius(4px);
+            }
         }
-    }
-    .issue-pull-request {
-        position: absolute;
-        top: 65px;
-        left: 15px;
-        width: 40px;
-        text-align: center;
-        font-size: 24px;
-    }
-    .issue-milestone .no-milestone,
-    .issue-assigne .no-assignee {
-        color: #ccc;
-    }
 
-    .issue-footer-infos {
-        > div {
-            overflow: auto;
-            border: 1px solid #ccc;
-            @include box-shadow(0 0 6px -1px rgba(0, 0, 0, 0.15) inset, 1px 1px 0 #eee);
-            float: right;
-            @include border-radius(4px);
-            margin-right: 1px;
-            margin-bottom: 1px;
-            margin-left: 10px;
+        .issue-comments-count {
+            top: 0;
+            color: inherit;
+            white-space: nowrap;
         }
-    }
-    .issue-footer-info-part {
-        margin: 0;
-        padding: 2px 6px;
-        line-height: 26px;
-        border-left: solid 1px #f0f0f0;
-        border-right: solid 1px #ddd;
-        display: table-cell;
-        vertical-align: middle;
-        &:first-child {
-            @include border-radius(4px 0 0 4px);
-            border-left: none;
-        }
-        &:last-child {
-            @include border-radius(0 4px 4px 0);
-            border-right: none;
-        }
-        &:first-child:last-child {
-            @include border-radius(4px);
-        }
-    }
 
-    .issue-comments-count {
-        top: 0;
-        color: inherit;
-        white-space: nowrap;
-    }
-
-    .issue-labels {
-        padding-top: 7px;
-        > ul {
-            @extend %issue-labels;
-            display: inline;
+        .issue-labels {
+            padding-top: 7px;
+            > ul {
+                @extend %issue-labels;
+                display: inline;
+            }
         }
-    }
 
-    .issue-involved {
-        max-width: 190px;
-        max-height: 54px;
-        overflow-y: auto;
-        margin-bottom: 0;
-        li {
-            display: inline-block;
+        .issue-involved {
+            max-width: 190px;
+            max-height: 54px;
+            overflow-y: auto;
+            margin-bottom: 0;
+            li {
+                display: inline-block;
+            }
         }
     }
 
@@ -278,8 +256,38 @@ $repo-name-height: 20px;
         @include box-shadow(rgba(black, 0.1) 0 1px 3px -1px);
         position: relative;
     }
+
     .content.empty {
         color: $light-text-color;
+    }
+
+}
+
+.issue-container {
+    .stuck {
+        position: fixed;
+        @include calc(width, $stuck-width);
+        right: $scrollbar-width;
+    }
+
+    position: relative;
+
+    &.with-repository {
+        > .issue-content > .area-top {
+            header {
+                padding-top: 2px + $repo-name-height;
+                .repository-name {
+                    display: block;
+                }
+                &.stuck {
+                    max-height: $header-stuck-height + $repo-name-height + $header-top-padding;
+                    padding-top: 2px + $repo-name-height + $header-top-padding;
+                }
+            }
+        }
+        .issue-nav {
+            top: 41px;
+        }
     }
 
     &.big-issue {
@@ -1354,18 +1362,18 @@ table.commits-list {
                 }
             }
         }
-        .stuck, {
+        .stuck {
             width: 560px - $scrollbar-width; // width of the modal
             right: auto;
             top: 10%; // top of the modal
         }
-        article > .area-top header h3 {
+        .issue-content > .area-top header h3 {
             margin-right: 40px;
         }
         > .issue-container.big-issue {
             top: 0 !important;
         }
-        > .issue-container > article > .area-top header.stuck {
+        .issue-content > .area-top header.stuck {
             margin-left: -15px;  // left padding of parent area-top
             @include border-radius(6px 6px 0 0);
         }

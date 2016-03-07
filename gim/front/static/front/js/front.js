@@ -1773,7 +1773,7 @@ $().ready(function() {
 
         on_issue_loaded: (function IssueDetail__on_issue_loaded ($node, focus_modal) {
             var is_modal = IssueDetail.is_modal($node),
-                complete_issue_ident = IssueDetail.get_issue_ident($node.children('article'));
+                complete_issue_ident = IssueDetail.get_issue_ident($node.children('.issue-content'));
             if (!complete_issue_ident.number) {
                 complete_issue_ident.number = 'pk-' + complete_issue_ident.id;
             }
@@ -1809,7 +1809,7 @@ $().ready(function() {
             setTimeout(function() {
                 if (!IssueDetail.is_issue_ident_for_node($node, issue_ident)) { return; }
                 var $context = IssueDetail.get_scroll_context($node, is_modal);
-                $node.find(' > article > .area-top header').waypoint('sticky', {
+                $node.find(' > .issue-content > .area-top header').waypoint('sticky', {
                     context: $context,
                     wrapper: '<div class="sticky-wrapper area-top-header-sticky-wrapper" />',
                     stuckClass: 'area-top stuck',
@@ -1861,7 +1861,7 @@ $().ready(function() {
         }), // set_tab_review_issue_waypoints
 
         unset_issue_waypoints: (function IssueDetail__unset_issue_waypoints ($node) {
-            $node.find(' > article > .area-top header').waypoint('unsticky');
+            $node.find(' > .issue-content > .area-top header').waypoint('unsticky');
             $node.find('.issue-tabs').waypoint('unsticky');
             $node.find('.code-files-list-container').each(function() {
                 $(this).waypoint('unsticky');
@@ -1994,7 +1994,7 @@ $().ready(function() {
             var $containers = $('.issue-container:visible');
             for (var i = 0; i < $containers.length; i++) {
                 var $container = $($containers[i]);
-                if ($container.children('article').data('front-uuid') == front_uuid) {
+                if ($container.children('.issue-content').data('front-uuid') == front_uuid) {
                     IssueDetail.refresh({$node: $container});
                 }
             }
@@ -2017,7 +2017,7 @@ $().ready(function() {
             if (container.after) {
                 container.after(container.$node);
             }
-            MarkdownManager.update_links();
+            MarkdownManager.update_links(container.$node);
         }), // display_issue
 
         clear_container: (function IssueDetail__clear_container (error, force_popup) {
@@ -2591,7 +2591,7 @@ $().ready(function() {
             if (scroll_position) {
                 $context.scrollTop(scroll_position);
             } else if ($tabs_holder.hasClass('stuck')) {
-                $stuck_header = $node.find(' > article > .area-top header');
+                $stuck_header = $node.find(' > .issue-content > .area-top header');
                 position = $node.find('.tab-content').position().top
                          + (is_modal ? 0 : $context.scrollTop())
                          - $stuck_header.height()
@@ -3352,28 +3352,48 @@ $().ready(function() {
             if (matches && (matches[1] == repository || matches[1] == main_repository)) {
                 $link.data('repository', matches[1])
                      .data('issue-number', matches[2])
-                     .addClass('issue-link');
+                     .addClass('issue-link hoverable-issue');
             }
         }, // update_link
-        update_links: function() {
-            $('.issue-container').each(function() {
+        update_links: function($nodes) {
+            if (!$nodes) {
+                $nodes = $('.issue-container');
+            }
+            $nodes.each(function() {
                 var $container = $(this),
-                    repository = $container.data('repository');
-                $container.find('.issue-body, .issue-comment .content')
-                          .find('a:not([data-managed])')
-                          .each(function() {
-                                MarkdownManager.update_link(this, repository);
-                            });
+                    repository = $container.data('repository'),
+                    $base = $container.find('.issue-body, .issue-comment .content');
+                $base.find('a:not([data-managed])').each(function() {
+                    MarkdownManager.update_link(this, repository);
+                });
+                $base.find('.issue-link:not(.hoverable-issue)').addClass('hoverable-issue');
             });
         }, // update_links
+        find_issue_ident_data: function($link) {
+            var data = $link.data();
+            if (data.issueNumber && data.repository) {
+                return data;
+            }
+            var parents = $link.parents();
+            for (var i = 0; i < parents.length; i++) {
+                data = $(parents[i]).data();
+                if (data.issueNumber && data.repository) {
+                    return data;
+                }
+            }
+            return null;
+        }, // find_issue_ident
         handle_issue_link: function(ev) {
             var $link = $(this),
-                issue_ident = {
-                    number: $link.data('issue-number'),
-                    id: $link.data('issue-number-id'),
-                    repository: $link.data('repository'),
-                    repository_id: $link.data('repository-id')
-                };
+                issue_ident_data = MarkdownManager.find_issue_ident_data($link),
+                issue_ident;
+            if (!issue_ident_data) { return; }
+            issue_ident = {
+                number: issue_ident_data.issueNumber,
+                id: issue_ident_data.issueId,
+                repository: issue_ident_data.repository,
+                repository_id: issue_ident_data.repositoryId
+            };
             if (!issue_ident.repository || !issue_ident.number) { return; }
             ev.stopPropagation();
             ev.preventDefault();
@@ -3381,7 +3401,7 @@ $().ready(function() {
             return false;
         }, // handle_issue_link
         handle_issue_links: function() {
-            $document.on('click', '.issue-container a.issue-link', MarkdownManager.handle_issue_link);
+            $document.on('click', 'a.issue-link', MarkdownManager.handle_issue_link);
         }, // handle_issue_links
         init: function() {
             MarkdownManager.activate_email_reply_toggle();
@@ -3836,7 +3856,7 @@ $().ready(function() {
                 return false;
             }
             var field = $link.data('field'), $form,
-                $placeholder = $link.closest('article').find('.edit-place[data-field=' + field + ']'),
+                $placeholder = $link.closest('.issue-content').find('.edit-place[data-field=' + field + ']'),
                 method = 'issue_edit_' + field + '_insert_field_form';
             if (typeof IssueEditor[method] == 'undefined') {
                 method = 'issue_edit_default_insert_field_form';
@@ -4102,7 +4122,7 @@ $().ready(function() {
                 if ($nodes.length) {
                     $.get(kwargs.url).done(function(data) {
                         $nodes.replaceWith(data);
-                        MarkdownManager.update_links();
+                        MarkdownManager.update_links($nodes);
                     });
                 }
             }
@@ -4233,20 +4253,20 @@ $().ready(function() {
 
             display_created_issue: (function IssueEditor_create__display_created_issue (html, front_uuid) {
                 var $html = $('<div/>').html(html),
-                    $article = $html.children('article:first-of-type'),
+                    $content = $html.children('.issue-content'),
                     context = {
                         issue_ident: {
-                            repository: $article.data('repository'),
-                            repository_id: $article.data('repository-id'),
-                            number: $article.data('issue-number') || 'pk-' + $article.data('issue-id'),
-                            id: $article.data('issue-id')
+                            repository: $content.data('repository'),
+                            repository_id: $content.data('repository-id'),
+                            number: $content.data('issue-number') || 'pk-' + $content.data('issue-id'),
+                            id: $content.data('issue-id')
                         }
                     },
                     container = IssueDetail.get_container_waiting_for_issue(context.issue_ident, true, true);
                 IssueEditor.create.$modal.modal('hide');
                 context.$node = container.$node;
                 IssueEditor.display_issue($html.children(), context);
-                $article.data('front-uuid', front_uuid);
+                $content.data('front-uuid', front_uuid);
             }), // display_created_issue
 
             on_created_modal_hidden: (function IssueEditor_create__on_created_modal_hidden () {
@@ -4727,6 +4747,184 @@ $().ready(function() {
     }; // Activity
     Activity.init();
     window.Activity = Activity;
+
+    var HoverIssue = {
+        selector: '.hoverable-issue',
+        popover_options: null,  // defined in init
+
+        extract_issue_ident: function ($node) {
+            var data = $node.data();
+            if (data.repository && data.issueNumber) {
+                return {
+                    repository: data.repository,
+                    issueNumber: data.issueNumber
+                };
+            }
+            return null;
+
+        }, // extract_issue_ident
+
+        get_issue_ident: function ($node) {
+            var ident = $node.data('hover-ident');
+            if (!ident) {
+                // check directly on the node
+                ident = HoverIssue.extract_issue_ident($node);
+                // find a parent with the ident
+                if (!ident) {
+                    var parents = $node.parents();
+                    for (var i = 0; i < parents.length; i++) {
+                        ident = HoverIssue.extract_issue_ident($(parents[i]));
+                        if (ident) {
+                            break;
+                        }
+                    }
+                }
+                if (ident) {
+                    $node.data('hover-ident', ident);
+                }
+            }
+            return ident;
+        }, // get_ident_parent
+
+        get_popover_options: function ($node) {
+            var ident = HoverIssue.get_issue_ident($node);
+            if (ident) {
+                return $.extend({}, HoverIssue.popover_options, {
+                    type: 'async',
+                    async: {
+                        type: 'GET',
+                        success: function(that, data) {
+                            var $content = that.getContentElement().find('.issue-content');
+                            $content.find('header h3 > a').addClass('issue-link')
+                                                          .attr('title', 'Click to open full view')
+                                                          .click(function() {
+                                                              HoverIssue.remove_popover($node[0]);
+                                                          });
+                            MarkdownManager.update_links($content);
+                        },
+                        error: function(that, data) {
+                            that.setContent('<div class="alert alert-error">Unable to get the issue. It may have been deleted or you may not be allowed to view it.</div>');
+                            that.getTarget().addClass('webui-error');
+                        }
+                    },
+                    url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
+                    content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>'
+                });
+            } else {
+                return $.extend({}, HoverIssue.popover_options, {
+                    type: '',
+                    async: false,
+                    content: '<div class="alert alert-error">A problem occured when we wanted to retrieve the issue content :(</div>',
+                    onShow: function($element) {
+                        $element.addClass('webui-error');
+                    }
+                });
+            }
+        }, // get_popover_options
+
+        display_popover: function (node) {
+            var $node = $(node),
+                old_url = $node.attr('data-url');
+            if (old_url) { $node.removeAttr('data-url'); }
+
+            $node.webuiPopover(HoverIssue.get_popover_options($node))
+                 .webuiPopover('show');
+
+            $node.data('plugin_webuiPopover').$target.on({
+                     mouseenter: HoverIssue.on_mouseenter,
+                     mouseleave: HoverIssue.on_mouseleave
+                 });
+
+            if (old_url) { $node.attr('data-url', old_url); }
+
+            node.hover_issue_has_popover = true;
+        }, // display_popover
+
+        remove_popover: function (node) {
+            node.hover_issue_has_popover = false;
+
+            var $node = $(node);
+
+            $node.data('plugin_webuiPopover').getTarget().off({
+                mouseenter: function() { if ($(this.hasClass('in'))) { $.proxy(HoverIssue.on_mouseenter, this)(); } },
+                mouseleave: HoverIssue.on_mouseleave
+            });
+
+            $node.off('mouseleave')
+                 .one('hidden.popover', function() { $node.webuiPopover('destroy'); })
+                 .webuiPopover('hide');
+        },
+
+        get_node_from_node_or_popover: function (node) {
+            var $node = $(node);
+            return $node.hasClass('webui-popover') ? $node.data('trigger-element')[0] : node;
+        }, // get_hover_node
+
+        on_delayed_mouseenter: function () {
+            if (this.hover_issue_is_hover && !this.hover_issue_has_popover) {
+                HoverIssue.display_popover(this);
+            }
+        }, // on_delayed_mouseenter
+
+        on_mouseenter: function () {
+            var node = HoverIssue.get_node_from_node_or_popover(this);
+            $(node).off('mouseleave', HoverIssue.on_mouseleave)
+                   .on('mouseleave', HoverIssue.on_mouseleave);
+            node.hover_issue_is_hover = true;
+            setTimeout($.proxy(HoverIssue.on_delayed_mouseenter, node), 500);
+        }, // on_mouseenter
+
+        on_delayed_mouseleave: function () {
+            if (!this.hover_issue_is_hover && this.hover_issue_has_popover) {
+                HoverIssue.remove_popover(this);
+            }
+        }, // on_delayed_mouseleave
+
+        on_mouseleave: function () {
+            var node = HoverIssue.get_node_from_node_or_popover(this);
+            node.hover_issue_is_hover = false;
+            setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 250);
+        }, // on_mouseleave
+
+        on_click: function () {
+            this.hover_issue_is_hover = false;
+            if (this.hover_issue_has_popover) {
+                HoverIssue.remove_popover(this);
+            }
+        }, // on_click
+
+        init_events: function () {
+            $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
+            $document.on('click', HoverIssue.selector, HoverIssue.on_click);
+        }, // init_events
+
+        init: function () {
+            HoverIssue.popover_options = {
+                type: 'html',
+                trigger: 'manual',
+                async: true,
+                placement: 'vertical',
+                multi: true,
+                arrow: false,
+                padding: false,
+                width: '40%',
+                animation: 'fade',
+                // Use our own spinner
+                template: '<div class="webui-popover webui-popover-hover-issue">' +
+                    '<div class="webui-arrow"></div>' +
+                    '<div class="webui-popover-inner">' +
+                    '<a href="#" class="close"></a>' +
+                    '<h3 class="webui-popover-title"></h3>' +
+                    '<div class="webui-popover-content"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>' +
+                    '</div>' +
+                    '</div>'
+            };
+
+            HoverIssue.init_events();
+        } // init
+
+    }; // HoverIssue
+    HoverIssue.init();
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {

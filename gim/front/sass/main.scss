@@ -283,5 +283,40 @@ ol, ul {
     }
 }
 
+// webui-popover
+.webui-popover-hover-issue {
+    @include box-shadow(3px 3px 15px #000);
+    padding: 0;
+    border: 0;
+    overflow: auto;
+    max-height: 45%;
+    max-width: 40%;
+
+    .webui-popover-content > .empty-area {
+        position: static;
+        margin: 0;
+        line-height: normal;
+        overflow: hidden;
+    }
+    &.webui-error {
+        padding: 5px;
+        .alert {
+            margin-bottom: 0;
+        }
+    }
+    .issue-content {
+        > .area-top {
+            @include border-radius(6px 6px 0 0);
+            &:after {
+                @include border-radius(0 6px 0 0);
+            }
+        }
+        .issue-body {
+            border-bottom: 0;
+            @include border-radius(0 0 6px 6px);
+        }
+    }
+ }
+
 
 @import "responsive";
