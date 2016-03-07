@@ -4887,7 +4887,7 @@ $().ready(function() {
         on_mouseleave: function () {
             var node = HoverIssue.get_node_from_node_or_popover(this);
             node.hover_issue_is_hover = false;
-            setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 250);
+            setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 500);
         }, // on_mouseleave
 
         on_click: function () {
@@ -4907,7 +4907,7 @@ $().ready(function() {
                 type: 'html',
                 trigger: 'manual',
                 async: true,
-                placement: 'vertical',
+                placement: 'horizontal',
                 multi: true,
                 arrow: false,
                 padding: false,
