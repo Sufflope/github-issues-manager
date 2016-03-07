@@ -4795,24 +4795,37 @@ $().ready(function() {
         }, // get_ident_parent
 
         get_popover_options: function ($node) {
-            var ident = HoverIssue.get_issue_ident($node),
+            var node = $node[0],
+                ident = HoverIssue.get_issue_ident($node),
                 placement = HoverIssue.popover_options.placement,
+                $parent_popover, parent_node,
                 onShow = null, child_popover_left=null;
 
             if ($node.closest('.issue-item, .activity-feed').length) {
                 placement = 'horizontal';
-            } else if ($node.closest('.webui-popover-hover-issue').length) {
-                placement = 'vertical';
-                onShow = function($popover) {
-                    // move the new popover at the same level than the parent popover
-                    var $parent_popover = $node.closest('.webui-popover-hover-issue.in');
-                    if ($parent_popover.length) {
-                        // we save the var because on the first show, and the second show
-                        // (onsuccess), the original popover may have disappeared
-                        child_popover_left = $parent_popover.css('left');
+            } else {
+                $parent_popover = $node.closest('.webui-popover-hover-issue');
+                if ($parent_popover.length) {
+                    parent_node = $parent_popover.data('trigger-element')[0];
+                    if (!parent_node.hover_issue_popover_trigger_childs) {
+                        parent_node.hover_issue_popover_trigger_childs = [];
                     }
-                    if (child_popover_left != null) {
-                        $popover.css({left: child_popover_left});
+                    parent_node.hover_issue_popover_trigger_childs.push(node);
+                    node.hover_issue_popover_trigger_parent = parent_node;
+
+                    placement = 'vertical';
+
+                    onShow = function($popover) {
+                        // move the new popover at the same level than the parent popover
+                        var $parent_popover = $node.closest('.webui-popover-hover-issue.in');
+                        if ($parent_popover.length) {
+                            // we save the var because on the first show, and the second show
+                            // (onsuccess), the original popover may have disappeared
+                            child_popover_left = $parent_popover.css('left');
+                        }
+                        if (child_popover_left != null) {
+                            $popover.css({left: child_popover_left});
+                        }
                     }
                 }
             }
@@ -4826,10 +4839,7 @@ $().ready(function() {
                             if (onShow) { onShow(that.getTarget()); }
                             var $content = that.getContentElement().find('.issue-content');
                             $content.find('header h3 > a').addClass('issue-link')
-                                                          .attr('title', 'Click to open full view')
-                                                          .click(function() {
-                                                              HoverIssue.remove_popover($node[0]);
-                                                          });
+                                                          .attr('title', 'Click to open full view');
                             var $count = $content.find('.issue-comments-count');
                             $count.replaceWith($('<span/>').attr('class', $count.attr('class'))
                                                            .attr('title', $count.attr('title'))
@@ -4882,6 +4892,18 @@ $().ready(function() {
             var popover = node.hover_issue_popover;
             node.hover_issue_popover = null;
 
+            if (node.hover_issue_popover_trigger_parent) {
+                var parent_node = node.hover_issue_popover_trigger_parent;
+                var index = parent_node.hover_issue_popover_trigger_childs.indexOf(node);
+                if (index != -1) {
+                    parent_node.hover_issue_popover_trigger_childs.splice(index, 1);
+                }
+                if (!parent_node.hover_issue_popover_trigger_childs.length) {
+                    delete parent_node.hover_issue_popover_trigger_childs;
+                }
+                delete node.hover_issue_popover_trigger_parent;
+            }
+
             var $node = $(node);
 
             popover.getTarget().off({
@@ -4896,6 +4918,12 @@ $().ready(function() {
                     popover.destroy();
                     delete node.hover_issue_is_hover;
                     delete node.hover_issue_popover;
+                    if (node.hover_issue_popover_trigger_parent) {
+                        delete node.hover_issue_popover_trigger_parent;
+                    }
+                    if (node.hover_issue_popover_trigger_childs) {
+                        delete node.hover_issue_popover_trigger_childs;
+                    }
                 }, 300);
             };
 
@@ -4922,7 +4950,7 @@ $().ready(function() {
         }, // on_mouseenter
 
         on_delayed_mouseleave: function () {
-            if (!this.hover_issue_is_hover && this.hover_issue_popover) {
+            if (!this.hover_issue_is_hover && this.hover_issue_popover && !this.hover_issue_popover_trigger_childs) {
                 HoverIssue.remove_popover(this);
             }
         }, // on_delayed_mouseleave
@@ -4933,16 +4961,8 @@ $().ready(function() {
             setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 500);
         }, // on_mouseleave
 
-        on_click: function () {
-            this.hover_issue_is_hover = false;
-            if (this.hover_issue_popover) {
-                HoverIssue.remove_popover(this);
-            }
-        }, // on_click
-
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
-            $document.on('click', HoverIssue.selector, HoverIssue.on_click);
         }, // init_events
 
         init: function () {
