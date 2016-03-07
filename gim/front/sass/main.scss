@@ -30,6 +30,10 @@ body {
         .navbar-inner {
             padding: 0 20px !important;
         }
+        .brand {
+            position: relative;
+            display: inline-block;
+        }
         .user_avatar {
             .caret {
                 vertical-align: middle;
@@ -37,6 +41,33 @@ body {
             }
         }
     }
+}
+
+// changelog-holder
+#HW_badge_cont {
+    width: auto !important;
+    height: auto !important;
+    position: absolute !important;
+    right: 26px !important;
+    top: 6px !important;
+}
+#HW_badge {
+    top: 0 !important;
+    left: 0 !important;
+    background: $state-open-color !important;
+    color: white !important;
+    @include text-shadow(0 1px 0 rgba(0, 0, 0, 0.5));
+    &.HW_softHidden {
+        opacity: 0.5 !important;
+    }
+}
+body > header .brand:hover #HW_badge.HW_softHidden {
+    opacity: 1 !important;
+}
+#HW_frame_cont {
+    z-index: 1031 !important;
+    margin-top: 21px !important;
+    margin-left: -8px !important;
 }
 
 // leave room at the top for the fixed sidebar

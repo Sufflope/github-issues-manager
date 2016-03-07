@@ -21,7 +21,9 @@
     <header class="navbar navbar-inverse navbar-fixed-top">
         <div class="navbar-inner">
             <div class="container-fluid">
-                <a class="brand" href="/" title="{{ brand.long_name }}">{{ brand.short_name }}</a>
+                <span class="brand">
+                    <a href="/" title="{{ brand.long_name }}">{{ brand.short_name }}</a>
+                </span>
                 {% block header_nav %}{% endblock header_nav %}
                 <ul class="nav full pull-right">
                     {% if user and user.is_authenticated %}
@@ -88,5 +90,18 @@
     <script src="{% static "front/js/autobahn.min.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/front.js" %}" type="text/javascript"></script>
     {% block js_footer %}{% endblock js_footer %}
+    {%  if headwayapp_account %}
+    <script>
+      var HW_config = {
+          selector: "body > header .brand",
+          account: "{{ headwayapp_account }}",
+          translations: {
+              title: "{{ brand.short_name }} changelog",
+              readMore: "Read more"
+          }
+      };
+    </script>
+    <script async src="//cdn.headwayapp.co/widget.js"></script>
+    {% endif %}
 </body>
 </html>

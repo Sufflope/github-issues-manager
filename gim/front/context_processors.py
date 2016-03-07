@@ -35,6 +35,7 @@ def default_context_data(request):
                 'static_managed': settings.FAVICON_STATIC_MANAGED,
             },
         },
+        'headwayapp_account': settings.HEADWAYAPP_ACCOUNT,
         'utcnow': datetime.utcnow(),
         'gim_version': hashed_version,
         'GITHUB_STATUSES': GITHUB_STATUS_CHOICES,

@@ -362,6 +362,8 @@ BRAND_LONG_NAME = get_env_variable('BRAND_LONG_NAME', default='Github Issues Man
 FAVICON_PATH = get_env_variable('FAVICON_PATH', default=None)
 FAVICON_STATIC_MANAGED = bool(get_env_variable('FAVICON_STATIC_MANAGED', default=True))
 
+HEADWAYAPP_ACCOUNT = get_env_variable('HEADWAYAPP_ACCOUNT', default=None)
+
 DEBUG_TOOLBAR = False
 try:
     from .local_settings import *
