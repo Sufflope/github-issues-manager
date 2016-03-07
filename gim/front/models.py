@@ -1163,6 +1163,10 @@ def publish_github_updated(sender, instance, created, **kwargs):
         if not update_fields:
             return
 
+        # If only status and updated date, we're good
+        if update_fields == {'github_status', 'updated_at'}:
+            return
+
     extra_data = {}
     if created or getattr(instance, 'is_new', False):
         extra_data['is_new'] = True
