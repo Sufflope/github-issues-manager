@@ -806,7 +806,17 @@ $().ready(function() {
     }); // IssuesListIssue__error_getting_html
 
     IssuesListIssue.prototype.error_getting_html_in_popup = (function IssuesListIssue__error_getting_html_in_popup (jqXHR) {
-        alert('error ' + jqXHR.status);
+        var container = IssueDetail.get_container(true);
+        IssueDetail.unset_issue_waypoints(container.$node);
+        container.$window.removeClass('full-screen');
+        container.$node.removeClass('big-issue');
+        IssueDetail.fill_container(container,
+            '<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
+                '<li>You are not allowed to see this issue</li>' +
+                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                '<li>The issue may have been deleted</li>' +
+                '<li>Connectivity problems</li>' +
+            '</ul></div>');
     }); // IssuesListIssue__error_getting_html_in_popup
 
     IssuesListIssue.open_issue = (function IssuesListIssue_open_issue (issue_ident, force_popup, force_load, no_loading) {
@@ -1949,10 +1959,13 @@ $().ready(function() {
         }), // get_container_waiting_for_issue
 
         show_modal: (function IssueDetail__show_modal () {
+            var container = IssueDetail.get_container(true);
+            container.$window.addClass('full-screen');
+            container.$node.addClass('big-issue');
             // Move the modal at the end of all nodes to make it over in z-index
-            $body.append(IssueDetail.$modal);
+            $body.append(container.$window);
             // open the popup with its loading spinner
-            IssueDetail.$modal.modal("show");
+            container.$window.modal("show");
         }), // IssueDetail__show_modal
 
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
@@ -3357,13 +3370,13 @@ $().ready(function() {
         activate_email_reply_toggle: function() {
             $document.on('click', '.email-hidden-toggle a', MarkdownManager.toggle_email_reply);
         }, // activate_email_reply_toggle
-        update_link: function(link, repository) {
+        update_link: function(link) {
             link.setAttribute('data-managed', 'true');
             var $link = $(link);
             $link.attr('target', '_blank');
             var matches = link.href.match(MarkdownManager.re);
             // handle link only if current repository
-            if (matches && (matches[1] == repository || matches[1] == main_repository)) {
+            if (matches) {
                 $link.data('repository', matches[1])
                      .data('issue-number', matches[2])
                      .addClass('issue-link hoverable-issue');
@@ -3375,10 +3388,9 @@ $().ready(function() {
             }
             $nodes.each(function() {
                 var $container = $(this),
-                    repository = $container.data('repository'),
                     $base = $container.find('.issue-body, .issue-comment .content');
                 $base.find('a:not([data-managed])').each(function() {
-                    MarkdownManager.update_link(this, repository);
+                    MarkdownManager.update_link(this);
                 });
                 $base.find('.issue-link:not(.hoverable-issue)').addClass('hoverable-issue');
             });

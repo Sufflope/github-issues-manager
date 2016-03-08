@@ -272,6 +272,10 @@ $repo-name-height: 20px;
 
     position: relative;
 
+    > .alert-error {
+        margin-bottom: 0;
+    }
+
     &.with-repository {
         > .issue-content > .area-top {
             header {
@@ -311,6 +315,13 @@ $repo-name-height: 20px;
         .issue-involved {
             max-width: 300px;
         }
+
+        > .alert-error {
+            width: 50%;
+            margin-left: 25%;
+            margin-top: 25%;
+        }
+
     }
 
     a.issue-edit-btn {
