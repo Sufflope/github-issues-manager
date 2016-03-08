@@ -806,7 +806,17 @@ $().ready(function() {
     }); // IssuesListIssue__error_getting_html
 
     IssuesListIssue.prototype.error_getting_html_in_popup = (function IssuesListIssue__error_getting_html_in_popup (jqXHR) {
-        alert('error ' + jqXHR.status);
+        var container = IssueDetail.get_container(true);
+        IssueDetail.unset_issue_waypoints(container.$node);
+        container.$window.removeClass('full-screen');
+        container.$node.removeClass('big-issue');
+        IssueDetail.fill_container(container,
+            '<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
+                '<li>You are not allowed to see this issue</li>' +
+                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                '<li>The issue may have been deleted</li>' +
+                '<li>Connectivity problems</li>' +
+            '</ul></div>');
     }); // IssuesListIssue__error_getting_html_in_popup
 
     IssuesListIssue.open_issue = (function IssuesListIssue_open_issue (issue_ident, force_popup, force_load, no_loading) {
@@ -851,16 +861,21 @@ $().ready(function() {
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
 
             // check if we have to change group
-            var list = issue.group.list;
+            var list = issue.group.list,
+                refresh_quicksearch = true;
             if (list.group_by_key) {
                 var filter = issue.get_filter_for(list.group_by_key);
                 var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
                 if (group != issue.group) {
+                    refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
                     if (!$containers.length) {
                         group.$node.addClass('recent');
                     }
                 }
+            }
+            if (refresh_quicksearch) {
+                list.reinit_quicksearch_results();
             }
 
             if (is_active) {
@@ -1196,6 +1211,7 @@ $().ready(function() {
         }
         issue.group = this;
         this.issues.unshift(issue);
+        this.list.reinit_quicksearch_results();
         this.update_filtered_issues();
     }); // IssuesListGroup__add_issue
 
@@ -1383,6 +1399,7 @@ $().ready(function() {
         if (!orig_group.issues.length) {
             this.remove_group(orig_group);
         } else {
+            orig_group.list.reinit_quicksearch_results();
             orig_group.update_filtered_issues();
         }
 
@@ -1411,6 +1428,7 @@ $().ready(function() {
             } else if (!$containers.length) {
                 group.$node.addClass('recent');
             }
+            list.reinit_quicksearch_results();
 
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
@@ -1640,6 +1658,10 @@ $().ready(function() {
         }
         return issue;
     }); // IssuesList__get_issue_by_id
+
+    IssuesList.prototype.reinit_quicksearch_results = (function IssuesList__reinit_quicksearch_results () {
+        this.$search_input.data('quicksearch').cache();
+    }); // IssuesList__reinit_quicksearch_results
 
     IssuesList.init_all();
 
@@ -1949,10 +1971,13 @@ $().ready(function() {
         }), // get_container_waiting_for_issue
 
         show_modal: (function IssueDetail__show_modal () {
+            var container = IssueDetail.get_container(true);
+            container.$window.addClass('full-screen');
+            container.$node.addClass('big-issue');
             // Move the modal at the end of all nodes to make it over in z-index
-            $body.append(IssueDetail.$modal);
+            $body.append(container.$window);
             // open the popup with its loading spinner
-            IssueDetail.$modal.modal("show");
+            container.$window.modal("show");
         }), // IssueDetail__show_modal
 
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
@@ -3167,6 +3192,7 @@ $().ready(function() {
 
                 options = {
                     bind: 'keyup quicksearch.refresh',
+                    removeDiacritics: true,
                     show: function () {
                         this.style.display = "";
                         $(this).removeClass('hidden');
@@ -3357,13 +3383,13 @@ $().ready(function() {
         activate_email_reply_toggle: function() {
             $document.on('click', '.email-hidden-toggle a', MarkdownManager.toggle_email_reply);
         }, // activate_email_reply_toggle
-        update_link: function(link, repository) {
+        update_link: function(link) {
             link.setAttribute('data-managed', 'true');
             var $link = $(link);
             $link.attr('target', '_blank');
             var matches = link.href.match(MarkdownManager.re);
             // handle link only if current repository
-            if (matches && (matches[1] == repository || matches[1] == main_repository)) {
+            if (matches) {
                 $link.data('repository', matches[1])
                      .data('issue-number', matches[2])
                      .addClass('issue-link hoverable-issue');
@@ -3375,10 +3401,9 @@ $().ready(function() {
             }
             $nodes.each(function() {
                 var $container = $(this),
-                    repository = $container.data('repository'),
                     $base = $container.find('.issue-body, .issue-comment .content');
                 $base.find('a:not([data-managed])').each(function() {
-                    MarkdownManager.update_link(this, repository);
+                    MarkdownManager.update_link(this);
                 });
                 $base.find('.issue-link:not(.hoverable-issue)').addClass('hoverable-issue');
             });
@@ -4844,18 +4869,28 @@ $().ready(function() {
                         type: 'GET',
                         success: function(that, data) {
                             if (onShow) { onShow(that.getTarget()); }
-                            var $content = that.getContentElement().find('.issue-content');
+                            var $content_element = that.getContentElement(),
+                                $content = $content_element.find('.issue-content');
+                            $content_element.toggleClass('with-repository', $content.data('repository') != main_repository);
                             $content.find('header h3 > a').addClass('issue-link')
-                                                          .attr('title', 'Click to open full view');
+                                                          .attr('title', 'Click to open full view')
+                                                          .click($.proxy(HoverIssue.force_close_popover, node));
                             var $count = $content.find('.issue-comments-count');
                             $count.replaceWith($('<span/>').attr('class', $count.attr('class'))
                                                            .attr('title', $count.attr('title'))
                                                            .html($count.html()));
                             MarkdownManager.update_links($content);
                         },
-                        error: function(that, data) {
-                            that.setContent('<div class="alert alert-error">Unable to get the issue. It may have been deleted or you may not be allowed to view it.</div>');
-                            that.getTarget().addClass('webui-error');
+                        error: function(that, xhr, data) {
+                            if (xhr.status) { // if no status, it's an abort
+                                that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>' +
+                                    '<li>You are not allowed to see this issue</li>' +
+                                    '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                                    '<li>The issue may have been deleted</li>' +
+                                    '<li>Connectivity problems</li>' +
+                                    '</ul></div>');
+                                that.getTarget().addClass('webui-error');
+                            }
                         }
                     },
                     url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
@@ -4867,7 +4902,7 @@ $().ready(function() {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: '',
                     async: false,
-                    content: '<div class="alert alert-error">A problem occured when we wanted to retrieve the issue content :(</div>',
+                    content: '<div class="alert alert-error">A problem occurred when we wanted to retrieve the issue content :(</div>',
                     placement: placement,
                     onShow: function($element) {
                         if (onShow) { onShow($element); }
@@ -4894,6 +4929,16 @@ $().ready(function() {
 
             if (old_url) { $node.attr('data-url', old_url); }
         }, // display_popover
+
+        force_close_popover: function () {
+            var node = this;
+            setTimeout(function() {
+                node.hover_issue_is_hover = false;
+                if (node.hover_issue_popover) {
+                    HoverIssue.remove_popover(node);
+                }
+            }, 3);
+        }, // force_close_popover
 
         remove_popover: function (node) {
             var popover = node.hover_issue_popover;
@@ -4970,6 +5015,7 @@ $().ready(function() {
 
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
+            $document.on('click', HoverIssue.selector, HoverIssue.force_close_popover);
         }, // init_events
 
         init: function () {
