@@ -4858,21 +4858,24 @@ $().ready(function() {
                             if (onShow) { onShow(that.getTarget()); }
                             var $content = that.getContentElement().find('.issue-content');
                             $content.find('header h3 > a').addClass('issue-link')
-                                                          .attr('title', 'Click to open full view');
+                                                          .attr('title', 'Click to open full view')
+                                                          .click($.proxy(HoverIssue.force_close_popover, node));
                             var $count = $content.find('.issue-comments-count');
                             $count.replaceWith($('<span/>').attr('class', $count.attr('class'))
                                                            .attr('title', $count.attr('title'))
                                                            .html($count.html()));
                             MarkdownManager.update_links($content);
                         },
-                        error: function(that, data) {
-                            that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
-                                '<li>You are not allowed to see this issue</li>' +
-                                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
-                                '<li>The issue may have been deleted</li>' +
-                                '<li>Connectivity problems</li>' +
-                                '</ul></div>');
-                            that.getTarget().addClass('webui-error');
+                        error: function(that, xhr, data) {
+                            if (xhr.status) { // if no status, it's an abort
+                                that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>' +
+                                    '<li>You are not allowed to see this issue</li>' +
+                                    '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                                    '<li>The issue may have been deleted</li>' +
+                                    '<li>Connectivity problems</li>' +
+                                    '</ul></div>');
+                                that.getTarget().addClass('webui-error');
+                            }
                         }
                     },
                     url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
@@ -4911,6 +4914,16 @@ $().ready(function() {
 
             if (old_url) { $node.attr('data-url', old_url); }
         }, // display_popover
+
+        force_close_popover: function () {
+            var node = this;
+            setTimeout(function() {
+                node.hover_issue_is_hover = false;
+                if (node.hover_issue_popover) {
+                    HoverIssue.remove_popover(node);
+                }
+            }, 3);
+        }, // force_close_popover
 
         remove_popover: function (node) {
             var popover = node.hover_issue_popover;
@@ -4987,6 +5000,7 @@ $().ready(function() {
 
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
+            $document.on('click', HoverIssue.selector, HoverIssue.force_close_popover);
         }, // init_events
 
         init: function () {
