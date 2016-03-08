@@ -4854,7 +4854,12 @@ $().ready(function() {
                             MarkdownManager.update_links($content);
                         },
                         error: function(that, data) {
-                            that.setContent('<div class="alert alert-error">Unable to get the issue. It may have been deleted or you may not be allowed to view it.</div>');
+                            that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
+                                '<li>You are not allowed to see this issue</li>' +
+                                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                                '<li>The issue may have been deleted</li>' +
+                                '<li>Connectivity problems</li>' +
+                                '</ul></div>');
                             that.getTarget().addClass('webui-error');
                         }
                     },
@@ -4867,7 +4872,7 @@ $().ready(function() {
                 return $.extend({}, HoverIssue.popover_options, {
                     type: '',
                     async: false,
-                    content: '<div class="alert alert-error">A problem occured when we wanted to retrieve the issue content :(</div>',
+                    content: '<div class="alert alert-error">A problem occurred when we wanted to retrieve the issue content :(</div>',
                     placement: placement,
                     onShow: function($element) {
                         if (onShow) { onShow($element); }
