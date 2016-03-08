@@ -861,16 +861,21 @@ $().ready(function() {
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
 
             // check if we have to change group
-            var list = issue.group.list;
+            var list = issue.group.list,
+                refresh_quicksearch = true;
             if (list.group_by_key) {
                 var filter = issue.get_filter_for(list.group_by_key);
                 var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
                 if (group != issue.group) {
+                    refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
                     if (!$containers.length) {
                         group.$node.addClass('recent');
                     }
                 }
+            }
+            if (refresh_quicksearch) {
+                list.reinit_quicksearch_results();
             }
 
             if (is_active) {
@@ -1206,6 +1211,7 @@ $().ready(function() {
         }
         issue.group = this;
         this.issues.unshift(issue);
+        this.list.reinit_quicksearch_results();
         this.update_filtered_issues();
     }); // IssuesListGroup__add_issue
 
@@ -1393,6 +1399,7 @@ $().ready(function() {
         if (!orig_group.issues.length) {
             this.remove_group(orig_group);
         } else {
+            orig_group.list.reinit_quicksearch_results();
             orig_group.update_filtered_issues();
         }
 
@@ -1421,6 +1428,7 @@ $().ready(function() {
             } else if (!$containers.length) {
                 group.$node.addClass('recent');
             }
+            list.reinit_quicksearch_results();
 
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
@@ -1650,6 +1658,10 @@ $().ready(function() {
         }
         return issue;
     }); // IssuesList__get_issue_by_id
+
+    IssuesList.prototype.reinit_quicksearch_results = (function IssuesList__reinit_quicksearch_results () {
+        this.$search_input.data('quicksearch').cache();
+    }); // IssuesList__reinit_quicksearch_results
 
     IssuesList.init_all();
 
