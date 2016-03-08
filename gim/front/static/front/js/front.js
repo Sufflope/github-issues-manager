@@ -3192,6 +3192,7 @@ $().ready(function() {
 
                 options = {
                     bind: 'keyup quicksearch.refresh',
+                    removeDiacritics: true,
                     show: function () {
                         this.style.display = "";
                         $(this).removeClass('hidden');
