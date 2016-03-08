@@ -2,6 +2,7 @@ from django.utils.functional import cached_property
 
 __all__ = [
     'GITHUB_STATUS_CHOICES',
+    'GITHUB_COMMIT_STATUS_CHOICES',
 ]
 
 from datetime import datetime, timedelta
@@ -49,6 +50,16 @@ GITHUB_STATUS_CHOICES.NOT_READY = (
     GITHUB_STATUS_CHOICES.WAITING_DELETE,
     GITHUB_STATUS_CHOICES.WAITING_CREATE,
     GITHUB_STATUS_CHOICES.ERROR_CREATE
+)
+
+
+GITHUB_COMMIT_STATUS_CHOICES = Choices(
+    ('NOTHING', 0, u'No statuses yet'),
+    ('PENDING', 10, u'Pending'),
+    ('UNKNOWN', 20, u'Unknown'),
+    ('ERROR', 30, u'Error'),
+    ('FAILURE', 40, u'Failure'),
+    ('SUCCESS', 50, u'Success'),
 )
 
 

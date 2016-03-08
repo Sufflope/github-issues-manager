@@ -64,3 +64,7 @@ class GithubWebHook(View):
     def event_push(self, payload):
         return self.event_manager.event_push(payload,
                                              payload.get('action'))
+
+    def event_commit_status(self, payload):
+        return self.event_manager.event_commit_status(payload,
+                                                      payload.get('action'))

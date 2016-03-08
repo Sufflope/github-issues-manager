@@ -30,6 +30,7 @@ from ..managers import (
 from .base import (
     GithubObject,
     GithubObjectWithId,
+    GITHUB_COMMIT_STATUS_CHOICES,
 )
 
 from .mixins import (
@@ -68,7 +69,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     base_label = models.TextField(blank=True, null=True)
     base_sha = models.CharField(max_length=256, blank=True, null=True)
     head_label = models.TextField(blank=True, null=True)
-    head_sha = models.CharField(max_length=256, blank=True, null=True)
+    head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
+    last_head_status = models.PositiveSmallIntegerField(
+        default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING, choices=GITHUB_COMMIT_STATUS_CHOICES)
     merged_at = models.DateTimeField(blank=True, null=True)
     merged_by = models.ForeignKey('GithubUser', related_name='merged_prs', blank=True, null=True)
     github_pr_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
@@ -102,7 +105,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         'nb_changed_files', ) + ('head', 'commits_url', 'body_text', 'url', 'labels_url',
         'events_url', 'comments_url', 'html_url', 'merge_commit_sha', 'review_comments_url',
         'review_comment_url', 'base', 'patch_url', 'pull_request', 'diff_url',
-        'statuses_url', 'issue_url', )
+        'statuses_url', 'issue_url', 'last_head_status')
 
     github_format = '.full+json'
     github_edit_fields = {

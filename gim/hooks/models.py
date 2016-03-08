@@ -196,6 +196,16 @@ class _Repository(models.Model):
                                                                    fetch_issue=False)
                                 issues_to_fetch.update(numbers)
 
+                            elif event['type'] == 'StatusEvent':
+                                commit_status = event_manager.event_commit_status(event['payload'],
+                                                                                  event['payload'].get('action'),
+                                                                                  fetch_issue=False)
+
+                                if commit_status:
+                                    issues_to_fetch.update(
+                                        commit_status.commit.head_pull_requests().values_list('number', flat=True)
+                                    )
+
                         except Exception:
                             # we don't care if we cannot manage an event, the full repos
                             # will be fetched soon...
@@ -477,6 +487,26 @@ class EventManager(object):
                 self.fetch_issue(number)
 
         return numbers
+
+    def event_commit_status(self, payload, action, fetch_issue=True):
+        try:
+            defaults = self.get_defaults()
+
+            result = core_models.CommitStatus.objects.create_or_update_from_dict(
+                        data=payload,
+                        modes=MODE_ALL,
+                        defaults=defaults,
+                        saved_objects=SavedObjects(),
+                    )
+
+            if result:
+                result.commit.update_last_status(fetch_pull_requests=fetch_issue)
+
+            return result
+
+        except Exception:
+            return None
+
 
 
 from gim.hooks.tasks import *

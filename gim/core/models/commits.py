@@ -1,20 +1,25 @@
+
 __all__ = [
     'Commit',
     'IssueCommits',
+    'CommitStatus',
 ]
 
+from collections import OrderedDict
 from datetime import datetime
 
 from django.db import models
 
 from ..managers import (
     CommitManager,
+    CommitStatusManager,
     IssueCommitsManager,
 )
 
 from .base import (
     GithubObject,
     GithubObjectWithId,
+    GITHUB_COMMIT_STATUS_CHOICES,
 )
 
 from .mixins import (
@@ -45,6 +50,11 @@ class Commit(WithRepositoryMixin, GithubObject):
     commit_comments_etag = models.CharField(max_length=64, blank=True, null=True)
     # this list is not ordered, we must memorize the last page
     commit_comments_last_page = models.PositiveIntegerField(blank=True, null=True)
+    last_status = models.PositiveSmallIntegerField(default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING,
+                                                   choices=GITHUB_COMMIT_STATUS_CHOICES)
+
+    commit_statuses_fetched_at = models.DateTimeField(blank=True, null=True)
+    commit_statuses_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = CommitManager()
 
@@ -68,7 +78,7 @@ class Commit(WithRepositoryMixin, GithubObject):
     })
     github_ignore = GithubObject.github_ignore + ('deleted', 'comments_count',
         'nb_additions', 'nb_deletions') + ('url', 'parents', 'comments_url',
-        'html_url', 'commit', )
+        'html_url', 'commit', 'last_status')
 
     @property
     def github_url(self):
@@ -134,6 +144,12 @@ class Commit(WithRepositoryMixin, GithubObject):
             'comments',
         ]
 
+    @property
+    def github_callable_identifiers_for_commit_statuses(self):
+        return self.github_callable_identifiers + [
+            'statuses',
+        ]
+
     def fetch_comments(self, gh, force_fetch=False, parameters=None):
         from .comments import CommitComment
 
@@ -167,9 +183,74 @@ class Commit(WithRepositoryMixin, GithubObject):
                                 parameters=final_parameters,
                                 force_fetch=force_fetch)
 
+    def fetch_commit_statuses(self, gh, force_fetch=False, parameters=None):
+        final_parameters = {
+            'sort': CommitStatus.github_date_field[1],
+            'direction': CommitStatus.github_date_field[2],
+        }
+
+        if parameters:
+            final_parameters.update(parameters)
+
+        result = self._fetch_many('commit_statuses', gh,
+                                  defaults={
+                                      'fk': {
+                                          'commit': self,
+                                          'repository': self.repository
+                                      },
+                                      'related': {'*': {
+                                          'fk': {
+                                              'commit': self,
+                                              'repository': self.repository
+                                          }
+                                      }}
+                                 },
+                                 parameters=final_parameters,
+                                 force_fetch=force_fetch)
+
+        self.update_last_status()
+
+        return result
+
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Commit, self).fetch_all(gh, force_fetch=force_fetch)
+        self.fetch_commit_statuses(gh, force_fetch=force_fetch)
         self.fetch_comments(gh, force_fetch=force_fetch)
+
+    def get_last_statuses(self):
+        """Get a list of statuses with only the last for each context"""
+        result = OrderedDict()
+        # Assume ordering by -updated-at
+        for status in self.commit_statuses.all():
+            if status.context in result:
+                continue
+            result[status.context] = status
+        return result.values()
+
+    def head_pull_requests(self):
+        """Returns all pull requests having this commit as head commit"""
+        return self.repository.issues.filter(is_pull_request=True, head_sha=self.sha)
+
+    def update_last_status(self, fetch_pull_requests=True):
+        from gim.core.tasks import FetchIssueByNumber
+
+        # assume ordering by context+status
+        last_statuses = self.get_last_statuses()
+        last_status = min(s.state for s in last_statuses) if last_statuses \
+            else GITHUB_COMMIT_STATUS_CHOICES.NOTHING
+
+        if last_status != self.last_status:
+            self.last_status = last_status
+            self.save(update_fields=['last_status'])
+            for pr in self.head_pull_requests():
+                if pr.last_head_status != last_status:
+                    pr.last_head_status = last_status
+                    pr.save(update_fields=['last_head_status'])
+                    if fetch_pull_requests:
+                        FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, pr.number))
+
+        # Convert from int to IntChoiceAttribute
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(last_status).value
 
 
 class IssueCommits(models.Model):
@@ -195,3 +276,30 @@ class IssueCommits(models.Model):
         if self.deleted:
             result += u' (deleted)'
         return result % (self.commit.sha, self.issue.number)
+
+
+class CommitStatus(GithubObjectWithId):
+
+    repository = models.ForeignKey('Repository', related_name='commit_statuses')
+    commit = models.ForeignKey('Commit', related_name='commit_statuses')
+    created_at = models.DateTimeField(db_index=True)
+    updated_at = models.DateTimeField(db_index=True)
+    state = models.PositiveSmallIntegerField(db_index=True,
+                                             default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING,
+                                             choices=GITHUB_COMMIT_STATUS_CHOICES)
+    description = models.TextField(blank=True, null=True)
+    context = models.TextField(db_index=True, default='default')
+    target_url = models.URLField(max_length=512, blank=True, null=True)
+
+    GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
+
+    github_date_field = ('updated_at', 'updated', 'desc')
+
+    objects = CommitStatusManager()
+
+    class Meta:
+        app_label = 'core'
+        ordering = ['-updated_at', 'context']
+
+    def __unicode__(self):
+        return u'[%s] %s' % (self.context, self.get_state_display())
