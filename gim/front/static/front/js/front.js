@@ -4856,7 +4856,9 @@ $().ready(function() {
                         type: 'GET',
                         success: function(that, data) {
                             if (onShow) { onShow(that.getTarget()); }
-                            var $content = that.getContentElement().find('.issue-content');
+                            var $content_element = that.getContentElement(),
+                                $content = $content_element.find('.issue-content');
+                            $content_element.toggleClass('with-repository', $content.data('repository') != main_repository);
                             $content.find('header h3 > a').addClass('issue-link')
                                                           .attr('title', 'Click to open full view')
                                                           .click($.proxy(HoverIssue.force_close_popover, node));
