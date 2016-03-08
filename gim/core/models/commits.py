@@ -183,7 +183,7 @@ class Commit(WithRepositoryMixin, GithubObject):
                                 parameters=final_parameters,
                                 force_fetch=force_fetch)
 
-    def fetch_commit_statuses(self, gh, force_fetch=False, parameters=None):
+    def fetch_commit_statuses(self, gh, force_fetch=False, parameters=None, refetch_for_pending=False):
         final_parameters = {
             'sort': CommitStatus.github_date_field[1],
             'direction': CommitStatus.github_date_field[2],
@@ -208,13 +208,13 @@ class Commit(WithRepositoryMixin, GithubObject):
                                  parameters=final_parameters,
                                  force_fetch=force_fetch)
 
-        self.update_last_status()
+        self.update_last_status(fetch_pending=refetch_for_pending)
 
         return result
 
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Commit, self).fetch_all(gh, force_fetch=force_fetch)
-        self.fetch_commit_statuses(gh, force_fetch=force_fetch)
+        self.fetch_commit_statuses(gh, force_fetch=force_fetch, refetch_for_pending=True)
         self.fetch_comments(gh, force_fetch=force_fetch)
 
     def get_last_statuses(self):
@@ -227,14 +227,25 @@ class Commit(WithRepositoryMixin, GithubObject):
             result[status.context] = status
         return result.values()
 
+    def has_pending_statuses(self, last_statuses=None):
+        if last_statuses is None:
+            last_statuses = self.get_last_statuses()
+        return bool(sum(s.state == GITHUB_COMMIT_STATUS_CHOICES.PENDING for s in last_statuses))
+
+    def delay_fetch_pending_statuses(self, delayed_for=60, force_requeue=False, force_fetch=False):
+        from gim.core.tasks.commit import FetchCommitStatuses
+
+        FetchCommitStatuses.add_job(self.pk, delayed_for=delayed_for,
+                                             force_requeue=force_requeue,
+                                             force_fetch=force_fetch)
+
     def head_pull_requests(self):
         """Returns all pull requests having this commit as head commit"""
         return self.repository.issues.filter(is_pull_request=True, head_sha=self.sha)
 
-    def update_last_status(self, fetch_pull_requests=True):
+    def update_last_status(self, fetch_pull_requests=True, fetch_pending=True):
         from gim.core.tasks import FetchIssueByNumber
 
-        # assume ordering by context+status
         last_statuses = self.get_last_statuses()
         last_status = min(s.state for s in last_statuses) if last_statuses \
             else GITHUB_COMMIT_STATUS_CHOICES.NOTHING
@@ -248,6 +259,9 @@ class Commit(WithRepositoryMixin, GithubObject):
                     pr.save(update_fields=['last_head_status'])
                     if fetch_pull_requests:
                         FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, pr.number))
+
+        if fetch_pending and self.has_pending_statuses(last_statuses):
+            self.delay_fetch_pending_statuses()
 
         # Convert from int to IntChoiceAttribute
         return GITHUB_COMMIT_STATUS_CHOICES.for_value(last_status).value

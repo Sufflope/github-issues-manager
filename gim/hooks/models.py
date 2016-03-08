@@ -197,9 +197,9 @@ class _Repository(models.Model):
                                 issues_to_fetch.update(numbers)
 
                             elif event['type'] == 'StatusEvent':
-                                commit_status = event_manager.event_commit_status(event['payload'],
-                                                                                  event['payload'].get('action'),
-                                                                                  fetch_issue=False)
+                                commit_status = event_manager.event_status(event['payload'],
+                                                                           event['payload'].get('action'),
+                                                                           fetch_issue=False)
 
                                 if commit_status:
                                     issues_to_fetch.update(
@@ -488,7 +488,7 @@ class EventManager(object):
 
         return numbers
 
-    def event_commit_status(self, payload, action, fetch_issue=True):
+    def event_status(self, payload, action, fetch_issue=True):
         try:
             defaults = self.get_defaults()
 

@@ -350,11 +350,16 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Issue, self).fetch_all(gh, force_fetch=force_fetch)
-        #self.fetch_labels(gh, force_fetch=force_fetch)  # already retrieved via self.fetch
+        # self.fetch_labels(gh, force_fetch=force_fetch)  # already retrieved via self.fetch
 
         if self.is_pull_request:
             # fetch commits first because they may be used as references in comments
             self.fetch_commits(gh, force_fetch=force_fetch)
+            # Neded actions may already be done in paralelle because the fetch of the commits
+            # may launch a `FetchCommitBySha` job for each commit.
+            # But as we need info about the very last one in the list, we may be faster by doing it
+            # now.
+            self.fetch_head_commit_statuses(gh, force_fetch)
 
         self.fetch_events(gh, force_fetch=True)
         self.fetch_comments(gh, force_fetch=force_fetch)
@@ -363,6 +368,28 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self.fetch_pr(gh, force_fetch=force_fetch)
             self.fetch_pr_comments(gh, force_fetch=force_fetch)
             self.fetch_files(gh, force_fetch=force_fetch)
+
+    def get_head_commit(self):
+        try:
+            return self.commits.get(sha=self.head_sha)
+        except self.commits.model.DoesNotExist:
+            return None
+
+    def fetch_head_commit_statuses(self, gh, force_fetch=None):
+        head_commit = self.get_head_commit()
+        if not head_commit:
+            return
+
+        already_fetched = bool(head_commit.commit_statuses_fetched_at)
+
+        if not already_fetched:
+            # On the first time, we may not have any statuses yet, they may come later
+            head_commit.delay_fetch_pending_statuses(delayed_for=60, force_requeue=1, force_fetch=force_fetch)
+
+        # If it's the first fetch, don't refetch if pending statuses because we just did it
+        # We had to do this because the first job for an identifier defines the arguments,
+        # and here we want `force_requeued` to be set
+        head_commit.fetch_commit_statuses(gh, force_fetch, refetch_for_pending=already_fetched)
 
     @property
     def total_comments_count(self):
