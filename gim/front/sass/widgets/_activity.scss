@@ -72,6 +72,17 @@
                         margin-bottom: 2px;
                         padding-left: 7px;
                     }
+                    .part-last_head_status {
+                        .state-success {
+                            color: $successText;
+                        }
+                        .state-failure, .state-error {
+                            color: $errorText;
+                        }
+                        .state-pending, .state-unknown {
+                            color: $warningText;
+                        }
+                    }
                     > div:last-of-type {
                         .part-body, .part-title {
                             > div.in {

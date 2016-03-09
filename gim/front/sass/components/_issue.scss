@@ -287,7 +287,7 @@ $repo-name-height: 20px;
         .state-failure, .state-error {
             color: $errorText;
         }
-        .state-pending, .state-unknonw {
+        .state-pending, .state-unknown {
             color: $warningText;
         }
         .cell-state {
@@ -1034,6 +1034,17 @@ $repo-name-height: 20px;
 
     .change-event .box-content {
         margin: 5px 10px;
+    }
+    .part-last_head_status {
+        .state-success {
+            color: $successText;
+        }
+        .state-failure, .state-error {
+            color: $errorText;
+        }
+        .state-pending, .state-unknown {
+            color: $warningText;
+        }
     }
 
     .code-comments-group .box-content {

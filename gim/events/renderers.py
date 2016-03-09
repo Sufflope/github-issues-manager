@@ -2,6 +2,7 @@
 
 from django.utils.html import escape
 
+from gim.core.models import GITHUB_COMMIT_STATUS_CHOICES
 from gim.front.diff import HtmlDiff, HtmlDiffWithoutControl
 
 
@@ -120,6 +121,44 @@ class IssueRenderer(Renderer):
             title += ' by %(by)s'
             params = {'by': self.helper_render_user(new['by'], mode)}
             title = title % params
+
+        return title
+
+    def helper_get_commit_status(self, value):
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(value or 0)
+
+    def render_part_last_head_status(self, part, mode):
+        new, old = part.new_value, part.old_value
+        new_status = self.helper_get_commit_status(new['last_head_status'])
+
+        if mode == 'text':
+            title = 'New checks status: %s' % new_status.display
+        else:
+            title = 'New checks status: <strong><span class="state-%s">%s</span></strong>' % (
+                new_status.constant.lower(),
+                new_status.display,
+            )
+
+        if 'count_by_state' in new:
+            parts = []
+            for state, count in new['count_by_state'].items():
+                status = self.helper_get_commit_status(state or 0)
+                if mode == 'text':
+                    parts.append('%s %s' % (count, status.display))
+                else:
+                    parts.append('%s <span class="state-%s">%s</span>' % (
+                        count, status.constant.lower(), status.display))
+            title += '. %s.' % (', '.join(parts))
+
+        if old['last_head_status']:
+            old_status = self.helper_get_commit_status(old['last_head_status'])
+            if mode == 'text':
+                title += ' (previously %s)' % old_status.display
+            else:
+                title += ' (previously <span class="state-%s">%s</span>)' % (
+                old_status.constant.lower(),
+                old_status.display,
+            )
 
         return title
 
