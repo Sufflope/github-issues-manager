@@ -1,4 +1,4 @@
-{% load issues_tags %}
+{% load issues_tags frontutils %}
 <div class="area-top state-{{ current_issue.state }}">
     <header>
         <div class="repository-name">
@@ -109,6 +109,7 @@
             {% endif %}
             <div>Pull request from <strong>{{ current_issue.head_label|default:current_issue.user.username }}</strong></div>
             {% if current_issue.pr_fetched_at %}
+                {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid %}
                 <div class="pr-merge-status">
                     {% if current_issue.state == 'open' or not current_issue.merged %}
                         {# cannot reopen a merged-closed issue #}
@@ -127,7 +128,71 @@
                             <div class="alert alert-error">Not merged</div>
                         {% endif %}
                     {% endif %}
+                    {% if current_issue.last_head_status %}
+                        {% with status=current_issue.last_head_status %}
+                            <div title="Click to toggle details" class="alert alert-{% if status == STATUS_CHOICES.SUCCESS %}success{% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}error{% else %}warning{% endif %} pr-last-commit-status collapsed" data-toggle="collapse" data-target="#pr-commit-statuses-{{ statuses_uuid }}">Checks: <strong>{{ current_issue.get_last_head_status_display|lower }}</strong><i class="fa fa-caret-right"></i></div>
+                        {% endwith %}
+                    {%  endif %}
                 </div>
+                {% if current_issue.last_head_status %}
+                    <div id="pr-commit-statuses-{{ statuses_uuid }}" class="box pr-commit-statuses collapse">
+                        <div class="box-header">
+                            <span class="title">Checks for commit {{ current_issue.get_head_commit.sha|short_sha }}</span>
+                            <ul class="box-toolbar">
+                                <li class="toolbar-link">
+                                    <a href="#" class="logs-toggler collapsed" data-toggle="collapse" data-target="#pr-commit-statuses-{{ statuses_uuid }} .logs" >Toggle logs</a>
+                                </li>
+                            </ul>
+                        </div>
+                        <table class="table table-normal">
+                        <tbody>
+                        {% for context in current_issue.get_all_commit_statuses %}
+                            <tr>
+                                <td class="cell-state state-{{ context.0.state_constant|lower }}">
+                                    {% if context.0.state == STATUS_CHOICES.SUCCESS %}
+                                        <i class="fa fa-check"></i>
+                                    {% elif context.0.state == STATUS_CHOICES.ERROR or context.0.state == STATUS_CHOICES.FAILURE %}
+                                        <i class="fa fa-close"></i>
+                                    {% elif context.0.state == STATUS_CHOICES.PENDING %}
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    {% else %}
+                                        <i class="fa fa-question"></i>
+                                    {% endif %}
+                                    {{ context.0.get_state_display }}
+                                </td>
+                                <td class="cell-context">
+                                    {{ context.0.context }}
+                                </td>
+                                <td class="cell-description">
+                                    {{ context.0.description }}
+                                    {% if context|length > 1 %}
+                                    <dl class="logs collapse">
+                                        {% with first_status=context|last %}{% if not first_status.is_last %}<a href="#">Show older logs</a>{% endif %}{% endwith %}
+                                        {% for status in context reversed %}
+                                            <dt {% if status.is_last %}class="is-last{% ifchanged status.is_last %} first-is-last{% endifchanged %}"{% endif %}>{{ status.updated_at }} <span class="state-{{ status.state_constant|lower }}">{{ status.get_state_display }}</span></dt>
+                                            <dd>{{ status.description }}</dd>
+                                        {% endfor %}
+                                    </dl>
+                                    {% endif %}
+                                </td>
+                                <td class="cell-link">
+                                    {% with domain=context.0.target_domain %}
+                                        {% if domain %}
+                                            <a href="{{ context.0.target_url }}" target="_blank" title="Show details on {{ domain }}">
+                                                <i class="fa fa-external-link"></i>
+                                            </a>
+                                        {% else %}
+                                            <i class="fa fa-ban" title="No link for this check"></i>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+                {% endwith %}
             {% endif %}
         {% elif current_issue_edit_level %}
             {% include "front/repository/issues/include_issue_big_infos.html" %}

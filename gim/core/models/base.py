@@ -61,6 +61,7 @@ GITHUB_COMMIT_STATUS_CHOICES = Choices(
     ('FAILURE', 40, u'Failure'),
     ('SUCCESS', 50, u'Success'),
 )
+GITHUB_COMMIT_STATUS_CHOICES.add_subset('FINISHED', ('ERROR', 'FAILURE', 'SUCCESS'))
 
 
 class GithubObject(models.Model):

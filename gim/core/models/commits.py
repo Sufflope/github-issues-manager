@@ -7,6 +7,7 @@ __all__ = [
 
 from collections import OrderedDict
 from datetime import datetime
+from urlparse import urlparse
 
 from django.db import models
 
@@ -55,6 +56,8 @@ class Commit(WithRepositoryMixin, GithubObject):
 
     commit_statuses_fetched_at = models.DateTimeField(blank=True, null=True)
     commit_statuses_etag = models.CharField(max_length=64, blank=True, null=True)
+
+    GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
     objects = CommitManager()
 
@@ -317,3 +320,17 @@ class CommitStatus(GithubObjectWithId):
 
     def __unicode__(self):
         return u'[%s] %s' % (self.context, self.get_state_display())
+
+    @property
+    def state_constant(self):
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.state).constant
+
+    @property
+    def target_domain(self):
+        if not self.target_url:
+            return None
+        try:
+            return urlparse(self.target_url).netloc or None
+        except Exception:
+            return None
+

@@ -8,6 +8,7 @@ __all__ = [
     'Milestone',
 ]
 
+from collections import OrderedDict
 import re
 
 from django.contrib.contenttypes.models import ContentType
@@ -88,6 +89,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     commits = models.ManyToManyField('Commit', related_name='issues', through='IssueCommits')
     files_fetched_at = models.DateTimeField(blank=True, null=True)
     files_etag = models.CharField(max_length=64, blank=True, null=True)
+
+    GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
     objects = IssueManager()
 
@@ -369,11 +372,17 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self.fetch_pr_comments(gh, force_fetch=force_fetch)
             self.fetch_files(gh, force_fetch=force_fetch)
 
-    def get_head_commit(self):
-        try:
-            return self.commits.get(sha=self.head_sha)
-        except self.commits.model.DoesNotExist:
-            return None
+    def get_head_commit(self, force=False):
+        if not hasattr(self, '_head_commits'):
+            self._head_commits = {}
+
+        if force or self.head_sha not in self._head_commits:
+            try:
+                self._head_commits[self.head_sha] = self.commits.get(sha=self.head_sha)
+            except self.commits.model.DoesNotExist:
+                self._head_commits[self.head_sha] = None
+
+        return self._head_commits[self.head_sha]
 
     def fetch_head_commit_statuses(self, gh, force_fetch=None):
         head_commit = self.get_head_commit()
@@ -390,6 +399,32 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         # We had to do this because the first job for an identifier defines the arguments,
         # and here we want `force_requeued` to be set
         head_commit.fetch_commit_statuses(gh, force_fetch, refetch_for_pending=already_fetched)
+
+    def get_all_commit_statuses(self):
+        """
+        Return all the commit statuses in a format usable in template:
+        A list with one entry by `context`, ordered by last `updated_at`, each entry being a list
+        with all statuses for this context, ordered by last `updated_at`
+        """
+        head_commit = self.get_head_commit()
+        if not head_commit:
+            return []
+
+        result = OrderedDict()
+        is_last = {}
+
+        for status in head_commit.commit_statuses.all():
+
+            if status.context not in is_last:
+                is_last[status.context] = True
+            elif is_last[status.context]:
+                if status.state in GITHUB_COMMIT_STATUS_CHOICES.FINISHED:
+                    is_last[status.context] = False
+            status.is_last = is_last[status.context]
+
+            result.setdefault(status.context, []).append(status)
+
+        return result.values()
 
     @property
     def total_comments_count(self):
