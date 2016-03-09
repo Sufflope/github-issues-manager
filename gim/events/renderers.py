@@ -144,11 +144,14 @@ class IssueRenderer(Renderer):
             for state, count in new['count_by_state'].items():
                 status = self.helper_get_commit_status(state or 0)
                 if mode == 'text':
-                    parts.append('%s %s' % (count, status.display))
+                    parts.append('%s %s' % (count, status.display.lower()))
                 else:
                     parts.append('%s <span class="state-%s">%s</span>' % (
-                        count, status.constant.lower(), status.display))
-            title += '. %s.' % (', '.join(parts))
+                        count, status.constant.lower(), status.display.lower()))
+            if len(parts) == 1:
+                title += ', with %s.' % part
+            elif len(parts) > 1:
+                title += ', with %s and %s.' % (', '.join(parts[:-1]), parts[-1])
 
         if old['last_head_status']:
             old_status = self.helper_get_commit_status(old['last_head_status'])
