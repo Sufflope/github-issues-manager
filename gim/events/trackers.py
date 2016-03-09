@@ -1,9 +1,11 @@
 # inspired by http://justcramer.com/2010/12/06/tracking-changes-to-fields-in-django/
 
+from collections import defaultdict
+
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_init, post_save, m2m_changed
 
-from gim.core.models import GithubUser,  Milestone, Issue, Label
+from gim.core.models import GithubUser,  Milestone, Issue, Label, GITHUB_COMMIT_STATUS_CHOICES
 
 UNSAVED = dict()
 
@@ -239,7 +241,7 @@ class ChangeTracker(object):
 
 class IssueTracker(ChangeTracker):
     fields = ('title', 'body', 'labels__ids', 'assignee_id', 'milestone_id',
-              'state', 'merged', 'mergeable', 'mergeable_state')
+              'state', 'merged', 'mergeable', 'mergeable_state', 'last_head_status')
     model = Issue
 
     @classmethod
@@ -274,6 +276,9 @@ class IssueTracker(ChangeTracker):
 
             if instance.state == 'closed' and instance.merged is not None:
                 parts.extend(cls.event_part_for_merged(instance, instance.merged, None))
+
+            if instance.last_head_status != GITHUB_COMMIT_STATUS_CHOICES.NOTHING:
+                parts.extend(cls.event_part_for_last_head_status(instance, instance.last_head_status, None))
 
         parts.extend(cls.event_part_for_labels__ids(instance, instance.labels__ids, []))
 
@@ -426,6 +431,28 @@ class IssueTracker(ChangeTracker):
                 'username': instance.merged_by.username,
                 'avatar_url': instance.merged_by.avatar_url,
             }
+
+        return [result]
+
+    @staticmethod
+    def event_part_for_last_head_status(instance, new, old):
+        if old is None and not new:
+            return []
+
+        result = {
+            'field': 'last_head_status',
+            'old_value': {'last_head_status': old},
+            'new_value': {'last_head_status': new},
+        }
+
+        if new:
+            head_commit = instance.get_head_commit()
+            if head_commit:
+                last_statuses = head_commit.get_last_statuses()
+                if last_statuses:
+                    result['new_value']['count_by_state'] = defaultdict(int)
+                    for status in last_statuses:
+                        result['new_value']['count_by_state'][int(status.state)] += 1
 
         return [result]
 

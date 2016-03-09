@@ -1847,20 +1847,27 @@ $().ready(function() {
                         $node.toggleClass('header-stuck', direction == 'down');
                     }
                 });
-                var $tabs = $node.find('.issue-tabs');
-                if ($tabs.length) {
-                    $tabs.waypoint('sticky', {
-                        context: $context,
-                        wrapper: '<div class="sticky-wrapper issue-tabs-sticky-wrapper" />',
-                        stuckClass: 'area-top stuck',
-                        offset: 47 + IssueDetail.get_repository_name_height($node), // stuck header height
-                        handler: function() {
-                            setTimeout(function() { IssueDetail.scroll_tabs($node); }, 500);
-                        }
-                    })
-                }
+                IssueDetail.set_tabs_waypoints($node);
             }, 500);
         }), // set_issue_waypoints
+
+        set_tabs_waypoints: (function IssueDetail__set_tabs_waypoints ($node, $context) {
+            var $tabs = $node.find('.issue-tabs');
+            if ($tabs.length) {
+                if (typeof $context == 'undefined') {
+                    $context = IssueDetail.get_scroll_context($node);
+                }
+                $tabs.waypoint('sticky', {
+                    context: $context,
+                    wrapper: '<div class="sticky-wrapper issue-tabs-sticky-wrapper" />',
+                    stuckClass: 'area-top stuck',
+                    offset: 47 + IssueDetail.get_repository_name_height($node), // stuck header height
+                    handler: function() {
+                        setTimeout(function() { IssueDetail.scroll_tabs($node); }, 500);
+                    }
+                })
+            }
+        }), // IssueDetail__set_tabs_waypoints
 
         set_tab_files_waypoints: (function IssueDetail__set_tab_files_waypoints ($node, $tab_pane, $context) {
             var $files_list_container = $tab_pane.find('.code-files-list-container');
@@ -1892,7 +1899,7 @@ $().ready(function() {
 
         unset_issue_waypoints: (function IssueDetail__unset_issue_waypoints ($node) {
             $node.find(' > .issue-content > .area-top header').waypoint('unsticky');
-            $node.find('.issue-tabs').waypoint('unsticky');
+            IssueDetail.unset_tabs_waypoints($node);
             $node.find('.code-files-list-container').each(function() {
                 $(this).waypoint('unsticky');
             });
@@ -1901,9 +1908,56 @@ $().ready(function() {
             });
         }), // unset_issue_waypoints
 
+        unset_tabs_waypoints: (function IssueDetail__unset_tabs_waypoints ($node) {
+            var $tabs = $node.find('.issue-tabs');
+            if ($tabs.length) {
+                $tabs.waypoint('unsticky');
+            }
+        }), // IssueDetail__unset_tabs_waypoints
+
         unset_tab_files_waypoints: (function IssueDetail__unset_tab_files_waypoints ($tab_pane) {
             $tab_pane.find('.code-files-list-container').waypoint('unsticky');
         }), // unset_tab_files_waypoints
+
+        reload_waypoints: (function IssueDetail__reload_waypoints($node) {
+            IssueDetail.unset_tabs_waypoints($node);
+            IssueDetail.set_tabs_waypoints($node);
+            var $files_tab_pane = $($node.find('.pr-files-tab:not(.template) a').attr('href'));
+            if ($files_tab_pane.length && $files_tab_pane.data('files-list-loaded')) {
+                IssueDetail.unset_tab_files_waypoints($files_tab_pane);
+                IssueDetail.set_tab_files_waypoints($files_tab_pane);
+            }
+            var $review_tab_pane = $($node.find('.pr-review-tab:not(.template) a').attr('href'));
+            if ($review_tab_pane.length && $review_tab_pane.data('review-loaded')) {
+                IssueDetail.unset_tab_review_waypoints($review_tab_pane);
+            }
+        }), // IssueDetail__reload_waypoints
+
+        on_statuses_box_toggled: (function IssueDetail__on_statuses_box_toggled (ev) {
+            if (ev.target != this) { return; }
+            var $node =  $(this).closest('.issue-container');
+            if ($node) {
+                IssueDetail.reload_waypoints($node);
+            }
+        }), // IssueDetail__on_statuses_box_toggled
+
+        on_statuses_box_logs_toggled: (function IssueDetail__on_statuses_box_logs_toggled () {
+            var $node =  $(this).closest('.issue-container');
+            if ($node) {
+                IssueDetail.reload_waypoints($node);
+            }
+            return false;
+        }), // IssueDetail__on_statuses_box_logs_toggled
+
+        on_statuses_box_older_logs_toggled: (function IssueDetail__on_statuses_box_older_logs_toggled () {
+            var $node =  $(this).closest('.issue-container');
+            $(this.parentNode).addClass('show-older');
+            if ($node) {
+                IssueDetail.reload_waypoints($node);
+            }
+            return false;
+        }), // IssueDetail__on_statuses_box_older_logs_toggled
+
 
         is_modal: (function IssueDetail__is_modal ($node) {
             return !!$node.data('$modal');
@@ -3058,12 +3112,17 @@ $().ready(function() {
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));
             jwerty.key('shift+n/shift+j', IssueDetail.on_files_list_key_event('go_to_next_file_comment'));
 
-
             // review navigation
             $document.on('click', 'li:not(.disabled) a.go-to-previous-review-comment', Ev.stop_event_decorate(IssueDetail.go_to_previous_review_comment));
             $document.on('click', 'li:not(.disabled) a.go-to-next-review-comment', Ev.stop_event_decorate(IssueDetail.go_to_next_review_comment));
             jwerty.key('p/k/shift+p/shift+k', IssueDetail.on_review_key_event('go_to_previous_review_comment'));
             jwerty.key('n/j/shift+n/shift+j', IssueDetail.on_review_key_event('go_to_next_review_comment'));
+
+            // toggling statuses
+            $document.on('shown.collapse hidden.collapse', '.pr-commit-statuses', IssueDetail.on_statuses_box_toggled);
+            $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
+            $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
         }) // init
     }; // IssueDetail
     IssueDetail.init();

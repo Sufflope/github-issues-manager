@@ -239,8 +239,128 @@ $repo-name-height: 20px;
             display: inline-block;
             padding-right: 14px;
             margin: 0;
+            & + .alert {
+                margin-left: 1em;
+            }
+        }
+        .pr-last-commit-status {
+            &[data-toggle=collapse] {
+                cursor: pointer;
+            }
+            i {
+                margin-left: 0.5em;
+                @include transform(rotate(90deg));
+                @include transition(transform 0.1s);
+            }
+            &.collapsed {
+                i {
+                    @include transform(rotate(0deg));
+                }
+            }
         }
     }
+    .pr-commit-statuses {
+        margin-top: 1em;
+        margin-bottom: 0;
+        &.collapse {
+            &:not(.in) {
+                border: none;
+                margin-bottom: -1em;
+            }
+            &.in {
+                margin-bottom: 0;
+            }
+        }
+        a.logs-toggler:not(.collapsed) {
+            background: darken($header-gradient-bottom, 2);
+        }
+        td {
+            line-height: 22px;
+            padding: 4px 13px;
+            vertical-align: top;
+            width: 1%;
+            white-space:nowrap;
+        }
+        .state-success {
+            color: $successText;
+        }
+        .state-failure, .state-error {
+            color: $errorText;
+        }
+        .state-pending, .state-unknown {
+            color: $warningText;
+        }
+        .cell-state {
+            i {
+                width: 16px;
+                text-align: center;
+            }
+        }
+        .cell-context {
+            font-weight: bold;
+        }
+        .cell-description {
+            white-space: normal;
+            width: 99%;
+            dl.logs {
+                font-size: 11px;
+                font-family: $monoFontFamily;
+                background: #F7F8FA;
+                border: solid 1px #E3E3E3;
+                @include border-radius(3px);
+                padding: 0;
+                margin-bottom: 9px;
+                margin-top: 6px;
+                dt {
+                    margin-left: 10px;
+                    margin-right: 10px;
+                    &:first-of-type {
+                        margin-top: 6px;
+                    }
+                }
+                dd {
+                    margin-left: 20px;
+                    margin-right: 10px;
+                    &:last-child {
+                        margin-bottom: 6px;
+                    }
+                }
+                > a {
+                    margin-top: 4px;
+                    margin-right: 10px;
+                    font-weight: bold;
+                    float: right;
+                }
+                &.show-older {
+                    > a {
+                        display: none;
+                    }
+                }
+                &:not(.show-older) {
+                    dt.first-is-last {
+                        margin-top: 6px;
+                    }
+                    dt:not(.is-last) {
+                        display: none;
+                        + dd {
+                            display: none;
+                        }
+                    }
+                }
+                &.collapse {
+                    @include transition(margin 0.1s, border-width 0.1s, border-color 0.1s);
+                    &:not(.in) {
+                        border-color: #F7F8FA;
+                        border-top-width: 0;
+                        border-bottom-width: 0;
+                        margin-top: 0;
+                        margin-bottom: 0;
+                    }
+                }
+            }
+        }
+    }
+
     .issue-buttons {
         float: right;
         .btn {
@@ -914,6 +1034,17 @@ $repo-name-height: 20px;
 
     .change-event .box-content {
         margin: 5px 10px;
+    }
+    .part-last_head_status {
+        .state-success {
+            color: $successText;
+        }
+        .state-failure, .state-error {
+            color: $errorText;
+        }
+        .state-pending, .state-unknown {
+            color: $warningText;
+        }
     }
 
     .code-comments-group .box-content {

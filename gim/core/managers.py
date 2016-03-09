@@ -1230,3 +1230,55 @@ class CommitCommentEntryPointManager(CommentEntryPointManagerMixin):
 
 class IssueCommitsManager(BaseManager):
     pass
+
+
+class CommitStatusManager(WithCommitManager):
+    """
+    This manager is for the CommitStatus model, with an enhanced
+    get_object_fields_from_dict method to convert the state from a string to a value in
+    GITHUB_COMMIT_STATUS_CHOICES
+    """
+
+    sha_finder = re.compile('^https://api.github\.com/repos/(?:[^/]+/[^/]+)/commits/(?P<sha>[\da-f]{40})/status')
+    sha_finder_legacy = re.compile('^https://api.github\.com/repos/(?:[^/]+/[^/]+)/statuses/(?P<sha>[\da-f]{40})')
+
+    def get_sha_in_url(self, url):
+        """
+        Taking an url, try to return the sha
+        """
+        if not url:
+            return None
+        match = self.sha_finder.match(url) or self.sha_finder_legacy.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('sha', None)
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+        """
+        Convert the state given as a string from Github, to a value in  GITHUB_COMMIT_STATUS_CHOICES
+        """
+
+        if defaults is None:
+            defaults = {}
+
+        # To let WithCommitManager find a commit
+        if not data.get('commit') and not defaults.get('fk', {}).get('commit') and not data.get('path'):
+            if not data.get('url'):
+                # We can't if the url of the status is not in the data
+                return None
+            data['sha'] = self.get_sha_in_url(data['url'])
+
+        # Convert state
+        state_str = data['state']
+        try:
+            data['state'] = [c.value for c in self.model.GITHUB_COMMIT_STATUS_CHOICES.entries
+                             if state_str == c.constant.lower()][0]
+        except IndexError:
+            data['state'] = self.model.GITHUB_COMMIT_STATUS_CHOICES.OTHER
+
+        # Default context
+        if not data.get('context'):
+            data['context'] = self.model._meta.get_field('context').default
+
+        return super(CommitStatusManager, self).get_object_fields_from_dict(
+                                                data, defaults, saved_objects)

@@ -2,6 +2,7 @@
 
 __all__ = [
     'FetchCommitBySha',
+    'FetchCommitStatuses',
 ]
 
 from datetime import datetime
@@ -13,7 +14,7 @@ from limpyd_jobs import STATUSES
 from gim.core.models import Repository, Commit
 from gim.core.ghpool import ApiNotFoundError
 
-from .base import Job
+from .base import DjangoModelJob, Job
 
 
 class FetchCommitBySha(Job):
@@ -91,3 +92,73 @@ class FetchCommitBySha(Job):
     def success_message_addon(self, queue, result):
         if result is False:
             return ' [deleted]'
+
+
+class CommitJob(DjangoModelJob):
+    """
+    Abstract job model for jobs based on the Issue model
+    """
+    abstract = True
+    model = Commit
+
+    @property
+    def commit(self):
+        if not hasattr(self, '_commit'):
+            self._commit = self.object
+        return self._commit
+
+    @property
+    def repository(self):
+        if not hasattr(self, '_repository'):
+            self._repository = self.commit.repository
+        return self._repository
+
+
+class FetchCommitStatuses(CommitJob):
+    """
+    Fetch the statuses of a commit, and requeue it if commits has pending jobs
+    """
+    queue_name = 'fetch-commit-statuses'
+
+    force_fetch = fields.InstanceHashField()
+    force_requeue = fields.InstanceHashField()
+    iteration = fields.InstanceHashField()
+
+    permission = 'read'
+    clonable_fields = ('force_fetch', 'force_requeue')
+
+    def run(self, queue):
+        """
+        Get the commit and get the statuses
+        """
+        super(FetchCommitStatuses, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        force_fetch = self.force_fetch.hget() == '1'
+        force_requeue = self.force_requeue.hget() == '1'
+
+        count = self.commit.fetch_commit_statuses(gh=gh, force_fetch=force_fetch, refetch_for_pending=False)
+
+        return count, force_requeue or self.commit.has_pending_statuses()
+
+    def on_success(self, queue, result):
+        """
+        If there is still issues to fetch, add a new job
+        """
+
+        if result[1]:
+            iteration = int(self.iteration.hget() or 0)
+            if iteration <= 10:
+                self.clone(delayed_for=60*1.5**iteration, iteration=iteration+1)
+
+    def success_message_addon(self, queue, result):
+        """
+        Display the count of closed issues fetched
+        """
+        if result[1]:
+            return ' [fetched=%d (iteration %s), requeued ]' % (result[0], int(self.iteration.hget() or 0))
+        else:
+            return ' [fetched=%d (iteration %s)]' % (result[0], int(self.iteration.hget() or 0))
