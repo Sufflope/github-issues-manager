@@ -334,3 +334,13 @@ class CommitStatus(GithubObjectWithId):
         except Exception:
             return None
 
+    def save(self, *args, **kwargs):
+        super(CommitStatus, self).save(*args, **kwargs)
+
+        # Flag the repository as accepting commit statuses. To be used on UI to show differently
+        # pull requests with no statuses
+        if not self.repository.has_commit_statuses:
+            self.repository.has_commit_statuses = True
+            self.repository.save(update_fields=['has_commit_statuses'])
+
+

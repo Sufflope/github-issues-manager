@@ -54,7 +54,7 @@ GITHUB_STATUS_CHOICES.NOT_READY = (
 
 
 GITHUB_COMMIT_STATUS_CHOICES = Choices(
-    ('NOTHING', 0, u'No statuses yet'),
+    ('NOTHING', 0, u'Nothing yet'),
     ('PENDING', 10, u'Pending'),
     ('UNKNOWN', 20, u'Unknown'),
     ('ERROR', 30, u'Error'),

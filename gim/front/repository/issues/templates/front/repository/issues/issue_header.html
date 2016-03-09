@@ -128,9 +128,22 @@
                             <div class="alert alert-error">Not merged</div>
                         {% endif %}
                     {% endif %}
-                    {% if current_issue.last_head_status %}
+                    {% if current_issue.last_head_status or current_repository.has_commit_statuses %}
                         {% with status=current_issue.last_head_status %}
-                            <div title="Click to toggle details" class="alert alert-{% if status == STATUS_CHOICES.SUCCESS %}success{% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}error{% else %}warning{% endif %} pr-last-commit-status collapsed" data-toggle="collapse" data-target="#pr-commit-statuses-{{ statuses_uuid }}">Checks: <strong>{{ current_issue.get_last_head_status_display|lower }}</strong><i class="fa fa-caret-right"></i></div>
+                            <div
+                                    {% if current_issue.last_head_status %}title="Click to toggle details"{% endif %}
+                                    class="alert alert-{% if status == STATUS_CHOICES.SUCCESS %}success{% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}error{% else %}warning{% endif %} pr-last-commit-status collapsed"
+                                    {% if current_issue.last_head_status %}
+                                        data-toggle="collapse"
+                                        data-target="#pr-commit-statuses-{{ statuses_uuid }}"
+                                    {% endif %}
+                                >
+                                Checks:
+                                <strong>{{ current_issue.get_last_head_status_display|lower }}</strong>
+                                {% if current_issue.last_head_status %}
+                                    <i class="fa fa-caret-right"></i>
+                                {% endif %}
+                            </div>
                         {% endwith %}
                     {%  endif %}
                 </div>
@@ -148,7 +161,7 @@
                         <tbody>
                         {% for context in current_issue.get_all_commit_statuses %}
                             <tr>
-                                <td class="cell-state state-{{ context.0.state_constant|lower }}">
+                                <td class="cell-state state-{{ context.0.state_constant|lower }}" title="{{ context.0.updated_at }}">
                                     {% if context.0.state == STATUS_CHOICES.SUCCESS %}
                                         <i class="fa fa-check"></i>
                                     {% elif context.0.state == STATUS_CHOICES.ERROR or context.0.state == STATUS_CHOICES.FAILURE %}

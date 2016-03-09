@@ -60,6 +60,7 @@ class Repository(GithubObjectWithId):
     commit_comments_etag = models.CharField(max_length=64, blank=True, null=True)
     # this list is not ordered, we must memorize the last page
     commit_comments_last_page = models.PositiveIntegerField(blank=True, null=True)
+    has_commit_statuses = models.BooleanField(default=False)
 
     objects = RepositoryManager()
 
