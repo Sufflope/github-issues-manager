@@ -125,7 +125,7 @@ class IssueRenderer(Renderer):
         return title
 
     def helper_get_commit_status(self, value):
-        return GITHUB_COMMIT_STATUS_CHOICES.for_value(value or 0)
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(int(value or 0))
 
     def render_part_last_head_status(self, part, mode):
         new, old = part.new_value, part.old_value
