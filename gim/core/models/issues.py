@@ -380,6 +380,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             try:
                 self._head_commits[self.head_sha] = self.commits.get(sha=self.head_sha)
             except self.commits.model.DoesNotExist:
+                from gim.core.tasks.commit import FetchCommitBySha
+                FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.head_sha))
                 self._head_commits[self.head_sha] = None
 
         return self._head_commits[self.head_sha]
@@ -450,8 +452,13 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         """
         If the user, which is mandatory, is not defined, use (and create if
         needed) a special user named 'user.deleted'
+
         Also check that if the issue is reopened, we'll be able to fetch the
         future closed_by
+
+        Also update the `last_head_status` if the head_sha changed.
+        The new head commit may not be here or may not have statuses, in this case we simple
+        set the last status as not set, this will be done later.
         """
         from .users import GithubUser
 
@@ -467,6 +474,14 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if fields_to_update and kwargs.get('update_fields'):
             kwargs['update_fields'].extend(fields_to_update)
+
+        if 'head_sha' in kwargs.get('update_fields', []):
+            head_commit = self.get_head_commit(force=True)
+            last_head_status = head_commit.last_status if head_commit else GITHUB_COMMIT_STATUS_CHOICES.NOTHING
+            if last_head_status != self.last_head_status:
+                self.last_head_status = last_head_status
+                if 'last_head_status' not in kwargs['update_fields']:
+                    kwargs['update_fields'].append('last_head_status')
 
         super(Issue, self).save(*args, **kwargs)
 

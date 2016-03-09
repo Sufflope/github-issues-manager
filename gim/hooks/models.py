@@ -345,7 +345,7 @@ class EventManager(object):
         }
 
     def fetch_issue(self, number):
-        FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, number), force_fetch=1)
+        FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, number))
 
     def event_issues(self, payload, action, fetch_issue=True):
         result = core_models.Issue.objects.create_or_update_from_dict(
