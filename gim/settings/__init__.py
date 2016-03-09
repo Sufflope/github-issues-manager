@@ -232,6 +232,11 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
         },
+        'gim': {
+            'handlers': ['mail_admins', 'console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
         'gim.ws': {
             'handlers': ['console'],
             'level': 'INFO',

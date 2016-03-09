@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from functools import partial
 from mock import patch
@@ -16,6 +17,8 @@ from gim.ws import publisher
 
 
 from . import EVENTS
+
+logger = logging.getLogger('gim.hooks.views')
 
 
 HOOK_INFOS = {
@@ -207,9 +210,9 @@ class _Repository(models.Model):
                                     )
 
                         except Exception:
+                            logger.exception("Couldn't handle event of type `%s`" % event.get('type'))
                             # we don't care if we cannot manage an event, the full repos
                             # will be fetched soon...
-                            pass
 
             finally:
                 # We now can send the intercepted messages
@@ -345,113 +348,84 @@ class EventManager(object):
         FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, number), force_fetch=1)
 
     def event_issues(self, payload, action, fetch_issue=True):
-        try:
-            result = core_models.Issue.objects.create_or_update_from_dict(
-                        data=payload,
-                        modes=MODE_ALL,
-                        defaults=self.get_defaults(),
-                        saved_objects=SavedObjects(),
-                    )
+        result = core_models.Issue.objects.create_or_update_from_dict(
+                    data=payload,
+                    modes=MODE_ALL,
+                    defaults=self.get_defaults(),
+                    saved_objects=SavedObjects(),
+                )
 
-            if fetch_issue:
-                self.fetch_issue(result.number)
+        if fetch_issue:
+            self.fetch_issue(result.number)
 
-            return result
-
-        except Exception:
-            return None
+        return result
 
     def event_issue_comment(self, payload, action, fetch_issue=True):
-        try:
-            result = core_models.IssueComment.objects.create_or_update_from_dict(
-                        data=payload,
-                        modes=MODE_ALL,
-                        defaults=self.get_defaults(),
-                        saved_objects=SavedObjects(),
-                    )
+        result = core_models.IssueComment.objects.create_or_update_from_dict(
+                    data=payload,
+                    modes=MODE_ALL,
+                    defaults=self.get_defaults(),
+                    saved_objects=SavedObjects(),
+                )
 
-            if fetch_issue:
-                self.fetch_issue(result.issue.number)
+        if fetch_issue:
+            self.fetch_issue(result.issue.number)
 
-            return result
-
-        except Exception:
-            return None
+        return result
 
     def event_pull_request(self, payload, action, fetch_issue=True, label=None):
-        try:
-            defaults = self.get_defaults()
-            defaults.setdefault('simple', {})['is_pull_request'] = True
+        defaults = self.get_defaults()
+        defaults.setdefault('simple', {})['is_pull_request'] = True
 
-            if action in ('labeled', 'unlabeled') and label:
-                # We don't have the labels in the pull request data, so we'll compute them
-                # But only if we already have the pull request
-                number = core_models.Issue.objects.get_number_from_url(payload['url'])
-                if number:
-                    try:
-                        issue = self.repository.issues.get(number=number)
-                    except core_models.Issue.DoesNotExist:
-                        pass
-                    else:
-                        labels = [{
-                            'url': l.api_url,
-                            'name': l.name,
-                            'color': l.color,
-                        } for l in issue.labels.all() if l.name != label['name']]
-                        if action == 'labeled':
-                            labels.append(label)
-                        payload['labels'] = labels
+        if action in ('labeled', 'unlabeled') and label:
+            # We don't have the labels in the pull request data, so we'll compute them
+            # But only if we already have the pull request
+            number = core_models.Issue.objects.get_number_from_url(payload['url'])
+            if number:
+                try:
+                    issue = self.repository.issues.get(number=number)
+                except core_models.Issue.DoesNotExist:
+                    pass
+                else:
+                    labels = [{
+                        'url': l.api_url,
+                        'name': l.name,
+                        'color': l.color,
+                    } for l in issue.labels.all() if l.name != label['name']]
+                    if action == 'labeled':
+                        labels.append(label)
+                    payload['labels'] = labels
 
-            result = core_models.Issue.objects.create_or_update_from_dict(
-                        data=payload,
-                        modes=MODE_ALL,
-                        defaults=defaults,
-                        fetched_at_field='pr_fetched_at',
-                        saved_objects=SavedObjects(),
-                    )
+        result = core_models.Issue.objects.create_or_update_from_dict(
+                    data=payload,
+                    modes=MODE_ALL,
+                    defaults=defaults,
+                    fetched_at_field='pr_fetched_at',
+                    saved_objects=SavedObjects(),
+                )
 
-            if fetch_issue:
-                self.fetch_issue(result.number)
+        if fetch_issue:
+            self.fetch_issue(result.number)
 
-            return result
-
-        except Exception:
-            return None
+        return result
 
     def event_pull_request_review_comment(self, payload, action, fetch_issue=True):
-        try:
-            defaults = self.get_defaults()
+        defaults = self.get_defaults()
 
-            # is the issue already exists ?
-            number = core_models.Issue.objects.get_number_from_url(payload['pull_request_url'])
-            if not number:
-                return None
-
-            try:
-                issue = self.repository.issues.get(number=number)
-            except core_models.Issue.DoesNotExist:
-                self.fetch_issue(number)
-            else:
-                defaults['fk']['issue'] = issue
-                defaults.setdefault('related', {}).setdefault('issue', {}).setdefault('simple', {})['is_pull_request'] = True
-
-                result = core_models.PullRequestComment.objects.create_or_update_from_dict(
-                            data=payload,
-                            modes=MODE_ALL,
-                            defaults=defaults,
-                            saved_objects=SavedObjects(),
-                        )
-
-                return result
-
-        except Exception:
+        # is the issue already exists ?
+        number = core_models.Issue.objects.get_number_from_url(payload['pull_request_url'])
+        if not number:
             return None
 
-    def event_commit_comment(self, payload, action, fetch_issue=True):
         try:
-            defaults = self.get_defaults()
+            issue = self.repository.issues.get(number=number)
+        except core_models.Issue.DoesNotExist:
+            self.fetch_issue(number)
+        else:
+            defaults['fk']['issue'] = issue
+            defaults.setdefault('related', {}).setdefault('issue', {}).setdefault('simple', {})['is_pull_request'] = True
 
-            result = core_models.CommitComment.objects.create_or_update_from_dict(
+            result = core_models.PullRequestComment.objects.create_or_update_from_dict(
                         data=payload,
                         modes=MODE_ALL,
                         defaults=defaults,
@@ -460,8 +434,17 @@ class EventManager(object):
 
             return result
 
-        except Exception:
-            return None
+    def event_commit_comment(self, payload, action, fetch_issue=True):
+        defaults = self.get_defaults()
+
+        result = core_models.CommitComment.objects.create_or_update_from_dict(
+                    data=payload,
+                    modes=MODE_ALL,
+                    defaults=defaults,
+                    saved_objects=SavedObjects(),
+                )
+
+        return result
 
     def event_push(self, payload, action, fetch_issue=True):
         """
@@ -489,24 +472,19 @@ class EventManager(object):
         return numbers
 
     def event_status(self, payload, action, fetch_issue=True):
-        try:
-            defaults = self.get_defaults()
+        defaults = self.get_defaults()
 
-            result = core_models.CommitStatus.objects.create_or_update_from_dict(
-                        data=payload,
-                        modes=MODE_ALL,
-                        defaults=defaults,
-                        saved_objects=SavedObjects(),
-                    )
+        result = core_models.CommitStatus.objects.create_or_update_from_dict(
+                    data=payload,
+                    modes=MODE_ALL,
+                    defaults=defaults,
+                    saved_objects=SavedObjects(),
+                )
 
-            if result:
-                result.commit.update_last_status(fetch_pull_requests=fetch_issue)
+        if result:
+            result.commit.update_last_status(fetch_pull_requests=fetch_issue)
 
-            return result
-
-        except Exception:
-            return None
-
+        return result
 
 
 from gim.hooks.tasks import *
