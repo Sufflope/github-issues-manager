@@ -78,16 +78,7 @@ class FetchIssueByNumber(Job):
         force_fetch = self.force_fetch.hget() == '1'
         force_fetch_all = self.force_fetch_all.hget() == '1'
         try:
-            # prefetch full data if wanted
-            if force_fetch and not force_fetch_all:
-                if repository.has_issues:
-                    issue.fetch(gh, force_fetch=True)
-                if issue.is_pull_request:
-                    issue.fetch_pr(gh, force_fetch=True)
-
-            # now the normal fetch, if we previously force fetched they'll result in 304
-            # except if force_fetch_all
-            issue.fetch_all(gh, force_fetch=force_fetch_all)
+            issue.fetch_all(gh, force_fetch=force_fetch or force_fetch_all) # both flags for legacy jobs
         except ApiNotFoundError, e:
             # we have a 404, but... check if it's the issue itself
             try:

@@ -6,4 +6,5 @@ EVENTS = {
     'pull_request_review_comment': 'PullRequestReviewCommentEvent',
     'commit_comment': 'CommitCommentEvent',
     'push': 'PushEvent',
+    'status': 'StatusEvent',
 }

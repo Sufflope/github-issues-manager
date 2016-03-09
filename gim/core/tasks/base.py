@@ -1,4 +1,5 @@
 import json
+from httplib import BadStatusLine
 
 from ssl import SSLError
 from threading import local
@@ -113,7 +114,7 @@ class Worker(LimpydWorker):
         """Delay job when github is not reachable."""
         try:
             job_result = super(Worker, self).execute(job, queue)
-        except (URLError, SSLError, ApiError) as exception:
+        except (URLError, SSLError, ApiError, BadStatusLine) as exception:
 
             if isinstance(exception, ApiError) and getattr(exception, 'code', None) != 500:
                 # If the error from Github is other than 500, we don't manage it here

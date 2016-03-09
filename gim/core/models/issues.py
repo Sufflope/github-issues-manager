@@ -8,6 +8,7 @@ __all__ = [
     'Milestone',
 ]
 
+from collections import OrderedDict
 import re
 
 from django.contrib.contenttypes.models import ContentType
@@ -30,6 +31,7 @@ from ..managers import (
 from .base import (
     GithubObject,
     GithubObjectWithId,
+    GITHUB_COMMIT_STATUS_CHOICES,
 )
 
 from .mixins import (
@@ -68,7 +70,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     base_label = models.TextField(blank=True, null=True)
     base_sha = models.CharField(max_length=256, blank=True, null=True)
     head_label = models.TextField(blank=True, null=True)
-    head_sha = models.CharField(max_length=256, blank=True, null=True)
+    head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
+    last_head_status = models.PositiveSmallIntegerField(
+        default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING, choices=GITHUB_COMMIT_STATUS_CHOICES)
     merged_at = models.DateTimeField(blank=True, null=True)
     merged_by = models.ForeignKey('GithubUser', related_name='merged_prs', blank=True, null=True)
     github_pr_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
@@ -86,6 +90,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     files_fetched_at = models.DateTimeField(blank=True, null=True)
     files_etag = models.CharField(max_length=64, blank=True, null=True)
 
+    GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
+
     objects = IssueManager()
 
     github_matching = dict(GithubObjectWithId.github_matching)
@@ -102,7 +108,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         'nb_changed_files', ) + ('head', 'commits_url', 'body_text', 'url', 'labels_url',
         'events_url', 'comments_url', 'html_url', 'merge_commit_sha', 'review_comments_url',
         'review_comment_url', 'base', 'patch_url', 'pull_request', 'diff_url',
-        'statuses_url', 'issue_url', )
+        'statuses_url', 'issue_url', 'last_head_status')
 
     github_format = '.full+json'
     github_edit_fields = {
@@ -347,11 +353,16 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Issue, self).fetch_all(gh, force_fetch=force_fetch)
-        #self.fetch_labels(gh, force_fetch=force_fetch)  # already retrieved via self.fetch
+        # self.fetch_labels(gh, force_fetch=force_fetch)  # already retrieved via self.fetch
 
         if self.is_pull_request:
             # fetch commits first because they may be used as references in comments
             self.fetch_commits(gh, force_fetch=force_fetch)
+            # Neded actions may already be done in paralelle because the fetch of the commits
+            # may launch a `FetchCommitBySha` job for each commit.
+            # But as we need info about the very last one in the list, we may be faster by doing it
+            # now.
+            self.fetch_head_commit_statuses(gh, force_fetch)
 
         self.fetch_events(gh, force_fetch=True)
         self.fetch_comments(gh, force_fetch=force_fetch)
@@ -360,6 +371,62 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self.fetch_pr(gh, force_fetch=force_fetch)
             self.fetch_pr_comments(gh, force_fetch=force_fetch)
             self.fetch_files(gh, force_fetch=force_fetch)
+
+    def get_head_commit(self, force=False):
+        if not hasattr(self, '_head_commits'):
+            self._head_commits = {}
+
+        if force or self.head_sha not in self._head_commits:
+            try:
+                self._head_commits[self.head_sha] = self.commits.get(sha=self.head_sha)
+            except self.commits.model.DoesNotExist:
+                from gim.core.tasks.commit import FetchCommitBySha
+                FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.head_sha))
+                self._head_commits[self.head_sha] = None
+
+        return self._head_commits[self.head_sha]
+
+    def fetch_head_commit_statuses(self, gh, force_fetch=None):
+        head_commit = self.get_head_commit()
+        if not head_commit:
+            return
+
+        already_fetched = bool(head_commit.commit_statuses_fetched_at)
+
+        if not already_fetched:
+            # On the first time, we may not have any statuses yet, they may come later
+            head_commit.delay_fetch_pending_statuses(delayed_for=60, force_requeue=1, force_fetch=force_fetch)
+
+        # If it's the first fetch, don't refetch if pending statuses because we just did it
+        # We had to do this because the first job for an identifier defines the arguments,
+        # and here we want `force_requeued` to be set
+        head_commit.fetch_commit_statuses(gh, force_fetch, refetch_for_pending=already_fetched)
+
+    def get_all_commit_statuses(self):
+        """
+        Return all the commit statuses in a format usable in template:
+        A list with one entry by `context`, ordered by last `updated_at`, each entry being a list
+        with all statuses for this context, ordered by last `updated_at`
+        """
+        head_commit = self.get_head_commit()
+        if not head_commit:
+            return []
+
+        result = OrderedDict()
+        is_last = {}
+
+        for status in head_commit.commit_statuses.all():
+
+            if status.context not in is_last:
+                is_last[status.context] = True
+            elif is_last[status.context]:
+                if status.state in GITHUB_COMMIT_STATUS_CHOICES.FINISHED:
+                    is_last[status.context] = False
+            status.is_last = is_last[status.context]
+
+            result.setdefault(status.context, []).append(status)
+
+        return result.values()
 
     @property
     def total_comments_count(self):
@@ -385,8 +452,13 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         """
         If the user, which is mandatory, is not defined, use (and create if
         needed) a special user named 'user.deleted'
+
         Also check that if the issue is reopened, we'll be able to fetch the
         future closed_by
+
+        Also update the `last_head_status` if the head_sha changed.
+        The new head commit may not be here or may not have statuses, in this case we simple
+        set the last status as not set, this will be done later.
         """
         from .users import GithubUser
 
@@ -402,6 +474,14 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if fields_to_update and kwargs.get('update_fields'):
             kwargs['update_fields'].extend(fields_to_update)
+
+        if 'head_sha' in kwargs.get('update_fields', []):
+            head_commit = self.get_head_commit(force=True)
+            last_head_status = head_commit.last_status if head_commit else GITHUB_COMMIT_STATUS_CHOICES.NOTHING
+            if last_head_status != self.last_head_status:
+                self.last_head_status = last_head_status
+                if 'last_head_status' not in kwargs['update_fields']:
+                    kwargs['update_fields'].append('last_head_status')
 
         super(Issue, self).save(*args, **kwargs)
 
