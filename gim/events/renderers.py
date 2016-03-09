@@ -125,7 +125,7 @@ class IssueRenderer(Renderer):
         return title
 
     def helper_get_commit_status(self, value):
-        return GITHUB_COMMIT_STATUS_CHOICES.for_value(value or 0)
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(int(value or 0))
 
     def render_part_last_head_status(self, part, mode):
         new, old = part.new_value, part.old_value
@@ -144,11 +144,14 @@ class IssueRenderer(Renderer):
             for state, count in new['count_by_state'].items():
                 status = self.helper_get_commit_status(state or 0)
                 if mode == 'text':
-                    parts.append('%s %s' % (count, status.display))
+                    parts.append('%s %s' % (count, status.display.lower()))
                 else:
                     parts.append('%s <span class="state-%s">%s</span>' % (
-                        count, status.constant.lower(), status.display))
-            title += '. %s.' % (', '.join(parts))
+                        count, status.constant.lower(), status.display.lower()))
+            if len(parts) == 1:
+                title += ', with %s.' % part
+            elif len(parts) > 1:
+                title += ', with %s and %s.' % (', '.join(parts[:-1]), parts[-1])
 
         if old['last_head_status']:
             old_status = self.helper_get_commit_status(old['last_head_status'])
