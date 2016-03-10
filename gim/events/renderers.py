@@ -149,7 +149,7 @@ class IssueRenderer(Renderer):
                     parts.append('%s <span class="state-%s">%s</span>' % (
                         count, status.constant.lower(), status.display.lower()))
             if len(parts) == 1:
-                title += ', with %s.' % part
+                title += ', with %s.' % parts[0]
             elif len(parts) > 1:
                 title += ', with %s and %s.' % (', '.join(parts[:-1]), parts[-1])
 
