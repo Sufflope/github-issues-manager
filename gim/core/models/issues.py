@@ -71,6 +71,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     base_sha = models.CharField(max_length=256, blank=True, null=True)
     head_label = models.TextField(blank=True, null=True)
     head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
+    last_head_commit = models.ForeignKey('Commit', related_name='', blank=True, null=True)
     last_head_status = models.PositiveSmallIntegerField(
         default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING, choices=GITHUB_COMMIT_STATUS_CHOICES)
     merged_at = models.DateTimeField(blank=True, null=True)
@@ -378,8 +379,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if force or self.head_sha not in self._head_commits:
             try:
-                self._head_commits[self.head_sha] = self.commits.get(sha=self.head_sha)
-            except self.commits.model.DoesNotExist:
+                self._head_commits[self.head_sha] = self.repository.commits.get(sha=self.head_sha)
+            except self.repository.commits.model.DoesNotExist:
                 from gim.core.tasks.commit import FetchCommitBySha
                 FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.head_sha))
                 self._head_commits[self.head_sha] = None
@@ -402,31 +403,12 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         # and here we want `force_requeued` to be set
         head_commit.fetch_commit_statuses(gh, force_fetch, refetch_for_pending=already_fetched)
 
-    def get_all_commit_statuses(self):
+    def get_all_head_commits(self):
         """
-        Return all the commit statuses in a format usable in template:
-        A list with one entry by `context`, ordered by last `updated_at`, each entry being a list
-        with all statuses for this context, ordered by last `updated_at`
+        Return all present and past head commits
         """
-        head_commit = self.get_head_commit()
-        if not head_commit:
-            return []
-
-        result = OrderedDict()
-        is_last = {}
-
-        for status in head_commit.commit_statuses.all():
-
-            if status.context not in is_last:
-                is_last[status.context] = True
-            elif is_last[status.context]:
-                if status.state in GITHUB_COMMIT_STATUS_CHOICES.FINISHED:
-                    is_last[status.context] = False
-            status.is_last = is_last[status.context]
-
-            result.setdefault(status.context, []).append(status)
-
-        return result.values()
+        return [ic.commit for ic in self.related_commits.filter(pull_request_head_at__isnull=False)
+            .select_related('commit').order_by('pull_request_head_at')]
 
     @property
     def total_comments_count(self):
@@ -462,33 +444,68 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         """
         from .users import GithubUser
 
-        fields_to_update = []
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = set(update_fields)
+
+        fields_to_update = set()
 
         if self.user_id is None:
             self.user = GithubUser.objects.get_deleted_user()
-            fields_to_update.append('user')
+            fields_to_update.add('user')
 
         if self.state != 'closed' and self.closed_by_fetched:
             self.closed_by_fetched = False
-            fields_to_update.append('closed_by_fetched')
+            fields_to_update.add('closed_by_fetched')
 
-        if fields_to_update and kwargs.get('update_fields'):
-            kwargs['update_fields'].extend(fields_to_update)
+        if update_fields is None or 'head_sha' in update_fields:
+            if self.update_last_head_commit(save=False):
+                fields_to_update.add('last_head_commit')
 
-        if 'head_sha' in kwargs.get('update_fields', []):
-            head_commit = self.get_head_commit(force=True)
-            last_head_status = head_commit.last_status if head_commit else GITHUB_COMMIT_STATUS_CHOICES.NOTHING
-            if last_head_status != self.last_head_status:
-                self.last_head_status = last_head_status
-                if 'last_head_status' not in kwargs['update_fields']:
-                    kwargs['update_fields'].append('last_head_status')
+            if self.update_last_head_status(self.last_head_commit, save=False):
+                fields_to_update.add('last_head_status')
+
+        if update_fields is not None:
+            update_fields.update(fields_to_update)
+            kwargs['update_fields'] = list(update_fields)
 
         super(Issue, self).save(*args, **kwargs)
 
-        if not kwargs.get('updated_field')\
-                or 'body_html' in kwargs['updated_field']\
-                or 'title' in kwargs['updated_field']:
+        if update_fields is None or 'body_html' in update_fields or 'title' in update_fields:
             IssueEvent.objects.check_references(self, ['body_html', 'title'])
+
+    def update_last_head_commit(self, commit=models.NOT_PROVIDED, save=True):
+        if commit is models.NOT_PROVIDED:
+            commit = self.get_head_commit(force=True)
+
+        if commit == self.last_head_commit:
+            return False
+
+        self.last_head_commit = commit
+
+        if save:
+            self.save(update_fields=['last_head_commit'])
+
+        return True
+
+    def update_last_head_status(self, commit=models.NOT_PROVIDED, save=True):
+        if commit is models.NOT_PROVIDED:
+            commit = self.get_head_commit(force=True)
+
+        if not commit or not commit.last_status or commit.last_status == self.last_head_status:
+            # Note: we keep the previous status if we had one and the new commit doesn't
+            return False
+
+        self.last_head_status = commit.last_status
+
+        if save:
+            self.save(update_fields=['last_head_status'])
+
+        return True
+
+    @property
+    def last_head_status_constant(self):
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.last_head_status).constant
 
     @property
     def is_mergeable(self):

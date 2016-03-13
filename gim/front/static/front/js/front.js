@@ -3119,7 +3119,7 @@ $().ready(function() {
             jwerty.key('n/j/shift+n/shift+j', IssueDetail.on_review_key_event('go_to_next_review_comment'));
 
             // toggling statuses
-            $document.on('shown.collapse hidden.collapse', '.pr-commit-statuses', IssueDetail.on_statuses_box_toggled);
+            $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-commit-statuses .box-content', IssueDetail.on_statuses_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
 
