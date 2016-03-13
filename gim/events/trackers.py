@@ -437,6 +437,12 @@ class IssueTracker(ChangeTracker):
     @staticmethod
     def event_part_for_last_head_status(instance, new, old):
         if old is None and not new:
+            # Status for a new pr. No notification if still "nothing"
+            return []
+
+        if old and not new:
+            # We had a status (not "nothing") but we don't have anymore, it means that the PR
+            # has a new head sha and it's status will be set to "pending" soon, so we don't notify
             return []
 
         result = {

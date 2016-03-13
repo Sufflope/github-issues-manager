@@ -112,30 +112,54 @@ class Commit(WithRepositoryMixin, GithubObject):
         Handle case where author/commiter computer have dates in the future: in
         this case, set these dates to now, to avoid inexpected rendering
         """
+
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = set(update_fields)
+
+        fields_to_update = set()
+
         now = datetime.utcnow()
         skip_update_issues = kwargs.pop('skip_update_issues', False)
 
         if self.authored_at and self.authored_at > now:
             self.authored_at = now
-            if 'update_fields' in kwargs and 'authored_at' not in kwargs['update_fields']:
-                kwargs['update_fields'].append('authored_at')
+            fields_to_update.add('authored_at')
 
         if self.committed_at and self.committed_at > now:
             self.committed_at = now
-            if 'update_fields' in kwargs and 'committed_at' not in kwargs['update_fields']:
-                kwargs['update_fields'].append('committed_at')
+            fields_to_update.add('committed_at')
 
         if self.pk and not self.nb_changed_files:
             self.nb_changed_files = self.files.count()
-            if 'update_fields' in kwargs and 'nb_changed_files' not in kwargs['update_fields']:
-                kwargs['update_fields'].append('nb_changed_files')
+            fields_to_update.add('nb_changed_files')
+
+        if update_fields is not None:
+            update_fields.update(fields_to_update)
+            kwargs['update_fields'] = list(update_fields)
 
         super(Commit, self).save(*args, **kwargs)
 
         if not skip_update_issues:
-            update_fields = kwargs.get('update_fields', None)
             if update_fields is None or 'comments_count' in update_fields:
                 self.update_issues_comments_count()
+
+        head_pull_requests = self.get_head_pull_requests()
+        self.update_pull_requests_head(pull_requests=head_pull_requests)
+        self.update_pull_requests_last_status(pull_requests=head_pull_requests)
+
+    def update_pull_requests_head(self, pull_requests=None):
+        if pull_requests is None:
+            pull_requests = self.get_head_pull_requests()
+
+        for pr in pull_requests:
+            try:
+                issue_commit = IssueCommits.objects.get(commit=self, issue=pr, pull_request_head_at__isnull=True)
+            except IssueCommits.DoesNotExist:
+                pass
+            else:
+                issue_commit.pull_request_head_at = self.committed_at or self.authored_at or datetime.utcnow()
+                issue_commit.save(update_fields=['pull_request_head_at'])
 
     def update_issues_comments_count(self):
         for issue in self.issues.all():
@@ -242,12 +266,11 @@ class Commit(WithRepositoryMixin, GithubObject):
                                              force_requeue=force_requeue,
                                              force_fetch=force_fetch)
 
-    def head_pull_requests(self):
-        """Returns all pull requests having this commit as head commit"""
+    def get_head_pull_requests(self):
+        """Returns all pull requests having this commit sha as head sha"""
         return self.repository.issues.filter(is_pull_request=True, head_sha=self.sha)
 
     def update_last_status(self, fetch_pull_requests=True, fetch_pending=True):
-        from gim.core.tasks import FetchIssueByNumber
 
         last_statuses = self.get_last_statuses()
         last_status = min(s.state for s in last_statuses) if last_statuses \
@@ -256,12 +279,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         if last_status != self.last_status:
             self.last_status = last_status
             self.save(update_fields=['last_status'])
-            for pr in self.head_pull_requests():
-                if pr.last_head_status != last_status:
-                    pr.last_head_status = last_status
-                    pr.save(update_fields=['last_head_status'])
-                    if fetch_pull_requests:
-                        FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, pr.number))
+            self.update_pull_requests_last_status(fetch_pull_requests=fetch_pull_requests)
 
         if fetch_pending and self.has_pending_statuses(last_statuses):
             self.delay_fetch_pending_statuses()
@@ -269,6 +287,53 @@ class Commit(WithRepositoryMixin, GithubObject):
         # Convert from int to IntChoiceAttribute
         return GITHUB_COMMIT_STATUS_CHOICES.for_value(last_status).value
 
+    def update_pull_requests_last_status(self, fetch_pull_requests=True, pull_requests=None):
+        from gim.core.tasks import FetchIssueByNumber
+
+        if pull_requests is None:
+            pull_requests = self.get_head_pull_requests()
+
+        for pr in pull_requests:
+            update_fields = []
+            if pr.update_last_head_commit(commit=self, save=False):
+                update_fields.append('last_head_commit')
+            if pr.update_last_head_status(commit=self, save=False):
+                update_fields.append('last_head_status')
+            if update_fields:
+                pr.save(update_fields=update_fields)
+                if fetch_pull_requests:
+                    FetchIssueByNumber.add_job('%s#%s' % (self.repository.pk, pr.number))
+
+    def get_all_commit_statuses(self):
+        """
+        Return all the commit statuses in a format usable in template:
+        A dict with `as_old_logs` being a boolean indicating if there is something to expand
+        for at least one context, and `contexts` being a list with one entry by `context`,
+        ordered by last `updated_at`, each entry being a list with all statuses for this context,
+        ordered by last `updated_at`
+        """
+        result = OrderedDict()
+        is_last = {}
+
+        for status in self.commit_statuses.all():
+
+            if status.context not in is_last:
+                is_last[status.context] = True
+            elif is_last[status.context]:
+                if status.state in GITHUB_COMMIT_STATUS_CHOICES.FINISHED:
+                    is_last[status.context] = False
+            status.is_last = is_last[status.context]
+
+            result.setdefault(status.context, []).append(status)
+
+        return {
+            'as_old_logs': any(len(c) > 1 for c in result.values()),
+            'contexts': result.values()
+        }
+
+    @property
+    def last_status_constant(self):
+        return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.last_status).constant
 
 class IssueCommits(models.Model):
     """
@@ -280,6 +345,7 @@ class IssueCommits(models.Model):
     issue = models.ForeignKey('Issue', related_name='related_commits')
     commit = models.ForeignKey('Commit', related_name='related_commits')
     deleted = models.BooleanField(default=False, db_index=True)
+    pull_request_head_at = models.DateTimeField(db_index=True, blank=True, null=True)
 
     delete_missing_after_fetch = False
 

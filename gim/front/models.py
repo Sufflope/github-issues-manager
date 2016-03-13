@@ -390,7 +390,7 @@ class _Issue(Hashable, FrontEditable):
                                    .values_list('author_name', flat=True)))
 
     @property
-    def hash(self):
+    def hash_values(self):
         """
         Hash for this issue representing its state at the current time, used to
         know if we have to reset its cache
@@ -415,7 +415,11 @@ class _Issue(Hashable, FrontEditable):
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
             hash_values += (commits_part, )
 
-        return hash(hash_values)
+        return hash_values
+
+    @property
+    def hash(self):
+        return hash(self.hash_values)
 
     def update_saved_hash(self):
         """
@@ -1038,6 +1042,16 @@ def publish_update(instance, message_type, extra_data=None):
     if conf.get('pre_publish_action'):
         conf['pre_publish_action'](instance)
 
+    try:
+        from pprint import pformat
+        extra_data['hashable_values'] = pformat(instance.hash_values)
+    except Exception:
+        pass
+    try:
+        extra_data["github_status"] = instance.get_github_status_display()
+    except Exception:
+        pass
+
     base_data = {
         'model': str(instance.model_name),
         'id': str(instance.pk),
@@ -1049,8 +1063,8 @@ def publish_update(instance, message_type, extra_data=None):
 
     try:
         base_data['hash'] = instance.saved_hash
-        if previous_saved_hash != base_data['hash']:
-            base_data['previous_hash'] = previous_saved_hash
+        # if previous_saved_hash != base_data['hash']:
+        base_data['previous_hash'] = previous_saved_hash
     except Exception:
         pass
 
@@ -1170,6 +1184,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
     extra_data = {}
     if created or getattr(instance, 'is_new', False):
         extra_data['is_new'] = True
+
+    extra_data['updated_fields'] = list(update_fields or [])
 
     publish_update(instance, 'updated', extra_data)
 

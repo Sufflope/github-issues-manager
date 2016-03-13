@@ -262,17 +262,36 @@ $repo-name-height: 20px;
     .pr-commit-statuses {
         margin-top: 1em;
         margin-bottom: 0;
-        &.collapse {
-            &:not(.in) {
-                border: none;
-                margin-bottom: -1em;
-            }
-            &.in {
-                margin-bottom: 0;
-            }
-        }
         a.logs-toggler:not(.collapsed) {
             background: darken($header-gradient-bottom, 2);
+        }
+        .box-header {
+            .title span {
+                font-weight: normal;
+                &.header-state {
+                    i {
+                        font-size: 13px;
+                        width: 14px;
+                        text-align: center;
+                        margin-left: 3px;
+                        margin-right: 4px;
+                    }
+                }
+            }
+            .time {
+                font-weight: normal;
+                color: #949494 !important;
+            }
+            .toolbar-link {
+                margin-left: 0;
+                margin-right: 0;
+                @include transition(margin-right 0.35s);
+            }
+            &.collapsed {
+                .toolbar-link {
+                    margin-right: -14ex;
+                }
+            }
         }
         td {
             line-height: 22px;
@@ -292,8 +311,9 @@ $repo-name-height: 20px;
         }
         .cell-state {
             i {
-                width: 16px;
+                width: 14px;
                 text-align: center;
+                margin-right: 4px;
             }
         }
         .cell-context {
