@@ -4,10 +4,14 @@ var time_ago = (function () {
         start = new Date(),
         content_method = ('textContent' in document.body) ? 'textContent' : 'innerHTML',
         halfstr = "½",
+        nohalf = '',
         dict = {
             'short': {
+                'now': 'now',
+                'mn': '1 mn',
                 'mns': ' mn',
-                'hs': 'h',
+                'h': '1 h',
+                'hs': ' h',
                 'd': '1 d',
                 'ds': ' d',
                 'w': '1 w',
@@ -18,15 +22,18 @@ var time_ago = (function () {
                 'ys': ' y'
             },
             'long': {
-                'mns': ' min ago',
-                'hs': 'h ago',
-                'd': 'day ago',
+                'now': 'just now',
+                'mn': 'one minute ago',
+                'mns': ' minutes ago',
+                'h': 'one hour ago',
+                'hs': ' hours ago',
+                'd': 'one day ago',
                 'ds': ' days ago',
-                'w': 'week ago',
+                'w': 'one week ago',
                 'ws': ' weeks ago',
-                'mo': 'month ago',
+                'mo': 'one month ago',
                 'mos': ' months ago',
-                'y': 'year ago',
+                'y': 'one year ago',
                 'ys': ' years ago'
             }
         };
@@ -45,59 +52,76 @@ var time_ago = (function () {
 
     function ago(delta, is_short) {
         // based on https://github.com/twidi/pytimeago, to share same return result
-        var delta, fmt, mins, hours, half, days, wdays, weeks, months, years,
+        var fmt, mins, hours, half, days, wdays, weeks, months, years, years_and_months,
             hours_and_mins, days_and_hours, weeks_and_wdays, months_and_days;
 
         fmt = dict[is_short ? 'short' : 'long'];
 
         // now
-        if (delta === 0) {
-            return 'now';
+        if (delta < 0.5) {
+            return fmt.now;
         }
 
         // < 1 hour
         mins = Math.round(delta / 60);
+        if (mins < 1.5) {
+            return fmt.mn;
+        }
         if (mins < 60) {
-            return mins + fmt.mns;
+            return Math.ceil(mins) + fmt.mns;
         }
 
         // < 1 day
+        if (mins < 75) {
+            return fmt.h;
+        }
         hours_and_mins =  divmod(mins, 60);
-        hours = hours_and_mins[0];
-        mins =hours_and_mins[1];
+        hours = Math.round(hours_and_mins[0]);
+        mins = hours_and_mins[1];
+        if (15 <= mins && mins <= 45) {
+            half = halfstr;
+        } else {
+            half = nohalf;
+            if (mins > 45) {
+                hours++;
+            }
+        }
         if (hours < 24) {
-            // "half" is for 30 minutes in the middle of an hour
-            half = (15 <= mins && mins <= 45) ? halfstr : '';
             return hours + half + fmt.hs;
         }
 
         //  < 7 days
-        hours += Math.round(mins / 60);
-        days_and_hours = divmod(hours, 24);
-        days = days_and_hours[0];
-        hours = days_and_hours[1];
-        if (days === 1) {
+        if (hours < 30) {
             return fmt.d;
         }
+        days_and_hours = divmod(hours, 24);
+        days = Math.round(days_and_hours[0]);
+        hours = days_and_hours[1];
+        if (6 <= hours && hours <= 18) {
+            half = halfstr;
+        } else {
+            half = nohalf;
+            if (hours > 18) {
+                days++;
+            }
+        }
         if (days < 7) {
-            half = (6 <= hours && hours <= 18) ? halfstr : '';
             return days + half + fmt.ds;
         }
 
         // < 4 weeks
-        days += Math.round(hours / 24);
         if (days < 9) {
             return fmt.w;
         }
         weeks_and_wdays = divmod(days, 7);
-        weeks = weeks_and_wdays[0];
+        weeks = Math.round(weeks_and_wdays[0]);
         wdays = weeks_and_wdays[1];
         if (2 <= wdays && wdays <= 4) {
             half = halfstr;
         } else {
-            half = '';
+            half = nohalf;
             if (wdays > 4) {
-                weeks += 1;
+                weeks++;
             }
         }
         if (weeks < 4) { // So we don't get 4 weeks
@@ -105,18 +129,18 @@ var time_ago = (function () {
         }
 
         // < year
-        if (days < 35) {
+        if (days < 40) {
             return fmt.mo;
         }
-        months_and_days = divmod(days, 30);
-        months = months_and_days[0];
+        months_and_days = divmod(days, 30.4);
+        months = Math.round(months_and_days[0]);
         days = months_and_days[1];
         if (10 <= days && days <= 20) {
             half = halfstr;
         } else {
-            half = '';
+            half = nohalf;
             if (days > 20) {
-                months += 1;
+                months++;
             }
         }
         if (months < 12) {
@@ -124,11 +148,21 @@ var time_ago = (function () {
         }
 
         // Don't go further
-        years = Math.round(months / 12);
-        if (years === 1) {
+        if (months < 16) {
             return fmt.y;
         }
-        return years + fmt.ys;
+        years_and_months = divmod(months, 12);
+        years = Math.round(years_and_months[0]);
+        months = years_and_months[1];
+        if (4 <= months && months <= 8) {
+            half = halfstr;
+        } else {
+            half = nohalf;
+            if (months > 8) {
+                years++;
+            }
+        }
+        return years + half + fmt.ys;
 
     } // ago
 
