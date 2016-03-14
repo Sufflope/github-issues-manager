@@ -206,7 +206,7 @@ class _Repository(models.Model):
 
                                 if commit_status:
                                     issues_to_fetch.update(
-                                        commit_status.commit.head_pull_requests().values_list('number', flat=True)
+                                        commit_status.commit.get_head_pull_requests().values_list('number', flat=True)
                                     )
 
                         except Exception:
