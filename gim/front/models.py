@@ -1214,7 +1214,7 @@ def hash_check(sender, instance, created, **kwargs):
         return
 
     # Only if the data is fresh from github
-    if instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
+    if hasattr(instance, 'github_status') and instance.github_status != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
     if not hasattr(instance, 'signal_hash_changed'):
