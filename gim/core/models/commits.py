@@ -153,11 +153,7 @@ class Commit(WithRepositoryMixin, GithubObject):
             pull_requests = self.get_head_pull_requests()
 
         for pr in pull_requests:
-            try:
-                issue_commit = IssueCommits.objects.get(commit=self, issue=pr, pull_request_head_at__isnull=True)
-            except IssueCommits.DoesNotExist:
-                pass
-            else:
+            for issue_commit in pr.related_commits.filter(commit=self, pull_request_head_at__isnull=True):
                 issue_commit.pull_request_head_at = self.committed_at or self.authored_at or datetime.utcnow()
                 issue_commit.save(update_fields=['pull_request_head_at'])
 
