@@ -378,9 +378,10 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self._head_commits = {}
 
         if force or self.head_sha not in self._head_commits:
+            from gim.core.models import Commit
             try:
                 self._head_commits[self.head_sha] = self.repository.commits.get(sha=self.head_sha)
-            except self.repository.commits.model.DoesNotExist:
+            except Commit.DoesNotExist:
                 from gim.core.tasks.commit import FetchCommitBySha
                 FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.head_sha))
                 self._head_commits[self.head_sha] = None

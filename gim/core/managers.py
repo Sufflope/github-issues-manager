@@ -6,6 +6,7 @@ from time import sleep
 
 from django.db import models, IntegrityError
 from django.contrib.auth.models import UserManager
+from django.db.models import FieldDoesNotExist
 
 from .ghpool import Connection, ApiError
 
@@ -41,7 +42,12 @@ class BaseManager(models.Manager):
         if self.model.delete_missing_after_fetch:
             queryset.delete()
         else:
-            queryset.update(deleted=True)
+            try:
+                self.model._meta.get_field('deleted')
+            except FieldDoesNotExist:
+                pass
+            else:
+                queryset.update(deleted=True)
 
 
 class GithubObjectManager(BaseManager):
@@ -1282,3 +1288,63 @@ class CommitStatusManager(WithCommitManager):
 
         return super(CommitStatusManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
+
+
+class GithubNotificationManager(WithRepositoryManager):
+    issue_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/(?:issues|pulls)/(?P<number>\w+)(?:/|$)')
+
+    def get_number_from_url(self, url):
+        """
+        Taking an url, try to return the number of an issue, or None.
+        """
+        if not url:
+            return None
+        match = self.issue_finder.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('number', None)
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+
+        if not data.get('subject'):
+            return None
+
+        if data['subject'].get('type').lower() not in ('issue', 'pullrequest'):
+            return None
+
+        if not data['subject'].get('url'):
+            return None
+
+        # We'll use the subject url to get the issue number
+        data['url'] = data['subject']['url']
+
+        data['issue_number'] = self.get_number_from_url(data['url'])
+
+        if not data['issue_number']:
+            return None
+
+        data['title'] = data['subject'].get('title')
+
+        fields = super(GithubNotificationManager, self).get_object_fields_from_dict(data, defaults,
+                                                                                    saved_objects)
+
+        if not fields:
+            return None
+
+        if not fields['fk']['repository']:
+            return None
+
+        # Fill the issue if we don't have it and we have the number
+        if not fields['fk'].get('issue'):
+            from gim.core.models import Issue
+
+            repository = fields['fk']['repository']
+            user = fields['fk']['user']
+            issue_number = data['issue_number']
+
+            try:
+                fields['fk']['issue'] = fields['fk']['repository'].issues.get(number=issue_number)
+            except Issue.DoesNotExist:
+                pass
+
+        return fields
