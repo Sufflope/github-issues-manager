@@ -1,0 +1,255 @@
+{% load staticfiles querystring frontutils issues_tags macros %}
+{% macro empty_group_by %}
+    {% block empty_group_by %}
+        {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|lower }}
+    {% endblock %}
+{% endmacro %}
+
+<div class="row-fluid" id="main-inner">
+    <nav id="issues-filters">
+        <div class="primary-sidebar">
+            {% spaceless %}
+            <ul id="issues-filters-accordion" class="nav nav-collapse collapse nav-collapse-primary">
+
+                <li class='clear-all-filters'><a href="{{ root_issues_url }}{% if view.default_qs %}?{{ view.default_qs }}{% endif %}"><i class="fa fa-times"> </i> Clear filters</a></li>
+
+                {% block before_common_filters %}{% endblock %}
+
+                {# The open/close states #}
+                <li class="accordion-group dark-nav">
+                    <span class="glow"></span>
+                    <a class="accordion-toggle collapsed{% if issues_filter.objects.state %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-state">
+                        State
+                        <i class="fa fa-caret-right"></i>
+                        {% if issues_filter.objects.state %}
+                                <span class="selection">{{ issues_filter.objects.state }}</span>
+                            </a>
+                            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "state" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                        {% endif %}
+                    </a>
+                    <ul id="filter-state" class="collapse">
+                        {% for state in view.allowed_states %}
+                            <li{% if issues_filter.parts.state == state %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring "state" state %}">{{ state|capfirst }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+
+                {# The two pull-requests states #}
+                <li class="accordion-group dark-nav">
+                    <span class="glow"></span>
+                    <a class="accordion-toggle collapsed{% if issues_filter.parts.pr %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-pr">
+                        Pull-request
+                        <i class="fa fa-caret-right"></i>
+                        {% if issues_filter.parts.pr %}
+                                <span class="selection">{{ issues_filter.parts.pr }}</span>
+                            </a>
+                            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "pr" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                        {% endif %}
+                    </a>
+                    <ul id="filter-pr" class="collapse">
+                        {% for pr in view.allowed_prs %}
+                            <li{% if issues_filter.parts.pr == pr %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring "pr" pr %}">{{ pr|capfirst }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+
+                {# The two mergeable states, only if filter on pull requests #}
+                {% if issues_filter.parts.pr == 'yes' %}
+                    <li class="accordion-group dark-nav">
+                        <span class="glow"></span>
+                        <a class="accordion-toggle collapsed{% if issues_filter.parts.mergeable %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-mergeable">
+                            Mergeable
+                            <i class="fa fa-caret-right"></i>
+                            {% if issues_filter.parts.mergeable %}
+                                    <span class="selection">{{ issues_filter.parts.mergeable }}</span>
+                                </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "mergeable" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                            {% endif %}
+                        </a>
+                        <ul id="filter-mergeable" class="collapse">
+                            {% for mergeable in view.allowed_mergeables %}
+                                <li{% if issues_filter.parts.mergeable == mergeable %} class="active"{% endif %}>
+                                    <a href="{{ current_issues_url }}{% toggle_in_querystring "mergeable" mergeable %}">{{ mergeable|capfirst }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endif %}
+
+                {% block after_common_filters %}{% endblock %}
+
+            </ul>{% endspaceless %}
+        </div>
+    </nav>
+    <section id="issues-list-container" class="span5">
+        <nav id="issues-list-options" class="navbar navbar-no-rounded">{% spaceless %}
+            <div class="navbar-inner">
+                <ul class="nav">
+                    <li class="dropdown span4">
+                        <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                            <span>
+                                Sort
+                                <b class="caret"></b>
+                            </span>
+                            {% if issues_filter.parts.sort %}
+                                <span class="selection">
+                                    {{ issues_filter.parts.sort|capfirst }}
+                                    <i class="fa fa-chevron-{% if issues_filter.parts.direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
+                                </span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu" role="menu" aria-label="Sort options">
+                            {% for sort_field in view.allowed_sort_fields %}
+                                <li{% if issues_filter.parts.sort == sort_field %} class="active"{% endif %}>
+                                    <a href="{{ current_issues_url }}{% replace_many_in_querystring "sort" sort_field "direction" issues_filter.parts.direction|default:"desc" %}">{{ sort_field|capfirst }}</a>
+                                </li>
+                            {% endfor %}
+                            {% if issues_filter.parts.sort %}
+                                <li class="divider"></li>
+                                <li class="horizontal-6{% if issues_filter.parts.direction == "asc" %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% replace_in_querystring "direction" "asc" %}"><i class="fa fa-chevron-down" title="Ascending order"> </i></a>
+                                </li>
+                                <li class="horizontal-6{% if issues_filter.parts.direction == "desc" %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% replace_in_querystring "direction" "desc" %}"><i class="fa fa-chevron-up" title="Descending order"> </i></a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    <li class="divider-vertical"></li>
+                    <li class="dropdown span4">
+                        <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                            <span>
+                                Group by
+                                <span class="caret"></span>
+                            </span>
+                            <span class="selection">
+                                {% if issues_filter.parts.group_by %}
+                                    {% block group_by_selection %}
+                                        {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|capfirst }}
+                                    {% endblock group_by_selection %}
+                                    <i class="fa fa-chevron-{% if issues_filter.parts.group_by_direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.group_by_direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
+                                {% else %}
+                                    No group by
+                                {% endif %}
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu" role="menu" aria-label="Group options">
+                            {% block group_by_choices %}
+                                {% for group_by_filter, group_by_info in view.allowed_group_by.items %}
+                                    <li{% if issues_filter.parts.group_by == group_by_filter %} class="active"{% endif %}>
+                                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_filter %}">
+                                            {{ group_by_info.name|capfirst }}
+                                            {% if issues_filter.parts.group_by == group_by_filter %}
+                                                <i class="fa fa-times"> </i>
+                                            {% endif %}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            {% endblock %}
+                            {% if issues_filter.parts.group_by %}
+                                <li class="divider"></li>
+                                <li class="horizontal-6{% if issues_filter.parts.group_by_direction == "asc" %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% replace_in_querystring "group_by_direction" "asc" %}"><i class="fa fa-chevron-down" title="Ascending order"> </i></a>
+                                </li>
+                                <li class="horizontal-6{% if issues_filter.parts.group_by_direction == "desc" %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% replace_in_querystring "group_by_direction" "desc" %}"><i class="fa fa-chevron-up" title="Descending order"> </i></a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    <li class="divider-vertical"></li>
+                    <li class="dropdown span4">
+                        <a href="#" role="button" class="dropdown-toggle no-selection" data-toggle="dropdown">
+                            <span>
+                                Options
+                                <span class="caret"></span>
+                            </span>
+                        </a>
+                        <ul class="dropdown-menu pull-right" role="menu" aria-label="Options">
+                            <li><a href="#" id="toggle-issues-details">Toggle details</a></li>
+                            <li><a href="#" id="close-all-groups">Close all groups</a></li>
+                            <li><a href="#" id="open-all-groups">Open all groups</a></li>
+                            <li><a href="#" id="show-shortcuts" data-toggle="modal" data-target="#shortcuts-window">Show shortcuts</a></li>
+                            {% if can_add_issues %}
+                                <li><a href="#" id="go-to-issue" data-toggle="modal" data-target="#go-to-issue-window">Open issue...</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        {% endspaceless %}</nav>
+        {% include "front/include_quicksearch.html" with id="issues-list-search" class="issues-quicksearch" target="#issues-list .issue-item" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
+        <div id="issues-list" class='issues-list' data-quicksearch="#issues-list-search input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}">
+            <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing :(</p>
+            {% if limit_reached %}
+                <div class="alert alert-warning">
+                    The current filter returned {{ issues_count }} issues but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
+                    <br />
+                    <a class="btn btn-mini btn-default" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list.</a>
+                </div>
+            {% endif %}
+            {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}
+            {% for group in issues_groups %}
+                {% if issues_filter.objects.group_by_field %}
+                    {% with group_by_value=group.grouper|group_by_filter_value:issues_filter.objects.group_by_field group_uuid=new_uuid %}
+                        <div class='box issues-group' data-group_by-value="{{ group_by_value }}">
+                            <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-{{ group_uuid }}">
+                                <span class="title">
+                                    {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
+                                        {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
+                                    {% elif group.grouper %}
+                                        {{ group.grouper.typed_name|default:group.grouper }}
+                                    {% else %}
+                                        No {% usemacro empty_group_by %}
+                                    {% endif %}
+                                </span>
+                                <ul class="unstyled box-toolbar">
+                                    <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
+                                </ul>
+                            </a>
+                            <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
+                                {% for issue in group.list %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% endfor %}
+                            </ul>
+                        </div>
+                    {% endwith %}
+                {% else %}
+                    <div class='box issues-group'>
+                        <a class="box-header" href='#'>
+                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
+                            <ul class="unstyled box-toolbar">
+                                <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
+                            </ul>
+                        </a>
+                        <ul class="unstyled box issues-group-issues">
+                            {% for issue in group.list %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            <div class='box issues-group template' style="display:none">
+                <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
+                    <span class="title">
+                        {% if issues_filter.objects.group_by_field %}
+                            No {% usemacro empty_group_by %}
+                        {% else %}
+                            {% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues
+                        {% endif %}
+                    </span>
+                    <ul class="unstyled box-toolbar">
+                        <li><span class="label label-inverse issues-count">1</span></li>
+                    </ul>
+                </a>
+                <ul class="unstyled box-content issues-group-issues collapse" id="group_by-list-template"></ul>
+            </div>
+        </div>
+    </section>
+
+    <section id='main-issue-container' class="span7 issue-container"{% if current_issue %} data-issue-number="{{ current_issue.number }}" data-issue-id="{{ current_issue.id }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}"{% endif %}>
+        {% include "front/repository/issues/issue.html" %}
+    </section>
+
+</div>

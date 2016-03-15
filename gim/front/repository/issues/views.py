@@ -8,7 +8,6 @@ from time import sleep
 
 from django.contrib import messages
 from django.core.urlresolvers import reverse_lazy
-from django.db import DatabaseError
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils.datastructures import SortedDict
@@ -29,8 +28,7 @@ from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJ
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES
 
-from gim.front.mixins.views import (WithQueryStringViewMixin,
-                                    LinkedToRepositoryFormViewMixin,
+from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     LinkedToIssueFormViewMixin,
                                     LinkedToUserFormViewMixin,
                                     LinkedToCommitFormViewMixin,
@@ -42,6 +40,7 @@ from gim.front.mixins.views import (WithQueryStringViewMixin,
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
+from gim.front.views import BaseIssuesView
 
 from gim.front.utils import make_querystring
 
@@ -157,75 +156,48 @@ class IssuesFilterClosers(UserFilterPart):
     title = 'Closed by'
 
 
-class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
+GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
+    ('created_by', {
+        'field': 'user',
+        'name': 'creator',
+    }),
+    ('assigned', {
+        'field': 'assignee',
+        'name': 'assigned',
+    }),
+    ('closed_by', {
+        'field': 'closed_by',
+        'name': 'closed by',
+    }),
+    ('milestone', {
+        'field': 'milestone',
+        'name': 'milestone',
+    }),
+]})
+
+
+class IssuesView(BaseIssuesView, BaseRepositoryView):
     name = 'Issues'
     url_name = 'issues'
     template_name = 'front/repository/issues/base.html'
     default_qs = 'state=open'
 
-    allowed_filters = ['milestone', 'state', 'labels', 'sort', 'direction',
-                       'group_by', 'group_by_direction', 'pr', 'mergeable']
-    allowed_states = ['open', 'closed']
-    allowed_prs = ['no', 'yes']
-    allowed_mergeables = ['no', 'yes']
-    allowed_sort_fields = ['created', 'updated', ]
-    allowed_sort_orders = ['asc', 'desc']
-    allowed_group_by = OrderedDict([
-        ('state', {
-            'field': 'state',
-            'name': 'state',
-        }),
-        ('created_by', {
-            'field': 'user',
-            'name': 'creator',
-        }),
-        ('assigned', {
-            'field': 'assignee',
-            'name': 'assigned',
-        }),
-        ('closed_by', {
-            'field': 'closed_by',
-            'name': 'closed by',
-        }),
-        ('milestone', {
-            'field': 'milestone',
-            'name': 'milestone',
-        }),
-        ('pr', {
-            'field': 'is_pull_request',
-            'name': 'pull-request',
-        }),
+    GROUP_BY_CHOICES = GROUP_BY_CHOICES
+
+    allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
+        'state',
+        'created_by',
+        'assigned',
+        'closed_by',
+        'milestone',
+        'pr',
     ])
-    default_sort = ('updated', 'desc')
 
-    def _get_state(self, qs_parts):
-        """
-        Return the valid state to use, or None
-        """
-        state = qs_parts.get('state', None)
-        if state in self.allowed_states:
-            return state
-        return None
+    def get_base_queryset(self):
+        return self.repository.issues.ready()
 
-    def _get_is_pull_request(self, qs_parts):
-        """
-        Return the valid "is_pull_request" flag to use, or None
-        """
-        is_pull_request = qs_parts.get('pr', None)
-        if is_pull_request in self.allowed_prs:
-            return True if is_pull_request == 'yes' else False
-        return None
-
-    def _get_is_mergeable(self, qs_parts):
-        """
-        Return the valid "is_mergeable" flag to use, or None
-        Will return None if current filter is not on Pull requests
-        """
-        is_mergeable = qs_parts.get('mergeable', None)
-        if is_mergeable in self.allowed_mergeables:
-            if self._get_is_pull_request(qs_parts):
-                return True if is_mergeable == 'yes' else False
-        return None
+    def get_base_url(self):
+        return self.repository.get_view_url(IssuesView.url_name)
 
     def _get_milestone(self, qs_parts):
         """
@@ -286,75 +258,39 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
         """
         group_by = qs_parts.get('group_by', None)
 
-        if group_by in self.allowed_group_by:
-
-            # group by a simple field
-            group_by = self.allowed_group_by[group_by]['field']
-
-        elif group_by and group_by.startswith('type:'):
+        if group_by and group_by.startswith('type:'):
 
             # group by a label type
             label_type_name = group_by[5:]
             try:
                 label_type = self.repository.label_types.get(name=label_type_name)
             except LabelType.DoesNotExist:
-                pass
+                return None, None
             else:
-                group_by = label_type
+                return label_type, self._get_group_by_direction(qs_parts)
 
+        return super(IssuesView, self)._get_group_by(qs_parts)
+
+    def _prepare_group_by(self, group_by, group_by_direction,
+                          qs_parts, qs_filters, filter_objects, order_by):
+        if isinstance(group_by, LabelType):
+            qs_filters['group_by'] = 'type:%s' % group_by.name
+            filter_objects['group_by'] = group_by
+            filter_objects['group_by_field'] = 'label_type_grouper'
         else:
-            group_by = None
-
-        if group_by is not None:
-            direction = qs_parts.get('group_by_direction', 'asc')
-            if direction not in ('asc', 'desc'):
-                direction = 'asc'
-            return group_by, direction
-
-        return None, None
-
-    def _get_sort(self, qs_parts):
-        """
-        Return the sort field to use, and the direction. If one or both are
-        invalid, the default ones are used
-        """
-        sort = qs_parts.get('sort', None)
-        direction = qs_parts.get('direction', None)
-        if sort not in self.allowed_sort_fields:
-            sort = self.default_sort[0]
-        if direction not in self.allowed_sort_orders:
-            direction = self.default_sort[1]
-        return sort, direction
+            super(IssuesView, self)._prepare_group_by(group_by, group_by_direction, qs_parts,
+                                                      qs_filters, filter_objects, order_by)
 
     def get_issues_for_context(self, context):
         """
-        Read the querystring from the context, already cut in parts,
-        and check parts that can be applied to filter issues, and return
-        an issues queryset ready to use
+        In addition to parent call, apply milestone and labels filtering
         """
         qs_parts = self.get_qs_parts(context)
-
-        qs_filters = {}
-        filter_objects = {}
+        queryset, filter_context = super(IssuesView, self).get_issues_for_context(context)
+        qs_filters = filter_context['qs_filters']
+        filter_objects = filter_context['filter_objects']
 
         query_filters = {}
-
-        # filter by state
-        state = self._get_state(qs_parts)
-        if state is not None:
-            qs_filters['state'] = filter_objects['state'] = query_filters['state'] = state
-
-        # filter by pull request status
-        is_pull_request = self._get_is_pull_request(qs_parts)
-        if is_pull_request is not None:
-            qs_filters['pr'] = self.allowed_prs[is_pull_request]
-            filter_objects['pr'] = query_filters['is_pull_request'] = is_pull_request
-
-        # filter by mergeable status
-        is_mergeable = self._get_is_mergeable(qs_parts)
-        if is_mergeable is not None:
-            qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
-            filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
 
         # filter by milestone
         milestone = self._get_milestone(qs_parts)
@@ -367,8 +303,8 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                 qs_filters['milestone'] = '%s' % milestone.number
                 query_filters['milestone__number'] = milestone.number
 
-        # the base queryset with the current filters
-        queryset = self.repository.issues.ready().filter(**query_filters)
+            # apply the new filter
+            queryset = queryset.filter(**query_filters)
 
         # now filter by labels
         label_types_to_ignore, labels = self._get_labels(qs_parts)
@@ -393,48 +329,6 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                     filter_objects['current_labels'].append(label)
                 queryset = queryset.filter(labels=label.id)
 
-        # prepare order, by group then asked ordering
-        order_by = []
-
-        # do we need to group by a field ?
-        group_by, group_by_direction = self._get_group_by(qs_parts)
-        if group_by is not None:
-            filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = group_by_direction
-            if isinstance(group_by, basestring):
-                qs_filters['group_by'] = qs_parts['group_by']
-                filter_objects['group_by'] = qs_parts['group_by']
-                filter_objects['group_by_field'] = group_by
-                order_by.append('%s%s' % ('-' if group_by_direction == 'desc' else '', group_by))
-            else:
-                qs_filters['group_by'] = 'type:%s' % group_by.name
-                filter_objects['group_by'] = group_by
-                filter_objects['group_by_field'] = 'label_type_grouper'
-
-        # Do we need to select/prefetch related stuff ? If not grouping, no
-        # because we assume all templates are already cached
-        # TODO: select/prefetch only the stuff needed for grouping
-        if group_by is not None:
-            queryset = queryset.select_related(
-                    'user',  # we may have a lot of different ones
-                ).prefetch_related(
-                    'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
-                    'labels__label_type'
-                )
-
-        # and finally, asked ordering
-        sort, sort_direction = self._get_sort(qs_parts)
-        qs_filters['sort'] = filter_objects['sort'] = sort
-        qs_filters['direction'] = filter_objects['direction'] = sort_direction
-        order_by.append('%s%s_at' % ('-' if sort_direction == 'desc' else '', sort))
-
-        # final order by, with group and wanted order
-        queryset = queryset.order_by(*order_by)
-
-        # return the queryset and some context
-        filter_context = {
-            'filter_objects': filter_objects,
-            'qs_filters': qs_filters,
-        }
         return queryset, filter_context
 
     def get_context_data(self, **kwargs):
@@ -443,23 +337,13 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
         """
         context = super(IssuesView, self).get_context_data(**kwargs)
 
-        # get the list of issues
-        issues, filter_context = self.get_issues_for_context(context)
-
         # get the list of label types
         label_types = self.repository.label_types.all().prefetch_related('labels')
 
         # final context
-        issues_url = self.repository.get_view_url(IssuesView.url_name)
-
-        issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
-            'root_issues_url': issues_url,
-            'current_issues_url': issues_url,
-            'issues_filter': issues_filter,
             'no_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__none__'),
             'someone_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__any__'),
-            'qs_parts_for_ttags': issues_filter['parts'],
             'label_types': label_types,
         })
 
@@ -472,8 +356,8 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
             }
             if count:
                 part_kwargs = {
-                    'issues_filter': issues_filter,
-                    'root_issues_url': issues_url,
+                    'issues_filter': context['issues_filter'],
+                    'root_issues_url': context['root_issues_url'],
                 }
                 if view.relation == 'issues_assigned':
                     part_kwargs.update({
@@ -486,68 +370,37 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                 else:
                     context[view.relation]['part'] = view.render_part(**part_kwargs)
 
-        context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)
-        context['MAX_ISSUES'] = LIMIT_ISSUES
-
-        context['display_add_issue_btn'] = True
+        context['can_add_issues'] = True
 
         return context
 
     def prepare_issues_filter_context(self, filter_context):
         """
-        Prepare a dict to use in the template, with many informations about the
-        current filter: parts (as found in the querystring), objects (to use for
-        display in the template), the base querystring (without user information
-        ), and the full querystring (with user informations if a assigned/created
+        Update from the parent call to include the base querystring (without user information
+        ), and the full querystring (with user information if a assigned/created
         filter is used)
         """
+
+        context = super(IssuesView, self).prepare_issues_filter_context(filter_context)
+
+        context['querystring_with_user'] = context['querystring']
+
         # we need a querystring without the created/assigned parts
-        qs_filter_without_user = dict(filter_context['qs_filters'])
+        qs_filter_without_user = dict(filter_context['qs_filters'])  # make a copy!
         qs_filter_without_user.pop('user_filter_type', None)
         qs_filter_without_user.pop('username', None)
 
-        context_issues_filter = {
-            'parts': filter_context['qs_filters'],
-            'objects': filter_context['filter_objects'],
-            'querystring': make_querystring(qs_filter_without_user),
-            'querystring_with_user': make_querystring(filter_context['qs_filters']),
-        }
+        context['querystring'] = make_querystring(qs_filter_without_user)
 
-        return context_issues_filter
+        return context
 
     def finalize_issues(self, issues, context):
         """
         Return a final list of issues usable in the view.
         Actually simply order ("group") by a label_type if asked
         """
-        total_count = issues_count = issues.count()
 
-        if not issues_count:
-            return [], 0, False
-
-        if self.request.GET.get('limit') != 'no' and issues_count > LIMIT_ISSUES:
-            issues_count = LIMIT_ISSUES
-            issues = issues[:LIMIT_ISSUES]
-            limit_reached = True
-        else:
-            limit_reached = False
-
-        try:
-            issues = list(issues.all())
-        except DatabaseError, e:
-            # sqlite limits the vars passed in the request to 999, and
-            # prefetch_related use a in(...), and with more than 999 issues
-            # sqlite raises an error.
-            # In this case, we loop on the data by slice of 999 issues
-            if u'%s' % e != 'too many SQL variables':
-                raise
-            queryset = issues
-            issues = []
-            per_fetch = 999
-
-            iterations = int(ceil(issues_count / float(per_fetch)))
-            for iteration in range(0, iterations):
-                issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
+        issues, total_count, limit_reached = super(IssuesView, self).finalize_issues(issues, context)
 
         label_type = context['issues_filter']['objects'].get('group_by', None)
         attribute = context['issues_filter']['objects'].get('group_by_field', None)
@@ -587,7 +440,6 @@ class UserIssuesView(IssuesView):
     url_name = 'user_issues'
     user_filter_types = ['assigned', 'created_by', 'closed_by']
     user_filter_types_matching = {'created_by': 'user', 'assigned': 'assignee', 'closed_by': 'closed_by'}
-    allowed_filters = IssuesView.allowed_filters + user_filter_types
 
     def _get_user_filter(self, qs_parts):
         """
@@ -616,22 +468,24 @@ class UserIssuesView(IssuesView):
         Update the previously done queryset by filtering by a user as assigned
         to issues, or their creator or the one who closed them
         """
-        queryset, filter_context = super(UserIssuesView, self).get_issues_for_context(context)
         qs_parts = self.get_qs_parts(context)
+        queryset, filter_context = super(UserIssuesView, self).get_issues_for_context(context)
+        qs_filters = filter_context['qs_filters']
+        filter_objects = filter_context['filter_objects']
 
         user_filter_type, user = self._get_user_filter(qs_parts)
         if user_filter_type and user:
-            filter_context['filter_objects']['user'] = user
-            filter_context['filter_objects']['user_filter_type'] = user_filter_type
-            filter_context['qs_filters']['user_filter_type'] = user_filter_type
+            filter_objects['user'] = user
+            filter_objects['user_filter_type'] = user_filter_type
+            qs_filters['user_filter_type'] = user_filter_type
             filter_field = self.user_filter_types_matching[user_filter_type]
-            filter_context['qs_filters']['username'] = user
+            qs_filters['username'] = user
             if user == '__none__':
                 queryset = queryset.filter(**{'%s_id__isnull' % filter_field: True})
             elif user == '__any__' and user_filter_type == 'assigned':
                 queryset = queryset.filter(**{'%s_id__isnull' % filter_field: False})
             else:
-                filter_context['qs_filters']['username'] = user.username
+                qs_filters['username'] = user.username
                 queryset = queryset.filter(**{filter_field: user.id})
 
         return queryset, filter_context
