@@ -1,0 +1,21 @@
+{% extends "front/dashboard/base.html" %}
+{% load staticfiles %}
+
+{% block title %}Github notifications{% endblock title %}
+{% block body_id %}github_notifications{% endblock %}
+{% block body_classes %}issues_list_page {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link href="{% static "front/css/pages/repository/issues.css" %}" rel="stylesheet">
+{% endblock extra_css %}
+
+{% block main %}
+    {% include "front/issues/base.html" %}
+{% endblock main %}
+
+{% block modal-windows %}
+    {{ block.super }}
+    {% include "front/modal_issue_view.html" %}
+    {% include "front/issues/shortcuts_window.html" %}
+{% endblock modal-windows %}

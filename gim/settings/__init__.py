@@ -130,6 +130,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.tz",
     "django.contrib.messages.context_processors.messages",
     "gim.front.context_processors.default_context_data",
+    "gim.front.context_processors.user_context",
 )
 
 

@@ -11,7 +11,7 @@ from gim.ws import publisher
 
 def auth_keys(request):
 
-    if request.user.is_anonymous():
+    if not request.user or request.user.is_anonymous():
         return {}
 
     signer = Signer(salt='wampcra-auth')
@@ -39,7 +39,6 @@ def default_context_data(request):
         'utcnow': datetime.utcnow(),
         'gim_version': hashed_version,
         'GITHUB_STATUSES': GITHUB_STATUS_CHOICES,
-        'auth_keys': auth_keys(request),
         'WS': {
             'uri': (settings.WS_SUBDOMAIN + '.' if settings.WS_SUBDOMAIN else '') +
                    request.get_host() + '/ws',
@@ -48,3 +47,14 @@ def default_context_data(request):
         'new_uuid': uuid4,
     }
 
+
+def user_context(request):
+    context = {
+        'auth_keys': auth_keys(request),
+    }
+
+    if request.user and request.user.is_authenticated():
+        context['github_notifications_count'] = request.user.github_notifications.filter(
+            unread=True, issue__isnull=False).count()
+
+    return context

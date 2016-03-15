@@ -1,10 +1,12 @@
 from django.views.generic import TemplateView
-from django.core.urlresolvers import reverse_lazy
+from django.core.urlresolvers import reverse_lazy, reverse
 
 from gim.activity.limpyd_models import RepositoryActivity
+from gim.core.models import Issue
 
-from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
 from gim.front.activity.views import ActivityViewMixin
+from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
+from gim.front.views import BaseIssuesView
 
 
 class DashboardActivityPart(ActivityViewMixin, DeferrableViewPart, WithSubscribedRepositoriesViewMixin, TemplateView):
@@ -58,3 +60,17 @@ class DashboardHome(WithSubscribedRepositoriesViewMixin, TemplateView):
         }
 
         return context
+
+
+class GithubNotifications(BaseIssuesView, TemplateView):
+
+    template_name = 'front/dashboard/github_notifications.html'
+    url_name = 'front:dashboard:github-notifications'
+
+    def get_base_queryset(self):
+        return Issue.objects.filter(
+            pk__in=self.request.user.github_notifications.values_list('issue_id', flat=True)
+        )
+
+    def get_base_url(self):
+        return reverse(self.url_name)
