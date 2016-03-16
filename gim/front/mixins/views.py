@@ -5,6 +5,7 @@ from urlparse import parse_qs
 from django.contrib import messages
 from django.forms.forms import NON_FIELD_ERRORS
 from django.http import HttpResponse
+from django.http.response import Http404
 from django.shortcuts import get_object_or_404, render
 from django.utils.cache import patch_response_headers
 from django.utils.functional import cached_property
@@ -130,6 +131,11 @@ class DependsOnSubscribedViewMixin(object):
 
         return Repository.objects.filter(**filters)
 
+    def is_repository_allowed(self, repository):
+        # Always True because already filtered in `get_allowed_repositories`
+        # Overridden in WithRepositoryViewMixin that allow all repositories by default
+        return True
+
 
 class WithSubscribedRepositoriesViewMixin(DependsOnSubscribedViewMixin):
     """
@@ -140,18 +146,16 @@ class WithSubscribedRepositoriesViewMixin(DependsOnSubscribedViewMixin):
     """
     subscriptions_list_rights = SUBSCRIPTION_STATES.READ_RIGHTS
 
-    @property
+    @cached_property
     def subscriptions(self):
         """
         Return (and cache) the list of all subscriptions of the current user
         based on the "subscriptions_list_rights" attribute
         """
-        if not hasattr(self, '_subscriptions'):
-            self._subscriptions = self.request.user.subscriptions.all()
-            if self.subscriptions_list_rights != SUBSCRIPTION_STATES.ALL_RIGHTS:
-                self._subscriptions = self._subscriptions.filter(
-                                        state__in=self.subscriptions_list_rights)
-        return self._subscriptions
+        subscriptions = self.request.user.subscriptions.all()
+        if self.subscriptions_list_rights != SUBSCRIPTION_STATES.ALL_RIGHTS:
+            subscriptions = subscriptions.filter(state__in=self.subscriptions_list_rights)
+        return subscriptions
 
     def get_context_data(self, **kwargs):
         """
@@ -171,17 +175,19 @@ class WithSubscribedRepositoriesViewMixin(DependsOnSubscribedViewMixin):
         return context
 
 
-class WithSubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin):
+class WithRepositoryViewMixin(object):
     """
     A mixin that is meant to be used when a view depends on a repository.
     Provides
     - a "repository" property that'll get the repository depending on
-    the ones allowed by the "allowed_rights" attribute provided by
-    DependsOnSubscribedViewMixin, and the url params.
+    the ones allowed by the "allowed_rights" attribute and the url params.
     - a "get_repository_filter_args" to use to filter a model on a repository's name
     and its owner's username
     And finally, put the repository and its related subscription in the context
     """
+
+    allowed_rights = SUBSCRIPTION_STATES.READ_RIGHTS
+
     def get_repository_filter_args(self, filter_root=''):
         """
         Return a dict with attribute to filter a model for a given repository's
@@ -195,34 +201,62 @@ class WithSubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin):
             '%sname' % filter_root: self.kwargs['repository_name'],
         }
 
-    @property
+    def get_allowed_repositories(self):
+        # By default all repositories. The `repository` property will do the real check
+        return Repository.objects.all()
+
+    def is_repository_allowed(self, repository):
+        state = repository.get_subscription_state_for_user(self.request.user)
+
+        if state.subscription:
+            # Will avoid a fetch ;)
+            self.subscription = state.subscription
+        else:
+            # Create a fake one
+            self.subscription = Subscription(
+                user=self.request.user,
+                repository=repository,
+                state=state.value,
+            )
+
+        return state.value in self.allowed_rights
+
+    @cached_property
     def repository(self):
         """
         Return (and cache) the repository. Raise a 404 if the current user is
         not allowed to use it, depending on the "allowed_rights" attribute
         """
-        if not hasattr(self, '_repository'):
+        qs = self.get_allowed_repositories()
+        repository = get_object_or_404(qs.select_related('owner'),
+                                              **self.get_repository_filter_args())
+        # Additional check
+        if not self.is_repository_allowed(repository):
+            raise Http404
 
-            qs = self.get_allowed_repositories()
-            self._repository = get_object_or_404(qs.select_related('owner'),
-                                                  **self.get_repository_filter_args())
-        return self._repository
+        return repository
 
-    @property
+    @cached_property
     def subscription(self):
         """
         Return (and cache) the subscription for the current user/repository
         """
-        if not hasattr(self, '_subscription'):
-            self._subscription = Subscription.objects.get(user=self.request.user,
-                                                repository=self.repository)
-        return self._subscription
+        state = self.repository.get_subscription_state_for_user(self.request.user)
+        if state.subscription:
+            return state.subscription
+
+        # Create a fake one
+        return Subscription(
+            user=self.request.user,
+            repository=self.repository,
+            state=state.value,
+        )
 
     def get_context_data(self, **kwargs):
         """
         Put the current repository and its related subscription in the context
         """
-        context = super(WithSubscribedRepositoryViewMixin, self).get_context_data(**kwargs)
+        context = super(WithRepositoryViewMixin, self).get_context_data(**kwargs)
         context['current_repository'] = self.repository
         context['current_subscription'] = self.subscription
         return context
@@ -235,7 +269,14 @@ class WithSubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin):
         return self.repository.collaborators.all().values_list('id', flat=True)
 
 
-class SubscribedRepositoryViewMixin(WithSubscribedRepositoryViewMixin):
+class WithSubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin, WithRepositoryViewMixin):
+    """
+    Subclass of WithRepositoryViewMixin that will only allow subscribed repositories.
+    """
+    pass
+
+
+class RepositoryViewMixin(WithRepositoryViewMixin):
     """
     A simple mixin to use for views when the main object is a repository.
     Use the kwargs in the url to fetch it from database, using the
@@ -252,10 +293,17 @@ class SubscribedRepositoryViewMixin(WithSubscribedRepositoryViewMixin):
         return self.repository
 
 
-class DependsOnSubscribedRepositoryViewMixin(WithSubscribedRepositoryViewMixin):
+class SubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin, RepositoryViewMixin):
+    """
+    Subclass of RepositoryViewMixin that will only allow subscribed repositories.
+    """
+    pass
+
+
+class DependsOnRepositoryViewMixin(WithRepositoryViewMixin):
     """
     A simple mixin to use for views when the main object depends on a repository
-    Will limit entries to ones mathing the repository fetched using url params
+    Will limit entries to ones matching the repository fetched using url params
     and the "allowed_rights" attribute.
     The "repository_related_name" attribute is the name to use to filter only
     on the current repository.
@@ -271,7 +319,14 @@ class DependsOnSubscribedRepositoryViewMixin(WithSubscribedRepositoryViewMixin):
             })
 
 
-class LinkedToRepositoryFormViewMixin(WithAjaxRestrictionViewMixin, DependsOnSubscribedRepositoryViewMixin):
+class DependsOnSubscribedRepositoryViewMixin(DependsOnSubscribedViewMixin, RepositoryViewMixin):
+    """
+    Subclass of DependsOnRepositoryViewMixin that will only allow subscribed repositories.
+    """
+    pass
+
+
+class LinkedToRepositoryFormViewMixin(WithAjaxRestrictionViewMixin, DependsOnRepositoryViewMixin):
     """
     A mixin for form views when the main object depends on a repository, and
     using a form which is a subclass of LinkedToRepositoryFormMixin, to have the
@@ -283,7 +338,14 @@ class LinkedToRepositoryFormViewMixin(WithAjaxRestrictionViewMixin, DependsOnSub
         return kwargs
 
 
-class WithIssueViewMixin(WithSubscribedRepositoryViewMixin):
+class LinkedToSubscribedRepositoryFormViewMixin(DependsOnSubscribedViewMixin, LinkedToRepositoryFormViewMixin):
+    """
+    Subclass of LinkedToRepositoryFormViewMixin that will only allow subscribed repositories.
+    """
+    pass
+
+
+class WithIssueViewMixin(WithRepositoryViewMixin):
     """
     A mixin that is meant to be used when a view depends on a issue.
     Provides stuff provided by WithSubscribedRepositoryViewMixin, plus:
@@ -306,17 +368,16 @@ class WithIssueViewMixin(WithSubscribedRepositoryViewMixin):
             '%snumber' % filter_root: self.kwargs['issue_number']
         }
 
-    @property
+    @cached_property
     def issue(self):
         """
         Return (and cache) the issue. Raise a 404 if the current user is
         not allowed to use its repository, or if the issue is not found
         """
-        if not hasattr(self, '_issue'):
-            self._issue = get_object_or_404(
-                            Issue.objects.select_related('repository__owner'),
-                            **self.get_issue_filter_args())
-        return self._issue
+        return get_object_or_404(
+            Issue.objects.select_related('repository__owner'),
+            **self.get_issue_filter_args()
+        )
 
     def get_context_data(self, **kwargs):
         """
@@ -327,7 +388,7 @@ class WithIssueViewMixin(WithSubscribedRepositoryViewMixin):
         return context
 
 
-class DependsOnIssueViewMixin(WithIssueViewMixin, DependsOnSubscribedRepositoryViewMixin):
+class DependsOnIssueViewMixin(WithIssueViewMixin, DependsOnRepositoryViewMixin):
     """
     A simple mixin to use for views when the main object depends on a issue
     Will limit entries to ones mathing the issue fetched using url params

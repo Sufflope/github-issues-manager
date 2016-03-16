@@ -5,20 +5,23 @@ from datetime import datetime
 import json
 from math import ceil
 from time import sleep
+from urlparse import unquote, urlparse, urlunparse
 
 from django.contrib import messages
-from django.core.urlresolvers import reverse_lazy
+from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils.datastructures import SortedDict
 from django.utils.functional import cached_property
+from django.utils.http import is_safe_url
 from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
 
 from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
                              PullRequestCommentEntryPoint, IssueComment,
-                             PullRequestComment, CommitComment)
+                             PullRequestComment, CommitComment,
+                             GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneeJob, IssueEditLabelsJob,
@@ -26,7 +29,9 @@ from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
 
-from gim.subscriptions.models import SUBSCRIPTION_STATES
+from gim.subscriptions.models import SUBSCRIPTION_STATES, Subscription
+
+from gim.front.dashboard.views import GithubNotifications
 
 from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     LinkedToIssueFormViewMixin,
@@ -36,7 +41,8 @@ from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     WithSubscribedRepositoryViewMixin,
                                     WithAjaxRestrictionViewMixin,
                                     DependsOnIssueViewMixin,
-                                    CacheControlMixin)
+                                    CacheControlMixin,
+                                    WithIssueViewMixin)
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
@@ -512,22 +518,99 @@ class UserIssuesView(IssuesView):
         return context
 
 
-class IssueView(UserIssuesView):
+class IssueView(WithIssueViewMixin, TemplateView):
     url_name = 'issue'
     ajax_template_name = 'front/repository/issues/issue.html'
 
-    def get_current_issue(self):
+    def get_redirect_url(self):
+
+        redirect_to = None
+
+        # Will raise a 404 if not found
+        issue = self.issue
+
+        try:
+            notification = self.request.user.github_notifications.get(issue=issue)
+        except GithubNotification.DoesNotExist:
+            notification = None
+
+        try:
+            subscription = self.request.user.subscriptions.exclude(state=Subscription.STATES.NORIGHTS).get(repository=issue.repository)
+        except Subscription.DoesNotExist:
+            subscription = None
+
+        fragment = 'issue-%d' % issue.number
+
+        referer = self.kwargs.get('referer')
+        if referer:
+            referer = unquote(referer)
+        else:
+            # No way to have this in https, but...
+            referer = self.request.META.get('HTTP_REFERER')
+
+        if referer and is_safe_url(referer, self.request.get_host()):
+            try:
+                url_info = urlparse(referer)
+                view = resolve(url_info.path)
+            except Resolver404:
+                pass
+            else:
+                url_name = view.url_name
+                if view.namespace:
+                    url_name = view.namespace + ':' + url_name
+                if url_name == GithubNotifications.url_name:
+                    if notification:
+                        redirect_to = url_info
+                elif view.namespace == u'front:repository' and view.url_name in (IssuesView.url_name, UserIssuesView.url_name):
+                    # Check that we are on the same repository
+                    if view.kwargs.get('owner_username') == self.kwargs['owner_username']\
+                            and view.kwargs.get('repository_name') == self.kwargs['repository_name'] \
+                            and subscription:
+                        redirect_to = url_info
+
+                if redirect_to:
+                    redirect_to = urlunparse(list(url_info[:-1]) + [fragment])
+
+        if not redirect_to:
+            if subscription:
+                view = IssuesView
+                redirect_to = issue.repository.get_view_url(view.url_name)
+            elif notification:
+                view = GithubNotifications
+                redirect_to = reverse(view.url_name)
+            else:
+                raise Http404
+
+            if getattr(view, 'default_qs', None):
+                redirect_to = '%s?%s#%s' % (redirect_to, view.default_qs, fragment)
+            else:
+                redirect_to = '%s#%s' % (redirect_to, fragment)
+
+        return redirect_to
+
+    def get(self, request, *args, **kwargs):
+        """
+        Redirect to a full issues view if not in ajax mode
+        """
+        if self.request.is_ajax():
+            return super(IssueView, self).get(request, *args, **kwargs)
+
+        return HttpResponseRedirect(self.get_redirect_url())
+
+    @cached_property
+    def current_issue(self):
         """
         Based on the informations from the url, try to return
         the wanted issue
         """
         issue = None
         if 'issue_number' in self.kwargs:
-            issue = self.repository.issues.ready().select_related(
-                    'user',  'assignee', 'closed_by', 'milestone',
-                ).prefetch_related(
-                    'labels__label_type'
-                ).get(number=self.kwargs['issue_number'])
+            qs = self.repository.issues.ready().select_related(
+                'user',  'assignee', 'closed_by', 'milestone',
+            ).prefetch_related(
+                'labels__label_type'
+            )
+            issue = get_object_or_404(qs, number=self.kwargs['issue_number'])
         return issue
 
     def get_involved_people(self, issue, activity, collaborators_ids):
@@ -596,20 +679,14 @@ class IssueView(UserIssuesView):
         """
         Add the selected issue in the context
         """
-        if self.request.is_ajax():
-            # is we respond to an ajax call, bypass all the context stuff
-            # done by IssuesView and UserIssuesView by calling directly
-            # their baseclass
-            context = super(IssuesView, self).get_context_data(**kwargs)
-        else:
-            context = super(IssueView, self).get_context_data(**kwargs)
+        context = super(IssueView, self).get_context_data(**kwargs)
 
         # check which issue to display
         current_issue_state = 'ok'
         current_issue = None
         try:
-            current_issue = self.get_current_issue()
-        except Issue.DoesNotExist:
+            current_issue = self.current_issue
+        except Http404:
             current_issue_state = 'notfound'
         else:
             if not current_issue:
@@ -690,19 +767,14 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
         """
         Add the issue in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssueSummaryView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-            # Restrict to filter in querystring
-            if current_issue.pk not in \
-                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-                raise Issue.DoesNotExist
-        except Issue.DoesNotExist:
-            raise Http404
+        current_issue = self.current_issue
 
+        # Restrict to filter in querystring
+        # if current_issue.pk not in \
+        #         self.get_issues_for_context(context)[0].values_list('pk', flat=True):
+        #     raise Http404
 
         # Force rerender if there is a job waiting to do it
         try:
@@ -736,18 +808,14 @@ class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, I
         """
         Add the issue in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssueWithoutDetailsView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-            # Restrict to filter in querystring
-            if current_issue.pk not in \
-                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-                raise Issue.DoesNotExist
-        except Issue.DoesNotExist:
-            raise Http404
+        current_issue = self.current_issue
+
+        # Restrict to filter in querystring
+        # if current_issue.pk not in \
+        #         self.get_issues_for_context(context)[0].values_list('pk', flat=True):
+        #     raise Http404
 
         activity = current_issue.get_activity()
         involved = self.get_involved_people(current_issue, activity,
@@ -780,7 +848,7 @@ class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
         Get the issue and add a new job to fetch it
         """
         try:
-            issue = self.get_current_issue()
+            issue = self.current_issue
         except Exception:
             messages.error(self.request,
                 'The issue from <strong>%s</strong> you asked to fetch from Github could doesn\'t exist anymore!' % (
@@ -868,8 +936,8 @@ class CreatedIssueView(IssueView):
         Redirect to the final url too if with now have a number
         """
         try:
-            issue = self.get_current_issue()
-        except Issue.DoesNotExist:
+            issue = self.current_issue
+        except Http404:
             # ok, deleted/recreated by dist_edit...
             return self.redirect_to_created_issue(wait_if_failure=0.3)
         else:
@@ -882,17 +950,20 @@ class CreatedIssueView(IssueView):
             # existed just before, but not now, just deleted/recreated by dist_edit
             return self.redirect_to_created_issue(wait_if_failure=0.3)
 
-    def get_current_issue(self):
+    @cached_property
+    def current_issue(self):
         """
         Based on the informations from the url, try to return the wanted issue
         """
-        if not hasattr(self, '_issue'):
-            self._issue = self.repository.issues.select_related(
-                        'user',  'assignee', 'closed_by', 'milestone',
-                    ).prefetch_related(
-                        'labels__label_type'
-                    ).get(pk=self.kwargs['issue_pk'])
-        return self._issue
+        issue = None
+        if 'issue_pk' in self.kwargs:
+            qs = self.repository.issues.ready().select_related(
+                'user',  'assignee', 'closed_by', 'milestone',
+            ).prefetch_related(
+                'labels__label_type'
+            )
+            issue = get_object_or_404(qs, pk=self.kwargs['issue_pk'])
+        return issue
 
 
 class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
@@ -907,14 +978,9 @@ class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
         """
         Add the issue and its files in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssueView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-        except Issue.DoesNotExist:
-            raise Http404
+        current_issue = self.current_issue
 
         context['current_issue'] = current_issue
         context['current_issue_edit_level'] = self.get_edit_level(current_issue)
@@ -1010,7 +1076,7 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
         return context
 
 
-class BaseIssueEditView(LinkedToRepositoryFormViewMixin):
+class BaseIssueEditViewSubscribed(LinkedToRepositoryFormViewMixin):
     model = Issue
     allowed_rights = SUBSCRIPTION_STATES.READ_RIGHTS
     http_method_names = [u'get', u'post']
@@ -1029,7 +1095,7 @@ class BaseIssueEditView(LinkedToRepositoryFormViewMixin):
         return self.object.get_absolute_url()
 
 
-class IssueEditFieldMixin(BaseIssueEditView, UpdateView):
+class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     field = None
     job_model = None
     url_name = None
@@ -1196,7 +1262,7 @@ class IssueEditLabels(IssueEditFieldMixin):
                                     self.field, issue.type, issue.number, who)
 
 
-class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditView, CreateView):
+class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):
     url_name = 'issue.create'
     template_name = 'front/repository/issues/create.html'
     ajax_only = False

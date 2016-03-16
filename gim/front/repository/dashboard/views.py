@@ -18,7 +18,7 @@ from gim.core.tasks.label import LabelEditJob
 from gim.core.tasks.milestone import MilestoneEditJob
 
 from gim.front.mixins.views import (DeferrableViewPart, SubscribedRepositoryViewMixin,
-                                    LinkedToRepositoryFormViewMixin,
+                                    LinkedToSubscribedRepositoryFormViewMixin,
                                     LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin)
 
 from gim.front.activity.views import ActivityViewMixin
@@ -277,7 +277,7 @@ class LabelsEditor(BaseRepositoryView):
         return super(LabelsEditor, self).get_template_names()
 
 
-class LabelTypeFormBaseView(LinkedToRepositoryFormViewMixin):
+class LabelTypeFormBaseViewSubscribed(LinkedToSubscribedRepositoryFormViewMixin):
     model = LabelType
     pk_url_kwarg = 'label_type_id'
     form_class = LabelTypeEditForm
@@ -288,7 +288,7 @@ class LabelTypeFormBaseView(LinkedToRepositoryFormViewMixin):
         return reverse('front:repository:%s' % LabelsEditor.url_name, kwargs=reverse_kwargs)
 
 
-class LabelTypeEditBase(LabelTypeFormBaseView):
+class LabelTypeEditBase(LabelTypeFormBaseViewSubscribed):
     template_name = 'front/repository/dashboard/labels-editor/label-type-edit.html'
 
     def get_context_data(self, **kwargs):
@@ -333,7 +333,7 @@ class LabelTypeCreate(LabelTypeEditBase, CreateView):
         return '%s?group_just_created=%d' % (url, self.object.id)
 
 
-class LabelTypePreview(LabelTypeFormBaseView, UpdateView):
+class LabelTypePreview(LabelTypeFormBaseViewSubscribed, UpdateView):
     url_name = 'dashboard.labels.editor.label_type.edit'
     template_name = 'front/repository/dashboard/labels-editor/label-type-preview.html'
     http_method_names = [u'post']
@@ -390,7 +390,7 @@ class LabelTypePreview(LabelTypeFormBaseView, UpdateView):
         return self.render_to_response(context)
 
 
-class LabelTypeDelete(LabelTypeFormBaseView, DeleteView):
+class LabelTypeDelete(LabelTypeFormBaseViewSubscribed, DeleteView):
     url_name = 'dashboard.labels.editor.label_type.delete'
     http_method_names = [u'post']
 
@@ -408,7 +408,7 @@ class LabelTypeDelete(LabelTypeFormBaseView, DeleteView):
         return url
 
 
-class LabelFormBaseView(LinkedToRepositoryFormViewMixin):
+class LabelFormBaseViewSubscribed(LinkedToSubscribedRepositoryFormViewMixin):
     model = Label
     pk_url_kwarg = 'label_id'
     form_class = LabelEditForm
@@ -421,7 +421,7 @@ class LabelFormBaseView(LinkedToRepositoryFormViewMixin):
         Override the default behavior to add a job to create/update the label
         on the github side
         """
-        response = super(LabelFormBaseView, self).form_valid(form)
+        response = super(LabelFormBaseViewSubscribed, self).form_valid(form)
 
         edit_mode = 'update'
         if self.object.github_status == GITHUB_STATUS_CHOICES.WAITING_CREATE:
@@ -442,7 +442,7 @@ class LabelFormBaseView(LinkedToRepositoryFormViewMixin):
         return reverse('front:repository:%s' % LabelsEditor.url_name, kwargs=reverse_kwargs)
 
 
-class LabelEditBase(LabelFormBaseView):
+class LabelEditBase(LabelFormBaseViewSubscribed):
     template_name = 'front/repository/dashboard/labels-editor/form-errors.html'
 
     @cached_property
@@ -478,7 +478,7 @@ class LabelCreate(LabelEditBase, CreateView):
         return '%s?label_just_created=%s' % (url, self.object.name)
 
 
-class LabelDelete(LabelFormBaseView, DeleteView):
+class LabelDelete(LabelFormBaseViewSubscribed, DeleteView):
     url_name = 'dashboard.labels.editor.label.delete'
 
     def delete(self, request, *args, **kwargs):
@@ -499,7 +499,7 @@ class LabelDelete(LabelFormBaseView, DeleteView):
         return HttpResponseRedirect(self.get_success_url())
 
 
-class MilestoneFormBaseView(LinkedToRepositoryFormViewMixin):
+class MilestoneFormBaseViewSubscribed(LinkedToSubscribedRepositoryFormViewMixin):
     model = Milestone
     pk_url_kwarg = 'milestone_id'
     form_class = MilestoneEditForm
@@ -527,7 +527,7 @@ class MilestoneFormBaseView(LinkedToRepositoryFormViewMixin):
         return HttpResponse('OK')
 
 
-class MilestoneEditBase(MilestoneFormBaseView):
+class MilestoneEditBase(MilestoneFormBaseViewSubscribed):
     template_name = 'front/repository/dashboard/milestone-edit.html'
 
     def get_context_data(self, **kwargs):
@@ -552,7 +552,7 @@ class MilestoneCreate(LinkedToUserFormViewMixin, MilestoneEditBase, CreateView):
     form_class = MilestoneCreateForm
 
 
-class MilestoneDelete(MilestoneFormBaseView, DeleteView):
+class MilestoneDelete(MilestoneFormBaseViewSubscribed, DeleteView):
     url_name = 'dashboard.milestone.delete'
 
     def delete(self, request, *args, **kwargs):

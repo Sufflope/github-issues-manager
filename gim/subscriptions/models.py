@@ -80,6 +80,12 @@ SUBSCRIPTION_STATES.ALL_RIGHTS = [s[0] for s in SUBSCRIPTION_STATES]
 SUBSCRIPTION_STATES.READ_RIGHTS = [SUBSCRIPTION_STATES.READ, SUBSCRIPTION_STATES.USER, SUBSCRIPTION_STATES.ADMIN]
 SUBSCRIPTION_STATES.WRITE_RIGHTS = [SUBSCRIPTION_STATES.USER, SUBSCRIPTION_STATES.ADMIN]
 
+AVAILABLE_PERMISSIONS_CONVERT = {
+    'pull': SUBSCRIPTION_STATES.READ,
+    'push': SUBSCRIPTION_STATES.USER,
+    'admin': SUBSCRIPTION_STATES.ADMIN,
+}
+
 
 class Subscription(models.Model):
     user = models.ForeignKey(GithubUser, related_name='subscriptions')
@@ -112,6 +118,39 @@ class _Repository(models.Model):
         given rights (by detault all reading&more rights)
         """
         return self.subscriptions.filter(state__in=states).exists()
+
+    def get_subscription_state_for_user(self, user):
+        from gim.core.models import AvailableRepository
+
+        # Assume no rights by defaults
+        state = SUBSCRIPTION_STATES.NORIGHTS
+
+        subscription = None
+        available_repository = None
+
+        try:
+            subscription = user.subscriptions.get(repository=self)
+        except Subscription.DoesNotExist:
+            try:
+                available_repository = user.available_repositories_set.get(repository=self)
+            except AvailableRepository.DoesNotExist:
+                if not self.private:
+                    state = SUBSCRIPTION_STATES.READ
+            else:
+                try:
+                    state = AVAILABLE_PERMISSIONS_CONVERT[available_repository.permission]
+                except KeyError:
+                    pass
+        else:
+            state = subscription.state
+
+        result = SUBSCRIPTION_STATES.for_value(state)
+
+        # We attach fetched entries that may be needed
+        result.subscription = subscription
+        result.available_repository = available_repository
+
+        return result
 
 contribute_to_model(_Repository, Repository)
 
@@ -146,7 +185,7 @@ class _GithubUser(models.Model):
         downgraded = {}
         upgraded = {}
 
-        # check from repositories officialy available for the user
+        # check from repositories officially available for the user
         for avail in avails:
             name = avail.repository.full_name
 
@@ -167,11 +206,11 @@ class _GithubUser(models.Model):
             elif not avail.permission:
                 downgraded[name] = SUBSCRIPTION_STATES.NORIGHTS
 
-            # sub rights not in matchinng one for the avail rights: downgrade to max allowed
+            # sub rights not in matching one for the avail rights: downgrade to max allowed
             elif avail.permission not in self.AUTHORIZED_RIGHTS[sub.state]:
                 downgraded[name] = max_right
 
-            # we have sufficient rigts, but try to upgrade them to max allowed
+            # we have sufficient rights, but try to upgrade them to max allowed
             elif max_right != sub.state:
                 upgraded[name] = max_right
 
