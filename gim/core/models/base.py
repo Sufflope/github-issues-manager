@@ -276,6 +276,8 @@ class GithubObject(models.Model):
                 last_page_ok = int(parameters.get('page', 1))
 
             etag = response_headers.get('etag') or None
+            if etag and '""' in etag:
+                etag = None
 
             if not page_objs:
                 # no fetched objects, we're done
@@ -362,6 +364,8 @@ class GithubObject(models.Model):
             request_etag = None
             if not force_fetch and hasattr(self, etag_field):
                 request_etag = getattr(self, etag_field) or None
+                if request_etag and '""' in request_etag:
+                    request_etag = None
 
                 request_headers = prepare_fetch_headers(
                         if_modified_since=if_modified_since,
@@ -555,9 +559,10 @@ class GithubObject(models.Model):
             # do we have etags to save ?
             if etags:
                 for etag_field, etag in etags.items():
-                    setattr(self, etag_field, etag)
-                    if etag_field in all_field_names:
-                        update_fields.append(etag_field)
+                    if etag != getattr(self, etag_field, None):
+                        setattr(self, etag_field, etag)
+                        if etag_field in all_field_names:
+                            update_fields.append(etag_field)
 
         if last_page_field and hasattr(self, last_page_field) and last_page is not None:
             if last_page != getattr(self, last_page_field):

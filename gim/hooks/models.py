@@ -87,8 +87,8 @@ class _Repository(models.Model):
 
         if not force_fetch:
             request_headers.update(prepare_fetch_headers(
-                    if_modified_since=getattr(self, fetched_at_field),
-                    if_none_match=getattr(self, etag_field)
+                    if_modified_since=getattr(self, fetched_at_field, None),
+                    if_none_match=getattr(self, etag_field, None)
                 ))
 
         updated_fields = [fetched_at_field]
@@ -108,9 +108,13 @@ class _Repository(models.Model):
             else:
                 raise
         else:
-            setattr(self, etag_field, response_headers.get('etag') or None)
+            etag = response_headers.get('etag') or None
+            if etag and '""' in etag:
+                etag = None
+            if etag != getattr(self, etag_field, None):
+                setattr(self, etag_field, etag)
+                updated_fields.append(etag_field)
             setattr(self, fetched_at_field, datetime.utcnow())
-            updated_fields.append(etag_field)
 
         return response_code, data, updated_fields
 
