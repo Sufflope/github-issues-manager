@@ -83,8 +83,13 @@
             {% endif %}
         </a>
         <ul id="filter-repository" class="collapse">
+            {% if view.allowed_repositories|length > 10 %}
+                <li>
+                    {% include "front/include_quicksearch.html" with id="filter-repository" target="#filter-repository li.allowed-repository" only %}
+                </li>
+            {% endif %}
             {% for repository in view.allowed_repositories %}
-                <li{% if issues_filter.parts.repository == repository %} class="active"{% endif %}>
+                <li class="allowed-repository{% if issues_filter.parts.repository == repository %} active{% endif %}">
                     <a href="{{ current_issues_url }}{% toggle_in_querystring "repository" repository %}">{{ repository }}</a>
                 </li>
             {% endfor %}
