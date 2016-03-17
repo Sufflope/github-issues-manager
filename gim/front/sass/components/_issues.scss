@@ -81,6 +81,14 @@
                 margin-bottom: 0;
                 min-height: 0;
             }
+            .issue-item-repository {
+                margin-top: -6px;
+                margin-bottom: 6px;
+                margin-left: -8px;
+                &:not(.is-private) {
+                    padding-left: 9px;
+                }
+            }
         } // .news
     } // &.without-details
 } // .issues-list
