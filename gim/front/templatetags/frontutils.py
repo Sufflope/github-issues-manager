@@ -334,8 +334,11 @@ def group_by_filter_value(grouper, group_field):
     if group_field == 'is_pull_request':
         return 'yes' if grouper else 'no'
 
-    if group_field == 'state':
+    if group_field in {'state', 'githubnotification__reason', 'githubnotification__repository'}:
         return grouper
+
+    if group_field == 'githubnotification__unread':
+        return 'unread' if grouper else 'read'
 
     if isinstance(grouper, core_models.Milestone):
         return grouper.number

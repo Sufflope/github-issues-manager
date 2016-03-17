@@ -23,11 +23,13 @@ class HomeView(TemplateView):
 GROUP_BY_CHOICES = {group_by[0]: group_by for group_by in [
     ('state', {
         'field': 'state',
-        'name': 'state',
+        'name': u'issue state',
+        'description': u'is an issue open or closed',
     }),
     ('pr', {
         'field': 'is_pull_request',
-        'name': 'pull-request',
+        'name': u'pull-request',
+        'description': u'is it a pull-request or a simple issue',
     }),
 ]}
 
@@ -119,6 +121,9 @@ class BaseIssuesView(WithQueryStringViewMixin):
             direction = self.default_sort[1]
         return sort, direction
 
+    def _get_sort_field(self, sort):
+        return '%s_at' % sort
+
     def _prepare_group_by(self, group_by, group_by_direction, qs_parts,
                           qs_filters, filter_objects, order_by):
         filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = group_by_direction
@@ -171,20 +176,13 @@ class BaseIssuesView(WithQueryStringViewMixin):
 
         # Do we need to select/prefetch related stuff ? If not grouping, no
         # because we assume all templates are already cached
-        # TODO: select/prefetch only the stuff needed for grouping
-        if group_by is not None:
-            queryset = queryset.select_related(
-                    'user',  # we may have a lot of different ones
-                ).prefetch_related(
-                    'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
-                    'labels__label_type'
-                )
+        queryset = self.select_and_prefetch_related(queryset, group_by)
 
         # and finally, asked ordering
         sort, sort_direction = self._get_sort(qs_parts)
         qs_filters['sort'] = filter_objects['sort'] = sort
         qs_filters['direction'] = filter_objects['direction'] = sort_direction
-        order_by.append('%s%s_at' % ('-' if sort_direction == 'desc' else '', sort))
+        order_by.append('%s%s' % ('-' if sort_direction == 'desc' else '', self._get_sort_field(sort)))
 
         # final order by, with group and wanted order
         queryset = queryset.order_by(*order_by)
@@ -195,6 +193,9 @@ class BaseIssuesView(WithQueryStringViewMixin):
             'qs_filters': qs_filters,
         }
         return queryset, filter_context
+
+    def select_and_prefetch_related(self, queryset, group_by):
+        return queryset
 
     def get_base_url(self):
         raise NotImplementedError
@@ -217,6 +218,16 @@ class BaseIssuesView(WithQueryStringViewMixin):
             'current_issues_url': issues_url,
             'issues_filter': issues_filter,
             'qs_parts_for_ttags': issues_filter['parts'],
+            'sorts': {
+                'created': {
+                    'name': u'created',
+                    'description': u'issue creation date',
+                },
+                'updated': {
+                    'name': u'updated',
+                    'description': u'issue last update date',
+                },
+            },
         })
 
         context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)

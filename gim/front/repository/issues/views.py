@@ -166,18 +166,22 @@ GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_b
     ('created_by', {
         'field': 'user',
         'name': 'creator',
+        'description': u'author of the issue',
     }),
     ('assigned', {
         'field': 'assignee',
         'name': 'assigned',
+        'description': u'user assigned to the issue',
     }),
     ('closed_by', {
         'field': 'closed_by',
         'name': 'closed by',
+        'description': u'user who closed the issue',
     }),
     ('milestone', {
         'field': 'milestone',
         'name': 'milestone',
+        'description': u'milestone the issue is in',
     }),
 ]})
 
@@ -336,6 +340,18 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 queryset = queryset.filter(labels=label.id)
 
         return queryset, filter_context
+
+    def select_and_prefetch_related(self, queryset, group_by):
+        if not group_by:
+            return queryset
+
+        # TODO: select/prefetch only the stuff needed for grouping
+        return queryset.select_related(
+            'user',  # we may have a lot of different ones
+        ).prefetch_related(
+            'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
+            'labels__label_type'
+        )
 
     def get_context_data(self, **kwargs):
         """

@@ -1,6 +1,6 @@
 {% load staticfiles querystring frontutils issues_tags macros %}
-{% macro empty_group_by %}
-    {% block empty_group_by %}
+{% macro empty_group_by_name %}
+    {% block empty_group_by_name %}
         {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|lower }}
     {% endblock %}
 {% endmacro %}
@@ -19,7 +19,7 @@
                 <li class="accordion-group dark-nav">
                     <span class="glow"></span>
                     <a class="accordion-toggle collapsed{% if issues_filter.objects.state %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-state">
-                        State
+                        Issue state
                         <i class="fa fa-caret-right"></i>
                         {% if issues_filter.objects.state %}
                                 <span class="selection">{{ issues_filter.objects.state }}</span>
@@ -97,7 +97,9 @@
                             </span>
                             {% if issues_filter.parts.sort %}
                                 <span class="selection">
-                                    {{ issues_filter.parts.sort|capfirst }}
+                                    {% with sort=sorts|dict_item:issues_filter.parts.sort %}
+                                        <span title="{{ sort.description|capfirst }}">{{ sort.name|capfirst }}</span>
+                                    {% endwith %}
                                     <i class="fa fa-chevron-{% if issues_filter.parts.direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
                                 </span>
                             {% endif %}
@@ -105,7 +107,9 @@
                         <ul class="dropdown-menu" role="menu" aria-label="Sort options">
                             {% for sort_field in view.allowed_sort_fields %}
                                 <li{% if issues_filter.parts.sort == sort_field %} class="active"{% endif %}>
-                                    <a href="{{ current_issues_url }}{% replace_many_in_querystring "sort" sort_field "direction" issues_filter.parts.direction|default:"desc" %}">{{ sort_field|capfirst }}</a>
+                                    {% with sort=sorts|dict_item:sort_field %}
+                                        <a href="{{ current_issues_url }}{% replace_many_in_querystring "sort" sort_field "direction" issues_filter.parts.direction|default:"desc" %}" title="{{ sort.description|capfirst }}">{{ sort.name|capfirst }}</a>
+                                    {% endwith %}
                                 </li>
                             {% endfor %}
                             {% if issues_filter.parts.sort %}
@@ -129,7 +133,11 @@
                             <span class="selection">
                                 {% if issues_filter.parts.group_by %}
                                     {% block group_by_selection %}
-                                        {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|capfirst }}
+                                        {% with group_by_info=view.allowed_group_by|dict_item:issues_filter.objects.group_by %}
+                                        <span {% if group_by_info.description %} title="{{ group_by_info.description|capfirst }}"{% endif %}>
+                                            {{ group_by_info.name|capfirst }}
+                                        </span>
+                                        {% endwith %}
                                     {% endblock group_by_selection %}
                                     <i class="fa fa-chevron-{% if issues_filter.parts.group_by_direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.group_by_direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
                                 {% else %}
@@ -141,7 +149,7 @@
                             {% block group_by_choices %}
                                 {% for group_by_filter, group_by_info in view.allowed_group_by.items %}
                                     <li{% if issues_filter.parts.group_by == group_by_filter %} class="active"{% endif %}>
-                                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_filter %}">
+                                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_filter %}"{% if group_by_info.description %} title="{{ group_by_info.description|capfirst }}"{% endif %}>
                                             {{ group_by_info.name|capfirst }}
                                             {% if issues_filter.parts.group_by == group_by_filter %}
                                                 <i class="fa fa-times"> </i>
@@ -201,10 +209,14 @@
                                 <span class="title">
                                     {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
                                         {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
-                                    {% elif group.grouper %}
-                                        {{ group.grouper.typed_name|default:group.grouper }}
                                     {% else %}
-                                        No {% usemacro empty_group_by %}
+                                        {% block group_by_name %}
+                                            {% if group.grouper %}
+                                                {{ group.grouper }}
+                                            {% else  %}
+                                                No {% usemacro empty_group_by_name %}
+                                            {% endif %}
+                                        {% endblock %}
                                     {% endif %}
                                 </span>
                                 <ul class="unstyled box-toolbar">
@@ -234,7 +246,7 @@
                 <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
                     <span class="title">
                         {% if issues_filter.objects.group_by_field %}
-                            No {% usemacro empty_group_by %}
+                            No {% usemacro empty_group_by_name %}
                         {% else %}
                             {% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues
                         {% endif %}

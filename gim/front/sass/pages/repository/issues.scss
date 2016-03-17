@@ -251,6 +251,9 @@ body.issues_list_page #main-inner {
     font-size: smaller;
     color: $box-light-text-color;
     text-align: center;
+    span {
+        padding-right: 0.5ex;
+    }
     i {
         font-size: smaller;
     }

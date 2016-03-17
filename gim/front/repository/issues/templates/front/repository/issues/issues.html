@@ -1,9 +1,17 @@
 {% extends "front/issues/base.html" %}
 {% load staticfiles querystring frontutils issues_tags %}
 
-{% block empty_group_by %}
+{% block group_by_name %}
+    {% if issues_filter.objects.group_by_field == 'label_type_grouper' and group.grouper %}
+        {{ group.grouper.typed_name }}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}
+
+{% block empty_group_by_name %}
     {% if issues_filter.objects.group_by_field == 'label_type_grouper' %}
-        {{ issues_filter.objects.group_by.name|lower }}
+        {{ issues_filter.objects.group_by.name }}
     {% else %}
         {{ block.super }}
     {% endif %}

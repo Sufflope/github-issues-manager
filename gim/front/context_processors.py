@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.signing import Signer
+from django.core.urlresolvers import reverse
 
 from gim import hashed_version
 from gim.core.models import GITHUB_STATUS_CHOICES
@@ -54,7 +55,13 @@ def user_context(request):
     }
 
     if request.user and request.user.is_authenticated():
+        from gim.front.dashboard.views import GithubNotifications
+
         context['github_notifications_count'] = request.user.github_notifications.filter(
             unread=True, issue__isnull=False).count()
+
+        context['github_notifications_url'] = reverse(GithubNotifications.url_name)
+        if GithubNotifications.default_qs:
+            context['github_notifications_url'] += '?' + GithubNotifications.default_qs
 
     return context

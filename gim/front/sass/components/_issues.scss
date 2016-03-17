@@ -34,6 +34,10 @@
             padding-top: 5px;
             padding-bottom: 5px;
             text-transform: capitalize;
+            span {
+                font-weight: normal;
+                text-transform: none;
+            }
         }
         .box-toolbar {
             & > li {
