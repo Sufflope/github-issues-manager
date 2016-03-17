@@ -347,6 +347,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         # TODO: select/prefetch only the stuff needed for grouping
         return queryset.select_related(
+            'repository__owner',  # default
             'user',  # we may have a lot of different ones
         ).prefetch_related(
             'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each

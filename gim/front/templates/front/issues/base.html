@@ -224,7 +224,7 @@
                                 </ul>
                             </a>
                             <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
-                                {% for issue in group.list %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% endfor %}
+                                {% for issue in group.list %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endfor %}
                             </ul>
                         </div>
                     {% endwith %}
@@ -237,7 +237,7 @@
                             </ul>
                         </a>
                         <ul class="unstyled box issues-group-issues">
-                            {% for issue in group.list %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% endfor %}
+                            {% for issue in group.list %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endfor %}
                         </ul>
                     </div>
                 {% endif %}

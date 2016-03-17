@@ -133,6 +133,27 @@
     color: $body-text-color;
     cursor: pointer;
 
+    &.with-repository {
+        min-height: 100px;
+    }
+
+    .issue-item-repository {
+        background: #eee;
+        border-bottom: solid 1px #e6e6e6;
+        margin: -1px 0 1px -13px;
+        padding: 0 0 0 17px;
+        font-weight: 600;
+        position: relative;
+        height: 20px;
+        .fa-lock {
+            width: 9px;
+            margin-left: -12px;
+        }
+        &.is-private {
+            @include transition(padding-left 0.15s ease);
+        }
+    }
+
     // the header with : pull-request flag, milestone, and time
     .issue-item-header {
         margin-top: -1px;
@@ -144,7 +165,7 @@
             color: inherit;
         }
     }
-    .issue-item-pull-request, .issue-item-milestone, .issue-item-times {
+    .issue-item-pull-request, .issue-item-milestone, .issue-item-times, .issue-item-repository {
         @include text-shadow(0 1px rgba(#fff, 0.5));
     }
     .issue-item-pull-request {
@@ -252,6 +273,20 @@
         padding-left: 8px;
         border-left: solid $active-color 5px;
         border-top-color: #f0fcff;
+        .issue-item-repository {
+            &.is-private {
+                padding-left: 22px;
+            }
+            &:after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: -1px;
+                border-left: solid $active-color 5px;
+                border-top-color: #f0fcff;
+            }
+        }
     }
 }
 

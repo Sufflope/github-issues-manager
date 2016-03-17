@@ -110,22 +110,30 @@ class GithubNotifications(BaseIssuesView, TemplateView):
     def get_base_url(self):
         return reverse(self.url_name)
 
-
     @cached_property
     def github_notifications(self):
         return self.request.user.github_notifications.all().select_related('repository__owner')
 
+    @cached_property
+    def subscriptions(self):
+        return self.request.user.subscriptions.filter(
+            repository_id__in=set(n.repository_id for n in self.github_notifications)
+        )
+
     def finalize_issues(self, issues, context):
         """
         Return a final list of issues usable in the view.
-        Actually simply add the notification to each issue, and the group field if any
+        Actually simply add the notification to each issue, the subscription to the repositories,
+        and the group field if any
         """
 
         issues, total_count, limit_reached = super(GithubNotifications, self).finalize_issues(issues, context)
 
         notifications = {n.issue_id: n for n in self.github_notifications}
+        subscriptions = {s.repository_id: s for s in self.subscriptions}
         for issue in issues:
             issue.github_notification = notifications.get(issue.pk)
+            issue.repository.subscription = subscriptions.get(issue.repository_id)
 
         group_by_field = context['issues_filter']['objects'].get('group_by_field', None)
         if group_by_field and group_by_field.startswith('githubnotification__'):
@@ -253,5 +261,8 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             'name': u'notification date',
             'description': u'date the notification last appeared',
         }
+
+        if context['issues_filter']['objects'].get('group_by_field') == 'githubnotification__repository':
+            context['force_hide_repositories'] = True
 
         return context

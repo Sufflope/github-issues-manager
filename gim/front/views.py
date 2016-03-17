@@ -195,7 +195,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         return queryset, filter_context
 
     def select_and_prefetch_related(self, queryset, group_by):
-        return queryset
+        return queryset.select_related('repository__owner')
 
     def get_base_url(self):
         raise NotImplementedError

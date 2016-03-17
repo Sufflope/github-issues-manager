@@ -2,10 +2,19 @@
 <div class="area-top state-{{ current_issue.state }}">
     <header>
         <div class="repository-name">
-            <a href="{{ current_repository.github_url }}" target="_blank" title="View on Github">
-            {% if current_repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
-            {{ current_issue.repository.full_name }}
-            </a>
+            {% if current_subscription.pk %}
+                <a href="{{ current_repository.get_absolute_url }}" title="View dashboard">
+                    {% if current_repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
+                    {{ current_repository.full_name }}
+                </a>
+                <a href="{{ current_repository.github_url }}" target="_blank" title="View on Github"><i class="fa fa-github"> </i></a>
+            {% else %}
+                <a href="{{ current_repository.github_url }}" target="_blank" title="View on Github">
+                    {% if current_repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
+                    {{ current_repository.full_name }}
+                    <i class="fa fa-github"> </i>
+                </a>
+            {% endif %}
         </div>
         <div class="avatar">
             <img class="avatar-small img-circle" src="{{ current_issue.user.avatar_url|default:default_avatar }}" alt="{{ current_issue.user.username }}" title="Created by {{ current_issue.user.username }}">
