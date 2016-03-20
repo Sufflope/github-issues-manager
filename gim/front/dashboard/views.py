@@ -117,7 +117,8 @@ class GithubNotifications(BaseIssuesView, TemplateView):
     allowed_reasons = ['assign', 'author', 'comment', 'manual', 'mention', 'state_change', 'subscribed', 'team_mention']
 
     def get_base_queryset(self):
-        return Issue.objects.filter(githubnotification__user=self.request.user)
+        return Issue.objects.filter(githubnotification__user=self.request.user,
+                                    githubnotification__ready=True)
 
     def get_base_url(self):
         return reverse(self.url_name)
