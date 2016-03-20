@@ -1319,24 +1319,23 @@ class GithubNotificationManager(WithRepositoryManager):
 
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
 
-        if not data.get('subject'):
-            return None
+        if data.get('subject'):
 
-        if data['subject'].get('type').lower() not in ('issue', 'pullrequest'):
-            return None
+            if data['subject'].get('type').lower() not in ('issue', 'pullrequest'):
+                return None
 
-        if not data['subject'].get('url'):
-            return None
+            if not data['subject'].get('url'):
+                return None
 
-        # We'll use the subject url to get the issue number
-        data['url'] = data['subject']['url']
+            # We'll use the subject url to get the issue number
+            data['url'] = data['subject']['url']
 
-        data['issue_number'] = self.get_number_from_url(data['url'])
+            data['issue_number'] = self.get_number_from_url(data['url'])
 
-        if not data['issue_number']:
-            return None
+            if not data['issue_number']:
+                return None
 
-        data['title'] = data['subject'].get('title')
+            data['title'] = data['subject'].get('title')
 
         fields = super(GithubNotificationManager, self).get_object_fields_from_dict(data, defaults,
                                                                                     saved_objects)
@@ -1348,15 +1347,14 @@ class GithubNotificationManager(WithRepositoryManager):
             return None
 
         # Fill the issue if we don't have it and we have the number
-        if not fields['fk'].get('issue'):
+        if not fields['fk'].get('issue') and data.get('issue_number'):
             from gim.core.models import Issue
 
             repository = fields['fk']['repository']
-            user = fields['fk']['user']
             issue_number = data['issue_number']
 
             try:
-                fields['fk']['issue'] = fields['fk']['repository'].issues.get(number=issue_number)
+                fields['fk']['issue'] = repository.issues.get(number=issue_number)
             except Issue.DoesNotExist:
                 pass
 

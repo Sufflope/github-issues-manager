@@ -18,6 +18,7 @@ from ..ghpool import (
     ApiNotFoundError,
     Connection,
 )
+
 from ..managers import (
     AvailableRepositoryManager,
     GithubNotificationManager,
@@ -29,6 +30,8 @@ from .base import (
     GithubObject,
     GithubObjectWithId,
 )
+
+from .mixins import WithRepositoryMixin
 
 import username_hack  # force the username length to be 255 chars
 
@@ -534,7 +537,7 @@ class AvailableRepository(GithubObject):
         return '%s can "%s" %s (org: %s)' % (self.user, self.permission, self.repository, self.organization_username)
 
 
-class GithubNotification(GithubObject):
+class GithubNotification(WithRepositoryMixin, GithubObject):
     """
     Will host notifications hosted on Github for a given user
     """
@@ -594,3 +597,39 @@ class GithubNotification(GithubObject):
         if changed:
             from gim.core.tasks.githubuser import FinalizeGithubNotification
             FinalizeGithubNotification.add_job(self.pk)
+
+    @property
+    def github_callable_identifiers(self):
+        return [
+            'notifications',
+            'threads',
+            self.thread_id,
+        ]
+
+    @property
+    def github_callable_identifiers_for_subscription(self):
+        return self.github_callable_identifiers + [
+            'subscription',
+        ]
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None):
+
+        # FORCE GH
+        if not gh or gh._connection_args.get('username') != self.user.username:
+            gh = self.user.get_connection()
+
+        if defaults is None:
+            defaults = {}
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+
+        return super(GithubNotification, self).fetch(gh, defaults, force_fetch, parameters,
+                                                     meta_base_name)
+
+    def fetch_subscription(self, gh, defaults=None, force_fetch=False, parameters=None):
+        if defaults is None:
+            defaults = {}
+        defaults.setdefault('simple', {}).setdefault('thread_id', self.thread_id)
+        defaults.setdefault('fk', {}).setdefault('repository', self.repository)
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+        return self.fetch(gh=gh, defaults=defaults, force_fetch=force_fetch,
+                                    parameters=parameters, meta_base_name='subscription')

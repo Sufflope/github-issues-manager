@@ -205,28 +205,35 @@ class FinalizeGithubNotification(DjangoModelJob):
         ready = True
         issue = None
 
-        # Fetch the repository
+        # Fetch the subscription
         try:
-            notification.repository.fetch_minimal(gh)
+            notification.fetch_subscription(gh)
         except ApiNotFoundError:
             ready = False
         else:
-            # Fetch the issue
-            from gim.core.models import Issue
-            try:
-                issue = notification.repository.issues.get(number=notification.issue_number)
-            except Issue.DoesNotExist:
-                issue = Issue(repository=notification.repository, number=notification.issue_number)
 
+            # Fetch the repository
             try:
-                issue.fetch(gh)
+                notification.repository.fetch_minimal(gh)
             except ApiNotFoundError:
-                if issue.pk:
-                    issue.delete()
                 ready = False
             else:
-                from gim.core.tasks.issue import FetchIssueByNumber
-                FetchIssueByNumber.add_job('%s#%s' % (notification.repository.pk, notification.issue_number), gh=gh)
+                # Fetch the issue
+                from gim.core.models import Issue
+                try:
+                    issue = notification.repository.issues.get(number=notification.issue_number)
+                except Issue.DoesNotExist:
+                    issue = Issue(repository=notification.repository, number=notification.issue_number)
+
+                try:
+                    issue.fetch(gh)
+                except ApiNotFoundError:
+                    if issue.pk:
+                        issue.delete()
+                    ready = False
+                else:
+                    from gim.core.tasks.issue import FetchIssueByNumber
+                    FetchIssueByNumber.add_job('%s#%s' % (notification.repository.pk, notification.issue_number), gh=gh)
 
         notification.issue = issue if issue and issue.pk else None
         notification.ready = ready
