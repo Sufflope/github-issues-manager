@@ -44,6 +44,7 @@ $().ready(function() {
 
     var $document = $(document),
         $body = $('body'),
+        body_id = $body.attr('id'),
         main_repository = $body.data('repository'),
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
@@ -882,6 +883,8 @@ $().ready(function() {
                 issue.set_current(true);
             }
 
+            FilterManager.init();
+
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
@@ -1430,6 +1433,8 @@ $().ready(function() {
             }
             list.reinit_quicksearch_results();
 
+            FilterManager.init();
+
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
@@ -1706,7 +1711,7 @@ $().ready(function() {
         $form: $IssueByNumberWindow.find('form'),
         $input: $IssueByNumberWindow.find('form input'),
         open: (function IssueByNumber_open () {
-            $body.append(IssueByNumber.$window); // move at the end to manage zindex 
+            $body.append(IssueByNumber.$window); // move at the end to manage zindex
             IssueByNumber.$window.modal('show');
             return false; // stop event propagation
         }), // IssueByNumber_open
@@ -3308,7 +3313,7 @@ $().ready(function() {
     var FilterManager = {
         ARGS: Arg.all(),
         CACHE: {},
-        selector: 'a.js-filter-trigger',
+        selector: '.issues-list:not(.no-filtering) a.js-filter-trigger',
         user_search: /^(.+\/)(created_by|assigned|closed_by)\/(.+)\/$/,
         messages: {
             pr: {
@@ -4849,6 +4854,7 @@ $().ready(function() {
 
     var HoverIssue = {
         selector: '.hoverable-issue',
+        abort_selector: '.not-hoverable',
         popover_options: null,  // defined in init
 
         extract_issue_ident: function ($node) {
@@ -5023,7 +5029,7 @@ $().ready(function() {
             });
 
             $(node).off('mouseleave', HoverIssue.on_mouseleave);
-            
+
             popover.options.onHide = function() {
                 setTimeout(function() {
                     popover.destroy();
@@ -5072,8 +5078,26 @@ $().ready(function() {
             setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 500);
         }, // on_mouseleave
 
+        on_abort_mouseenter: function () {
+            var $abort_node = $(this),
+                node = $abort_node.closest(HoverIssue.selector)[0];
+            $.proxy(HoverIssue.force_close_popover, node)();
+        }, // on_abort_mouseenter
+
+        on_abort_mouseleave: function () {
+            var $abort_node = $(this),
+                $node = $abort_node.closest(HoverIssue.selector);
+            setTimeout(function() {
+                if ($node.is(':hover')) {
+                    $.proxy(HoverIssue.on_mouseenter, $node[0])();
+                }
+            }, 100);
+        }, // on_abort_mouseleave
+
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
+            $document.on('mouseenter', HoverIssue.abort_selector, HoverIssue.on_abort_mouseenter);
+            $document.on('mouseleave', HoverIssue.abort_selector, HoverIssue.on_abort_mouseleave);
             $document.on('click', HoverIssue.selector, HoverIssue.force_close_popover);
         }, // init_events
 
@@ -5104,6 +5128,136 @@ $().ready(function() {
 
     }; // HoverIssue
     HoverIssue.init();
+
+    var GithubNotifications = {
+        item_selector: '.issue-item-notification',
+        default_error_msg: 'Internal problem: we were unable to update your notification',
+        spin: '<span class="spin-holder"><i style="" class="fa fa-spinner fa-spin"> </i></span>',
+
+        disable_form: function ($form) {
+            var $inputs = $form.find('input[type=checkbox]');
+            $form.data('disabled', true);
+            // disable the iCheck widget
+            $inputs.iCheck('disable');
+            // disabled input will be ignored by serialize, so just set them
+            // readonly
+            $inputs.prop('readonly', true);
+            $inputs.prop('disabled', false);
+            $form.find(':button').prop('disabled', true);
+        }, // disable_form
+
+        enable_form: function ($form) {
+            var $inputs = $form.find('input[type=checkbox]');
+            $form.find('.spin-holder').remove();
+            $inputs.prop('disabled', true); // needed for iCheck to re-enable them
+            $inputs.iCheck('enable');
+            $inputs.prop('readonly', false);
+            $form.find(':button').prop('disabled', false);
+            $form.data('disabled', false);
+        }, // enable_form
+
+        save_values: function ($form, values) {
+            var $inputs;
+            if (!values) {
+                values = {};
+                $inputs = $form.find('input[type=checkbox]');
+                $inputs.each(function () {
+                    values[this.name] = this.checked;
+                });
+            }
+            $form.data('previous-values', values);
+        }, // save_values
+
+        apply_values: function ($form, values) {
+            var $inputs = $form.find('input[type=checkbox]');
+            if (!values) {
+                values = $form.data('previous-values');
+            }
+            $.each($form.data('previous-values'), function(k, v) {
+                $inputs.filter('[name=' + k + ']').iCheck(v ? 'check' : 'uncheck');
+            });
+        }, // apply_values
+
+        on_checkbox_changed: function(ev) {
+            console.log(ev);
+            ev.stopPropagation();
+            var $checkbox = $(this),
+                $form = $checkbox.closest('form');
+            if ($form.data('disabled')) { return; }
+            $checkbox.parent().append(GithubNotifications.spin);
+            GithubNotifications.disable_form($form);
+            GithubNotifications.post_form($form)
+        },
+
+        post_form: function ($form) {
+            var data = $form.serialize();
+            var action = $form.attr('action');
+            $.post(action, data)
+                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .always(function () { GithubNotifications.enable_form($form); });
+        }, // post_form
+
+        on_post_submit_done: function (data) {
+            var $form = this;
+            if (!data || !data.status) {
+                data = {status: 'KO', error_msg: default_error_msg};
+            }
+            if (data.status != 'OK') {
+                return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
+            }
+            GithubNotifications.save_values($form, data.values);
+            if (data.values) {
+                GithubNotifications.apply_values($form, data.values);
+            }
+        }, // on_post_submit_done
+
+        on_post_submit_failed: function (xhr, data) {
+            var $form=this,
+                error_msg = data.error_msg || GithubNotifications.default_error_msg;
+            MessagesManager.add_messages(MessagesManager.make_message(error_msg, 'error'));
+            GithubNotifications.apply_values($form, data.values);
+        }, // on_post_submit_failed
+
+        on_current_issue_toggle_event: function (check) {
+            var decorator = function() {
+                if (!IssuesList.current) { return; }
+                if (!IssuesList.current.current_group) { return; }
+                if (!IssuesList.current.current_group.current_issue) { return; }
+                var $input = $input = IssuesList.current.current_group.current_issue.$node.find(
+                    GithubNotifications.item_selector + ' input[type=checkbox][name=' + check + ']:visible');
+                if ($input.length) {
+                    return GithubNotifications.toggle_check($input);
+                }
+            };
+            return Ev.key_decorate(decorator);
+        }, // on_current_issue_event
+
+        toggle_check: function($input) {
+            $input.iCheck('toggle');
+            return false;
+        }, // toggle_read
+
+        init_item_forms: function() {
+            var $forms = $(GithubNotifications.item_selector + ' form'),
+                $checkboxes = $forms.find('input[type=checkbox]');
+            $forms.each(function() { GithubNotifications.save_values($(this));});
+            $checkboxes.iCheck({checkboxClass: 'icheckbox_flat-aero'});
+            $checkboxes.on('ifChecked ifUnchecked ifToggled', GithubNotifications.on_checkbox_changed);
+            $forms.on('click', '.spin-holder', Ev.cancel);
+            $forms.addClass('js-managed');
+            jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));
+            jwerty.key('shift+a', GithubNotifications.on_current_issue_toggle_event('active'));
+        }, // init_item_forms
+
+        init: function () {
+            if (body_id != 'github_notifications') { return; }
+            GithubNotifications.init_item_forms();
+        } // init
+
+    }; // GithubNotifications
+
+    GithubNotifications.init();
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {

@@ -67,9 +67,6 @@
             padding: 5px;
             padding-left: 8px;
             min-height: 20px;
-            &.active {
-                padding-left: 3px;
-            }
             .issue-item-header, .avatar, .issue-item-footer {
                 display: none;
             }
@@ -89,7 +86,14 @@
                     padding-left: 9px;
                 }
             }
-        } // .news
+            &.active {
+                padding-left: 3px;
+                .issue-item-repository {
+                    margin-left: -3px;
+                    padding-left: 4px;
+                }
+            }
+        } // .issue-item
     } // &.without-details
 } // .issues-list
 
@@ -157,9 +161,7 @@
             width: 9px;
             margin-left: -12px;
         }
-        &.is-private {
-            @include transition(padding-left 0.15s ease);
-        }
+        @include transition(border-bottom-color 0.35s ease);
     }
 
     // the header with : pull-request flag, milestone, and time
@@ -282,17 +284,12 @@
         border-left: solid $active-color 5px;
         border-top-color: #f0fcff;
         .issue-item-repository {
+            background: transparent;
+            margin-left: -8px;
+            padding-left: 12px;
+            border-bottom-color: rgba(0, 0, 0, 0.05);
             &.is-private {
-                padding-left: 22px;
-            }
-            &:after {
-                content: "";
-                position: absolute;
-                top: 0;
-                left: 0;
-                bottom: -1px;
-                border-left: solid $active-color 5px;
-                border-top-color: #f0fcff;
+                padding-left: 17px;
             }
         }
     }

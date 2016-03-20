@@ -8,7 +8,13 @@
 {% block extra_css %}
     {{ block.super }}
     <link href="{% static "front/css/pages/repository/issues.css" %}" rel="stylesheet">
+    <link href="{% static "front/css/pages/dashboard/github-notifications.css" %}" rel="stylesheet">
 {% endblock extra_css %}
+
+{% block js_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/jquery.icheck.js" %}" type="text/javascript"></script>
+{% endblock js_footer %}
 
 {% block main %}
     {% include "front/dashboard/github_notifications_issues.html" %}
@@ -17,5 +23,5 @@
 {% block modal-windows %}
     {{ block.super }}
     {% include "front/modal_issue_view.html" %}
-    {% include "front/issues/shortcuts_window.html" %}
+    {% include "front/dashboard/github_notifications_shortcuts_window.html" %}
 {% endblock modal-windows %}

@@ -60,8 +60,6 @@ def user_context(request):
         context['github_notifications_count'] = request.user.github_notifications.filter(
             unread=True, issue__isnull=False).count()
 
-        context['github_notifications_url'] = reverse(GithubNotifications.url_name)
-        if GithubNotifications.default_qs:
-            context['github_notifications_url'] += '?' + GithubNotifications.default_qs
+        context['github_notifications_url'] = GithubNotifications.get_default_url()
 
     return context

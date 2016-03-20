@@ -1,11 +1,16 @@
+import json
 from collections import OrderedDict
 
+from async_messages import messages
+from django.http import HttpResponse
+from django.http import HttpResponseRedirect
 from django.utils.functional import cached_property
 from django.views.generic import TemplateView
 from django.core.urlresolvers import reverse_lazy, reverse
+from django.views.generic.edit import UpdateView
 
 from gim.activity.limpyd_models import RepositoryActivity
-from gim.core.models import Issue
+from gim.core.models import Issue, GithubNotification
 
 from gim.front.activity.views import ActivityViewMixin
 from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
@@ -116,6 +121,13 @@ class GithubNotifications(BaseIssuesView, TemplateView):
 
     def get_base_url(self):
         return reverse(self.url_name)
+
+    @classmethod
+    def get_default_url(cls):
+        url = reverse(cls.url_name)
+        if cls.default_qs:
+            url += '?' + cls.default_qs
+        return url
 
     @cached_property
     def github_notifications(self):
@@ -248,34 +260,42 @@ class GithubNotifications(BaseIssuesView, TemplateView):
                 'assign': {
                     'name': u'assigned',
                     'description': u'issues you were assigned to',
+                    'description_one': u'you were assigned to this issue',
                 },
                 'author': {
                     'name': u'authored',
                     'description': u'issues you authored',
+                    'description_one': u'you are the author of this issue',
                 },
                 'comment': {
                     'name': u'commented',
                     'description': u'issues you commented',
+                    'description_one': u'you commented on this issue',
                 },
                 'manual': {
                     'name': u'manual',
                     'description': u'issues you subscribed to',
+                    'description_one': u'you manually subscribed to this issue',
                 },
                 'mention': {
                     'name': u'mentioned',
                     'description': u'issues you were mentioned in',
+                    'description_one': u'you were mentioned in this issue',
                 },
                 'state_change': {
                     'name': u'changed state',
                     'description': u'issues you changed the state',
+                    'description_one': u'you changed the state of this issue',
                 },
                 'subscribed': {
                     'name': u'subscribed',
-                    'description': u'issues on your watched repositories',
+                    'description': u'issues in one of your watched repositories',
+                    'description_one': u'you watch the repository this issue is in',
                 },
                 'team_mention': {
                     'name': u'team',
                     'description': u'issues you were, as part of a team, mentioned in',
+                    'description_one': u'you are in a team that were mentioned in this issue',
                 },
             }
         })
@@ -289,3 +309,62 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             context['force_hide_repositories'] = True
 
         return context
+
+
+class GithubNotificationEditView(UpdateView):
+    model = GithubNotification
+    fields = ['unread', 'subscribed']
+    http_method_names = ['post']
+    pk_url_kwarg = 'notif_id'
+
+    def get_queryset(self):
+        return self.request.user.github_notifications.all()
+
+    def get_form_kwargs(self):
+        kwargs = super(GithubNotificationEditView, self).get_form_kwargs()
+        kwargs['data'] = {
+            'unread': not bool(self.request.POST.get('read')),
+            'subscribed': bool(self.request.POST.get('active')),
+        }
+
+        return kwargs
+
+    def get_success_url(self):
+        return GithubNotifications.get_default_url()
+
+    def get_ajax_reponse_value(self, status, error_msg=None):
+        data = {
+            'status': status,
+            'values': {
+                'read': not self.object.unread,
+                'active': self.object.subscribed,
+            }
+        }
+        if error_msg:
+            data['error_msg'] = error_msg
+        return json.dumps(data)
+
+    def form_valid(self, form):
+        self.object = form.save()
+
+        from gim.core.tasks.githubuser import GithubNotificationEditJob
+        GithubNotificationEditJob.add_job(self.object.pk, gh=self.request.user.get_connection())
+
+        if self.request.is_ajax():
+            return HttpResponse(self.get_ajax_reponse_value('OK'), content_type='application/json')
+
+        return HttpResponseRedirect(self.get_success_url())
+
+    def form_invalid(self, form):
+        error_msg = 'Internal problem: we were unable to update your notification (on %s, issue #%d)' % (
+            self.object.repository, self.object.issue.number)
+
+        if self.request.is_ajax():
+            return HttpResponse(
+                self.get_ajax_reponse_value('KO', error_msg=error_msg),
+                content_type='application/json',
+            )
+
+        messages.error(self.request.user, error_msg)
+
+        return HttpResponseRedirect(self.get_success_url())

@@ -5,6 +5,8 @@
     {% endblock %}
 {% endmacro %}
 
+{% macro issue_item %}{% block issue_item %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endblock %}{% endmacro %}
+
 <div class="row-fluid" id="main-inner">
     <nav id="issues-filters">
         <div class="primary-sidebar">
@@ -191,7 +193,7 @@
             </div>
         {% endspaceless %}</nav>
         {% include "front/include_quicksearch.html" with id="issues-list-search" class="issues-quicksearch" target="#issues-list .issue-item" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
-        <div id="issues-list" class='issues-list' data-quicksearch="#issues-list-search input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}">
+        <div id="issues-list" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}">
             <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing :(</p>
             {% if limit_reached %}
                 <div class="alert alert-warning">
@@ -224,7 +226,7 @@
                                 </ul>
                             </a>
                             <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
-                                {% for issue in group.list %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endfor %}
+                                {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
                             </ul>
                         </div>
                     {% endwith %}
@@ -237,7 +239,7 @@
                             </ul>
                         </a>
                         <ul class="unstyled box issues-group-issues">
-                            {% for issue in group.list %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endfor %}
+                            {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
                         </ul>
                     </div>
                 {% endif %}

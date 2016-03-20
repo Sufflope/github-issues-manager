@@ -1,0 +1,187 @@
+/* iCheck.js Flat skin, aero
+----------------------------------- */
+/* line 3, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero,
+.iradio_flat-aero {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  background: url('/static/front/css/images/blue.png?1376415792') no-repeat;
+  border: none;
+  cursor: pointer;
+}
+/* line 14, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero + label,
+.iradio_flat-aero + label {
+  display: inline-block;
+  position: relative;
+  top: -5px;
+  left: 5px;
+}
+
+/* line 22, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero {
+  background-position: 0 0;
+}
+
+/* line 25, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero.checked {
+  background-position: -22px 0;
+}
+
+/* line 28, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero.disabled {
+  background-position: -44px 0;
+  cursor: default;
+}
+
+/* line 32, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.icheckbox_flat-aero.checked.disabled {
+  background-position: -66px 0;
+}
+
+/* line 36, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.iradio_flat-aero {
+  background-position: -88px 0;
+}
+
+/* line 39, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.iradio_flat-aero.checked {
+  background-position: -110px 0;
+}
+
+/* line 42, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.iradio_flat-aero.disabled {
+  background-position: -132px 0;
+  cursor: default;
+}
+
+/* line 46, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+.iradio_flat-aero.checked.disabled {
+  background-position: -154px 0;
+}
+
+/* Retina support */
+@media only screen and (-webkit-min-device-pixel-ratio: 1.5), only screen and (-moz-min-device-pixel-ratio: 1.5), only screen and (-o-min-device-pixel-ratio: 3 / 2), only screen and (min-device-pixel-ratio: 1.5) {
+  /* line 55, ../../../../../core-admin/stylesheets/icheck_blue.scss */
+  .icheckbox_flat-aero,
+  .iradio_flat-aero {
+    background-image: url('/static/front/css/images/blue@2x.png?1376415792');
+    -webkit-background-size: 176px 22px;
+    background-size: 176px 22px;
+  }
+}
+/* line 6, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification {
+  position: relative;
+  clear: both;
+  padding: 5px;
+  padding-left: 13px;
+  margin: 5px 0 -5px -13px;
+  background: white;
+  border-top: solid #eee 1px;
+  -moz-transition: border-top-color 0.35s ease;
+  -o-transition: border-top-color 0.35s ease;
+  -webkit-transition: border-top-color 0.35s ease;
+  transition: border-top-color 0.35s ease;
+}
+/* line 14, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification:after {
+  clear: both;
+  content: '';
+  display: block;
+}
+/* line 19, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification > span {
+  display: inline-block;
+  margin-top: 3px;
+}
+/* line 22, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification > span span {
+  font-weight: 600;
+}
+/* line 26, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification form {
+  display: inline-block;
+  float: right;
+  height: 25px;
+  overflow: hidden;
+  margin: 0;
+  position: relative;
+  opacity: 0;
+  -moz-transition: opacity 2s ease;
+  -o-transition: opacity 2s ease;
+  -webkit-transition: opacity 2s ease;
+  transition: opacity 2s ease;
+}
+/* line 33, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification form > div {
+  font-size: 12px;
+  display: inline-block;
+  vertical-align: middle;
+  height: 20px;
+}
+/* line 41, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification form.js-managed {
+  opacity: 1;
+}
+/* line 44, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification form .spin-holder {
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  background: #6da7cb;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  color: white;
+  text-align: center;
+}
+/* line 54, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification label {
+  font-size: inherit;
+  font-weight: 600;
+  display: inline-block;
+  margin-left: 0.25em !important;
+  margin-right: 1em !important;
+}
+/* line 60, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification label:last-child {
+  margin-right: 0.5em !important;
+}
+/* line 64, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification input[type=checkbox] {
+  vertical-align: middle;
+  position: relative;
+  margin: 0;
+  bottom: 1px;
+  display: inline-block;
+  width: 20px;
+}
+/* line 72, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification .icheckbox_flat-aero {
+  top: -1px;
+  vertical-align: middle;
+}
+/* line 75, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item-notification .icheckbox_flat-aero + label {
+  top: 0;
+  left: 0;
+  margin: 0;
+}
+
+/* line 85, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.issue-item.active .issue-item-notification {
+  background: transparent;
+  border-top-color: rgba(0, 0, 0, 0.05);
+  padding-left: 8px;
+  margin-left: -8px;
+}
+
+/* line 95, ../../../../../sass/pages/dashboard/github-notifications.scss */
+.without-details .issue-item.active .issue-item-notification {
+  padding-left: 3px;
+  margin-left: -3px;
+}

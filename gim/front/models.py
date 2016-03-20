@@ -898,6 +898,16 @@ class _CommitComment(FrontEditable):
 contribute_to_model(_CommitComment, core_models.CommitComment, {'defaults_create_values'})
 
 
+class _GithubNotification(models.Model):
+    class Meta:
+        abstract = True
+
+    def get_edit_url(self):
+        return reverse_lazy('front:dashboard:github-notification-edit', kwargs={'notif_id': self.pk})
+
+contribute_to_model(_GithubNotification, core_models.GithubNotification)
+
+
 class Hash(lmodel.RedisModel):
 
     database = get_main_limpyd_database()

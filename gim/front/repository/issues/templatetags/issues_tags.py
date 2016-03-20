@@ -94,7 +94,7 @@ class InjectRepositoryInIssue(Node):
         return result
 
     def render(self, context):
-        output = self.nodelist.render(context)
+        output = self.nodelist.render(context).strip()
 
         main_repository = self.main_repository.resolve(context)
         issue_repository = self.issue_repository.resolve(context)
@@ -132,7 +132,7 @@ def inject_repository_in_issue_item(parser, token):
     if bits_len < 3:
         raise TemplateSyntaxError("'inject_repository_in_issue_item' tag takes at least 2 arguments")
 
-    tag_name, main_repository, issue_repository = bits[:3]
+    __, main_repository, issue_repository = bits[:3]
 
     force_hide = None
     force_show = None

@@ -1,6 +1,7 @@
 {% extends "front/issues/base.html" %}
-{% load staticfiles querystring frontutils issues_tags %}
+{% load querystring frontutils notifications_utils %}
 
+{% block issues-list-classes %}{{ block.super }} no-filtering{% endblock %}
 
 {% block group_by_name %}
     {% if issues_filter.objects.group_by_field == 'githubnotification__unread' %}
@@ -113,3 +114,5 @@
     </li>
 
 {% endblock after_common_filters %}
+
+{% block issue_item %}{% inject_notification_form issue.github_notification %}{{ block.super }}{% end_inject_notification_form %}{% endblock %}
