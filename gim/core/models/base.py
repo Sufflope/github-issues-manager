@@ -593,7 +593,8 @@ class GithubObject(models.Model):
         """Default values to use to update data got from github"""
         return {}
 
-    def dist_edit(self, gh, mode, fields=None, values=None):
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
+                  update_method='patch'):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to
         do the matching action on Github.
@@ -605,9 +606,22 @@ class GithubObject(models.Model):
         if mode not in ('create', 'update'):
             raise Exception('Invalid mode for dist_edit')
 
-        # get fields to send
-        if not fields:
-            fields = self.github_edit_fields[mode]
+        if meta_base_name:
+            if mode == 'update':
+                identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
+            else:
+                identifiers = getattr(self, 'github_callable_create_identifiers_for_%s' % meta_base_name)
+            # get fields to send
+            if not fields:
+                fields = getattr(self, 'github_edit_fields_for_%s' % meta_base_name)[mode]
+        else:
+            if mode == 'update':
+                identifiers = self.github_callable_identifiers
+            else:
+                identifiers = self.github_callable_create_identifiers
+            # get fields to send
+            if not fields:
+                fields = self.github_edit_fields[mode]
 
         # get data to send
         data = {}
@@ -638,9 +652,8 @@ class GithubObject(models.Model):
                         data[key] = data[field_name].isoformat()
 
         # prepare the request
-        identifiers = self.github_callable_identifiers if mode == 'update' else self.github_callable_create_identifiers
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
-        method = getattr(gh_callable, 'patch' if mode == 'update' else 'post')
+        method = getattr(gh_callable, update_method if mode == 'update' else 'post')
         request_headers = prepare_fetch_headers(github_format=self.github_format)
 
         # make the request and get fresh data for the object
@@ -656,7 +669,7 @@ class GithubObject(models.Model):
 
         # update the object on our side
         return self.__class__.objects.create_or_update_from_dict(
-                                                            data=result,
+                                                            data=result or {},
                                                             defaults=defaults,
                                                             force_update=True)
 
