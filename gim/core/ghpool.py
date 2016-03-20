@@ -143,7 +143,7 @@ def prepare_fetch_headers(if_modified_since=None, if_none_match=None, github_for
     }
     if if_modified_since:
         headers['If-Modified-Since'] = if_modified_since.replace(tzinfo=UTC).strftime('%a, %d %b %Y %H:%M:%S GMT')
-    if if_none_match and '""' in if_none_match:
+    if if_none_match and '""' not in if_none_match:
         headers['If-None-Match'] = if_none_match
 
     return headers
