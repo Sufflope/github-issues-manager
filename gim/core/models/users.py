@@ -534,11 +534,12 @@ class AvailableRepository(GithubObject):
         return '%s can "%s" %s (org: %s)' % (self.user, self.permission, self.repository, self.organization_username)
 
 
-class GithubNotification(GithubObjectWithId):
+class GithubNotification(GithubObject):
     """
     Will host notifications hosted on Github for a given user
     """
     user = models.ForeignKey('GithubUser', related_name='github_notifications')
+    thread_id = models.PositiveIntegerField(null=True, blank=True)
     repository = models.ForeignKey('Repository', related_name='github_notifications')
     issue = models.ForeignKey('Issue', blank=True, null=True)
     type = models.CharField(max_length=255, blank=True, null=True, db_index=True)
@@ -549,12 +550,23 @@ class GithubNotification(GithubObjectWithId):
     last_read_at = models.DateTimeField(db_index=True, null=True)
     updated_at = models.DateTimeField(db_index=True)
     previous_updated_at = models.DateTimeField(blank=True, null=True)
-    ready = models.BooleanField(default=False)
+    ready = models.BooleanField(default=False, db_index=True)
+    subscribed = models.BooleanField(default=True, db_index=True)
+    subscription_fetched_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    subscription_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = GithubNotificationManager()
 
-    github_ignore = GithubObjectWithId.github_ignore + ('subject', 'subscription_url')
+    github_matching = dict(GithubObject.github_matching)
+    github_matching.update({
+        'id': 'thread_id'
+    })
 
+    github_identifiers = {
+        'thread_id': 'thread_id',
+        'user__username': ('user', 'username'),
+    }
+    github_ignore = GithubObjectWithId.github_ignore + ('github_id', 'subject', 'subscription_url')
     class Meta:
         app_label = 'core'
         ordering = ('-updated_at', )

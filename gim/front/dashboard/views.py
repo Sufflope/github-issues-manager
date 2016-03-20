@@ -70,6 +70,11 @@ GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_b
         'name': 'read status',
         'description': u'is the notification read or not',
     }),
+    ('active', {
+        'field': 'githubnotification__subscribed',
+        'name': 'active status',
+        'description': u'is the issue actively followed',
+    }),
     ('reason', {
         'field': 'githubnotification__reason',
         'name': 'notification reason',
@@ -97,11 +102,13 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         'state',
         'pr',
         'repository',
+        'active',
     ])
 
     allowed_sort_fields = ['created', 'updated', 'notification']
 
     allowed_reads = ['no', 'yes']
+    allowed_actives = ['no', 'yes']
     allowed_reasons = ['assign', 'author', 'comment', 'manual', 'mention', 'state_change', 'subscribed', 'team_mention']
 
     def get_base_queryset(self):
@@ -161,6 +168,15 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             return reason
         return None
 
+    def _get_active(self, qs_parts):
+        """
+        Return the valid "active status" flag to use, or None
+        """
+        active = qs_parts.get('active', None)
+        if active in self.allowed_actives:
+            return True if active == 'yes' else False
+        return None
+
     @cached_property
     def allowed_repositories(self):
         repositories = set(n.repository.full_name for n in self.github_notifications)
@@ -194,6 +210,13 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             qs_filters['read'] = self.allowed_reads[is_read]
             filter_objects['read'] = is_read
             query_filters['githubnotification__unread'] = not is_read
+
+        # filter by subscribed status
+        is_active = self._get_active(qs_parts)
+        if is_active is not None:
+            qs_filters['active'] = self.allowed_actives[is_active]
+            filter_objects['active'] = is_active
+            query_filters['githubnotification__subscribed'] = is_active
 
         # filter by reason
         reason = self._get_reason(qs_parts)
