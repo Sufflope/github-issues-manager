@@ -570,6 +570,9 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
         'user__username': ('user', 'username'),
     }
     github_ignore = GithubObjectWithId.github_ignore + ('github_id', 'subject', 'subscription_url')
+    github_edit_fields = {'update': []}
+    github_edit_fields_for_subscription = {'update': ['subscribed', 'ignored']}
+
     class Meta:
         app_label = 'core'
         ordering = ('-updated_at', )
@@ -633,3 +636,33 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
         defaults.setdefault('fk', {}).setdefault('user', self.user)
         return self.fetch(gh=gh, defaults=defaults, force_fetch=force_fetch,
                                     parameters=parameters, meta_base_name='subscription')
+
+    def defaults_create_values(self):
+        defaults = super(GithubNotification, self).defaults_create_values()
+        defaults.setdefault('simple', {}).setdefault('thread_id', self.thread_id)
+        if self.repository:
+            defaults.setdefault('fk', {}).setdefault('repository', self.repository)
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+        return defaults
+
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
+                  update_method='patch'):
+
+        if mode != 'update':
+            raise Exception('Invalid mode for dist_edit')
+
+        # FORCE GH
+        if not gh or gh._connection_args.get('username') != self.user.username:
+            gh = self.user.get_connection()
+
+        if meta_base_name == 'subscription':
+            update_method = 'put'
+            # github expect an `ignored` field to be the reverse of `subscribed`
+            if not values:
+                values = {}
+            if 'ignored' not in values:
+                values['ignored'] = not values.get('subscribed', self.subscribed)
+
+        return super(GithubNotification, self).dist_edit(gh, mode, fields, values, meta_base_name,
+                                                         update_method)
+
