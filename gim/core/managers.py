@@ -89,6 +89,7 @@ class GithubObjectManager(BaseManager):
                         parameters=None, request_headers=None,
                         response_headers=None, min_date=None,
                         fetched_at_field='fetched_at',
+                        etag_field='etag',
                         force_update=False):
         """
         Trying to get data for the model related to this manager, by using
@@ -110,10 +111,15 @@ class GithubObjectManager(BaseManager):
                         min_date=min_date, fetched_at_field=fetched_at_field,
                         saved_objects=SavedObjects(), force_update=force_update)
         else:
+            etag = response_headers.get('etag') or None
+            if etag and '""' in etag:
+                etag = None
             result = self.create_or_update_from_dict(data, modes, defaults,
                                             fetched_at_field=fetched_at_field,
+                                            etag_field=etag_field,
                                             saved_objects=SavedObjects(),
-                                            force_update=force_update,)
+                                            force_update=force_update,
+                                            etag=etag)
             if not result:
                 raise Exception(
                     "Unable to create/update an object of the %s kind (modes=%s)" % (
@@ -166,7 +172,9 @@ class GithubObjectManager(BaseManager):
         objs = []
         for entry in data:
             obj = self.create_or_update_from_dict(entry, modes, defaults,
-                                fetched_at_field, saved_objects, force_update)
+                                                  fetched_at_field= fetched_at_field,
+                                                  saved_objects=saved_objects,
+                                                  force_update=force_update)
             if obj:
                 objs.append(obj)
                 if min_date and obj.github_date_field:
@@ -221,8 +229,8 @@ class GithubObjectManager(BaseManager):
             return None, False
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-                            fetched_at_field='fetched_at', saved_objects=None,
-                            force_update=False):
+                            fetched_at_field='fetched_at', etag_field='etag',
+                            saved_objects=None, force_update=False, etag=None):
         """
         Taking a dict (passed in the data argument), try to update an existing
         object that match some fields, or create a new one.
@@ -320,6 +328,9 @@ class GithubObjectManager(BaseManager):
                 updated_fields.append(fetched_at_field)
                 if new_status:
                     updated_fields.append('github_status')
+                if etag and hasattr(obj, etag_field) and getattr(obj, etag_field) != etag:
+                    setattr(obj, etag_field, etag)
+                    updated_fields.append(etag_field)
                 save_params = {
                     'force_update': True,
                     # only save updated fields
@@ -328,7 +339,7 @@ class GithubObjectManager(BaseManager):
 
             try:
                 obj.save(**save_params)
-            except IntegrityError, e:
+            except IntegrityError as e:
 
                 # If it's because of a user or repository, manage it
                 from .models import GithubUser, Repository
@@ -931,7 +942,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
     """
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-            fetched_at_field='fetched_at', saved_objects=None, force_update=False):
+                                   fetched_at_field='fetched_at', etag_field='etag',
+                                   saved_objects=None, force_update=False, etag=None):
         from .models import GithubUser
 
         try:
@@ -946,8 +958,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
         user = data.get('user')
 
         obj = super(CommentEntryPointManagerMixin, self)\
-            .create_or_update_from_dict(data, modes, defaults, fetched_at_field,
-                                                    saved_objects, force_update)
+            .create_or_update_from_dict(data, modes, defaults, fetched_at_field, etag_field,
+                                                    saved_objects, force_update, etag)
 
         if not obj:
             return None
@@ -1022,13 +1034,14 @@ class CommitManager(WithRepositoryManager):
                                                 data, defaults, saved_objects)
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-        fetched_at_field='fetched_at', saved_objects=None, force_update=False):
+                                   fetched_at_field='fetched_at', etag_field='etag',
+                                   saved_objects=None, force_update=False, etag=None):
         """
         In addition to the default create_or_update_from_dict, check if files
         where fetched and if not, launch a FetchCommitBySha to fetch them
         """
         obj = super(CommitManager, self).create_or_update_from_dict(data, modes,
-                        defaults, fetched_at_field, saved_objects, force_update)
+                        defaults, fetched_at_field, etag_field, saved_objects, force_update, etag)
 
         # We got commits from the list of commits of a PR, so we don't have files and comments
         if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):

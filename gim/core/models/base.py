@@ -111,14 +111,17 @@ class GithubObject(models.Model):
         if meta_base_name:
             identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
             fetched_at_field = '%s_fetched_at' % meta_base_name
+            etag_field = '%s_etag' % meta_base_name
         else:
             identifiers = self.github_callable_identifiers
             fetched_at_field = 'fetched_at'
+            etag_field = 'etag'
 
         request_headers = prepare_fetch_headers(
                     if_modified_since=None if force_fetch else getattr(self, fetched_at_field),
+                    if_none_match=None if force_fetch else getattr(self, etag_field, None),
                     github_format=self.github_format)
-        response_headers = {}
+        response_headers = (parameters or {}).pop('response_headers', {})
 
         try:
             obj = self.__class__.objects.get_from_github(
@@ -130,6 +133,7 @@ class GithubObject(models.Model):
                 request_headers=request_headers,
                 response_headers=response_headers,
                 fetched_at_field=fetched_at_field,
+                etag_field=etag_field,
                 force_update=force_fetch,
             )
 
