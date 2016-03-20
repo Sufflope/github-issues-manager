@@ -1,3 +1,5 @@
+from django.utils.functional import cached_property
+
 __all__ = [
     'FetchAvailableRepositoriesJob',
     'ManageDualUser',
@@ -174,13 +176,24 @@ class ManageDualUser(Job):
             return True
 
 
-class FinalizeGithubNotification(DjangoModelJob):
+class GithubNotificationJob(DjangoModelJob):
+    """
+    Abstract job model for jobs based on the IssueComment model
+    """
+    abstract = True
     model = GithubNotification
 
-    queue_name = 'finalize-notification'
-
-    clonable_fields = ('gh', )
     permission = 'self'
+    clonable_fields = ('gh', )
+
+    @cached_property
+    def github_notification(self):
+        return self.object
+
+
+class FinalizeGithubNotification(GithubNotificationJob):
+
+    queue_name = 'finalize-notification'
 
     def run(self, queue):
         """
@@ -189,7 +202,7 @@ class FinalizeGithubNotification(DjangoModelJob):
         """
         super(FinalizeGithubNotification, self).run(queue)
 
-        notification = self.object
+        notification = self.github_notification
 
         # force gh if not set
         if not self.gh_args.hgetall():
@@ -241,4 +254,30 @@ class FinalizeGithubNotification(DjangoModelJob):
 
         return True
 
+
+class GithubNotificationEditJob(GithubNotificationJob):
+
+    queue_name = 'edit-notification'
+
+    def run(self, queue):
+
+        notification = self.github_notification
+
+        # force gh if not set
+        if not self.gh_args.hgetall():
+            gh = notification.user.get_connection()
+            if gh and 'access_token' in gh._connection_args:
+                self.gh = gh
+
+        # check availability
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        # mark as read
+        if not notification.unread:
+            notification.dist_edit(gh, 'update')
+
+        # update subscription
+        notification.dist_edit(gh, 'update', meta_base_name='subscription')
 
