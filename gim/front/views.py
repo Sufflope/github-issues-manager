@@ -157,10 +157,11 @@ class BaseIssuesView(WithQueryStringViewMixin):
             filter_objects['pr'] = query_filters['is_pull_request'] = is_pull_request
 
         # filter by mergeable status
-        is_mergeable = self._get_is_mergeable(qs_parts)
-        if is_mergeable is not None:
-            qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
-            filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
+        if qs_filters.get('pr') == 'yes':
+            is_mergeable = self._get_is_mergeable(qs_parts)
+            if is_mergeable is not None:
+                qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
+                filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
 
         # the base queryset with the current filters
         queryset = self.get_base_queryset().filter(**query_filters)
