@@ -4,6 +4,8 @@ __all__ = [
     'FetchAvailableRepositoriesJob',
     'ManageDualUser',
     'FinalizeGithubNotification',
+    'GithubNotificationEditJob',
+    'FetchNotifications',
 ]
 
 import sys
@@ -31,6 +33,10 @@ class UserJob(DjangoModelJob):
     abstract = True
     model = GithubUser
 
+    @cached_property
+    def user(self):
+        return self.object
+
 
 class FetchAvailableRepositoriesJob(UserJob):
     """
@@ -50,7 +56,7 @@ class FetchAvailableRepositoriesJob(UserJob):
         """
         super(FetchAvailableRepositoriesJob, self).run(queue)
 
-        user = self.object
+        user = self.user
 
         # force gh if not set
         if not self.gh_args.hgetall():
@@ -281,3 +287,48 @@ class GithubNotificationEditJob(GithubNotificationJob):
         # update subscription
         notification.dist_edit(gh, 'update', meta_base_name='subscription')
 
+
+class FetchNotifications(UserJob):
+
+    queue_name = 'fetch-notifications'
+
+    def run(self, queue):
+
+        user = self.user
+
+        # force gh if not set
+        if not self.gh_args.hgetall():
+            gh = user.get_connection()
+            if gh and 'access_token' in gh._connection_args:
+                self.gh = gh
+
+        # check availability
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        response_headers = {}
+        count = user.fetch_github_notifications(None, parameters={'response_headers': response_headers})
+
+        try:
+            delay = int(response_headers['x-poll-interval'])
+        except Exception:
+            delay = 60
+
+        return count, delay
+
+    def success_message_addon(self, queue, result):
+        """
+        Display infos got from the fetch_available_repositories call
+        """
+        count, delay = result
+
+        return ' [notifs=%d, delay=%d]' % (count, delay)
+
+    def on_success(self, queue, result):
+        """
+        Make a new fetch later
+        """
+        count, delay = result
+
+        self.clone(delayed_for=delay)

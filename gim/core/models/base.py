@@ -195,6 +195,7 @@ class GithubObject(models.Model):
 
         if parameters is None:
             parameters = {}
+        first_response_headers = parameters.pop('response_headers', {})
 
         identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
 
@@ -246,7 +247,10 @@ class GithubObject(models.Model):
             Return the etag header of the page as second argument
 
             """
-            response_headers = {}
+            if not first_response_headers:
+                response_headers = first_response_headers
+            else:
+                response_headers = {}
             etag = None
             last_page_ok = None
 
