@@ -365,8 +365,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             # now.
             self.fetch_head_commit_statuses(gh, force_fetch)
 
-        self.fetch_events(gh, force_fetch=force_fetch)
-        self.fetch_comments(gh, force_fetch=force_fetch)
+        # Force fetch because of reverse order
+        self.fetch_events(gh, force_fetch=True)
+        self.fetch_comments(gh, force_fetch=True)
 
         if self.is_pull_request:
             self.fetch_pr(gh, force_fetch=force_fetch)
