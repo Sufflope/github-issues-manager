@@ -4,6 +4,7 @@ from collections import OrderedDict
 from async_messages import messages
 from django.core.urlresolvers import reverse
 from django.http.response import HttpResponse, HttpResponseRedirect
+from django.utils.dateformat import format
 from django.utils.functional import cached_property
 from django.views.generic.base import TemplateView
 from django.views.generic.edit import UpdateView
@@ -286,8 +287,12 @@ class GithubNotificationEditView(UpdateView):
             'values': {
                 'read': not self.object.unread,
                 'active': self.object.subscribed,
-            }
+            },
+            'count': self.request.user.count_unread_notifications(),
+            'last': self.request.user.get_last_unread_notification_date(),
         }
+        if data['last']:
+            data['last'] = format(data['last'], 'r')
         if error_msg:
             data['error_msg'] = error_msg
         return json.dumps(data)

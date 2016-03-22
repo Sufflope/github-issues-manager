@@ -5270,11 +5270,16 @@ $().ready(function() {
                 return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
             }
             GithubNotifications.save_values($form, data.values);
-            if (data.values) {
-                GithubNotifications.apply_values($form, data.values);
-                $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
-                $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
-            }
+
+            GithubNotifications.apply_values($form, data.values);
+            $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
+            $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
+
+            GithubNotifications.on_notifications_ping(null, null, {
+                count: data.count,
+                last: data.last
+            });
+;
         }, // on_post_submit_done
 
         on_post_submit_failed: function (xhr, data) {
@@ -5282,6 +5287,12 @@ $().ready(function() {
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
             MessagesManager.add_messages(MessagesManager.make_message(error_msg, 'error'));
             GithubNotifications.apply_values($form, data.values);
+            if (data.values) {
+                GithubNotifications.on_notifications_ping(null, null, {
+                    count: data.count,
+                    last: data.last
+                });
+            }
         }, // on_post_submit_failed
 
         on_current_issue_toggle_event: function (check) {
@@ -5349,16 +5360,16 @@ $().ready(function() {
             GithubNotifications.$menu_node.attr('title', new_count ? ("You have " + new_count + " unread notification" + (new_count > 1 ? 's' : '')) : "You don't have unread notifications");
             GithubNotifications.$menu_node_counter.text(new_count).toggleClass('label-dark-red', new_count > 0);
 
-            if (to_notify) {
-                $node.addClass('new-notifications');
-            } else {
-                // remove the animation if back to normal
-                if ((!new_last || GithubNotifications.orig_last && new_date <= GithubNotifications.orig_date)
-                    && (new_count <= GithubNotifications.orig_count)) {
-                    $node.removeClass('new-notifications');
-                }
+            // remove the animation if back to normal
+            if ((!new_last || GithubNotifications.orig_last && new_date <= GithubNotifications.orig_date)
+                && (new_count <= GithubNotifications.orig_count)) {
+                to_notify = false;
+                $node.removeClass('new-notifications');
             }
 
+            if (to_notify) {
+                $node.addClass('new-notifications');
+            }
 
         }, // on_notifications_ping
 
