@@ -288,8 +288,8 @@ class GithubNotificationEditView(UpdateView):
                 'read': not self.object.unread,
                 'active': self.object.subscribed,
             },
-            'count': self.request.user.count_unread_notifications(),
-            'last': self.request.user.get_last_unread_notification_date(),
+            'count': self.request.user.unread_notifications_count,
+            'last': self.request.user.last_unread_notification_date,
         }
         if data['last']:
             data['last'] = format(data['last'], 'r')
