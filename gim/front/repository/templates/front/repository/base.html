@@ -54,7 +54,7 @@
                 </li>
         {% endif %}
         {% endfor %}
-        {% if display_add_issue_btn %}
+        {% if can_add_issues %}
             <li class="add-issue-btn"><a role="menuitem" href="#" title="Create an issue on this repository"><i class="fa fa-plus fa-fw"> </i> <span>Add issue</span></a></li>
         {% endif %}
     </ul>
@@ -63,7 +63,8 @@
 {% block modal-windows %}
     {{ block.super }}
     {% include "front/modal_issue_view.html" %}
-    <div id="go-to-issue-window" class="modal hide" tabindex="-1">
+    {% if can_open_issue_by_number %}
+        <div id="go-to-issue-window" class="modal hide" tabindex="-1">
         <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
             <h3>Go to issue</h3>
@@ -78,7 +79,9 @@
             </form>
         </div>
     </div>
-    <div id="issue-create-modal" class="modal fancy hide fade" data-keyboard="false" data-backdrop="static">
+    {% endif %}
+    {% if can_add_issues %}
+        <div id="issue-create-modal" class="modal fancy hide fade" data-keyboard="false" data-backdrop="static">
         <div class="modal-header">
             <nav class="issue-create-nav dropdown">
                 <button class="btn btn-default dropdown-toggle" data-toggle="dropdown"><i class="fa fa-bars"> </i></button>
@@ -102,11 +105,14 @@
             </div>
         </div>
     </div>
+    {% endif %}
 {% endblock %}
 
 {% block js_footer %}
     {{ block.super }}
+    {% if can_add_issues %}
     <script type='text/javascript'>
         var create_issue_url = "{{ current_repository.get_create_issue_url }}";
     </script>
+    {% endif %}
 {% endblock js_footer %}

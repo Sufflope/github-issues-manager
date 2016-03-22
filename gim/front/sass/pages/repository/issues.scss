@@ -32,7 +32,7 @@ html, body {
     padding-left: 0;
     padding-top: 0;
 }
-body#repository_issues #main-inner {
+body.issues_list_page #main-inner {
     padding: 0;
     padding-top: $header-top;
     height: 100%;
@@ -40,7 +40,6 @@ body#repository_issues #main-inner {
     position: relative;
     padding-left: $sidebar-width;
 }
-
 
 // 3 columns, full height, each one is scrollable
 #issues-list-container, #main-issue-container {
@@ -252,6 +251,9 @@ body#repository_issues #main-inner {
     font-size: smaller;
     color: $box-light-text-color;
     text-align: center;
+    span {
+        padding-right: 0.5ex;
+    }
     i {
         font-size: smaller;
     }

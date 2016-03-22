@@ -1,5 +1,11 @@
+from django.utils.functional import cached_property
+
 __all__ = [
     'FetchAvailableRepositoriesJob',
+    'ManageDualUser',
+    'FinalizeGithubNotification',
+    'GithubNotificationEditJob',
+    'FetchNotifications',
 ]
 
 import sys
@@ -13,7 +19,7 @@ from async_messages import messages
 from limpyd import fields
 
 from gim.core.managers import MODE_UPDATE
-from gim.core.models import GithubUser
+from gim.core.models import GithubNotification, GithubUser
 from gim.github import ApiNotFoundError
 
 from .base import DjangoModelJob, Job
@@ -26,6 +32,10 @@ class UserJob(DjangoModelJob):
     """
     abstract = True
     model = GithubUser
+
+    @cached_property
+    def user(self):
+        return self.object
 
 
 class FetchAvailableRepositoriesJob(UserJob):
@@ -46,7 +56,7 @@ class FetchAvailableRepositoriesJob(UserJob):
         """
         super(FetchAvailableRepositoriesJob, self).run(queue)
 
-        user = self.object
+        user = self.user
 
         # force gh if not set
         if not self.gh_args.hgetall():
@@ -59,7 +69,7 @@ class FetchAvailableRepositoriesJob(UserJob):
         if not gh:
             return  # it's delayed !
 
-        nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams = user.fetch_all()
+        nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_notifs = user.fetch_all()
 
         if self.inform_user.hget() == '1':
             if nb_repos + nb_teams:
@@ -70,15 +80,15 @@ class FetchAvailableRepositoriesJob(UserJob):
 
         upgraded, downgraded = user.check_subscriptions()
 
-        return nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, len(upgraded), len(downgraded)
+        return nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_notifs, len(upgraded), len(downgraded)
 
     def success_message_addon(self, queue, result):
         """
         Display infos got from the fetch_available_repositories call
         """
-        nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_upgraded, nb_downgraded = result
-        return ' [nb_repos=%d, nb_orgs=%d, nb_watched=%d, nb_starred=%d, nb_teams=%d, nb_upgraded=%d, nb_downgraded=%d]' % (
-                nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_upgraded, nb_downgraded)
+        nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_notifs, nb_upgraded, nb_downgraded = result
+        return ' [nb_repos=%d, nb_orgs=%d, nb_watched=%d, nb_starred=%d, nb_teams=%d, nb_notifs=%d, nb_upgraded=%d, nb_downgraded=%d]' % (
+                nb_repos, nb_orgs, nb_watched, nb_starred, nb_teams, nb_notifs, nb_upgraded, nb_downgraded)
 
     def on_success(self, queue, result):
         """
@@ -170,3 +180,157 @@ class ManageDualUser(Job):
             # We're ok
             self.resolution.hset('User has a new username: %s' % user.username)
             return True
+
+
+class GithubNotificationJob(DjangoModelJob):
+    """
+    Abstract job model for jobs based on the IssueComment model
+    """
+    abstract = True
+    model = GithubNotification
+
+    permission = 'self'
+    clonable_fields = ('gh', )
+
+    @cached_property
+    def github_notification(self):
+        return self.object
+
+
+class FinalizeGithubNotification(GithubNotificationJob):
+
+    queue_name = 'finalize-notification'
+
+    def run(self, queue):
+        """
+        Get the user and its available repositories from github, and save the
+        counts in the job
+        """
+        super(FinalizeGithubNotification, self).run(queue)
+
+        notification = self.github_notification
+
+        # force gh if not set
+        if not self.gh_args.hgetall():
+            gh = notification.user.get_connection()
+            if gh and 'access_token' in gh._connection_args:
+                self.gh = gh
+
+        # check availability
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        ready = True
+        issue = None
+
+        # Fetch the subscription
+        try:
+            notification.fetch_subscription(gh)
+        except ApiNotFoundError:
+            ready = False
+        else:
+
+            # Fetch the repository
+            try:
+                notification.repository.fetch_minimal(gh)
+            except ApiNotFoundError:
+                ready = False
+            else:
+                # Fetch the issue
+                from gim.core.models import Issue
+                try:
+                    issue = notification.repository.issues.get(number=notification.issue_number)
+                except Issue.DoesNotExist:
+                    issue = Issue(repository=notification.repository, number=notification.issue_number)
+
+                try:
+                    issue.fetch(gh)
+                except ApiNotFoundError:
+                    if issue.pk:
+                        issue.delete()
+                    ready = False
+                else:
+                    from gim.core.tasks.issue import FetchIssueByNumber
+                    FetchIssueByNumber.add_job('%s#%s' % (notification.repository.pk, notification.issue_number), gh=gh)
+
+        notification.issue = issue if issue and issue.pk else None
+        notification.ready = ready
+        notification.save()
+
+        return True
+
+
+class GithubNotificationEditJob(GithubNotificationJob):
+
+    queue_name = 'edit-notification'
+
+    def run(self, queue):
+
+        notification = self.github_notification
+
+        # force gh if not set
+        if not self.gh_args.hgetall():
+            gh = notification.user.get_connection()
+            if gh and 'access_token' in gh._connection_args:
+                self.gh = gh
+
+        # check availability
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        # mark as read
+        if not notification.unread:
+            notification.dist_edit(gh, 'update')
+
+        # update subscription
+        notification.dist_edit(gh, 'update', meta_base_name='subscription')
+
+
+class FetchNotifications(UserJob):
+
+    queue_name = 'fetch-notifications'
+
+    def run(self, queue):
+
+        user = self.user
+
+        # force gh if not set
+        if not self.gh_args.hgetall():
+            gh = user.get_connection()
+            if gh and 'access_token' in gh._connection_args:
+                self.gh = gh
+
+        # check availability
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        response_headers = {}
+        count = user.fetch_github_notifications(None, parameters={'response_headers': response_headers})
+
+        try:
+            delay = int(response_headers['x-poll-interval'])
+        except Exception:
+            delay = 60
+
+        return count, delay
+
+    def success_message_addon(self, queue, result):
+        """
+        Display infos got from the fetch_available_repositories call
+        """
+        count, delay = result
+
+        return ' [notifs=%d, delay=%d]' % (count, delay)
+
+    def on_success(self, queue, result):
+        """
+        Make a new fetch later
+        """
+        count, delay = result
+
+        self.clone(delayed_for=delay)
+
+        self.user.ping_github_notifications()

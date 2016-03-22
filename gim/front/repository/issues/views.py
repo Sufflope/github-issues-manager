@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
-
 from collections import OrderedDict
 from datetime import datetime
+import os
 import json
 from math import ceil
 from time import sleep
+from urlparse import unquote, urlparse, urlunparse
 
 from django.contrib import messages
-from django.core.urlresolvers import reverse_lazy
-from django.db import DatabaseError
+from django.core.handlers.wsgi import WSGIRequest
+from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
+from django.test.client import FakePayload
 from django.utils.datastructures import SortedDict
+from django.utils.encoding import force_str
 from django.utils.functional import cached_property
+from django.utils.http import is_safe_url
 from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
 
 from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
                              PullRequestCommentEntryPoint, IssueComment,
-                             PullRequestComment, CommitComment)
+                             PullRequestComment, CommitComment,
+                             GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneeJob, IssueEditLabelsJob,
@@ -27,10 +32,11 @@ from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
 
-from gim.subscriptions.models import SUBSCRIPTION_STATES
+from gim.subscriptions.models import SUBSCRIPTION_STATES, Subscription
 
-from gim.front.mixins.views import (WithQueryStringViewMixin,
-                                    LinkedToRepositoryFormViewMixin,
+from gim.front.github_notifications.views import GithubNotifications
+
+from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     LinkedToIssueFormViewMixin,
                                     LinkedToUserFormViewMixin,
                                     LinkedToCommitFormViewMixin,
@@ -38,10 +44,12 @@ from gim.front.mixins.views import (WithQueryStringViewMixin,
                                     WithSubscribedRepositoryViewMixin,
                                     WithAjaxRestrictionViewMixin,
                                     DependsOnIssueViewMixin,
-                                    CacheControlMixin)
+                                    CacheControlMixin,
+                                    WithIssueViewMixin)
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
+from gim.front.mixins.views import BaseIssuesView
 
 from gim.front.utils import make_querystring
 
@@ -157,75 +165,52 @@ class IssuesFilterClosers(UserFilterPart):
     title = 'Closed by'
 
 
-class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
+GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
+    ('created_by', {
+        'field': 'user',
+        'name': 'creator',
+        'description': u'author of the issue',
+    }),
+    ('assigned', {
+        'field': 'assignee',
+        'name': 'assigned',
+        'description': u'user assigned to the issue',
+    }),
+    ('closed_by', {
+        'field': 'closed_by',
+        'name': 'closed by',
+        'description': u'user who closed the issue',
+    }),
+    ('milestone', {
+        'field': 'milestone',
+        'name': 'milestone',
+        'description': u'milestone the issue is in',
+    }),
+]})
+
+
+class IssuesView(BaseIssuesView, BaseRepositoryView):
     name = 'Issues'
     url_name = 'issues'
     template_name = 'front/repository/issues/base.html'
     default_qs = 'state=open'
 
-    allowed_filters = ['milestone', 'state', 'labels', 'sort', 'direction',
-                       'group_by', 'group_by_direction', 'pr', 'mergeable']
-    allowed_states = ['open', 'closed']
-    allowed_prs = ['no', 'yes']
-    allowed_mergeables = ['no', 'yes']
-    allowed_sort_fields = ['created', 'updated', ]
-    allowed_sort_orders = ['asc', 'desc']
-    allowed_group_by = OrderedDict([
-        ('state', {
-            'field': 'state',
-            'name': 'state',
-        }),
-        ('created_by', {
-            'field': 'user',
-            'name': 'creator',
-        }),
-        ('assigned', {
-            'field': 'assignee',
-            'name': 'assigned',
-        }),
-        ('closed_by', {
-            'field': 'closed_by',
-            'name': 'closed by',
-        }),
-        ('milestone', {
-            'field': 'milestone',
-            'name': 'milestone',
-        }),
-        ('pr', {
-            'field': 'is_pull_request',
-            'name': 'pull-request',
-        }),
+    GROUP_BY_CHOICES = GROUP_BY_CHOICES
+
+    allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
+        'state',
+        'created_by',
+        'assigned',
+        'closed_by',
+        'milestone',
+        'pr',
     ])
-    default_sort = ('updated', 'desc')
 
-    def _get_state(self, qs_parts):
-        """
-        Return the valid state to use, or None
-        """
-        state = qs_parts.get('state', None)
-        if state in self.allowed_states:
-            return state
-        return None
+    def get_base_queryset(self):
+        return self.repository.issues.ready()
 
-    def _get_is_pull_request(self, qs_parts):
-        """
-        Return the valid "is_pull_request" flag to use, or None
-        """
-        is_pull_request = qs_parts.get('pr', None)
-        if is_pull_request in self.allowed_prs:
-            return True if is_pull_request == 'yes' else False
-        return None
-
-    def _get_is_mergeable(self, qs_parts):
-        """
-        Return the valid "is_mergeable" flag to use, or None
-        Will return None if current filter is not on Pull requests
-        """
-        is_mergeable = qs_parts.get('mergeable', None)
-        if is_mergeable in self.allowed_mergeables:
-            if self._get_is_pull_request(qs_parts):
-                return True if is_mergeable == 'yes' else False
-        return None
+    def get_base_url(self):
+        return self.repository.get_view_url(IssuesView.url_name)
 
     def _get_milestone(self, qs_parts):
         """
@@ -286,75 +271,39 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
         """
         group_by = qs_parts.get('group_by', None)
 
-        if group_by in self.allowed_group_by:
-
-            # group by a simple field
-            group_by = self.allowed_group_by[group_by]['field']
-
-        elif group_by and group_by.startswith('type:'):
+        if group_by and group_by.startswith('type:'):
 
             # group by a label type
             label_type_name = group_by[5:]
             try:
                 label_type = self.repository.label_types.get(name=label_type_name)
             except LabelType.DoesNotExist:
-                pass
+                return None, None
             else:
-                group_by = label_type
+                return label_type, self._get_group_by_direction(qs_parts)
 
+        return super(IssuesView, self)._get_group_by(qs_parts)
+
+    def _prepare_group_by(self, group_by, group_by_direction,
+                          qs_parts, qs_filters, filter_objects, order_by):
+        if isinstance(group_by, LabelType):
+            qs_filters['group_by'] = 'type:%s' % group_by.name
+            filter_objects['group_by'] = group_by
+            filter_objects['group_by_field'] = 'label_type_grouper'
         else:
-            group_by = None
-
-        if group_by is not None:
-            direction = qs_parts.get('group_by_direction', 'asc')
-            if direction not in ('asc', 'desc'):
-                direction = 'asc'
-            return group_by, direction
-
-        return None, None
-
-    def _get_sort(self, qs_parts):
-        """
-        Return the sort field to use, and the direction. If one or both are
-        invalid, the default ones are used
-        """
-        sort = qs_parts.get('sort', None)
-        direction = qs_parts.get('direction', None)
-        if sort not in self.allowed_sort_fields:
-            sort = self.default_sort[0]
-        if direction not in self.allowed_sort_orders:
-            direction = self.default_sort[1]
-        return sort, direction
+            super(IssuesView, self)._prepare_group_by(group_by, group_by_direction, qs_parts,
+                                                      qs_filters, filter_objects, order_by)
 
     def get_issues_for_context(self, context):
         """
-        Read the querystring from the context, already cut in parts,
-        and check parts that can be applied to filter issues, and return
-        an issues queryset ready to use
+        In addition to parent call, apply milestone and labels filtering
         """
         qs_parts = self.get_qs_parts(context)
-
-        qs_filters = {}
-        filter_objects = {}
+        queryset, filter_context = super(IssuesView, self).get_issues_for_context(context)
+        qs_filters = filter_context['qs_filters']
+        filter_objects = filter_context['filter_objects']
 
         query_filters = {}
-
-        # filter by state
-        state = self._get_state(qs_parts)
-        if state is not None:
-            qs_filters['state'] = filter_objects['state'] = query_filters['state'] = state
-
-        # filter by pull request status
-        is_pull_request = self._get_is_pull_request(qs_parts)
-        if is_pull_request is not None:
-            qs_filters['pr'] = self.allowed_prs[is_pull_request]
-            filter_objects['pr'] = query_filters['is_pull_request'] = is_pull_request
-
-        # filter by mergeable status
-        is_mergeable = self._get_is_mergeable(qs_parts)
-        if is_mergeable is not None:
-            qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
-            filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
 
         # filter by milestone
         milestone = self._get_milestone(qs_parts)
@@ -367,8 +316,8 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                 qs_filters['milestone'] = '%s' % milestone.number
                 query_filters['milestone__number'] = milestone.number
 
-        # the base queryset with the current filters
-        queryset = self.repository.issues.ready().filter(**query_filters)
+            # apply the new filter
+            queryset = queryset.filter(**query_filters)
 
         # now filter by labels
         label_types_to_ignore, labels = self._get_labels(qs_parts)
@@ -393,49 +342,20 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                     filter_objects['current_labels'].append(label)
                 queryset = queryset.filter(labels=label.id)
 
-        # prepare order, by group then asked ordering
-        order_by = []
-
-        # do we need to group by a field ?
-        group_by, group_by_direction = self._get_group_by(qs_parts)
-        if group_by is not None:
-            filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = group_by_direction
-            if isinstance(group_by, basestring):
-                qs_filters['group_by'] = qs_parts['group_by']
-                filter_objects['group_by'] = qs_parts['group_by']
-                filter_objects['group_by_field'] = group_by
-                order_by.append('%s%s' % ('-' if group_by_direction == 'desc' else '', group_by))
-            else:
-                qs_filters['group_by'] = 'type:%s' % group_by.name
-                filter_objects['group_by'] = group_by
-                filter_objects['group_by_field'] = 'label_type_grouper'
-
-        # Do we need to select/prefetch related stuff ? If not grouping, no
-        # because we assume all templates are already cached
-        # TODO: select/prefetch only the stuff needed for grouping
-        if group_by is not None:
-            queryset = queryset.select_related(
-                    'user',  # we may have a lot of different ones
-                ).prefetch_related(
-                    'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
-                    'labels__label_type'
-                )
-
-        # and finally, asked ordering
-        sort, sort_direction = self._get_sort(qs_parts)
-        qs_filters['sort'] = filter_objects['sort'] = sort
-        qs_filters['direction'] = filter_objects['direction'] = sort_direction
-        order_by.append('%s%s_at' % ('-' if sort_direction == 'desc' else '', sort))
-
-        # final order by, with group and wanted order
-        queryset = queryset.order_by(*order_by)
-
-        # return the queryset and some context
-        filter_context = {
-            'filter_objects': filter_objects,
-            'qs_filters': qs_filters,
-        }
         return queryset, filter_context
+
+    def select_and_prefetch_related(self, queryset, group_by):
+        if not group_by:
+            return queryset
+
+        # TODO: select/prefetch only the stuff needed for grouping
+        return queryset.select_related(
+            'repository__owner',  # default
+            'user',  # we may have a lot of different ones
+        ).prefetch_related(
+            'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
+            'labels__label_type'
+        )
 
     def get_context_data(self, **kwargs):
         """
@@ -443,23 +363,13 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
         """
         context = super(IssuesView, self).get_context_data(**kwargs)
 
-        # get the list of issues
-        issues, filter_context = self.get_issues_for_context(context)
-
         # get the list of label types
         label_types = self.repository.label_types.all().prefetch_related('labels')
 
         # final context
-        issues_url = self.repository.get_view_url(IssuesView.url_name)
-
-        issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
-            'root_issues_url': issues_url,
-            'current_issues_url': issues_url,
-            'issues_filter': issues_filter,
             'no_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__none__'),
             'someone_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__any__'),
-            'qs_parts_for_ttags': issues_filter['parts'],
             'label_types': label_types,
         })
 
@@ -472,8 +382,8 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
             }
             if count:
                 part_kwargs = {
-                    'issues_filter': issues_filter,
-                    'root_issues_url': issues_url,
+                    'issues_filter': context['issues_filter'],
+                    'root_issues_url': context['root_issues_url'],
                 }
                 if view.relation == 'issues_assigned':
                     part_kwargs.update({
@@ -486,68 +396,37 @@ class IssuesView(WithQueryStringViewMixin, BaseRepositoryView):
                 else:
                     context[view.relation]['part'] = view.render_part(**part_kwargs)
 
-        context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)
-        context['MAX_ISSUES'] = LIMIT_ISSUES
-
-        context['display_add_issue_btn'] = True
+        context['can_add_issues'] = True
 
         return context
 
     def prepare_issues_filter_context(self, filter_context):
         """
-        Prepare a dict to use in the template, with many informations about the
-        current filter: parts (as found in the querystring), objects (to use for
-        display in the template), the base querystring (without user information
-        ), and the full querystring (with user informations if a assigned/created
+        Update from the parent call to include the base querystring (without user information
+        ), and the full querystring (with user information if a assigned/created
         filter is used)
         """
+
+        context = super(IssuesView, self).prepare_issues_filter_context(filter_context)
+
+        context['querystring_with_user'] = context['querystring']
+
         # we need a querystring without the created/assigned parts
-        qs_filter_without_user = dict(filter_context['qs_filters'])
+        qs_filter_without_user = dict(filter_context['qs_filters'])  # make a copy!
         qs_filter_without_user.pop('user_filter_type', None)
         qs_filter_without_user.pop('username', None)
 
-        context_issues_filter = {
-            'parts': filter_context['qs_filters'],
-            'objects': filter_context['filter_objects'],
-            'querystring': make_querystring(qs_filter_without_user),
-            'querystring_with_user': make_querystring(filter_context['qs_filters']),
-        }
+        context['querystring'] = make_querystring(qs_filter_without_user)
 
-        return context_issues_filter
+        return context
 
     def finalize_issues(self, issues, context):
         """
         Return a final list of issues usable in the view.
         Actually simply order ("group") by a label_type if asked
         """
-        total_count = issues_count = issues.count()
 
-        if not issues_count:
-            return [], 0, False
-
-        if self.request.GET.get('limit') != 'no' and issues_count > LIMIT_ISSUES:
-            issues_count = LIMIT_ISSUES
-            issues = issues[:LIMIT_ISSUES]
-            limit_reached = True
-        else:
-            limit_reached = False
-
-        try:
-            issues = list(issues.all())
-        except DatabaseError, e:
-            # sqlite limits the vars passed in the request to 999, and
-            # prefetch_related use a in(...), and with more than 999 issues
-            # sqlite raises an error.
-            # In this case, we loop on the data by slice of 999 issues
-            if u'%s' % e != 'too many SQL variables':
-                raise
-            queryset = issues
-            issues = []
-            per_fetch = 999
-
-            iterations = int(ceil(issues_count / float(per_fetch)))
-            for iteration in range(0, iterations):
-                issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
+        issues, total_count, limit_reached = super(IssuesView, self).finalize_issues(issues, context)
 
         label_type = context['issues_filter']['objects'].get('group_by', None)
         attribute = context['issues_filter']['objects'].get('group_by_field', None)
@@ -587,7 +466,6 @@ class UserIssuesView(IssuesView):
     url_name = 'user_issues'
     user_filter_types = ['assigned', 'created_by', 'closed_by']
     user_filter_types_matching = {'created_by': 'user', 'assigned': 'assignee', 'closed_by': 'closed_by'}
-    allowed_filters = IssuesView.allowed_filters + user_filter_types
 
     def _get_user_filter(self, qs_parts):
         """
@@ -616,22 +494,24 @@ class UserIssuesView(IssuesView):
         Update the previously done queryset by filtering by a user as assigned
         to issues, or their creator or the one who closed them
         """
-        queryset, filter_context = super(UserIssuesView, self).get_issues_for_context(context)
         qs_parts = self.get_qs_parts(context)
+        queryset, filter_context = super(UserIssuesView, self).get_issues_for_context(context)
+        qs_filters = filter_context['qs_filters']
+        filter_objects = filter_context['filter_objects']
 
         user_filter_type, user = self._get_user_filter(qs_parts)
         if user_filter_type and user:
-            filter_context['filter_objects']['user'] = user
-            filter_context['filter_objects']['user_filter_type'] = user_filter_type
-            filter_context['qs_filters']['user_filter_type'] = user_filter_type
+            filter_objects['user'] = user
+            filter_objects['user_filter_type'] = user_filter_type
+            qs_filters['user_filter_type'] = user_filter_type
             filter_field = self.user_filter_types_matching[user_filter_type]
-            filter_context['qs_filters']['username'] = user
+            qs_filters['username'] = user
             if user == '__none__':
                 queryset = queryset.filter(**{'%s_id__isnull' % filter_field: True})
             elif user == '__any__' and user_filter_type == 'assigned':
                 queryset = queryset.filter(**{'%s_id__isnull' % filter_field: False})
             else:
-                filter_context['qs_filters']['username'] = user.username
+                qs_filters['username'] = user.username
                 queryset = queryset.filter(**{filter_field: user.id})
 
         return queryset, filter_context
@@ -658,22 +538,118 @@ class UserIssuesView(IssuesView):
         return context
 
 
-class IssueView(UserIssuesView):
+class IssueView(WithIssueViewMixin, TemplateView):
     url_name = 'issue'
     ajax_template_name = 'front/repository/issues/issue.html'
 
-    def get_current_issue(self):
+    def get_referer_issues_view(self):
+        referer = self.request.GET.get('referer')
+        if referer:
+            referer = unquote(referer)
+        else:
+            # No way to have this in https, but...
+            referer = self.request.META.get('HTTP_REFERER')
+
+        if not referer:
+            return None, None, None
+
+        if not is_safe_url(referer, self.request.get_host()):
+            return None, None, None
+
+        try:
+            url_info = urlparse(referer)
+            resolved_url = resolve(url_info.path)
+        except Resolver404:
+            return None, None, None
+        else:
+            url_name = resolved_url.url_name
+            if resolved_url.namespace:
+                url_name = resolved_url.namespace + ':' + url_name
+            if url_name == GithubNotifications.url_name:
+                return GithubNotifications, url_info, resolved_url
+            elif resolved_url.namespace == u'front:repository' and resolved_url.url_name in (
+                    IssuesView.url_name, UserIssuesView.url_name):
+                # Check that we are on the same repository
+                if resolved_url.kwargs.get('owner_username') == self.kwargs['owner_username']\
+                        and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
+                    if resolved_url == IssuesView.url_name:
+                        return IssuesView, url_info, resolved_url
+                    else:
+                        return UserIssuesView, url_info, resolved_url
+
+        return None, None, None
+
+    def get_redirect_url(self):
+
+        redirect_to = None
+
+        # Will raise a 404 if not found
+        issue = self.issue
+
+        try:
+            notification = self.request.user.github_notifications.get(issue=issue)
+        except GithubNotification.DoesNotExist:
+            notification = None
+
+        try:
+            subscription = self.request.user.subscriptions.exclude(state=Subscription.STATES.NORIGHTS).get(repository=issue.repository)
+        except Subscription.DoesNotExist:
+            subscription = None
+
+        fragment = 'issue-%d' % issue.pk
+
+        view, url_info, resolved_url = self.get_referer_issues_view()
+
+        if view == GithubNotifications and notification:
+            redirect_to = url_info
+        elif view and subscription:
+            redirect_to = url_info
+
+        if redirect_to:
+            redirect_to = urlunparse(list(url_info[:-1]) + [fragment])
+        else:
+            if subscription:
+                view = IssuesView
+                redirect_to = issue.repository.get_view_url(view.url_name)
+            elif notification:
+                view = GithubNotifications
+                redirect_to = reverse(view.url_name)
+            else:
+                raise Http404
+
+            if getattr(view, 'default_qs', None):
+                redirect_to = '%s?%s#%s' % (redirect_to, view.default_qs, fragment)
+            else:
+                redirect_to = '%s#%s' % (redirect_to, fragment)
+
+        return redirect_to
+
+    def get(self, request, *args, **kwargs):
+        """
+        Redirect to a full issues view if not in ajax mode
+        """
+        if self.request.is_ajax():
+            return super(IssueView, self).get(request, *args, **kwargs)
+
+        return HttpResponseRedirect(self.get_redirect_url())
+
+    def get_base_queryset(self):
+        return self.repository.issues.ready()
+
+    @cached_property
+    def current_issue(self):
         """
         Based on the informations from the url, try to return
         the wanted issue
         """
         issue = None
         if 'issue_number' in self.kwargs:
-            issue = self.repository.issues.ready().select_related(
-                    'user',  'assignee', 'closed_by', 'milestone',
-                ).prefetch_related(
-                    'labels__label_type'
-                ).get(number=self.kwargs['issue_number'])
+            qs = self.get_base_queryset().select_related(
+                'user',  'assignee', 'closed_by', 'milestone', 'repository__owner'
+            ).prefetch_related(
+                'labels__label_type'
+            )
+            issue = get_object_or_404(qs, number=self.kwargs['issue_number'])
         return issue
 
     def get_involved_people(self, issue, activity, collaborators_ids):
@@ -742,20 +718,14 @@ class IssueView(UserIssuesView):
         """
         Add the selected issue in the context
         """
-        if self.request.is_ajax():
-            # is we respond to an ajax call, bypass all the context stuff
-            # done by IssuesView and UserIssuesView by calling directly
-            # their baseclass
-            context = super(IssuesView, self).get_context_data(**kwargs)
-        else:
-            context = super(IssueView, self).get_context_data(**kwargs)
+        context = super(IssueView, self).get_context_data(**kwargs)
 
         # check which issue to display
         current_issue_state = 'ok'
         current_issue = None
         try:
-            current_issue = self.get_current_issue()
-        except Issue.DoesNotExist:
+            current_issue = self.current_issue
+        except Http404:
             current_issue_state = 'notfound'
         else:
             if not current_issue:
@@ -831,24 +801,53 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
 
     ajax_only = True
     http_method_names = ['get']
+    ajax_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+
+    def get_referer_issues_view(self):
+        self.referer_view, url_info, resolved_url = super(IssueSummaryView, self).get_referer_issues_view()
+        return self.referer_view, url_info, resolved_url
+
+    def get_referer_issues_queryset(self):
+
+        view, url_info, resolved_url = self.get_referer_issues_view()
+        if not view:
+            return None
+
+        environ = dict(os.environ)
+
+        environ.update({
+            'PATH_INFO':       unquote(force_str(url_info.path)),
+            'QUERY_STRING':    force_str(url_info.query),
+            'REQUEST_METHOD':  str('GET'),
+            'wsgi.input': FakePayload(b''),
+        })
+
+        for key in ('wsgi.multiprocess', 'wsgi.multithread', 'wsgi.run_once', 'wsgi.url_scheme', 'wsgi.version'):
+            if key in self.request.META:
+                environ[key] = self.request.META[key]
+
+        request = WSGIRequest(environ)
+        request.user = self.request.user
+
+        view = view(request=request, args=resolved_url.args, kwargs=resolved_url.kwargs)
+        querystring_context = view.get_querystring_context()
+        issues_queryset, self.referer_filter_context = view.get_issues_for_context(querystring_context)
+
+        return issues_queryset
+
+    def get_base_queryset(self):
+        queryset = self.get_referer_issues_queryset()
+        if queryset is None:
+            return super(IssueSummaryView, self).get_base_queryset()
+        return queryset
 
     def get_context_data(self, **kwargs):
         """
         Add the issue in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssueSummaryView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-            # Restrict to filter in querystring
-            if current_issue.pk not in \
-                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-                raise Issue.DoesNotExist
-        except Issue.DoesNotExist:
-            raise Http404
-
+        current_issue = self.current_issue
 
         # Force rerender if there is a job waiting to do it
         try:
@@ -862,38 +861,70 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
 
         context['issue'] = current_issue
 
+        referer_view = getattr(self, 'referer_view')
+
+        if referer_view == GithubNotifications:
+            context['reasons'] = referer_view.reasons
+            current_issue.github_notification = self.request.user.github_notifications.get(issue_id=current_issue.pk)
+            try:
+                current_issue.repository.subscription = self.request.user.subscriptions.get(repository_id=current_issue.repository_id)
+            except:
+                current_issue.repository.subscription = None
+            if self.referer_filter_context['filter_objects'].get('group_by_field') == 'githubnotification__repository':
+                context['force_hide_repositories'] = True
+
         return context
 
-
     def get_template_names(self):
-        """
-        We'll only display messages to the user
-        """
-        return ['front/repository/issues/include_issue_item_for_cache.html']
+        referer_view = getattr(self, 'referer_view')
+        if referer_view and hasattr(referer_view, 'issue_item_template_name'):
+            return [referer_view.issue_item_template_name]
+        return super(IssueSummaryView, self).get_template_names()
 
 
-class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, IssueView):
-    url_name = 'issue.no-details'
+class IssuePreviewView(CacheControlMixin, WithAjaxRestrictionViewMixin, IssueView):
+    url_name = 'issue.preview'
 
     ajax_only = True
     http_method_names = ['get']
+
+    @cached_property
+    def current_issue(self):
+
+        issue = super(IssuePreviewView, self).current_issue
+        if not issue:
+            return None
+
+        # Always ok for public repositories
+        if not issue.repository.private:
+            return issue
+
+        # If he is the owner, it's ok
+        if issue.repository.owner_id == self.request.user.id:
+            return issue
+
+        # If a private repository, we must have a subscription
+        allowed_private = self.request.user.subscriptions.filter(
+            repository__private=True,
+            state__in=Subscription.STATES.READ_RIGHTS
+        ).values_list('repository_id', flat=True)
+        if issue.repository_id in allowed_private:
+            return issue
+
+        # If not, it should be in a notification. It will be displayed in notifications anyway
+        notified = self.request.user.github_notifications.values_list('issue_id', flat=True)
+        if issue.id in notified:
+            return issue
+
+        raise Http404
 
     def get_context_data(self, **kwargs):
         """
         Add the issue in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssuePreviewView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-            # Restrict to filter in querystring
-            if current_issue.pk not in \
-                    self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-                raise Issue.DoesNotExist
-        except Issue.DoesNotExist:
-            raise Http404
+        current_issue = self.current_issue
 
         activity = current_issue.get_activity()
         involved = self.get_involved_people(current_issue, activity,
@@ -915,7 +946,6 @@ class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, I
         return ['front/repository/issues/issue_no_details.html']
 
 
-
 class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
     url_name = 'issue.ask-fetch'
     ajax_only = True
@@ -926,7 +956,7 @@ class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
         Get the issue and add a new job to fetch it
         """
         try:
-            issue = self.get_current_issue()
+            issue = self.current_issue
         except Exception:
             messages.error(self.request,
                 'The issue from <strong>%s</strong> you asked to fetch from Github could doesn\'t exist anymore!' % (
@@ -1014,8 +1044,8 @@ class CreatedIssueView(IssueView):
         Redirect to the final url too if with now have a number
         """
         try:
-            issue = self.get_current_issue()
-        except Issue.DoesNotExist:
+            issue = self.current_issue
+        except Http404:
             # ok, deleted/recreated by dist_edit...
             return self.redirect_to_created_issue(wait_if_failure=0.3)
         else:
@@ -1028,17 +1058,20 @@ class CreatedIssueView(IssueView):
             # existed just before, but not now, just deleted/recreated by dist_edit
             return self.redirect_to_created_issue(wait_if_failure=0.3)
 
-    def get_current_issue(self):
+    @cached_property
+    def current_issue(self):
         """
         Based on the informations from the url, try to return the wanted issue
         """
-        if not hasattr(self, '_issue'):
-            self._issue = self.repository.issues.select_related(
-                        'user',  'assignee', 'closed_by', 'milestone',
-                    ).prefetch_related(
-                        'labels__label_type'
-                    ).get(pk=self.kwargs['issue_pk'])
-        return self._issue
+        issue = None
+        if 'issue_pk' in self.kwargs:
+            qs = self.repository.issues.ready().select_related(
+                'user',  'assignee', 'closed_by', 'milestone',
+            ).prefetch_related(
+                'labels__label_type'
+            )
+            issue = get_object_or_404(qs, pk=self.kwargs['issue_pk'])
+        return issue
 
 
 class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
@@ -1053,14 +1086,9 @@ class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
         """
         Add the issue and its files in the context
         """
-        # we bypass all the context stuff done by IssuesView by calling
-        # directly its baseclass
-        context = super(IssuesView, self).get_context_data(**kwargs)
+        context = super(IssueView, self).get_context_data(**kwargs)
 
-        try:
-            current_issue = self.get_current_issue()
-        except Issue.DoesNotExist:
-            raise Http404
+        current_issue = self.current_issue
 
         context['current_issue'] = current_issue
         context['current_issue_edit_level'] = self.get_edit_level(current_issue)
@@ -1156,7 +1184,7 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
         return context
 
 
-class BaseIssueEditView(LinkedToRepositoryFormViewMixin):
+class BaseIssueEditViewSubscribed(LinkedToRepositoryFormViewMixin):
     model = Issue
     allowed_rights = SUBSCRIPTION_STATES.READ_RIGHTS
     http_method_names = [u'get', u'post']
@@ -1175,7 +1203,7 @@ class BaseIssueEditView(LinkedToRepositoryFormViewMixin):
         return self.object.get_absolute_url()
 
 
-class IssueEditFieldMixin(BaseIssueEditView, UpdateView):
+class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     field = None
     job_model = None
     url_name = None
@@ -1342,7 +1370,7 @@ class IssueEditLabels(IssueEditFieldMixin):
                                     self.field, issue.type, issue.number, who)
 
 
-class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditView, CreateView):
+class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):
     url_name = 'issue.create'
     template_name = 'front/repository/issues/create.html'
     ajax_only = False

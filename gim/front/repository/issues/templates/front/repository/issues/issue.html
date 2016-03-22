@@ -22,7 +22,7 @@
             <a href='#' title="Show one tab one the left" class="arrow scroll-left"><span class="badge badge-gray">0</span><i class="fa fa-chevron-left"> </i></a>
             <ul class="nav nav-tabs">
                 <li class="pr-discussion-tab active">
-                    <a data-toggle="tab" href="#issue-{{ current_issue.number }}-discussion">
+                    <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-discussion">
                         Discussion
                         <span class="label label-blue">
                             <span title="{{ current_issue.comments_count }} comment{{ current_issue.comments_count|pluralize }}"><i class="fa fa-comments-o"></i> {{ current_issue.comments_count }}</span>
@@ -32,7 +32,7 @@
                 </li>
                 {% if current_issue.is_pull_request %}
                     <li class="pr-commits-tab">
-                        <a data-toggle="tab" href="#issue-{{ current_issue.number }}-commits">
+                        <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-commits">
                             Commits
                             <span class="label label-blue">
                                 <span title="{{ current_issue.nb_commits }} commit{{ current_issue.nb_commits|pluralize }}"><i class="fa fa-git-square"></i> {{ current_issue.nb_commits }}</span>
@@ -43,7 +43,7 @@
                         </a>
                     </li>
                     <li class="files-tab pr-files-tab">
-                        <a data-toggle="tab" href="#issue-{{ current_issue.number }}-files">
+                        <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-files">
                             Files changed
                             <span class="label label-blue">
                                 <span title="{{ current_issue.nb_changed_files }} changed file{{ current_issue.nb_changed_files|pluralize }}"><i class="fa fa-file-o"></i> {{ current_issue.nb_changed_files }}</span>
@@ -51,7 +51,7 @@
                         </a>
                     </li>
                     <li class="pr-review-tab">
-                        <a data-toggle="tab" href="#issue-{{ current_issue.number }}-review">
+                        <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-review">
                             Review comments
                             <span class="label label-blue">
                                 <span title="{{ current_issue.pr_comments_count }} review comment{{ current_issue.pr_comments_count|pluralize }}"><i class="fa fa-comments-o"></i> {{ current_issue.pr_comments_count }}</span>
@@ -73,7 +73,7 @@
             <a href='#' title="Show one tab one the right" class="arrow scroll-right"><span class="badge badge-gray">o</span><i class="fa fa-chevron-right"> </i></a>
         </div>
         <div class="tab-content">
-            <div class="tab-pane active issue-discussion" data-tab="issue-discussion" id="issue-{{ current_issue.number }}-discussion">
+            <div class="tab-pane active issue-discussion" data-tab="issue-discussion" id="issue-{{ current_issue.pk }}-discussion">
                 {% include 'front/repository/issues/issue_description.html' %}
                 {% if current_issue.number %}
                 <aside>
@@ -125,7 +125,7 @@
                 {% endif %}
             </div>
             {% if current_issue.is_pull_request %}
-                <div class="tab-pane issue-commits" data-tab="issue-commits" id="issue-{{ current_issue.number }}-commits" data-url="{{ current_issue.ajax_commits_url }}">
+                <div class="tab-pane issue-commits" data-tab="issue-commits" id="issue-{{ current_issue.pk }}-commits" data-url="{{ current_issue.ajax_commits_url }}">
                     {% if current_issue.nb_commits > 10 %}
                         <div class="content empty">
                             Loading commits...
@@ -135,7 +135,7 @@
                         {% include "front/repository/issues/commits/include_issue_commits.html" %}
                     {% endif %}
                 </div>
-                <div class="tab-pane issue-files code-files" data-tab="issue-files" id="issue-{{ current_issue.number }}-files" data-url="{{ current_issue.ajax_files_url }}">
+                <div class="tab-pane issue-files code-files" data-tab="issue-files" id="issue-{{ current_issue.pk }}-files" data-url="{{ current_issue.ajax_files_url }}">
                     {% if current_issue.nb_additions|add:current_issue.nb_deletions > 300 or current_issue.nb_changed_files > 10 %}
                         <div class="content empty">
                             Loading {% if current_issue.nb_additions|add:current_issue.nb_deletions > 500 or current_issue.nb_changed_files > 20 %} big{% endif %}diff...
@@ -145,7 +145,7 @@
                         {% include "front/repository/issues/code/include_issue_files.html" %}
                     {% endif %}
                 </div>
-                <div class="tab-pane issue-review" data-tab="issue-review" id="issue-{{ current_issue.number }}-review" data-url="{{ current_issue.ajax_review_url }}">
+                <div class="tab-pane issue-review" data-tab="issue-review" id="issue-{{ current_issue.pk }}-review" data-url="{{ current_issue.ajax_review_url }}">
                     {% if current_issue.pr_comments_entry_points.count > 10 %}
                         <div class="content empty">
                             Loading review comments...

@@ -1,0 +1,100 @@
+@import "compass/css3/transition";
+@import "compass/css3/border-radius";
+@import "icheck_blue";
+@import "gim_variables";
+
+.issue-item-notification {
+    position: relative;
+    clear: both;
+    padding: 5px;
+    padding-left: 13px;
+    margin: 5px 0 -5px -13px;
+    background: white;
+    border-top: solid #eee 1px;
+    &:after {
+        clear: both;
+        content: '';
+        display: block;
+    }
+    > span {
+        display: inline-block;
+        margin-top: 3px;
+        span {
+            font-weight: 600;
+        }
+    }
+    form {
+        display: inline-block;
+        float: right;
+        height: 25px;
+        overflow: hidden;
+        margin: 0;
+        position: relative;
+        > div {
+            font-size: 12px;
+            display: inline-block;
+            vertical-align: middle;
+            height: 20px;
+        }
+        opacity: 0;
+        @include transition(opacity 2s ease);
+        &.js-managed {
+            opacity: 1;
+        }
+        .spin-holder {
+            display: inline-block;
+            height: 20px;
+            width: 20px;
+            background: rgb(109, 167, 203);
+            @include border-radius(5px);
+            color: white;
+            text-align: center;
+        }
+    }
+    label {
+        font-size: inherit;
+        font-weight: 600;
+        display: inline-block;
+        margin-left: 0.25em !important;
+        margin-right: 1em !important;
+        &:last-child {
+            margin-right: 0.5em !important;
+        }
+    }
+    input[type=checkbox] {
+        vertical-align: middle;
+        position: relative;
+        margin: 0;
+        bottom: 1px;
+        display: inline-block;
+        width: 20px;
+    }
+    .icheckbox_flat-aero {
+        top: -1px;
+        vertical-align: middle;
+        + label {
+            top: 0;
+            left: 0;
+            margin: 0;
+        }
+    }
+    @include transition(border-top-color 0.35s ease);
+}
+
+.issue-item.active {
+    .issue-item-notification {
+        background: transparent;
+        border-top-color: rgba(0, 0, 0, 0.05);
+        padding-left: 8px;
+        margin-left: -8px;
+    }
+}
+
+.without-details {
+    .issue-item.active {
+        .issue-item-notification {
+            padding-left: 3px;
+            margin-left: -3px;
+        }
+    }
+}

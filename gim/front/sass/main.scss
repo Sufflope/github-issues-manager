@@ -34,12 +34,49 @@ body {
             position: relative;
             display: inline-block;
         }
-        .user_avatar {
-            .caret {
-                vertical-align: middle;
-                margin-top: -3px !important;
+        .user-avatar {
+            .img-rounded {
+                @include border-radius(6px);
+            }
+            .dropdown-menu {
+                a {
+                    padding-right: 55px;
+                }
+                .label {
+                    margin-right: -40px;
+                }
+                i {
+                    color: inherit;
+                }
             }
         }
+    }
+}
+
+@include keyframes(breathing-notifications-counter) {
+    0% {
+        @include transform(scale(1));
+    }
+
+    35% {
+        @include transform(scale(1.3));
+    }
+
+    84% {
+        @include transform(scale(1));
+    }
+
+    100% {
+        @include transform(scale(1));
+    }
+}
+
+#github-notifications-count {
+    &.no-notifications {
+        display: none;
+    }
+    &.new-notifications {
+        @include animation(breathing-notifications-counter 5s infinite normal);
     }
 }
 

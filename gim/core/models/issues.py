@@ -365,8 +365,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             # now.
             self.fetch_head_commit_statuses(gh, force_fetch)
 
+        # Force fetch because of reverse order
         self.fetch_events(gh, force_fetch=True)
-        self.fetch_comments(gh, force_fetch=force_fetch)
+        self.fetch_comments(gh, force_fetch=True)
 
         if self.is_pull_request:
             self.fetch_pr(gh, force_fetch=force_fetch)
@@ -378,9 +379,10 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self._head_commits = {}
 
         if force or self.head_sha not in self._head_commits:
+            from gim.core.models import Commit
             try:
                 self._head_commits[self.head_sha] = self.repository.commits.get(sha=self.head_sha)
-            except self.repository.commits.model.DoesNotExist:
+            except Commit.DoesNotExist:
                 from gim.core.tasks.commit import FetchCommitBySha
                 FetchCommitBySha.add_job('%s#%s' % (self.repository_id, self.head_sha))
                 self._head_commits[self.head_sha] = None

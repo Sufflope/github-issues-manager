@@ -23,7 +23,9 @@
                     {% if comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
                         {% with github_url=comment.github_url %}
                             {% if with_link_to_diff or github_url %}
-                                <li class="divider"></li>
+                                {% if current_issue_edit_level == "full" or comment.user == view.request.user %}
+                                    <li class="divider"></li>
+                                {% endif %}
                                 {% if github_url %}
                                     <li><a href="{{ github_url }}" target="_blank"><i class="fa fa-github fa-fw"> </i> View on Github</a></li>
                                 {% endif %}

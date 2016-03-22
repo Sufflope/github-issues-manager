@@ -349,3 +349,11 @@ def requeue_all_repositories():
         CheckRepositoryEvents.add_job(repository.id)
         CheckRepositoryHook.add_job(repository.id, delayed_for=30)
         FetchForUpdate.add_job(repository.id)
+
+
+def requeue_all_users():
+    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications
+
+    for user in GithubUser.objects.filter(token__isnull=False):
+        FetchNotifications.add_job(user.id)
+        FetchAvailableRepositoriesJob.add_job(user.id)

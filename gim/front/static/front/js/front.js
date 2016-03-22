@@ -44,6 +44,7 @@ $().ready(function() {
 
     var $document = $(document),
         $body = $('body'),
+        body_id = $body.attr('id'),
         main_repository = $body.data('repository'),
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
@@ -703,6 +704,10 @@ $().ready(function() {
         this.node.IssuesListIssue = this;
         this.$node = $(node);
         this.$link = this.$node.find(IssuesListIssue.link_selector);
+        if (this.$link.length) {
+            var href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + encodeURIComponent(window.location.href.split("#")[0]);
+            this.$link.attr('href', href);
+        }
     }); // IssuesListIssue__prepare
 
     IssuesListIssue.prototype.set_issue_ident = (function IssuesListIssue__set_issue_ident (issue_ident) {
@@ -776,7 +781,7 @@ $().ready(function() {
             return;
         }
         var is_popup = !!(force_popup || container.$window);
-        if (!url) { url = this.$link.attr('href'); }
+        if (!url) { url = this.$link.attr('href').split("#")[0]; }
         if (!no_loading) {
             IssueDetail.set_container_loading(container);
         } else {
@@ -848,7 +853,7 @@ $().ready(function() {
         }
         var is_active = this.$node.hasClass('active');
 
-        $.get(kwargs.url + window.location.search).done(function(data) {
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
             var $data = $(data),
                 $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
@@ -857,15 +862,24 @@ $().ready(function() {
             if (is_active) {
                 $data.addClass('active');
             }
+
+            var with_repository = $data.hasClass('with-repository');
+            var with_notification = $data.hasClass('with-notification');
+            var display_repository = (with_repository || with_notification) ? $data.data('repository') : '';
+
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+
+            if (with_notification) {
+                GithubNotifications.init_item_forms();
+            }
 
             // check if we have to change group
             var list = issue.group.list,
                 refresh_quicksearch = true;
             if (list.group_by_key) {
                 var filter = issue.get_filter_for(list.group_by_key);
-                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
                 if (group != issue.group) {
                     refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
@@ -882,14 +896,16 @@ $().ready(function() {
                 issue.set_current(true);
             }
 
+            FilterManager.init();
+
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
                     IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                 } else {
                     $message = $('<span>The following ' + issue_type + ' was just updated:<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -897,16 +913,19 @@ $().ready(function() {
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
+                var with_repository = issue.$node.hasClass('with-repository');
+                var with_notification = issue.$node.hasClass('with-notification');
+                var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
                 issue.group.remove_issue(issue);
                 if (!kwargs.front_uuid || !front_uuid_exists) {
                     var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue',
                         $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
                     if ($containers.length) {
-                        $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
+                        $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
                         IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                     } else {
                         $message = $('<span>The following ' + issue_type + ' was just updated and does not match your filter anymore:<br /></span>');
-                        $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                        $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                     }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
                 } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -936,7 +955,7 @@ $().ready(function() {
     }); // IssuesListIssue__get_filters
 
     IssuesListIssue.prototype.get_filter_for = (function IssuesListIssue__get_filter_for (filter_key) {
-        var searchable_filter, matching_filters, filter_value, filter_text,
+        var searchable_filter, matching_filters, filter_value, filter_text, filter_description,
             filters_nodes = this.get_nodes_with_filter();
 
         if (filter_key.indexOf('label_type:') == 0) {
@@ -957,6 +976,19 @@ $().ready(function() {
                 filter_value = matching_filters[0].filters.filter.substring(searchable_filter.length);
                 if (filter_key == 'milestone') {
                     filter_text = matching_filters[0].$node.contents()[1].textContent;
+                } else if (filter_key == 'reason') {
+                    try {
+                        filter_text = matching_filters[0].$node.contents()[0].textContent;
+                    } catch(e) {
+                        filter_text = filter_value;
+                    }
+                    filter_description = matching_filters[0].$node.attr('title_all');
+                } else if (filter_key == 'pr') {
+                    filter_text = filter_value == 'no' ? 'issues' : 'pull-requests';
+                } else if (filter_key == 'active') {
+                    filter_text = filter_value == 'no' ? 'inactive' : 'active';
+                } else if (filter_key == 'unread') {
+                    filter_text = filter_value == 'no' ? 'read' : 'unread';
                 } else {
                     filter_text = filter_value;
                 }
@@ -964,7 +996,7 @@ $().ready(function() {
                 filter_value = '__none__';
             }
         }
-        return {value: filter_value, text: filter_text};
+        return {value: filter_value, text: filter_text, description: filter_description};
     });  // IssuesListIssue__get_filter_for
 
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
@@ -1253,6 +1285,7 @@ $().ready(function() {
     IssuesList.all = [];
     IssuesList.current = null;
     IssuesList.updating_ids = {};
+    IssuesList.subscribed_repositories = {};
 
     IssuesList.prototype.unset_current = (function IssuesList__unset_current () {
         IssuesList.current = null;
@@ -1317,12 +1350,30 @@ $().ready(function() {
     }); // IssuesList_init_event
 
     IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
-        WS.subscribe(
-            'gim.front.Repository.' + main_repository_id + '.model.updated.is.Issue.',
-            'IssuesList__on_update_alert',
-            IssuesList.on_update_alert,
-            'prefix'
-        );
+        var repositories = [];
+        if (main_repository_id) {
+            repositories.push(main_repository_id);
+        } else {
+            for (var i = 0; i < IssuesList.all.length; i++) {
+                var issues_list = IssuesList.all[i];
+                repositories = repositories.concat(issues_list.$node.find(IssuesListIssue.selector).map(function() {
+                    return $(this).data('repository-id');
+                }).toArray());
+            }
+        }
+        for (var j = 0; j < repositories.length; j++) {
+            var repository_id = repositories[j];
+            if (typeof IssuesList.subscribed_repositories[repository_id] !== 'undefined') {
+                continue;
+            }
+            IssuesList.subscribed_repositories[repository_id] = true;
+            WS.subscribe(
+                'gim.front.Repository.' + repository_id + '.model.updated.is.Issue.',
+                'IssuesList__on_update_alert',
+                IssuesList.on_update_alert,
+                'prefix'
+            );
+        }
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
@@ -1341,14 +1392,18 @@ $().ready(function() {
         }
     }); // IssuesList_on_update_alert
 
-    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text) {
+    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text, filter_description) {
         var $group = this.$node.find(IssuesListGroup.template_selector).clone();
         $group.removeClass('template');
         if (filter_value != null) {
             $group.attr('data-group_by-value', filter_value);
         }
         if (filter_text != null && filter_value != '' && filter_value != '__none__') {
-            $group.find('span.title').text(filter_text);
+            var $span = $group.find('span.title');
+            $span.text(filter_text);
+            if (filter_description) {
+                $span.append('<span>- ' + filter_description + '</span>');
+            }
         }
         var new_uuid = UUID.generate();
         $group.children('.box-header').attr('data-target', '#group_by-list-' + new_uuid);
@@ -1406,7 +1461,7 @@ $().ready(function() {
     }); // IssuesList__change_issue_group
 
     IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
-        $.get(kwargs.url + window.location.search).done(function(data) {
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
                 list = IssuesList.all[0], filter, group,
@@ -1417,10 +1472,10 @@ $().ready(function() {
             }
             if (list.group_by_key) {
                 filter = issue.get_filter_for(list.group_by_key);
-                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
             } else {
                 // no group by: only one group
-                group = list.groups.length ? list.groups[0] : list.create_group(null, null);
+                group = list.groups.length ? list.groups[0] : list.create_group(null, null, null);
             }
             group.add_issue(issue, true);
             if (list.groups.length == 1) {
@@ -1430,14 +1485,24 @@ $().ready(function() {
             }
             list.reinit_quicksearch_results();
 
+            FilterManager.init();
+
+            var with_repository = issue.$node.hasClass('with-repository');
+            var with_notification = issue.$node.hasClass('with-notification');
+            var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
+
+            if (with_notification) {
+                GithubNotifications.init_item_forms();
+            }
+
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
                     IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                 } else {
                     $message = $('<span>' + 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter' + ':<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -1706,7 +1771,7 @@ $().ready(function() {
         $form: $IssueByNumberWindow.find('form'),
         $input: $IssueByNumberWindow.find('form input'),
         open: (function IssueByNumber_open () {
-            $body.append(IssueByNumber.$window); // move at the end to manage zindex 
+            $body.append(IssueByNumber.$window); // move at the end to manage zindex
             IssueByNumber.$window.modal('show');
             return false; // stop event propagation
         }), // IssueByNumber_open
@@ -3228,8 +3293,6 @@ $().ready(function() {
         var issue_to_select = null;
         if (location.hash && /^#issue\-\d+$/.test(location.hash)) {
             issue_to_select = $(location.hash);
-        } else if ((issue_to_select=/\/issues\/(\d+)\/$/.exec(location.pathname)) && issue_to_select.length == 2) {
-            issue_to_select = $('#issue-' + issue_to_select[1]);
         } else {
             issue_to_select = $(IssuesListIssue.selector + '.active');
         }
@@ -3308,7 +3371,7 @@ $().ready(function() {
     var FilterManager = {
         ARGS: Arg.all(),
         CACHE: {},
-        selector: 'a.js-filter-trigger',
+        selector: '.issues-list:not(.no-filtering) a.js-filter-trigger',
         user_search: /^(.+\/)(created_by|assigned|closed_by)\/(.+)\/$/,
         messages: {
             pr: {
@@ -4849,6 +4912,7 @@ $().ready(function() {
 
     var HoverIssue = {
         selector: '.hoverable-issue',
+        abort_selector: '.not-hoverable',
         popover_options: null,  // defined in init
 
         extract_issue_ident: function ($node) {
@@ -4952,7 +5016,7 @@ $().ready(function() {
                             }
                         }
                     },
-                    url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
+                    url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/preview/',
                     content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>',
                     placement: placement,
                     onShow: onShow
@@ -5023,7 +5087,7 @@ $().ready(function() {
             });
 
             $(node).off('mouseleave', HoverIssue.on_mouseleave);
-            
+
             popover.options.onHide = function() {
                 setTimeout(function() {
                     popover.destroy();
@@ -5072,8 +5136,26 @@ $().ready(function() {
             setTimeout($.proxy(HoverIssue.on_delayed_mouseleave, node), 500);
         }, // on_mouseleave
 
+        on_abort_mouseenter: function () {
+            var $abort_node = $(this),
+                node = $abort_node.closest(HoverIssue.selector)[0];
+            $.proxy(HoverIssue.force_close_popover, node)();
+        }, // on_abort_mouseenter
+
+        on_abort_mouseleave: function () {
+            var $abort_node = $(this),
+                $node = $abort_node.closest(HoverIssue.selector);
+            setTimeout(function() {
+                if ($node.is(':hover')) {
+                    $.proxy(HoverIssue.on_mouseenter, $node[0])();
+                }
+            }, 100);
+        }, // on_abort_mouseleave
+
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
+            $document.on('mouseenter', HoverIssue.abort_selector, HoverIssue.on_abort_mouseenter);
+            $document.on('mouseleave', HoverIssue.abort_selector, HoverIssue.on_abort_mouseleave);
             $document.on('click', HoverIssue.selector, HoverIssue.force_close_popover);
         }, // init_events
 
@@ -5104,6 +5186,212 @@ $().ready(function() {
 
     }; // HoverIssue
     HoverIssue.init();
+
+    var GithubNotifications = {
+        item_selector: '.issue-item-notification',
+        default_error_msg: 'Internal problem: we were unable to update your notification',
+        spin: '<span class="spin-holder"><i style="" class="fa fa-spinner fa-spin"> </i></span>',
+        $count_node: $('#github-notifications-count'),
+        $menu_node: $('#github-notifications-menu'),
+        $menu_node_counter: null,
+        orig_count: null,
+        orig_last: null,
+        orig_date: null,
+
+        disable_form: function ($form) {
+            var $inputs = $form.find('input[type=checkbox]');
+            $form.data('disabled', true);
+            // disable the iCheck widget
+            $inputs.iCheck('disable');
+            // disabled input will be ignored by serialize, so just set them
+            // readonly
+            $inputs.prop('readonly', true);
+            $inputs.prop('disabled', false);
+            $form.find(':button').prop('disabled', true);
+        }, // disable_form
+
+        enable_form: function ($form) {
+            var $inputs = $form.find('input[type=checkbox]');
+            $form.find('.spin-holder').remove();
+            $inputs.prop('disabled', true); // needed for iCheck to re-enable them
+            $inputs.iCheck('enable');
+            $inputs.prop('readonly', false);
+            $form.find(':button').prop('disabled', false);
+            $form.data('disabled', false);
+        }, // enable_form
+
+        save_values: function ($form, values) {
+            var $inputs;
+            if (!values) {
+                values = {};
+                $inputs = $form.find('input[type=checkbox]');
+                $inputs.each(function () {
+                    values[this.name] = this.checked;
+                });
+            }
+            $form.data('previous-values', values);
+        }, // save_values
+
+        apply_values: function ($form, values) {
+            var $inputs = $form.find('input[type=checkbox]');
+            if (!values) {
+                values = $form.data('previous-values');
+            }
+            $.each($form.data('previous-values'), function(k, v) {
+                $inputs.filter('[name=' + k + ']').iCheck(v ? 'check' : 'uncheck');
+            });
+        }, // apply_values
+
+        on_checkbox_changed: function(ev) {
+            ev.stopPropagation();
+            var $checkbox = $(this),
+                $form = $checkbox.closest('form');
+            if ($form.data('disabled')) { return; }
+            $checkbox.parent().append(GithubNotifications.spin);
+            GithubNotifications.disable_form($form);
+            GithubNotifications.post_form($form)
+        },
+
+        post_form: function ($form) {
+            var data = $form.serialize();
+            var action = $form.attr('action');
+            $.post(action, data)
+                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .always(function () { GithubNotifications.enable_form($form); });
+        }, // post_form
+
+        on_post_submit_done: function (data) {
+            var $form = this;
+            if (!data || !data.status) {
+                data = {status: 'KO', error_msg: default_error_msg};
+            }
+            if (data.status != 'OK') {
+                return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
+            }
+            GithubNotifications.save_values($form, data.values);
+
+            GithubNotifications.apply_values($form, data.values);
+            $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
+            $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
+
+            GithubNotifications.on_notifications_ping(null, null, {
+                count: data.count,
+                last: data.last
+            });
+;
+        }, // on_post_submit_done
+
+        on_post_submit_failed: function (xhr, data) {
+            var $form=this,
+                error_msg = data.error_msg || GithubNotifications.default_error_msg;
+            MessagesManager.add_messages(MessagesManager.make_message(error_msg, 'error'));
+            GithubNotifications.apply_values($form, data.values);
+            if (data.values) {
+                GithubNotifications.on_notifications_ping(null, null, {
+                    count: data.count,
+                    last: data.last
+                });
+            }
+        }, // on_post_submit_failed
+
+        on_current_issue_toggle_event: function (check) {
+            var decorator = function() {
+                if (!IssuesList.current) { return; }
+                if (!IssuesList.current.current_group) { return; }
+                if (!IssuesList.current.current_group.current_issue) { return; }
+                var $input = $input = IssuesList.current.current_group.current_issue.$node.find(
+                    GithubNotifications.item_selector + ' input[type=checkbox][name=' + check + ']:visible');
+                if ($input.length) {
+                    return GithubNotifications.toggle_check($input);
+                }
+            };
+            return Ev.key_decorate(decorator);
+        }, // on_current_issue_event
+
+        toggle_check: function($input) {
+            $input.iCheck('toggle');
+            return false;
+        }, // toggle_read
+
+        init_item_forms: function() {
+            var $forms = $(GithubNotifications.item_selector + ' form:not(.js-managed)'),
+                $checkboxes = $forms.find('input[type=checkbox]');
+            $forms.each(function() { GithubNotifications.save_values($(this));});
+            $checkboxes.iCheck({checkboxClass: 'icheckbox_flat-aero'});
+            $checkboxes.on('ifChecked ifUnchecked ifToggled', GithubNotifications.on_checkbox_changed);
+            $forms.on('click', '.spin-holder', Ev.cancel);
+            $forms.addClass('js-managed');
+        }, // init_item_forms
+
+        init_subscription: function() {
+            WS.subscribe(
+                'gim.front.user.' + window.auth_keys.key1 + '.notifications.ping',
+                'GithubNotifications.on_notifications_ping',
+                GithubNotifications.on_notifications_ping,
+                'exact'
+            );
+        }, // init_subscription
+
+        on_notifications_ping: function (topic, args, kwargs) {
+            var $node = GithubNotifications.$count_node,
+                old_count = parseInt($node.data('count') || 0, 10),
+                old_last = $node.data('last'),
+                old_date = null,
+                new_count = kwargs.count || 0,
+                new_last = kwargs.last,
+                new_date = null;
+                to_notify = false;
+
+            if (new_count > old_count) {
+                to_notify = true;
+            } else {
+                if (old_last) { old_date = new Date(old_last); }
+                if (new_last) { new_date = new Date(new_last); }
+                if (new_date && (!old_date || new_date > old_date)) {
+                    to_notify = true;
+                }
+            }
+
+            $node.data('count', new_count);
+            $node.text(new_count);
+            $node.toggleClass('no-notifications', !new_count);
+            $node.data('last', new_last);
+            GithubNotifications.$menu_node.attr('title', new_count ? ("You have " + new_count + " unread notification" + (new_count > 1 ? 's' : '')) : "You don't have unread notifications");
+            GithubNotifications.$menu_node_counter.text(new_count).toggleClass('label-dark-red', new_count > 0);
+
+            // remove the animation if back to normal
+            if ((!new_last || GithubNotifications.orig_last && new_date <= GithubNotifications.orig_date)
+                && (new_count <= GithubNotifications.orig_count)) {
+                to_notify = false;
+                $node.removeClass('new-notifications');
+            }
+
+            if (to_notify) {
+                $node.addClass('new-notifications');
+            }
+
+        }, // on_notifications_ping
+
+        init: function () {
+            if (GithubNotifications.$count_node.length) {
+                GithubNotifications.$menu_node_counter = GithubNotifications.$menu_node.find('span.label');
+                GithubNotifications.orig_count = parseInt(GithubNotifications.$count_node.data('count') || 0, 10);
+                GithubNotifications.orig_last = GithubNotifications.$count_node.data('last');
+                if (GithubNotifications.orig_last) {
+                    GithubNotifications.orig_date = new Date(GithubNotifications.orig_last);
+                }
+                GithubNotifications.init_subscription();
+            }
+            if (body_id != 'github_notifications') { return; }
+            GithubNotifications.init_item_forms();
+            jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));
+            jwerty.key('shift+a', GithubNotifications.on_current_issue_toggle_event('active'));
+        } // init
+
+    }; // GithubNotifications
+
+    GithubNotifications.init();
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {

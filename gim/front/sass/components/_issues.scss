@@ -34,6 +34,10 @@
             padding-top: 5px;
             padding-bottom: 5px;
             text-transform: capitalize;
+            span {
+                font-weight: normal;
+                text-transform: none;
+            }
         }
         .box-toolbar {
             & > li {
@@ -63,9 +67,6 @@
             padding: 5px;
             padding-left: 8px;
             min-height: 20px;
-            &.active {
-                padding-left: 3px;
-            }
             .issue-item-header, .avatar, .issue-item-footer {
                 display: none;
             }
@@ -77,7 +78,22 @@
                 margin-bottom: 0;
                 min-height: 0;
             }
-        } // .news
+            .issue-item-repository {
+                margin-top: -6px;
+                margin-bottom: 6px;
+                margin-left: -8px;
+                &:not(.is-private) {
+                    padding-left: 9px;
+                }
+            }
+            &.active {
+                padding-left: 3px;
+                .issue-item-repository {
+                    margin-left: -3px;
+                    padding-left: 4px;
+                }
+            }
+        } // .issue-item
     } // &.without-details
 } // .issues-list
 
@@ -129,6 +145,25 @@
     color: $body-text-color;
     cursor: pointer;
 
+    &.with-repository {
+        min-height: 100px;
+    }
+
+    .issue-item-repository {
+        background: #eee;
+        border-bottom: solid 1px #e6e6e6;
+        margin: -1px 0 1px -13px;
+        padding: 0 0 0 17px;
+        font-weight: 600;
+        position: relative;
+        height: 20px;
+        .fa-lock {
+            width: 9px;
+            margin-left: -12px;
+        }
+        @include transition(border-bottom-color 0.35s ease);
+    }
+
     // the header with : pull-request flag, milestone, and time
     .issue-item-header {
         margin-top: -1px;
@@ -140,7 +175,7 @@
             color: inherit;
         }
     }
-    .issue-item-pull-request, .issue-item-milestone, .issue-item-times {
+    .issue-item-pull-request, .issue-item-milestone, .issue-item-times, .issue-item-repository {
         @include text-shadow(0 1px rgba(#fff, 0.5));
     }
     .issue-item-pull-request {
@@ -248,6 +283,15 @@
         padding-left: 8px;
         border-left: solid $active-color 5px;
         border-top-color: #f0fcff;
+        .issue-item-repository {
+            background: transparent;
+            margin-left: -8px;
+            padding-left: 12px;
+            border-bottom-color: rgba(0, 0, 0, 0.05);
+            &.is-private {
+                padding-left: 17px;
+            }
+        }
     }
 }
 

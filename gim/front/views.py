@@ -11,3 +11,5 @@ class HomeView(TemplateView):
         if request.user.is_authenticated():
             return HttpResponseRedirect(self.redirect_authenticated_url)
         return super(HomeView, self).get(request, *args, **kwargs)
+
+

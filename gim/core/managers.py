@@ -6,6 +6,7 @@ from time import sleep
 
 from django.db import models, IntegrityError
 from django.contrib.auth.models import UserManager
+from django.db.models import FieldDoesNotExist
 
 from .ghpool import Connection, ApiError
 
@@ -41,7 +42,12 @@ class BaseManager(models.Manager):
         if self.model.delete_missing_after_fetch:
             queryset.delete()
         else:
-            queryset.update(deleted=True)
+            try:
+                self.model._meta.get_field('deleted')
+            except FieldDoesNotExist:
+                pass
+            else:
+                queryset.update(deleted=True)
 
 
 class GithubObjectManager(BaseManager):
@@ -83,6 +89,7 @@ class GithubObjectManager(BaseManager):
                         parameters=None, request_headers=None,
                         response_headers=None, min_date=None,
                         fetched_at_field='fetched_at',
+                        etag_field='etag',
                         force_update=False):
         """
         Trying to get data for the model related to this manager, by using
@@ -104,10 +111,15 @@ class GithubObjectManager(BaseManager):
                         min_date=min_date, fetched_at_field=fetched_at_field,
                         saved_objects=SavedObjects(), force_update=force_update)
         else:
+            etag = response_headers.get('etag') or None
+            if etag and '""' in etag:
+                etag = None
             result = self.create_or_update_from_dict(data, modes, defaults,
                                             fetched_at_field=fetched_at_field,
+                                            etag_field=etag_field,
                                             saved_objects=SavedObjects(),
-                                            force_update=force_update,)
+                                            force_update=force_update,
+                                            etag=etag)
             if not result:
                 raise Exception(
                     "Unable to create/update an object of the %s kind (modes=%s)" % (
@@ -160,7 +172,9 @@ class GithubObjectManager(BaseManager):
         objs = []
         for entry in data:
             obj = self.create_or_update_from_dict(entry, modes, defaults,
-                                fetched_at_field, saved_objects, force_update)
+                                                  fetched_at_field= fetched_at_field,
+                                                  saved_objects=saved_objects,
+                                                  force_update=force_update)
             if obj:
                 objs.append(obj)
                 if min_date and obj.github_date_field:
@@ -215,8 +229,8 @@ class GithubObjectManager(BaseManager):
             return None, False
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-                            fetched_at_field='fetched_at', saved_objects=None,
-                            force_update=False):
+                            fetched_at_field='fetched_at', etag_field='etag',
+                            saved_objects=None, force_update=False, etag=None):
         """
         Taking a dict (passed in the data argument), try to update an existing
         object that match some fields, or create a new one.
@@ -314,6 +328,9 @@ class GithubObjectManager(BaseManager):
                 updated_fields.append(fetched_at_field)
                 if new_status:
                     updated_fields.append('github_status')
+                if etag and hasattr(obj, etag_field) and getattr(obj, etag_field) != etag:
+                    setattr(obj, etag_field, etag)
+                    updated_fields.append(etag_field)
                 save_params = {
                     'force_update': True,
                     # only save updated fields
@@ -322,7 +339,7 @@ class GithubObjectManager(BaseManager):
 
             try:
                 obj.save(**save_params)
-            except IntegrityError, e:
+            except IntegrityError as e:
 
                 # If it's because of a user or repository, manage it
                 from .models import GithubUser, Repository
@@ -925,7 +942,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
     """
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-            fetched_at_field='fetched_at', saved_objects=None, force_update=False):
+                                   fetched_at_field='fetched_at', etag_field='etag',
+                                   saved_objects=None, force_update=False, etag=None):
         from .models import GithubUser
 
         try:
@@ -940,8 +958,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
         user = data.get('user')
 
         obj = super(CommentEntryPointManagerMixin, self)\
-            .create_or_update_from_dict(data, modes, defaults, fetched_at_field,
-                                                    saved_objects, force_update)
+            .create_or_update_from_dict(data, modes, defaults, fetched_at_field, etag_field,
+                                                    saved_objects, force_update, etag)
 
         if not obj:
             return None
@@ -1016,13 +1034,14 @@ class CommitManager(WithRepositoryManager):
                                                 data, defaults, saved_objects)
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
-        fetched_at_field='fetched_at', saved_objects=None, force_update=False):
+                                   fetched_at_field='fetched_at', etag_field='etag',
+                                   saved_objects=None, force_update=False, etag=None):
         """
         In addition to the default create_or_update_from_dict, check if files
         where fetched and if not, launch a FetchCommitBySha to fetch them
         """
         obj = super(CommitManager, self).create_or_update_from_dict(data, modes,
-                        defaults, fetched_at_field, saved_objects, force_update)
+                        defaults, fetched_at_field, etag_field, saved_objects, force_update, etag)
 
         # We got commits from the list of commits of a PR, so we don't have files and comments
         if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
@@ -1282,3 +1301,61 @@ class CommitStatusManager(WithCommitManager):
 
         return super(CommitStatusManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
+
+
+class GithubNotificationManager(WithRepositoryManager):
+    issue_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/(?:issues|pulls)/(?P<number>\w+)(?:/|$)')
+
+    def get_number_from_url(self, url):
+        """
+        Taking an url, try to return the number of an issue, or None.
+        """
+        if not url:
+            return None
+        match = self.issue_finder.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('number', None)
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+
+        if data.get('subject'):
+
+            if data['subject'].get('type').lower() not in ('issue', 'pullrequest'):
+                return None
+
+            if not data['subject'].get('url'):
+                return None
+
+            # We'll use the subject url to get the issue number
+            data['url'] = data['subject']['url']
+
+            data['issue_number'] = self.get_number_from_url(data['url'])
+
+            if not data['issue_number']:
+                return None
+
+            data['title'] = data['subject'].get('title')
+
+        fields = super(GithubNotificationManager, self).get_object_fields_from_dict(data, defaults,
+                                                                                    saved_objects)
+
+        if not fields:
+            return None
+
+        if not fields['fk']['repository']:
+            return None
+
+        # Fill the issue if we don't have it and we have the number
+        if not fields['fk'].get('issue') and data.get('issue_number'):
+            from gim.core.models import Issue
+
+            repository = fields['fk']['repository']
+            issue_number = data['issue_number']
+
+            try:
+                fields['fk']['issue'] = repository.issues.get(number=issue_number)
+            except Issue.DoesNotExist:
+                pass
+
+        return fields

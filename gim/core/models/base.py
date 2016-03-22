@@ -111,14 +111,17 @@ class GithubObject(models.Model):
         if meta_base_name:
             identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
             fetched_at_field = '%s_fetched_at' % meta_base_name
+            etag_field = '%s_etag' % meta_base_name
         else:
             identifiers = self.github_callable_identifiers
             fetched_at_field = 'fetched_at'
+            etag_field = 'etag'
 
         request_headers = prepare_fetch_headers(
                     if_modified_since=None if force_fetch else getattr(self, fetched_at_field),
+                    if_none_match=None if force_fetch else getattr(self, etag_field, None),
                     github_format=self.github_format)
-        response_headers = {}
+        response_headers = (parameters or {}).pop('response_headers', {})
 
         try:
             obj = self.__class__.objects.get_from_github(
@@ -130,6 +133,7 @@ class GithubObject(models.Model):
                 request_headers=request_headers,
                 response_headers=response_headers,
                 fetched_at_field=fetched_at_field,
+                etag_field=etag_field,
                 force_update=force_fetch,
             )
 
@@ -191,6 +195,7 @@ class GithubObject(models.Model):
 
         if parameters is None:
             parameters = {}
+        first_response_headers = parameters.pop('response_headers', {})
 
         identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
 
@@ -242,7 +247,10 @@ class GithubObject(models.Model):
             Return the etag header of the page as second argument
 
             """
-            response_headers = {}
+            if not first_response_headers:
+                response_headers = first_response_headers
+            else:
+                response_headers = {}
             etag = None
             last_page_ok = None
 
@@ -276,6 +284,8 @@ class GithubObject(models.Model):
                 last_page_ok = int(parameters.get('page', 1))
 
             etag = response_headers.get('etag') or None
+            if etag and '""' in etag:
+                etag = None
 
             if not page_objs:
                 # no fetched objects, we're done
@@ -362,6 +372,8 @@ class GithubObject(models.Model):
             request_etag = None
             if not force_fetch and hasattr(self, etag_field):
                 request_etag = getattr(self, etag_field) or None
+                if request_etag and '""' in request_etag:
+                    request_etag = None
 
                 request_headers = prepare_fetch_headers(
                         if_modified_since=if_modified_since,
@@ -555,9 +567,10 @@ class GithubObject(models.Model):
             # do we have etags to save ?
             if etags:
                 for etag_field, etag in etags.items():
-                    setattr(self, etag_field, etag)
-                    if etag_field in all_field_names:
-                        update_fields.append(etag_field)
+                    if etag != getattr(self, etag_field, None):
+                        setattr(self, etag_field, etag)
+                        if etag_field in all_field_names:
+                            update_fields.append(etag_field)
 
         if last_page_field and hasattr(self, last_page_field) and last_page is not None:
             if last_page != getattr(self, last_page_field):
@@ -584,7 +597,8 @@ class GithubObject(models.Model):
         """Default values to use to update data got from github"""
         return {}
 
-    def dist_edit(self, gh, mode, fields=None, values=None):
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
+                  update_method='patch'):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to
         do the matching action on Github.
@@ -596,9 +610,22 @@ class GithubObject(models.Model):
         if mode not in ('create', 'update'):
             raise Exception('Invalid mode for dist_edit')
 
-        # get fields to send
-        if not fields:
-            fields = self.github_edit_fields[mode]
+        if meta_base_name:
+            if mode == 'update':
+                identifiers = getattr(self, 'github_callable_identifiers_for_%s' % meta_base_name)
+            else:
+                identifiers = getattr(self, 'github_callable_create_identifiers_for_%s' % meta_base_name)
+            # get fields to send
+            if not fields:
+                fields = getattr(self, 'github_edit_fields_for_%s' % meta_base_name)[mode]
+        else:
+            if mode == 'update':
+                identifiers = self.github_callable_identifiers
+            else:
+                identifiers = self.github_callable_create_identifiers
+            # get fields to send
+            if not fields:
+                fields = self.github_edit_fields[mode]
 
         # get data to send
         data = {}
@@ -629,9 +656,8 @@ class GithubObject(models.Model):
                         data[key] = data[field_name].isoformat()
 
         # prepare the request
-        identifiers = self.github_callable_identifiers if mode == 'update' else self.github_callable_create_identifiers
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
-        method = getattr(gh_callable, 'patch' if mode == 'update' else 'post')
+        method = getattr(gh_callable, update_method if mode == 'update' else 'post')
         request_headers = prepare_fetch_headers(github_format=self.github_format)
 
         # make the request and get fresh data for the object
@@ -647,7 +673,7 @@ class GithubObject(models.Model):
 
         # update the object on our side
         return self.__class__.objects.create_or_update_from_dict(
-                                                            data=result,
+                                                            data=result or {},
                                                             defaults=defaults,
                                                             force_update=True)
 
