@@ -17,17 +17,6 @@
                 Subscriptions
             </a>
         </li>
-        <li{% if view.url_name == "front:dashboard:github-notifications" %} class="active"{% endif %}>
-            <a role="menuitem" href="{{ github_notifications_url }}"
-               title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}">
-                {% if github_notifications_count %}
-                    <span class="badge badge-dark-red">{{ github_notifications_count }}</span>
-                {% else %}
-                    <i class="fa fa-circle-o"> </i>
-                {% endif %}
-                Github notifications
-            </a>
-        </li>
     </ul>
 {% endblock header_nav %}
 

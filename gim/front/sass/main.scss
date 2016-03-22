@@ -34,10 +34,20 @@ body {
             position: relative;
             display: inline-block;
         }
-        .user_avatar {
-            .caret {
-                vertical-align: middle;
-                margin-top: -3px !important;
+        .user-avatar {
+            .img-rounded {
+                @include border-radius(6px);
+            }
+            .dropdown-menu {
+                a {
+                    padding-right: 55px;
+                }
+                .label {
+                    margin-right: -40px;
+                }
+                i {
+                    color: inherit;
+                }
             }
         }
     }
