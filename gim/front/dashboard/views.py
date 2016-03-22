@@ -14,7 +14,7 @@ from gim.core.models import Issue, GithubNotification
 
 from gim.front.activity.views import ActivityViewMixin
 from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
-from gim.front.views import BaseIssuesView
+from gim.front.mixins.views import BaseIssuesView
 
 
 class DashboardActivityPart(ActivityViewMixin, DeferrableViewPart, WithSubscribedRepositoriesViewMixin, TemplateView):

@@ -49,7 +49,7 @@ from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
-from gim.front.views import BaseIssuesView
+from gim.front.mixins.views import BaseIssuesView
 
 from gim.front.utils import make_querystring
 
