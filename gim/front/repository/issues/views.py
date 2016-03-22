@@ -294,16 +294,9 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             super(IssuesView, self)._prepare_group_by(group_by, group_by_direction, qs_parts,
                                                       qs_filters, filter_objects, order_by)
 
-    def get_issues_for_context(self, context):
-        """
-        In addition to parent call, apply milestone and labels filtering
-        """
-        qs_parts = self.get_qs_parts(context)
-        queryset, filter_context = super(IssuesView, self).get_issues_for_context(context)
-        qs_filters = filter_context['qs_filters']
-        filter_objects = filter_context['filter_objects']
-
-        query_filters = {}
+    def get_filter_parts(self, qs_parts):
+        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction =  \
+            super(IssuesView, self).get_filter_parts(qs_parts)
 
         # filter by milestone
         milestone = self._get_milestone(qs_parts)
@@ -316,9 +309,6 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 qs_filters['milestone'] = '%s' % milestone.number
                 query_filters['milestone__number'] = milestone.number
 
-            # apply the new filter
-            queryset = queryset.filter(**query_filters)
-
         # now filter by labels
         label_types_to_ignore, labels = self._get_labels(qs_parts)
         if label_types_to_ignore or labels:
@@ -326,7 +316,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             filter_objects['current_label_types'] = {}
 
         if label_types_to_ignore:
-            queryset = queryset.exclude(labels__label_type_id__in=[t[0] for t in label_types_to_ignore])
+            query_filters['-labels__label_type_id__in'] = [t[0] for t in label_types_to_ignore]
             # we can set, and not update, as we are first to touch this
             qs_filters['labels'] = ['%s:__none__' % t[1] for t in label_types_to_ignore]
             filter_objects['current_label_types'] = {t[0]: '__none__' for t in label_types_to_ignore}
@@ -340,9 +330,9 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                     filter_objects['current_label_types'][label.label_type_id] = label
                 elif not label.label_type_id:
                     filter_objects['current_labels'].append(label)
-                queryset = queryset.filter(labels=label.id)
+                query_filters['labels'] = label.id
 
-        return queryset, filter_context
+        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
 
     def select_and_prefetch_related(self, queryset, group_by):
         if not group_by:

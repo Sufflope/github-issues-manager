@@ -104,10 +104,8 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         },
     }
 
-
     def get_base_queryset(self):
-        return Issue.objects.filter(githubnotification__user=self.request.user,
-                                    githubnotification__ready=True).distinct()
+        return Issue.objects
 
     def get_base_url(self):
         return reverse(self.url_name)
@@ -195,16 +193,58 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             return 'githubnotification__updated_at'
         return super(GithubNotifications, self)._get_sort_field(sort)
 
-    def get_issues_for_context(self, context):
-        """
-        In addition to parent call, apply notification filtering
-        """
-        qs_parts = self.get_qs_parts(context)
-        queryset, filter_context = super(GithubNotifications, self).get_issues_for_context(context)
-        qs_filters = filter_context['qs_filters']
-        filter_objects = filter_context['filter_objects']
+    def get_queryset(self, queryset, filters, order_by):
 
-        query_filters = {}
+        notifications_queryset = self.github_notifications
+
+        if filters:
+
+            notifications_filters = {}
+            notifications_excludes = {}
+
+            for key, value in dict(**filters).items():
+                if key.startswith('githubnotification__'):
+                    notifications_filters[key[20:]] = filters.pop(key)
+                elif key.startswith('-githubnotification__'):
+                    notifications_excludes[key[21:]] = filters.pop(key)
+
+            if notifications_filters:
+                notifications_queryset = notifications_queryset.filter(**notifications_filters)
+            if notifications_excludes:
+                notifications_queryset = notifications_queryset.exclude(**notifications_excludes)
+
+            if not notifications_filters and not notifications_excludes:
+                notifications_queryset = notifications_queryset.all()
+
+        else:
+            notifications_queryset = notifications_queryset.all()
+
+        if order_by:
+            notifications_orders = []
+            for order in list(order_by):
+                if 'githubnotification__' in order:
+                    notifications_orders.append(order.replace('githubnotification__', ''))
+                    order_by.remove(order)
+
+            if not notifications_orders:
+                # There is another order, but not on the notifications, so we keep them ordered
+                notifications_orders = ['-updated_at']
+
+            if notifications_orders:
+                notifications_queryset = notifications_queryset.order_by(*notifications_orders)
+
+        filters['id__in'] = list(notifications_queryset.values_list('issue_id', flat=True))
+
+        # http://blog.mathieu-leplatre.info/django-create-a-queryset-from-a-list-preserving-order.html
+        extra_clauses = ' '.join(['WHEN core_issue.id=%s THEN %s' % (pk, i) for i, pk in enumerate(filters['id__in'])])
+        extra_ordering = 'CASE %s END' % extra_clauses
+        queryset = queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
+
+        return super(GithubNotifications, self).get_queryset(queryset, filters, [])
+
+    def get_filter_parts(self, qs_parts):
+        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction =  \
+            super(GithubNotifications, self).get_filter_parts(qs_parts)
 
         # filter by unread status
         is_read = self._get_read(qs_parts)
@@ -234,10 +274,7 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             query_filters['githubnotification__repository__name'] = repo_name
             query_filters['githubnotification__repository__owner__username'] = owner_name
 
-        # apply the new filter
-        queryset = queryset.filter(**query_filters)
-
-        return queryset, filter_context
+        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
 
     def get_context_data(self, **kwargs):
         """
