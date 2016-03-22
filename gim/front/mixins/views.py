@@ -79,13 +79,7 @@ class WithQueryStringViewMixin(object):
             context['querystring_parts'] = {}
         return deepcopy(context['querystring_parts'])
 
-    def get_context_data(self, **kwargs):
-        """
-        By default, simply split the querystring in parts for use in other
-        views, and put the parts and the whole querystring in the context
-        """
-        context = super(WithQueryStringViewMixin, self).get_context_data(**kwargs)
-
+    def get_querystring_context(self):
         # put querystring parts in a dict
         qs = self.request.META.get('QUERY_STRING', '')
         qs_dict = parse_qs(qs)
@@ -100,11 +94,18 @@ class WithQueryStringViewMixin(object):
             else:
                 qs_parts[key] = values[0]
 
-        context.update({
+        return {
             'querystring_parts': qs_parts,
             'querystring': qs,
-        })
+        }
 
+    def get_context_data(self, **kwargs):
+        """
+        By default, simply split the querystring in parts for use in other
+        views, and put the parts and the whole querystring in the context
+        """
+        context = super(WithQueryStringViewMixin, self).get_context_data(**kwargs)
+        context.update(self.get_querystring_context())
         return context
 
 

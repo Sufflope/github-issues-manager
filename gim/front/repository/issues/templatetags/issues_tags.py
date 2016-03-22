@@ -51,7 +51,7 @@ class IssueCacheTag(CacheTag):
         compress_spaces = True
         include_pk = True
         cache_backend = 'issues_tag'
-        internal_version = "7"
+        internal_version = "8"
 
 IssueCacheTag.register(register, 'issue_cache')
 
@@ -110,12 +110,12 @@ class InjectRepositoryInIssue(Node):
             header = self.get_repository_header(issue_repository)
 
             # Add the `with-repository` class to the main `issue-item` tag
-            sep1 = 'hoverable-issue'
+            sep1 = 'issue-item'
             before, after = output.split(sep1, 1)
-            parts = [before, sep1,  ' with-repository']
+            parts = [before, sep1, ' with-repository']
 
             # Add the repository block before the issue header
-            sep2 = '<div class="issue-item-header">'
+            sep2 = '<div class="issue-item-header"'
             before, after = after.split(sep2, 1)
             parts.extend([before, header, sep2, after])
 

@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
-
 from collections import OrderedDict
 from datetime import datetime
+import os
 import json
 from math import ceil
 from time import sleep
 from urlparse import unquote, urlparse, urlunparse
 
 from django.contrib import messages
+from django.core.handlers.wsgi import WSGIRequest
 from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
+from django.test.client import FakePayload
 from django.utils.datastructures import SortedDict
+from django.utils.encoding import force_str
 from django.utils.functional import cached_property
 from django.utils.http import is_safe_url
 from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
@@ -539,6 +542,43 @@ class IssueView(WithIssueViewMixin, TemplateView):
     url_name = 'issue'
     ajax_template_name = 'front/repository/issues/issue.html'
 
+    def get_referer_issues_view(self):
+        referer = self.request.GET.get('referer')
+        if referer:
+            referer = unquote(referer)
+        else:
+            # No way to have this in https, but...
+            referer = self.request.META.get('HTTP_REFERER')
+
+        if not referer:
+            return None, None, None
+
+        if not is_safe_url(referer, self.request.get_host()):
+            return None, None, None
+
+        try:
+            url_info = urlparse(referer)
+            resolved_url = resolve(url_info.path)
+        except Resolver404:
+            return None, None, None
+        else:
+            url_name = resolved_url.url_name
+            if resolved_url.namespace:
+                url_name = resolved_url.namespace + ':' + url_name
+            if url_name == GithubNotifications.url_name:
+                return GithubNotifications, url_info, resolved_url
+            elif resolved_url.namespace == u'front:repository' and resolved_url.url_name in (
+                    IssuesView.url_name, UserIssuesView.url_name):
+                # Check that we are on the same repository
+                if resolved_url.kwargs.get('owner_username') == self.kwargs['owner_username']\
+                        and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
+                    if resolved_url == IssuesView.url_name:
+                        return IssuesView, url_info, resolved_url
+                    else:
+                        return UserIssuesView, url_info, resolved_url
+
+        return None, None, None
+
     def get_redirect_url(self):
 
         redirect_to = None
@@ -556,39 +596,18 @@ class IssueView(WithIssueViewMixin, TemplateView):
         except Subscription.DoesNotExist:
             subscription = None
 
-        fragment = 'issue-%d' % issue.number
+        fragment = 'issue-%d' % issue.pk
 
-        referer = self.kwargs.get('referer')
-        if referer:
-            referer = unquote(referer)
+        view, url_info, resolved_url = self.get_referer_issues_view()
+
+        if view == GithubNotifications and notification:
+            redirect_to = url_info
+        elif view and subscription:
+            redirect_to = url_info
+
+        if redirect_to:
+            redirect_to = urlunparse(list(url_info[:-1]) + [fragment])
         else:
-            # No way to have this in https, but...
-            referer = self.request.META.get('HTTP_REFERER')
-
-        if referer and is_safe_url(referer, self.request.get_host()):
-            try:
-                url_info = urlparse(referer)
-                view = resolve(url_info.path)
-            except Resolver404:
-                pass
-            else:
-                url_name = view.url_name
-                if view.namespace:
-                    url_name = view.namespace + ':' + url_name
-                if url_name == GithubNotifications.url_name:
-                    if notification:
-                        redirect_to = url_info
-                elif view.namespace == u'front:repository' and view.url_name in (IssuesView.url_name, UserIssuesView.url_name):
-                    # Check that we are on the same repository
-                    if view.kwargs.get('owner_username') == self.kwargs['owner_username']\
-                            and view.kwargs.get('repository_name') == self.kwargs['repository_name'] \
-                            and subscription:
-                        redirect_to = url_info
-
-                if redirect_to:
-                    redirect_to = urlunparse(list(url_info[:-1]) + [fragment])
-
-        if not redirect_to:
             if subscription:
                 view = IssuesView
                 redirect_to = issue.repository.get_view_url(view.url_name)
@@ -614,6 +633,9 @@ class IssueView(WithIssueViewMixin, TemplateView):
 
         return HttpResponseRedirect(self.get_redirect_url())
 
+    def get_base_queryset(self):
+        return self.repository.issues.ready()
+
     @cached_property
     def current_issue(self):
         """
@@ -622,8 +644,8 @@ class IssueView(WithIssueViewMixin, TemplateView):
         """
         issue = None
         if 'issue_number' in self.kwargs:
-            qs = self.repository.issues.ready().select_related(
-                'user',  'assignee', 'closed_by', 'milestone',
+            qs = self.get_base_queryset().select_related(
+                'user',  'assignee', 'closed_by', 'milestone', 'repository__owner'
             ).prefetch_related(
                 'labels__label_type'
             )
@@ -779,6 +801,45 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
 
     ajax_only = True
     http_method_names = ['get']
+    ajax_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+
+    def get_referer_issues_view(self):
+        self.referer_view, url_info, resolved_url = super(IssueSummaryView, self).get_referer_issues_view()
+        return self.referer_view, url_info, resolved_url
+
+    def get_referer_issues_queryset(self):
+
+        view, url_info, resolved_url = self.get_referer_issues_view()
+        if not view:
+            return None
+
+        environ = dict(os.environ)
+
+        environ.update({
+            'PATH_INFO':       unquote(force_str(url_info.path)),
+            'QUERY_STRING':    force_str(url_info.query),
+            'REQUEST_METHOD':  str('GET'),
+            'wsgi.input': FakePayload(b''),
+        })
+
+        for key in ('wsgi.multiprocess', 'wsgi.multithread', 'wsgi.run_once', 'wsgi.url_scheme', 'wsgi.version'):
+            if key in self.request.META:
+                environ[key] = self.request.META[key]
+
+        request = WSGIRequest(environ)
+        request.user = self.request.user
+
+        view = view(request=request, args=resolved_url.args, kwargs=resolved_url.kwargs)
+        querystring_context = view.get_querystring_context()
+        issues_queryset, self.referer_filter_context = view.get_issues_for_context(querystring_context)
+
+        return issues_queryset
+
+    def get_base_queryset(self):
+        queryset = self.get_referer_issues_queryset()
+        if queryset is None:
+            return super(IssueSummaryView, self).get_base_queryset()
+        return queryset
 
     def get_context_data(self, **kwargs):
         """
@@ -787,11 +848,6 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
         context = super(IssueSummaryView, self).get_context_data(**kwargs)
 
         current_issue = self.current_issue
-
-        # Restrict to filter in querystring
-        # if current_issue.pk not in \
-        #         self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-        #     raise Http404
 
         # Force rerender if there is a job waiting to do it
         try:
@@ -805,34 +861,70 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
 
         context['issue'] = current_issue
 
+        referer_view = getattr(self, 'referer_view')
+
+        if referer_view == GithubNotifications:
+            context['reasons'] = referer_view.reasons
+            current_issue.github_notification = self.request.user.github_notifications.get(issue_id=current_issue.pk)
+            try:
+                current_issue.repository.subscription = self.request.user.subscriptions.get(repository_id=current_issue.repository_id)
+            except:
+                current_issue.repository.subscription = None
+            if self.referer_filter_context['filter_objects'].get('group_by_field') == 'githubnotification__repository':
+                context['force_hide_repositories'] = True
+
         return context
 
-
     def get_template_names(self):
-        """
-        We'll only display messages to the user
-        """
-        return ['front/repository/issues/include_issue_item_for_cache.html']
+        referer_view = getattr(self, 'referer_view')
+        if referer_view and hasattr(referer_view, 'issue_item_template_name'):
+            return [referer_view.issue_item_template_name]
+        return super(IssueSummaryView, self).get_template_names()
 
 
-class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, IssueView):
-    url_name = 'issue.no-details'
+class IssuePreviewView(CacheControlMixin, WithAjaxRestrictionViewMixin, IssueView):
+    url_name = 'issue.preview'
 
     ajax_only = True
     http_method_names = ['get']
+
+    @cached_property
+    def current_issue(self):
+
+        issue = super(IssuePreviewView, self).current_issue
+        if not issue:
+            return None
+
+        # Always ok for public repositories
+        if not issue.repository.private:
+            return issue
+
+        # If he is the owner, it's ok
+        if issue.repository.owner_id == self.request.user.id:
+            return issue
+
+        # If a private repository, we must have a subscription
+        allowed_private = self.request.user.subscriptions.filter(
+            repository__private=True,
+            state__in=Subscription.STATES.READ_RIGHTS
+        ).values_list('repository_id', flat=True)
+        if issue.repository_id in allowed_private:
+            return issue
+
+        # If not, it should be in a notification. It will be displayed in notifications anyway
+        notified = self.request.user.github_notifications.values_list('issue_id', flat=True)
+        if issue.id in notified:
+            return issue
+
+        raise Http404
 
     def get_context_data(self, **kwargs):
         """
         Add the issue in the context
         """
-        context = super(IssueWithoutDetailsView, self).get_context_data(**kwargs)
+        context = super(IssuePreviewView, self).get_context_data(**kwargs)
 
         current_issue = self.current_issue
-
-        # Restrict to filter in querystring
-        # if current_issue.pk not in \
-        #         self.get_issues_for_context(context)[0].values_list('pk', flat=True):
-        #     raise Http404
 
         activity = current_issue.get_activity()
         involved = self.get_involved_people(current_issue, activity,
@@ -852,7 +944,6 @@ class IssueWithoutDetailsView(CacheControlMixin, WithAjaxRestrictionViewMixin, I
         We'll only display messages to the user
         """
         return ['front/repository/issues/issue_no_details.html']
-
 
 
 class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):

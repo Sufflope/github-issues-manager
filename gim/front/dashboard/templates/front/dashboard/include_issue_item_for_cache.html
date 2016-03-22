@@ -1,0 +1,11 @@
+{% load issues_tags notifications_utils %}
+
+{% spaceless %}
+    {% inject_notification_form issue.github_notification %}
+        {% inject_repository_in_issue_item None issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}
+            {% issue_cache None issue_item issue.pk issue.saved_hash %}
+                {% include "front/repository/issues/include_issue_item.html" with issue=issue %}
+            {% endissue_cache %}
+        {% end_inject_repository_in_issue_item %}
+    {% end_inject_notification_form %}
+{% endspaceless %}

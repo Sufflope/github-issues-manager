@@ -17,16 +17,16 @@ class InjectNotificationForm(Node):
                 <span class="time ago" title="{{ notification.updated_at|date:"DATETIME_FORMAT" }}" data-datetime="{{ notification.updated_at|date:'r' }}">{{ notification.updated_at|ago }}</span>.
                 {% with reason=reasons|dict_item:notification.reason %}
                     Reason:
-                    <span title="{{ reason.description_one|capfirst }}">{{ reason.name }}</span>.
+                    <span data-filter="reason:{{ notification.reason }}" title="{{ reason.description_one|capfirst }}" title_all="{{ reason.description|capfirst }}">{{ reason.name }}</span>.
                 {% endwith %}
             </span>
             <form action="{{ notification.get_edit_url }}" method="post">{% csrf_token %}
                 <div>
-                    <span title="Marking unread a read notification will not update the notification on the Github side.">
+                    <span title="Marking unread a read notification will not update the notification on the Github side." data-filter="unread:{{ notification.unread|yesno }}">
                         <input type="checkbox" name="read" id="notif-read-{{ uuid }}" value="1"{% if not notification.unread %} checked=checked{% endif %} autocomplete="off" />
                         <label for="notif-read-{{ uuid }}">Read</label>
                     </span>
-                    <span title="A deactivated notification will be reactivated if you comment on it or are mentionned.">
+                    <span title="A deactivated notification will be reactivated if you comment on it or are mentionned." data-filter="active:{{ notification.subscribed|yesno }}">
                         <input type="checkbox" name="active" id="notif-active-{{ uuid }}" value="1"{% if notification.subscribed %} checked=checked{% endif %} autocomplete="off" />
                         <label for="notif-active-{{ uuid }}">Active</label>
                     </span>
@@ -56,8 +56,16 @@ class InjectNotificationForm(Node):
         notification = self.notification.resolve(context)
         form = self.get_notification_form(notification, context)
 
-        # Add the notification form at the end, before the last '</li>'
-        parts = [output[:-5], form,  output[-5:]]
+        # Add the `with-notification` class to the main `issue-item` tag
+        sep1 = 'issue-item'
+        before, after = output.split(sep1, 1)
+        parts = [before, sep1, ' with-notification']
+
+        # Add the notification block before the last closing `</li>`
+        before, after = [after[:-5], after[-5:]]
+        parts.extend([before, form, after])
+
+        output = ''.join(parts)
 
         return strip_spaces_between_tags(''.join(parts))
 

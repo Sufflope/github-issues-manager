@@ -98,6 +98,8 @@ class GithubNotifications(BaseIssuesView, TemplateView):
     template_name = 'front/dashboard/github_notifications.html'
     url_name = 'front:dashboard:github-notifications'
 
+    issue_item_template_name = 'front/dashboard/include_issue_item_for_cache.html'
+
     default_qs = 'read=no&sort=notification&direction=desc'
 
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
@@ -116,9 +118,53 @@ class GithubNotifications(BaseIssuesView, TemplateView):
     allowed_actives = ['no', 'yes']
     allowed_reasons = ['assign', 'author', 'comment', 'manual', 'mention', 'state_change', 'subscribed', 'team_mention']
 
+    reasons = {
+        'assign': {
+            'name': u'assigned',
+            'description': u'issues you were assigned to',
+            'description_one': u'you were assigned to this issue',
+        },
+        'author': {
+            'name': u'authored',
+            'description': u'issues you authored',
+            'description_one': u'you are the author of this issue',
+        },
+        'comment': {
+            'name': u'commented',
+            'description': u'issues you commented',
+            'description_one': u'you commented on this issue',
+        },
+        'manual': {
+            'name': u'manual',
+            'description': u'issues you subscribed to',
+            'description_one': u'you manually subscribed to this issue',
+        },
+        'mention': {
+            'name': u'mentioned',
+            'description': u'issues you were mentioned in',
+            'description_one': u'you were mentioned in this issue',
+        },
+        'state_change': {
+            'name': u'changed state',
+            'description': u'issues you changed the state',
+            'description_one': u'you changed the state of this issue',
+        },
+        'subscribed': {
+            'name': u'subscribed',
+            'description': u'issues in one of your watched repositories',
+            'description_one': u'you watch the repository this issue is in',
+        },
+        'team_mention': {
+            'name': u'team',
+            'description': u'issues you were, as part of a team, mentioned in',
+            'description_one': u'you are in a team that were mentioned in this issue',
+        },
+    }
+
+
     def get_base_queryset(self):
         return Issue.objects.filter(githubnotification__user=self.request.user,
-                                    githubnotification__ready=True)
+                                    githubnotification__ready=True).distinct()
 
     def get_base_url(self):
         return reverse(self.url_name)
@@ -257,48 +303,7 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         context = super(GithubNotifications, self).get_context_data(**kwargs)
 
         context.update({
-            'reasons': {
-                'assign': {
-                    'name': u'assigned',
-                    'description': u'issues you were assigned to',
-                    'description_one': u'you were assigned to this issue',
-                },
-                'author': {
-                    'name': u'authored',
-                    'description': u'issues you authored',
-                    'description_one': u'you are the author of this issue',
-                },
-                'comment': {
-                    'name': u'commented',
-                    'description': u'issues you commented',
-                    'description_one': u'you commented on this issue',
-                },
-                'manual': {
-                    'name': u'manual',
-                    'description': u'issues you subscribed to',
-                    'description_one': u'you manually subscribed to this issue',
-                },
-                'mention': {
-                    'name': u'mentioned',
-                    'description': u'issues you were mentioned in',
-                    'description_one': u'you were mentioned in this issue',
-                },
-                'state_change': {
-                    'name': u'changed state',
-                    'description': u'issues you changed the state',
-                    'description_one': u'you changed the state of this issue',
-                },
-                'subscribed': {
-                    'name': u'subscribed',
-                    'description': u'issues in one of your watched repositories',
-                    'description_one': u'you watch the repository this issue is in',
-                },
-                'team_mention': {
-                    'name': u'team',
-                    'description': u'issues you were, as part of a team, mentioned in',
-                    'description_one': u'you are in a team that were mentioned in this issue',
-                },
-            }
+            'reasons': self.reasons,
         })
 
         context['sorts']['notification'] = {

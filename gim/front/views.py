@@ -48,6 +48,8 @@ class BaseIssuesView(WithQueryStringViewMixin):
     LIMIT_ISSUES = 300
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
 
+    issue_item_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
         'state',
         'pr',

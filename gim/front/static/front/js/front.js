@@ -704,6 +704,10 @@ $().ready(function() {
         this.node.IssuesListIssue = this;
         this.$node = $(node);
         this.$link = this.$node.find(IssuesListIssue.link_selector);
+        if (this.$link.length) {
+            var href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + encodeURIComponent(window.location.href.split("#")[0]);
+            this.$link.attr('href', href);
+        }
     }); // IssuesListIssue__prepare
 
     IssuesListIssue.prototype.set_issue_ident = (function IssuesListIssue__set_issue_ident (issue_ident) {
@@ -777,7 +781,7 @@ $().ready(function() {
             return;
         }
         var is_popup = !!(force_popup || container.$window);
-        if (!url) { url = this.$link.attr('href'); }
+        if (!url) { url = this.$link.attr('href').split("#")[0]; }
         if (!no_loading) {
             IssueDetail.set_container_loading(container);
         } else {
@@ -849,7 +853,7 @@ $().ready(function() {
         }
         var is_active = this.$node.hasClass('active');
 
-        $.get(kwargs.url + window.location.search).done(function(data) {
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
             var $data = $(data),
                 $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
             if (!$containers.length) {
@@ -858,15 +862,24 @@ $().ready(function() {
             if (is_active) {
                 $data.addClass('active');
             }
+
+            var with_repository = $data.hasClass('with-repository');
+            var with_notification = $data.hasClass('with-notification');
+            var display_repository = (with_repository || with_notification) ? $data.data('repository') : '';
+
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+
+            if (with_notification) {
+                GithubNotifications.init_item_forms();
+            }
 
             // check if we have to change group
             var list = issue.group.list,
                 refresh_quicksearch = true;
             if (list.group_by_key) {
                 var filter = issue.get_filter_for(list.group_by_key);
-                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
                 if (group != issue.group) {
                     refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
@@ -888,11 +901,11 @@ $().ready(function() {
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
                     IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                 } else {
                     $message = $('<span>The following ' + issue_type + ' was just updated:<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -900,16 +913,19 @@ $().ready(function() {
             }
         }).fail(function(response) {
             if (response.status == 404 && issue.group) {
+                var with_repository = issue.$node.hasClass('with-repository');
+                var with_notification = issue.$node.hasClass('with-notification');
+                var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
                 issue.group.remove_issue(issue);
                 if (!kwargs.front_uuid || !front_uuid_exists) {
                     var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue',
                         $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
                     if ($containers.length) {
-                        $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
+                        $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
                         IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                     } else {
                         $message = $('<span>The following ' + issue_type + ' was just updated and does not match your filter anymore:<br /></span>');
-                        $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                        $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                     }
                     MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
                 } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -939,7 +955,7 @@ $().ready(function() {
     }); // IssuesListIssue__get_filters
 
     IssuesListIssue.prototype.get_filter_for = (function IssuesListIssue__get_filter_for (filter_key) {
-        var searchable_filter, matching_filters, filter_value, filter_text,
+        var searchable_filter, matching_filters, filter_value, filter_text, filter_description,
             filters_nodes = this.get_nodes_with_filter();
 
         if (filter_key.indexOf('label_type:') == 0) {
@@ -960,6 +976,19 @@ $().ready(function() {
                 filter_value = matching_filters[0].filters.filter.substring(searchable_filter.length);
                 if (filter_key == 'milestone') {
                     filter_text = matching_filters[0].$node.contents()[1].textContent;
+                } else if (filter_key == 'reason') {
+                    try {
+                        filter_text = matching_filters[0].$node.contents()[0].textContent;
+                    } catch(e) {
+                        filter_text = filter_value;
+                    }
+                    filter_description = matching_filters[0].$node.attr('title_all');
+                } else if (filter_key == 'pr') {
+                    filter_text = filter_value == 'no' ? 'issues' : 'pull-requests';
+                } else if (filter_key == 'active') {
+                    filter_text = filter_value == 'no' ? 'inactive' : 'active';
+                } else if (filter_key == 'unread') {
+                    filter_text = filter_value == 'no' ? 'read' : 'unread';
                 } else {
                     filter_text = filter_value;
                 }
@@ -967,7 +996,7 @@ $().ready(function() {
                 filter_value = '__none__';
             }
         }
-        return {value: filter_value, text: filter_text};
+        return {value: filter_value, text: filter_text, description: filter_description};
     });  // IssuesListIssue__get_filter_for
 
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
@@ -1256,6 +1285,7 @@ $().ready(function() {
     IssuesList.all = [];
     IssuesList.current = null;
     IssuesList.updating_ids = {};
+    IssuesList.subscribed_repositories = {};
 
     IssuesList.prototype.unset_current = (function IssuesList__unset_current () {
         IssuesList.current = null;
@@ -1320,12 +1350,30 @@ $().ready(function() {
     }); // IssuesList_init_event
 
     IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
-        WS.subscribe(
-            'gim.front.Repository.' + main_repository_id + '.model.updated.is.Issue.',
-            'IssuesList__on_update_alert',
-            IssuesList.on_update_alert,
-            'prefix'
-        );
+        var repositories = [];
+        if (main_repository_id) {
+            repositories.push(main_repository_id);
+        } else {
+            for (var i = 0; i < IssuesList.all.length; i++) {
+                var issues_list = IssuesList.all[i];
+                repositories = repositories.concat(issues_list.$node.find(IssuesListIssue.selector).map(function() {
+                    return $(this).data('repository-id');
+                }).toArray());
+            }
+        }
+        for (var j = 0; j < repositories.length; j++) {
+            var repository_id = repositories[j];
+            if (typeof IssuesList.subscribed_repositories[repository_id] !== 'undefined') {
+                continue;
+            }
+            IssuesList.subscribed_repositories[repository_id] = true;
+            WS.subscribe(
+                'gim.front.Repository.' + repository_id + '.model.updated.is.Issue.',
+                'IssuesList__on_update_alert',
+                IssuesList.on_update_alert,
+                'prefix'
+            );
+        }
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
@@ -1344,14 +1392,18 @@ $().ready(function() {
         }
     }); // IssuesList_on_update_alert
 
-    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text) {
+    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text, filter_description) {
         var $group = this.$node.find(IssuesListGroup.template_selector).clone();
         $group.removeClass('template');
         if (filter_value != null) {
             $group.attr('data-group_by-value', filter_value);
         }
         if (filter_text != null && filter_value != '' && filter_value != '__none__') {
-            $group.find('span.title').text(filter_text);
+            var $span = $group.find('span.title');
+            $span.text(filter_text);
+            if (filter_description) {
+                $span.append('<span>- ' + filter_description + '</span>');
+            }
         }
         var new_uuid = UUID.generate();
         $group.children('.box-header').attr('data-target', '#group_by-list-' + new_uuid);
@@ -1409,7 +1461,7 @@ $().ready(function() {
     }); // IssuesList__change_issue_group
 
     IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
-        $.get(kwargs.url + window.location.search).done(function(data) {
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
                 list = IssuesList.all[0], filter, group,
@@ -1420,10 +1472,10 @@ $().ready(function() {
             }
             if (list.group_by_key) {
                 filter = issue.get_filter_for(list.group_by_key);
-                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text);
+                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
             } else {
                 // no group by: only one group
-                group = list.groups.length ? list.groups[0] : list.create_group(null, null);
+                group = list.groups.length ? list.groups[0] : list.create_group(null, null, null);
             }
             group.add_issue(issue, true);
             if (list.groups.length == 1) {
@@ -1435,14 +1487,22 @@ $().ready(function() {
 
             FilterManager.init();
 
+            var with_repository = issue.$node.hasClass('with-repository');
+            var with_notification = issue.$node.hasClass('with-notification');
+            var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
+
+            if (with_notification) {
+                GithubNotifications.init_item_forms();
+            }
+
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
                 if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' #' + kwargs.number + ' was just updated.</span>');
+                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
                     IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
                 } else {
                     $message = $('<span>' + 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter' + ':<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(issue.$node.find('.issue-link').text()));
+                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
                 }
                 MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
             } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -3233,8 +3293,6 @@ $().ready(function() {
         var issue_to_select = null;
         if (location.hash && /^#issue\-\d+$/.test(location.hash)) {
             issue_to_select = $(location.hash);
-        } else if ((issue_to_select=/\/issues\/(\d+)\/$/.exec(location.pathname)) && issue_to_select.length == 2) {
-            issue_to_select = $('#issue-' + issue_to_select[1]);
         } else {
             issue_to_select = $(IssuesListIssue.selector + '.active');
         }
@@ -4958,7 +5016,7 @@ $().ready(function() {
                             }
                         }
                     },
-                    url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/no-details/',
+                    url: '/' + ident.repository + '/issues/' + ident.issueNumber + '/preview/',
                     content: '<div>Repository: ' + ident.repository + '<br/>Issue: ' + ident.issueNumber + '</div>',
                     placement: placement,
                     onShow: onShow
@@ -5179,7 +5237,6 @@ $().ready(function() {
         }, // apply_values
 
         on_checkbox_changed: function(ev) {
-            console.log(ev);
             ev.stopPropagation();
             var $checkbox = $(this),
                 $form = $checkbox.closest('form');
@@ -5209,6 +5266,8 @@ $().ready(function() {
             GithubNotifications.save_values($form, data.values);
             if (data.values) {
                 GithubNotifications.apply_values($form, data.values);
+                $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
+                $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
             }
         }, // on_post_submit_done
 
@@ -5239,20 +5298,20 @@ $().ready(function() {
         }, // toggle_read
 
         init_item_forms: function() {
-            var $forms = $(GithubNotifications.item_selector + ' form'),
+            var $forms = $(GithubNotifications.item_selector + ' form:not(.js-managed)'),
                 $checkboxes = $forms.find('input[type=checkbox]');
             $forms.each(function() { GithubNotifications.save_values($(this));});
             $checkboxes.iCheck({checkboxClass: 'icheckbox_flat-aero'});
             $checkboxes.on('ifChecked ifUnchecked ifToggled', GithubNotifications.on_checkbox_changed);
             $forms.on('click', '.spin-holder', Ev.cancel);
             $forms.addClass('js-managed');
-            jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));
-            jwerty.key('shift+a', GithubNotifications.on_current_issue_toggle_event('active'));
         }, // init_item_forms
 
         init: function () {
             if (body_id != 'github_notifications') { return; }
             GithubNotifications.init_item_forms();
+            jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));
+            jwerty.key('shift+a', GithubNotifications.on_current_issue_toggle_event('active'));
         } // init
 
     }; // GithubNotifications
