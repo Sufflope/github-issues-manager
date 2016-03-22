@@ -11,10 +11,10 @@
     <link href="{% static "front/css/pages/dashboard/github-notifications.css" %}" rel="stylesheet">
 {% endblock extra_css %}
 
-{% block js_footer %}
+{% block js_pre_footer %}
     {{ block.super }}
     <script src="{% static "front/js/jquery.icheck.js" %}" type="text/javascript"></script>
-{% endblock js_footer %}
+{% endblock js_pre_footer %}
 
 {% block main %}
     {% include "front/dashboard/github_notifications_issues.html" %}
