@@ -130,20 +130,22 @@ class _GithubUser(Hashable, models.Model):
                                                  | models.Q(closed_by=self)
                                                )
 
-    def count_unread_notifications(self):
+    @cached_property
+    def unread_notifications_count(self):
         return self.github_notifications.filter(unread=True, issue__isnull=False).count()
 
-    def get_last_unread_notification_date(self):
+    @cached_property
+    def last_unread_notification_date(self):
         return self.github_notifications.filter(
             unread=True, issue__isnull=False).order_by('-updated_at').values_list('updated_at', flat=True).first()
 
     def ping_github_notifications(self):
-        last = self.get_last_unread_notification_date()
+        last = self.last_unread_notification_date
         if last:
             last = format(last, 'r')
         publisher.publish(
             topic='gim.front.user.%s.notifications.ping' % (signer.sign(self.pk).split(':', 1)[1], ),
-            count=self.count_unread_notifications(),
+            count=self.unread_notifications_count,
             last=last,
         )
 
