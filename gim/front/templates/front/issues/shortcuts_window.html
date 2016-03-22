@@ -1,0 +1,79 @@
+    <div id="shortcuts-window" class="modal hide fade" tabindex="-1" data-keyboard="false">{% spaceless %}
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
+            <h3>Shortcuts</h3>
+        </div>
+        <div class="modal-body">
+            <div class="row-fluid">
+                <div class="span6">
+                    <h4>On the issue detail view</h4>
+                    <table class="table table-condensed">
+                        <tr><td><span class="label label-inverse">CTRL + <i class="fa fa-arrow-left"> </i></span></td><td>Focus the list of issues</td></tr>
+                        <tr><td><span class="label label-inverse">s</span></td><td>Toggle the fullscreen view</td></tr>
+                        <tr><td><span class="label label-inverse">r</span></td><td>Refresh issue</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + g</span></td><td>Reload the issue from Github</td></tr>
+                        <tr><td><span class="label label-inverse">v</span></td><td>View the issue on Github in a new tab/window</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + d</span></td><td>If a pull-request, open the "Discussion & updates" tab</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + c</span></td><td>If a pull-request, open the "Commits" tab</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + f</span></td><td>If a pull-request, open the "Files" tab</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + r</span></td><td>If a pull-request, open the "Review comments" tab</td></tr>
+                    </table>
+                    <h4>On the "Files" tab of the detail view</h4>
+                    <table class="table table-condensed">
+                        <tr><td><span class="label label-inverse">n</span> or <span class="label label-inverse">j</span></td><td>Focus the next file</td></tr>
+                        <tr><td><span class="label label-inverse">p</span> or <span class="label label-inverse">k</span></td><td>Focus the previous file</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + n</span> or <span class="label label-inverse">SHIFT + j</span></td><td>Focus the next comment</td></tr>
+                        <tr><td><span class="label label-inverse">SHIFT + p</span> or <span class="label label-inverse">SHIFT + k</span></td><td>Focus the previous comment</td></tr>
+                        <tr><td><span class="label label-inverse">f</span></td><td>Focus the filter input</td></tr>
+                        <tr><td><span class="label label-inverse">t</span></td><td>Toggle the top files list</td></tr>
+                    </table>
+                    <h4>Other</h4>
+                    <table class="table table-condensed">
+                        {% if can_add_issues %}
+                            <tr><td><span class="label label-inverse">c</span></td><td>Create an new issue</td></tr>
+                        {% endif %}
+                        {% if can_open_issue_by_number %}
+                        <tr><td><span class="label label-inverse">#</span> or <span class="label label-inverse">i</span></td><td>Open a window to type an issue number to open</td></tr>
+                        {% endif %}
+                        <tr><td><span class="label label-inverse">?</span></td><td>This window</td></tr>
+                    </table>
+                </div>
+                <div class="span6">
+                    <h4>Anywhere on the issues-list</h4>
+                    <table class="table table-condensed">
+                        <tr><td><span class="label label-inverse">d</span></td><td>Toggle details for issues</td></tr>
+                        <tr><td><span class="label label-inverse">f</span></td><td>Focus the filter input</td></tr>
+                        <tr><td><span class="label label-inverse">CTRL + u</span></td><td>Clear the search input</td></tr>
+                        <tr><td><span class="label label-inverse">CTRL + <i class="fa fa-arrow-right"> </i></span></td><td>Focus the detail view</td></tr>
+                    </table>
+                    <h4>On issues in the issues list</h4>
+                    <table class="table table-condensed">
+                        <tr>
+                            <td><span class="label label-inverse">n</span>, <span class="label label-inverse">j</span> or <span class="label label-inverse"><i class="fa fa-arrow-down"> </i></span></td><td>Focus the next issue</td>
+                        </tr>
+                        <tr>
+                            <td><span class="label label-inverse">p</span>, <span class="label label-inverse">k</span> or <span class="label label-inverse"><i class="fa fa-arrow-up"> </i></span></td><td>Focus the previous issue</td>
+                        </tr>
+                        <tr><td><span class="label label-inverse">HOME</span></td><td>Focus the first issue of the current group</td></tr>
+                        <tr><td><span class="label label-inverse">END</span></td><td>Focus the last issue of the current group</td></tr>
+                        <tr><td><span class="label label-inverse">c</span> or <span class="label label-inverse"><i class="fa fa-arrow-left"> </i></span></td><td>Close the current group</td></tr>
+                        {% block on-issues-on-issues-list %}{% endblock %}
+                    </table>
+                    <h4>On Groups in the issues list</h4>
+                    <table class="table table-condensed">
+                        <tr>
+                            <td><span class="label label-inverse">n</span>, <span class="label label-inverse">j</span> or <span class="label label-inverse"><i class="fa fa-arrow-up"> </i></span></td><td>Focus the next item (group or issue) in the list</td>
+                        </tr>
+                        <tr>
+                            <td><span class="label label-inverse">p</span>, <span class="label label-inverse">k</span> or <span class="label label-inverse"><i class="fa fa-arrow-down"> </i></span></td><td>Focus the previous item (group or issue) in the list</td>
+                        </tr>
+                        <tr><td><span class="label label-inverse">o</span> or <span class="label label-inverse"><i class="fa fa-arrow-right"> </i></span></td><td>Open the group</td></tr>
+                        <tr><td><span class="label label-inverse">c</span> or <span class="label label-inverse"><i class="fa fa-arrow-left"> </i></span></td><td>Close the group</td></tr>
+                        <tr><td><span class="label label-inverse">t</span></td><td>Toggle the group</td></tr>
+                        <tr><td><span class="label label-inverse">HOME</span></td><td>Focus the first group</td></tr>
+                        <tr><td><span class="label label-inverse">END</span></td><td>Focus the last group</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endspaceless %}</div>

@@ -373,6 +373,7 @@ class CommitStatus(GithubObjectWithId):
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
     github_date_field = ('updated_at', 'updated', 'desc')
+    github_per_page = {'min': 100, 'max': 100}
 
     objects = CommitStatusManager()
 

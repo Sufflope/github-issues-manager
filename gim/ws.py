@@ -18,9 +18,14 @@ from limpyd_extensions.dynamic.model import ModelWithDynamicFieldMixin
 from limpyd_extensions.dynamic.fields import DynamicSortedSetField
 
 from django.conf import settings
+from django.core.signing import Signer
 from django.utils.functional import cached_property
 
+from gim import hashed_version
 from gim.core import get_main_limpyd_database
+
+
+signer = Signer(salt='wamp-signer:%s' % hashed_version)
 
 
 logger = logging.getLogger('gim.ws')

@@ -35,6 +35,7 @@ class Repository(GithubObjectWithId):
     default_branch = models.TextField(blank=True, null=True)
 
     first_fetch_done = models.BooleanField(default=False)
+    fetch_minimal_done = models.BooleanField(default=False)
     collaborators_fetched_at = models.DateTimeField(blank=True, null=True)
     collaborators_etag = models.CharField(max_length=64, blank=True, null=True)
     milestones_fetched_at = models.DateTimeField(blank=True, null=True)
@@ -560,6 +561,16 @@ class Repository(GithubObjectWithId):
                                 force_fetch=force_fetch,
                                 max_pages=max_pages)
 
+    def fetch_minimal(self, gh, force_fetch=False, **kwargs):
+        if not self.fetch_minimal_done:
+            force_fetch = True
+        self.fetch(gh, force_fetch=force_fetch)
+        self.fetch_labels(gh, force_fetch=force_fetch)
+        self.fetch_milestones(gh, force_fetch=force_fetch)
+        if not self.fetch_minimal_done:
+            self.fetch_minimal_done = True
+            self.save(update_fields=['fetch_minimal_done'])
+
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         """
         Pass "two_steps=True" to felay fetch of closed issues and comments (by
@@ -567,12 +578,7 @@ class Repository(GithubObjectWithId):
         """
         two_steps = bool(kwargs.get('two_steps', False))
 
-        super(Repository, self).fetch_all(gh, force_fetch=force_fetch)
-        # self.fetch_collaborators(gh, force_fetch=force_fetch)  # done via the FetchCollaborators task, with a user with push rights
-        self.fetch_labels(gh, force_fetch=force_fetch)
-
-        if self.has_issues:
-            self.fetch_milestones(gh, force_fetch=force_fetch)
+        self.fetch_minimal(gh, force_fetch=force_fetch)
 
         if two_steps:
             self.fetch_issues(gh, force_fetch=force_fetch, state='open')

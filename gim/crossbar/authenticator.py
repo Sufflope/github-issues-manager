@@ -7,11 +7,11 @@ from autobahn.twisted.wamp import ApplicationSession
 from autobahn.wamp.exception import ApplicationError
 
 from django.conf import settings
-from django.core.signing import Signer
 from django.utils.importlib import import_module
 
 django_session_engine = import_module(settings.SESSION_ENGINE)
 
+from gim.ws import signer
 
 logger = logging.getLogger('gim.ws.authenticator')
 
@@ -47,7 +47,6 @@ class GimAuthenticator(ApplicationSession):
 
                     if django_user_id:
 
-                        signer = Signer(salt='wampcra-auth')
                         signed_user_id = signer.sign(str(django_user_id)).split(':', 1)[1]
 
                         if signed_user_id == authid:

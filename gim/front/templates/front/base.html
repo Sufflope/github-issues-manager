@@ -27,18 +27,26 @@
                 {% block header_nav %}{% endblock header_nav %}
                 <ul class="nav full pull-right">
                     {% if user and user.is_authenticated %}
-                        <li class="dropdown user_avatar">
+                        <li class="dropdown user-avatar">
                             <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                                 <span>
                                     <img src="{{ user.avatar_url|default:default_avatar }}" class="img-rounded menu-avatar avatar" />
                                     <span>
                                         {{ user.username }}
                                     </span>
-                                    <span class="caret"></span>
+                                    <i class="fa fa-caret-down"></i>
+                                    <span id="github-notifications-count" data-last="{{ github_notifications_last_date|date:'r' }}" data-count="{{ github_notifications_count }}" class="badge badge-dark-red{% if not github_notifications_count %} no-notifications{% endif %}">{{ github_notifications_count }}</span>
                                 </span>
                             </a>
                             <ul class="dropdown-menu" role="menu" aria-label="Main accesses">
                                 <li><a href="{% url "front:dashboard:home" %}"><i class="fa fa-tachometer fa-fw"> </i> Your dashboard</a></li>
+                                <li title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}" id="github-notifications-menu">
+                                    <a href="{{ github_notifications_url }}">
+                                        <span class="label {% if github_notifications_count %} label-dark-red{% endif %} pull-right">{{ github_notifications_count|default:0 }}</span>
+                                        <i class="fa fa-envelope fa-fw"> </i>
+                                        Notifications
+                                    </a>
+                                </li>
                                 <li class="divider"></li>
                                 <li><a href="{% url "front:auth:logout" %}"><i class="fa fa-sign-out fa-fw"> </i> Logout</a></li>
                             </ul>

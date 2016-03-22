@@ -60,6 +60,7 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
             }
             repo_main_views.append(main_view)
 
+        context['can_open_issue_by_number'] = True
         context['repository_main_views'] = repo_main_views
 
         return context

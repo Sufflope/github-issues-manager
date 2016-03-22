@@ -1,10 +1,9 @@
-from django.views.generic import TemplateView
 from django.core.urlresolvers import reverse_lazy
+from django.views.generic import TemplateView
 
 from gim.activity.limpyd_models import RepositoryActivity
-
-from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
 from gim.front.activity.views import ActivityViewMixin
+from gim.front.mixins.views import WithSubscribedRepositoriesViewMixin, DeferrableViewPart
 
 
 class DashboardActivityPart(ActivityViewMixin, DeferrableViewPart, WithSubscribedRepositoriesViewMixin, TemplateView):
@@ -58,3 +57,5 @@ class DashboardHome(WithSubscribedRepositoriesViewMixin, TemplateView):
         }
 
         return context
+
+

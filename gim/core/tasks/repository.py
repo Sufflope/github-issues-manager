@@ -6,6 +6,7 @@ __all__ = [
     'FirstFetch',
     'FirstFetchStep2',
     'FetchForUpdate',
+    'ManageDualRepository',
 ]
 
 from datetime import timedelta

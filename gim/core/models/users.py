@@ -2,6 +2,7 @@ __all__ = [
     'AVAILABLE_PERMISSIONS',
     'AvailableRepository',
     'GithubUser',
+    'GithubNotification',
     'Team',
 ]
 
@@ -17,8 +18,10 @@ from ..ghpool import (
     ApiNotFoundError,
     Connection,
 )
+
 from ..managers import (
     AvailableRepositoryManager,
+    GithubNotificationManager,
     GithubObjectManager,
     GithubUserManager,
 )
@@ -27,6 +30,8 @@ from .base import (
     GithubObject,
     GithubObjectWithId,
 )
+
+from .mixins import WithRepositoryMixin
 
 import username_hack  # force the username length to be 255 chars
 
@@ -52,6 +57,8 @@ class GithubUser(GithubObjectWithId, AbstractUser):
     available_repositories = models.ManyToManyField('Repository', through='AvailableRepository')
     watched_repositories = models.ManyToManyField('Repository', related_name='watched')
     starred_repositories = models.ManyToManyField('Repository', related_name='starred')
+    github_notifications_fetched_at = models.DateTimeField(blank=True, null=True)
+    github_notifications_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = GithubUserManager()
 
@@ -133,6 +140,12 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         # won't work for organizations, but not called in this case
         return self.github_callable_identifiers_for_self + [
             'subscriptions',
+        ]
+
+    @property
+    def github_callable_identifiers_for_github_notifications(self):
+        return [
+            'notifications',
         ]
 
     def __getattr__(self, name):
@@ -267,6 +280,27 @@ class GithubUser(GithubObjectWithId, AbstractUser):
             self.available_repositories_set.filter(filter_queryset).delete()
             return 0
 
+    def fetch_github_notifications(self, gh=None, force_fetch=False, parameters=None):
+        # FORCE GH
+        if not gh or gh._connection_args.get('username') != self.username:
+            gh = self.get_connection()
+
+        if parameters is None:
+            parameters = {}
+
+        if 'all' not in parameters:
+            parameters['all'] = 'true'
+
+        if 'participating' not in parameters:
+            parameters['participating'] = 'false'
+
+        defaults = {'fk': {'user': self}}
+
+        return self._fetch_many('github_notifications', gh,
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                defaults=defaults)
+
     def fetch_all(self, gh=None, force_fetch=False, **kwargs):
         # FORCE GH
         if not gh or gh._connection_args.get('username') != self.username:
@@ -319,12 +353,15 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         #             # we may have no rights
         #             pass
 
+        # manage notifications from github
+        nb_notifs = self.fetch_github_notifications(gh, force_fetch=force_fetch)
+
         # update permissions in token object
         t = self.token_object
         if t:
             t.update_repos()
 
-        return nb_repositories_fetched, nb_orgs_fetched, nb_watched, nb_starred, 0  # nb_teams_fetched
+        return nb_repositories_fetched, nb_orgs_fetched, nb_watched, nb_starred, 0, nb_notifs
 
     def get_connection(self):
         return Connection.get(username=self.username, access_token=self.token)
@@ -498,3 +535,134 @@ class AvailableRepository(GithubObject):
 
     def __unicode__(self):
         return '%s can "%s" %s (org: %s)' % (self.user, self.permission, self.repository, self.organization_username)
+
+
+class GithubNotification(WithRepositoryMixin, GithubObject):
+    """
+    Will host notifications hosted on Github for a given user
+    """
+    user = models.ForeignKey('GithubUser', related_name='github_notifications')
+    thread_id = models.PositiveIntegerField(null=True, blank=True)
+    repository = models.ForeignKey('Repository', related_name='github_notifications')
+    issue = models.ForeignKey('Issue', blank=True, null=True)
+    type = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    reason = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    issue_number = models.PositiveIntegerField(blank=True, null=True, db_index=True)
+    title = models.TextField()
+    unread = models.BooleanField(db_index=True)
+    last_read_at = models.DateTimeField(db_index=True, null=True)
+    updated_at = models.DateTimeField(db_index=True)
+    previous_updated_at = models.DateTimeField(blank=True, null=True)
+    ready = models.BooleanField(default=False, db_index=True)
+    subscribed = models.BooleanField(default=True, db_index=True)
+    subscription_fetched_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    subscription_etag = models.CharField(max_length=64, blank=True, null=True)
+
+    objects = GithubNotificationManager()
+
+    github_matching = dict(GithubObject.github_matching)
+    github_matching.update({
+        'id': 'thread_id'
+    })
+
+    github_identifiers = {
+        'thread_id': 'thread_id',
+        'user__username': ('user', 'username'),
+    }
+    github_ignore = GithubObjectWithId.github_ignore + ('github_id', 'subject', 'subscription_url')
+    github_edit_fields = {'update': []}
+    github_edit_fields_for_subscription = {'update': ['subscribed', 'ignored']}
+
+    class Meta:
+        app_label = 'core'
+        ordering = ('-updated_at', )
+
+    github_per_page = {'min': 100, 'max': 100}
+    delete_missing_after_fetch = False
+
+    def __unicode__(self):
+        return '%s notified "%s" on %s #%s' % (self.user, self.reason, self.repository, self.issue_number)
+
+    def save(self, *args, **kwargs):
+
+        changed = self.updated_at != self.previous_updated_at
+        self.previous_updated_at = self.updated_at
+        if changed:
+            self.ready = False
+
+        if kwargs.get('update_fields') is not None:
+            kwargs['update_fields'].append('previous_updated_at')
+            if changed:
+                kwargs['update_fields'].append('ready')
+
+        super(GithubNotification, self).save(*args, **kwargs)
+
+        if changed:
+            from gim.core.tasks.githubuser import FinalizeGithubNotification
+            FinalizeGithubNotification.add_job(self.pk)
+
+    @property
+    def github_callable_identifiers(self):
+        return [
+            'notifications',
+            'threads',
+            self.thread_id,
+        ]
+
+    @property
+    def github_callable_identifiers_for_subscription(self):
+        return self.github_callable_identifiers + [
+            'subscription',
+        ]
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None):
+
+        # FORCE GH
+        if not gh or gh._connection_args.get('username') != self.user.username:
+            gh = self.user.get_connection()
+
+        if defaults is None:
+            defaults = {}
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+
+        return super(GithubNotification, self).fetch(gh, defaults, force_fetch, parameters,
+                                                     meta_base_name)
+
+    def fetch_subscription(self, gh, defaults=None, force_fetch=False, parameters=None):
+        if defaults is None:
+            defaults = {}
+        defaults.setdefault('simple', {}).setdefault('thread_id', self.thread_id)
+        defaults.setdefault('fk', {}).setdefault('repository', self.repository)
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+        return self.fetch(gh=gh, defaults=defaults, force_fetch=force_fetch,
+                                    parameters=parameters, meta_base_name='subscription')
+
+    def defaults_create_values(self):
+        defaults = super(GithubNotification, self).defaults_create_values()
+        defaults.setdefault('simple', {}).setdefault('thread_id', self.thread_id)
+        if self.repository:
+            defaults.setdefault('fk', {}).setdefault('repository', self.repository)
+        defaults.setdefault('fk', {}).setdefault('user', self.user)
+        return defaults
+
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
+                  update_method='patch'):
+
+        if mode != 'update':
+            raise Exception('Invalid mode for dist_edit')
+
+        # FORCE GH
+        if not gh or gh._connection_args.get('username') != self.user.username:
+            gh = self.user.get_connection()
+
+        if meta_base_name == 'subscription':
+            update_method = 'put'
+            # github expect an `ignored` field to be the reverse of `subscribed`
+            if not values:
+                values = {}
+            if 'ignored' not in values:
+                values['ignored'] = not values.get('subscribed', self.subscribed)
+
+        return super(GithubNotification, self).dist_edit(gh, mode, fields, values, meta_base_name,
+                                                         update_method)
+

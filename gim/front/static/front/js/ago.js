@@ -23,17 +23,17 @@ var time_ago = (function () {
             },
             'long': {
                 'now': 'just now',
-                'mn': 'one minute ago',
+                'mn': 'a minute ago',
                 'mns': ' minutes ago',
-                'h': 'one hour ago',
+                'h': 'an hour ago',
                 'hs': ' hours ago',
-                'd': 'one day ago',
+                'd': 'a day ago',
                 'ds': ' days ago',
-                'w': 'one week ago',
+                'w': 'a week ago',
                 'ws': ' weeks ago',
-                'mo': 'one month ago',
+                'mo': 'a month ago',
                 'mos': ' months ago',
-                'y': 'one year ago',
+                'y': 'a year ago',
                 'ys': ' years ago'
             }
         };
