@@ -4878,7 +4878,80 @@ body > header .user-avatar .dropdown-menu i {
   color: inherit;
 }
 
-/* line 57, ../../../sass/main.scss */
+@-moz-keyframes breathing-notifications-counter {
+  0% {
+    -moz-transform: scale(1);
+    transform: scale(1);
+  }
+  35% {
+    -moz-transform: scale(1.3);
+    transform: scale(1.3);
+  }
+  84% {
+    -moz-transform: scale(1);
+    transform: scale(1);
+  }
+  100% {
+    -moz-transform: scale(1);
+    transform: scale(1);
+  }
+}
+@-webkit-keyframes breathing-notifications-counter {
+  0% {
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+  35% {
+    -webkit-transform: scale(1.3);
+    transform: scale(1.3);
+  }
+  84% {
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+  100% {
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+}
+@keyframes breathing-notifications-counter {
+  0% {
+    -moz-transform: scale(1);
+    -ms-transform: scale(1);
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+  35% {
+    -moz-transform: scale(1.3);
+    -ms-transform: scale(1.3);
+    -webkit-transform: scale(1.3);
+    transform: scale(1.3);
+  }
+  84% {
+    -moz-transform: scale(1);
+    -ms-transform: scale(1);
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+  100% {
+    -moz-transform: scale(1);
+    -ms-transform: scale(1);
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+}
+/* line 75, ../../../sass/main.scss */
+#github-notifications-count.no-notifications {
+  display: none;
+}
+/* line 78, ../../../sass/main.scss */
+#github-notifications-count.new-notifications {
+  -moz-animation: breathing-notifications-counter 5s infinite normal;
+  -webkit-animation: breathing-notifications-counter 5s infinite normal;
+  animation: breathing-notifications-counter 5s infinite normal;
+}
+
+/* line 84, ../../../sass/main.scss */
 #HW_badge_cont {
   width: auto !important;
   height: auto !important;
@@ -4887,7 +4960,7 @@ body > header .user-avatar .dropdown-menu i {
   top: 6px !important;
 }
 
-/* line 64, ../../../sass/main.scss */
+/* line 91, ../../../sass/main.scss */
 #HW_badge {
   top: 0 !important;
   left: 0 !important;
@@ -4895,29 +4968,29 @@ body > header .user-avatar .dropdown-menu i {
   color: white !important;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
 }
-/* line 70, ../../../sass/main.scss */
+/* line 97, ../../../sass/main.scss */
 #HW_badge.HW_softHidden {
   opacity: 0.5 !important;
 }
 
-/* line 74, ../../../sass/main.scss */
+/* line 101, ../../../sass/main.scss */
 body > header .brand:hover #HW_badge.HW_softHidden {
   opacity: 1 !important;
 }
 
-/* line 77, ../../../sass/main.scss */
+/* line 104, ../../../sass/main.scss */
 #HW_frame_cont {
   z-index: 1031 !important;
   margin-top: 21px !important;
   margin-left: -8px !important;
 }
 
-/* line 84, ../../../sass/main.scss */
+/* line 111, ../../../sass/main.scss */
 #main {
   padding-top: 47px;
 }
 
-/* line 89, ../../../sass/main.scss */
+/* line 116, ../../../sass/main.scss */
 #main > .row-fluid {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;
@@ -4925,13 +4998,13 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   padding: 0 22px;
 }
 
-/* line 94, ../../../sass/main.scss */
+/* line 121, ../../../sass/main.scss */
 #main > .row-fluid.row-header {
   padding: 0;
   margin-bottom: 15px;
 }
 
-/* line 101, ../../../sass/main.scss */
+/* line 128, ../../../sass/main.scss */
 #ws-alert {
   position: absolute;
   top: -10px;
@@ -4959,40 +5032,40 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   font-weight: bold;
   opacity: 0;
 }
-/* line 117, ../../../sass/main.scss */
+/* line 144, ../../../sass/main.scss */
 #ws-alert.with-close {
   padding-right: 20px;
 }
-/* line 132, ../../../sass/main.scss */
+/* line 159, ../../../sass/main.scss */
 #ws-alert a {
   color: inherit;
   text-decoration: underline;
 }
-/* line 136, ../../../sass/main.scss */
+/* line 163, ../../../sass/main.scss */
 #ws-alert p {
   margin-top: 0.5em;
   margin-bottom: 0;
 }
-/* line 139, ../../../sass/main.scss */
+/* line 166, ../../../sass/main.scss */
 #ws-alert p:last-of-type {
   margin-bottom: 2px;
 }
-/* line 143, ../../../sass/main.scss */
+/* line 170, ../../../sass/main.scss */
 #ws-alert.ko {
   background-color: #b35d5d;
   border-color: #964747;
 }
-/* line 148, ../../../sass/main.scss */
+/* line 175, ../../../sass/main.scss */
 #ws-alert.ok {
   background-color: #8CC079;
   border-color: #6eb056;
 }
-/* line 153, ../../../sass/main.scss */
+/* line 180, ../../../sass/main.scss */
 #ws-alert.waiting {
   background-color: #d89a3e;
   border-color: #bd8026;
 }
-/* line 158, ../../../sass/main.scss */
+/* line 185, ../../../sass/main.scss */
 #ws-alert.visible {
   -moz-transform: translateX(-50%) translateY(0);
   -ms-transform: translateX(-50%) translateY(0);
@@ -5000,7 +5073,7 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
-/* line 163, ../../../sass/main.scss */
+/* line 190, ../../../sass/main.scss */
 #ws-alert .close {
   display: none;
   position: absolute;
@@ -5008,7 +5081,7 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   right: 5px;
 }
 
-/* line 172, ../../../sass/main.scss */
+/* line 199, ../../../sass/main.scss */
 #messages {
   position: fixed;
   top: 67px;
@@ -5016,7 +5089,7 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   z-index: 2000;
 }
 
-/* line 180, ../../../sass/main.scss */
+/* line 207, ../../../sass/main.scss */
 .empty-area {
   color: #bbb;
   font-size: 300%;
@@ -5029,32 +5102,32 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   line-height: 2em;
   margin-top: -1em;
 }
-/* line 191, ../../../sass/main.scss */
+/* line 218, ../../../sass/main.scss */
 .empty-area i {
   font-size: inherit;
 }
 
-/* line 196, ../../../sass/main.scss */
+/* line 223, ../../../sass/main.scss */
 .box-content .empty-area {
   position: static;
   font-size: 150%;
   margin: 0;
 }
 
-/* line 205, ../../../sass/main.scss */
+/* line 232, ../../../sass/main.scss */
 .content {
   color: #505050;
 }
-/* line 207, ../../../sass/main.scss */
+/* line 234, ../../../sass/main.scss */
 .content br {
   margin: 3px 0;
 }
-/* line 210, ../../../sass/main.scss */
+/* line 237, ../../../sass/main.scss */
 .content p:last-child {
   margin-bottom: 0;
 }
 
-/* line 217, ../../../sass/main.scss */
+/* line 244, ../../../sass/main.scss */
 ol.errorlist, ul.errorlist {
   list-style: none;
   margin: 0;
@@ -5062,112 +5135,112 @@ ol.errorlist, ul.errorlist {
   font-style: italic;
 }
 
-/* line 229, ../../../sass/main.scss */
+/* line 256, ../../../sass/main.scss */
 .row-fluid.auto-align > [class*="span"] {
   text-align: center;
   margin: 0;
 }
-/* line 232, ../../../sass/main.scss */
+/* line 259, ../../../sass/main.scss */
 .row-fluid.auto-align > [class*="span"]:first-child {
   text-align: right;
   float: right;
 }
-/* line 236, ../../../sass/main.scss */
+/* line 263, ../../../sass/main.scss */
 .row-fluid.auto-align > [class*="span"]:last-child {
   text-align: left;
   float: left;
 }
 
-/* line 245, ../../../sass/main.scss */
+/* line 272, ../../../sass/main.scss */
 .btn-loading i.fa-spinner, .btn-loading i.fa-spin {
   display: none !important;
 }
-/* line 249, ../../../sass/main.scss */
+/* line 276, ../../../sass/main.scss */
 .btn-loading.loading i.fa-spinner, .btn-loading.loading i.fa-spin {
   display: inline-block !important;
 }
 
-/* line 255, ../../../sass/main.scss */
+/* line 282, ../../../sass/main.scss */
 .one-field-form {
   display: inline-block;
   position: relative;
   margin: 0;
   padding: 0;
 }
-/* line 260, ../../../sass/main.scss */
+/* line 287, ../../../sass/main.scss */
 .one-field-form > div {
   display: inline-block;
 }
-/* line 262, ../../../sass/main.scss */
+/* line 289, ../../../sass/main.scss */
 .one-field-form > div input, .one-field-form > div select, .one-field-form > div textarea {
   margin: 0;
 }
-/* line 266, ../../../sass/main.scss */
+/* line 293, ../../../sass/main.scss */
 .one-field-form button {
   width: 30px;
   font-size: 14px;
   margin-left: 10px;
 }
-/* line 270, ../../../sass/main.scss */
+/* line 297, ../../../sass/main.scss */
 .one-field-form button i {
   font-size: inherit;
   float: none;
   margin: 0;
 }
-/* line 276, ../../../sass/main.scss */
+/* line 303, ../../../sass/main.scss */
 .one-field-form button.btn-save i {
   color: white;
 }
-/* line 281, ../../../sass/main.scss */
+/* line 308, ../../../sass/main.scss */
 .one-field-form button.loading i:first-of-type {
   display: none;
 }
 
-/* line 289, ../../../sass/main.scss */
+/* line 316, ../../../sass/main.scss */
 .active-panel {
   border-top: solid 5px #7BC8D7 !important;
 }
 
-/* line 294, ../../../sass/main.scss */
+/* line 321, ../../../sass/main.scss */
 .sparkline-graph {
   line-height: 1px !important;
 }
 
-/* line 300, ../../../sass/main.scss */
+/* line 327, ../../../sass/main.scss */
 .add-issue-btn a {
   margin-left: 20px;
 }
 
-/* line 305, ../../../sass/main.scss */
+/* line 332, ../../../sass/main.scss */
 .fa-stack {
   color: #2c596d !important;
 }
-/* line 307, ../../../sass/main.scss */
+/* line 334, ../../../sass/main.scss */
 .fa-stack .fa-code-fork {
   color: #ccc !important;
 }
-/* line 309, ../../../sass/main.scss */
+/* line 336, ../../../sass/main.scss */
 .fa-stack .fa-code-fork ~ .fa {
   opacity: 0.8;
 }
-/* line 313, ../../../sass/main.scss */
+/* line 340, ../../../sass/main.scss */
 .fa-stack .fa-file-text-o, .fa-stack .fa-file-code-o {
   color: #ddd !important;
 }
-/* line 316, ../../../sass/main.scss */
+/* line 343, ../../../sass/main.scss */
 .fa-stack .fa-quote-left {
   color: #ddd !important;
 }
-/* line 318, ../../../sass/main.scss */
+/* line 345, ../../../sass/main.scss */
 .fa-stack .fa-quote-left ~ .fa {
   opacity: 0.8;
 }
-/* line 320, ../../../sass/main.scss */
+/* line 347, ../../../sass/main.scss */
 .fa-stack .fa-quote-left ~ .fa.fa-file-text-o, .fa-stack .fa-quote-left ~ .fa.fa-file-code-o {
   color: inherit !important;
 }
 
-/* line 328, ../../../sass/main.scss */
+/* line 355, ../../../sass/main.scss */
 .webui-popover-hover-issue {
   -moz-box-shadow: 3px 3px 15px #000;
   -webkit-box-shadow: 3px 3px 15px #000;
@@ -5179,34 +5252,34 @@ ol.errorlist, ul.errorlist {
   max-width: 40%;
   z-index: 1050;
 }
-/* line 337, ../../../sass/main.scss */
+/* line 364, ../../../sass/main.scss */
 .webui-popover-hover-issue .webui-popover-content > .empty-area {
   position: static;
   margin: 0;
   line-height: normal;
   overflow: hidden;
 }
-/* line 343, ../../../sass/main.scss */
+/* line 370, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error {
   padding: 5px;
 }
-/* line 345, ../../../sass/main.scss */
+/* line 372, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error .alert {
   margin-bottom: 0;
 }
-/* line 350, ../../../sass/main.scss */
+/* line 377, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top {
   -moz-border-radius: 6px 6px 0 0;
   -webkit-border-radius: 6px;
   border-radius: 6px 6px 0 0;
 }
-/* line 352, ../../../sass/main.scss */
+/* line 379, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top:after {
   -moz-border-radius: 0 6px 0 0;
   -webkit-border-radius: 0;
   border-radius: 0 6px 0 0;
 }
-/* line 356, ../../../sass/main.scss */
+/* line 383, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content .issue-body {
   border-bottom: 0;
   -moz-border-radius: 0 0 6px 6px;

@@ -5191,6 +5191,12 @@ $().ready(function() {
         item_selector: '.issue-item-notification',
         default_error_msg: 'Internal problem: we were unable to update your notification',
         spin: '<span class="spin-holder"><i style="" class="fa fa-spinner fa-spin"> </i></span>',
+        $count_node: $('#github-notifications-count'),
+        $menu_node: $('#github-notifications-menu'),
+        $menu_node_counter: null,
+        orig_count: null,
+        orig_last: null,
+        orig_date: null,
 
         disable_form: function ($form) {
             var $inputs = $form.find('input[type=checkbox]');
@@ -5307,7 +5313,65 @@ $().ready(function() {
             $forms.addClass('js-managed');
         }, // init_item_forms
 
+        init_subscription: function() {
+            WS.subscribe(
+                'gim.front.user.' + window.auth_keys.key1 + '.notifications.ping',
+                'GithubNotifications.on_notifications_ping',
+                GithubNotifications.on_notifications_ping,
+                'exact'
+            );
+        }, // init_subscription
+
+        on_notifications_ping: function (topic, args, kwargs) {
+            var $node = GithubNotifications.$count_node,
+                old_count = parseInt($node.data('count') || 0, 10),
+                old_last = $node.data('last'),
+                old_date = null,
+                new_count = kwargs.count || 0,
+                new_last = kwargs.last,
+                new_date = null;
+                to_notify = false;
+
+            if (new_count > old_count) {
+                to_notify = true;
+            } else {
+                if (old_last) { old_date = new Date(old_last); }
+                if (new_last) { new_date = new Date(new_last); }
+                if (new_date && (!old_date || new_date > old_date)) {
+                    to_notify = true;
+                }
+            }
+
+            $node.data('count', new_count);
+            $node.text(new_count);
+            $node.toggleClass('no-notifications', !new_count);
+            $node.data('last', new_last);
+            GithubNotifications.$menu_node.attr('title', new_count ? ("You have " + new_count + " unread notification" + (new_count > 1 ? 's' : '')) : "You don't have unread notifications");
+            GithubNotifications.$menu_node_counter.text(new_count).toggleClass('label-dark-red', new_count > 0);
+
+            if (to_notify) {
+                $node.addClass('new-notifications');
+            } else {
+                // remove the animation if back to normal
+                if ((!new_last || GithubNotifications.orig_last && new_date <= GithubNotifications.orig_date)
+                    && (new_count <= GithubNotifications.orig_count)) {
+                    $node.removeClass('new-notifications');
+                }
+            }
+
+
+        }, // on_notifications_ping
+
         init: function () {
+            if (GithubNotifications.$count_node.length) {
+                GithubNotifications.$menu_node_counter = GithubNotifications.$menu_node.find('span.label');
+                GithubNotifications.orig_count = parseInt(GithubNotifications.$count_node.data('count') || 0, 10);
+                GithubNotifications.orig_last = GithubNotifications.$count_node.data('last');
+                if (GithubNotifications.orig_last) {
+                    GithubNotifications.orig_date = new Date(GithubNotifications.orig_last);
+                }
+                GithubNotifications.init_subscription();
+            }
             if (body_id != 'github_notifications') { return; }
             GithubNotifications.init_item_forms();
             jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));

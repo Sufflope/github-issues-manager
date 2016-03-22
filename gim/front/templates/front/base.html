@@ -35,14 +35,12 @@
                                         {{ user.username }}
                                     </span>
                                     <i class="fa fa-caret-down"></i>
-                                    {% if github_notifications_count %}
-                                        <span class="badge badge-dark-red">{{ github_notifications_count }}</span>
-                                    {% endif %}
+                                    <span id="github-notifications-count" data-last="{{ github_notifications_last_date|date:'r' }}" data-count="{{ github_notifications_count }}" class="badge badge-dark-red{% if not github_notifications_count %} no-notifications{% endif %}">{{ github_notifications_count }}</span>
                                 </span>
                             </a>
                             <ul class="dropdown-menu" role="menu" aria-label="Main accesses">
                                 <li><a href="{% url "front:dashboard:home" %}"><i class="fa fa-tachometer fa-fw"> </i> Your dashboard</a></li>
-                                <li title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}">
+                                <li title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}" id="github-notifications-menu">
                                     <a href="{{ github_notifications_url }}">
                                         <span class="label {% if github_notifications_count %} label-dark-red{% endif %} pull-right">{{ github_notifications_count|default:0 }}</span>
                                         <i class="fa fa-envelope fa-fw"> </i>

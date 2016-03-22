@@ -12,6 +12,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
 from django.template.defaultfilters import escape
+from django.utils.dateformat import format
 from django.utils.functional import cached_property
 
 from markdown import markdown
@@ -28,7 +29,7 @@ from gim.events.models import EventPart
 
 from gim.subscriptions import models as subscriptions_models
 
-from gim.ws import publisher
+from gim.ws import publisher, signer
 
 
 thread_data = local()
@@ -128,6 +129,24 @@ class _GithubUser(Hashable, models.Model):
                                                  | models.Q(assignee=self)
                                                  | models.Q(closed_by=self)
                                                )
+
+    def count_unread_notifications(self):
+        return self.github_notifications.filter(unread=True, issue__isnull=False).count()
+
+    def get_last_unread_notification_date(self):
+        return self.github_notifications.filter(
+            unread=True, issue__isnull=False).order_by('-updated_at').values_list('updated_at', flat=True).first()
+
+    def ping_github_notifications(self):
+        last = self.get_last_unread_notification_date()
+        if last:
+            last = format(last, 'r')
+        publisher.publish(
+            topic='gim.front.user.%s.notifications.ping' % (signer.sign(self.pk).split(':', 1)[1], ),
+            count=self.count_unread_notifications(),
+            last=last,
+        )
+
 
 contribute_to_model(_GithubUser, core_models.GithubUser)
 

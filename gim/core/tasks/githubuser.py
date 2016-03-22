@@ -332,3 +332,5 @@ class FetchNotifications(UserJob):
         count, delay = result
 
         self.clone(delayed_for=delay)
+
+        self.user.ping_github_notifications()

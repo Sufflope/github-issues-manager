@@ -2,20 +2,16 @@ from datetime import datetime
 from uuid import uuid4
 
 from django.conf import settings
-from django.core.signing import Signer
-from django.core.urlresolvers import reverse
 
 from gim import hashed_version
 from gim.core.models import GITHUB_STATUS_CHOICES
-from gim.ws import publisher
+from gim.ws import publisher, signer
 
 
 def auth_keys(request):
 
     if not request.user or request.user.is_anonymous():
         return {}
-
-    signer = Signer(salt='wampcra-auth')
 
     def sign(value):
         return signer.sign(value).split(':', 1)[1]
@@ -57,8 +53,8 @@ def user_context(request):
     if request.user and request.user.is_authenticated():
         from gim.front.github_notifications.views import GithubNotifications
 
-        context['github_notifications_count'] = request.user.github_notifications.filter(
-            unread=True, issue__isnull=False).count()
+        context['github_notifications_count'] = request.user.count_unread_notifications()
+        context['github_notifications_last_date'] = request.user.get_last_unread_notification_date()
 
         context['github_notifications_url'] = GithubNotifications.get_default_url()
 
