@@ -903,7 +903,7 @@ class _GithubNotification(models.Model):
         abstract = True
 
     def get_edit_url(self):
-        return reverse_lazy('front:dashboard:github-notification-edit', kwargs={'notif_id': self.pk})
+        return reverse_lazy('front:github-notifications:edit', kwargs={'notif_id': self.pk})
 
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 

@@ -34,7 +34,7 @@ from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJ
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES, Subscription
 
-from gim.front.dashboard.views import GithubNotifications
+from gim.front.github_notifications.views import GithubNotifications
 
 from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     LinkedToIssueFormViewMixin,

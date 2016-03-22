@@ -55,7 +55,7 @@ def user_context(request):
     }
 
     if request.user and request.user.is_authenticated():
-        from gim.front.dashboard.views import GithubNotifications
+        from gim.front.github_notifications.views import GithubNotifications
 
         context['github_notifications_count'] = request.user.github_notifications.filter(
             unread=True, issue__isnull=False).count()
