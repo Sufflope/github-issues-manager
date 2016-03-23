@@ -99,6 +99,10 @@ class GithubObjectManager(BaseManager):
         if you got a list from github, and we assume that the list is ordered by
         this field, descending)
         """
+
+        if response_headers is None:
+            response_headers = {}
+
         data = self.get_data_from_github(
             gh=gh,
             identifiers=identifiers,
