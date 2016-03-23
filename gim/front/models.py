@@ -29,7 +29,7 @@ from gim.events.models import EventPart
 
 from gim.subscriptions import models as subscriptions_models
 
-from gim.ws import publisher, signer
+from gim.ws import publisher
 
 
 thread_data = local()
@@ -138,16 +138,6 @@ class _GithubUser(Hashable, models.Model):
     def last_unread_notification_date(self):
         return self.github_notifications.filter(
             unread=True, issue__isnull=False).order_by('-updated_at').values_list('updated_at', flat=True).first()
-
-    def ping_github_notifications(self):
-        last = self.last_unread_notification_date
-        if last:
-            last = format(last, 'r')
-        publisher.publish(
-            topic='gim.front.user.%s.notifications.ping' % (signer.sign(self.pk).split(':', 1)[1], ),
-            count=self.unread_notifications_count,
-            last=last,
-        )
 
 
 contribute_to_model(_GithubUser, core_models.GithubUser)

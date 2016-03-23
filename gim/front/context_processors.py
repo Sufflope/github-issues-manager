@@ -5,16 +5,13 @@ from django.conf import settings
 
 from gim import hashed_version
 from gim.core.models import GITHUB_STATUS_CHOICES
-from gim.ws import publisher, signer
+from gim.ws import publisher, sign
 
 
 def auth_keys(request):
 
     if not request.user or request.user.is_anonymous():
         return {}
-
-    def sign(value):
-        return signer.sign(value).split(':', 1)[1]
 
     return {
         'key1': sign(request.user.id),
@@ -53,9 +50,11 @@ def user_context(request):
     if request.user and request.user.is_authenticated():
         from gim.front.github_notifications.views import GithubNotifications
 
-        context['github_notifications_count'] = request.user.unread_notifications_count
-        context['github_notifications_last_date'] = request.user.last_unread_notification_date
-
-        context['github_notifications_url'] = GithubNotifications.get_default_url()
+        context.update({
+            'wamp_topic_key': request.user.wamp_topic_key,
+            'github_notifications_count': request.user.unread_notifications_count,
+            'github_notifications_last_date': request.user.last_unread_notification_date,
+            'github_notifications_url': GithubNotifications.get_default_url(),
+        })
 
     return context

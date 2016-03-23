@@ -147,6 +147,7 @@ $().ready(function() {
         },
 
         last_msg_id: window.WS_last_msg_id,
+        user_topic_key: window.WS_user_topic_key,
 
         subscriptions: {},
 
@@ -1327,8 +1328,8 @@ $().ready(function() {
     }); // IssuesList__set_current
 
     IssuesList.init_all = (function IssuesList_init_all () {
-        IssuesList.all = $.map($(IssuesList.selector),
-                            function(node) { return new IssuesList(node); });
+        var $lists = $(IssuesList.selector);
+        IssuesList.all = $.map($lists, function(node) { return new IssuesList(node); });
         if (!IssuesList.all.length) { return; }
         IssuesList.all[0].set_current();
         IssuesListIssue.init_events();
@@ -1336,14 +1337,19 @@ $().ready(function() {
         IssuesList.init_events();
         IssuesList.subscribe_updates();
 
+        IssuesList.update_time_ago($lists);
         setInterval(function() {
-            var $lists = $(IssuesList.selector);
-            for (var i = 0; i < $lists.length; i++) {
-                time_ago.replace($lists[i]);
-            }
+            IssuesList.update_time_ago($lists);
         }, 60000);
 
     }); // IssuesList_init_all
+
+    IssuesList.update_time_ago = (function IssuesList_update_time_ago ($lists) {
+        $lists = $lists || $(IssuesList.selector);
+        for (var i = 0; i < $lists.length; i++) {
+            time_ago.replace($lists[i]);
+        }
+    }), // IssuesList_update_time_ago
 
     IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
         var decorator = function() {
@@ -1405,6 +1411,8 @@ $().ready(function() {
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
+        if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
+
         if (typeof IssuesList.updating_ids[kwargs.id] != 'undefined' || kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
                 IssuesList.on_update_alert(topic, args, kwargs);
@@ -5354,9 +5362,15 @@ $().ready(function() {
 
         init_subscription: function() {
             WS.subscribe(
-                'gim.front.user.' + window.auth_keys.key1 + '.notifications.ping',
+                'gim.front.user.' + WS.user_topic_key + '.notifications.ping',
                 'GithubNotifications.on_notifications_ping',
                 GithubNotifications.on_notifications_ping,
+                'exact'
+            );
+            WS.subscribe(
+                'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
+                'GithubNotification__on_issue',
+                IssuesList.on_update_alert,
                 'exact'
             );
         }, // init_subscription

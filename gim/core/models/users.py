@@ -11,6 +11,8 @@ from django.db import models
 
 from extended_choices import Choices
 
+from gim.ws import publisher, sign
+
 from .. import GITHUB_HOST
 
 from ..ghpool import (
@@ -445,6 +447,21 @@ class GithubUser(GithubObjectWithId, AbstractUser):
             self.email = ''
         super(GithubUser, self).save(*args, **kwargs)
 
+    @property
+    def wamp_topic_key(self):
+        return sign('%s%s' % (self.id, self.token))
+
+    def ping_github_notifications(self):
+        last = self.last_unread_notification_date
+        if last:
+            last = format(last, 'r')
+
+        publisher.publish(
+            topic='gim.front.user.%s.notifications.ping' % self.wamp_topic_key,
+            count=self.unread_notifications_count,
+            last=last,
+        )
+
 
 class Team(GithubObjectWithId):
     organization = models.ForeignKey('GithubUser', related_name='org_teams')
@@ -601,6 +618,11 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
             from gim.core.tasks.githubuser import FinalizeGithubNotification
             FinalizeGithubNotification.add_job(self.pk)
 
+        if self.ready:
+            self.user.ping_github_notifications()
+            self.publish()
+
+
     @property
     def github_callable_identifiers(self):
         return [
@@ -665,4 +687,16 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
 
         return super(GithubNotification, self).dist_edit(gh, mode, fields, values, meta_base_name,
                                                          update_method)
+
+    def publish(self):
+        if not self.issue_id:
+            return
+
+        publisher.publish(
+            topic='gim.front.user.%s.notifications.issue' % self.user.wamp_topic_key,
+            model=str(self.issue.model_name),
+            id=str(self.issue.pk),
+            hash=str(self.issue.saved_hash),
+            url=str(self.issue.get_websocket_data_url()),
+        )
 

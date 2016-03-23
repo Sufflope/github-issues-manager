@@ -25,3 +25,15 @@
     {% include "front/modal_issue_view.html" %}
     {% include "front/dashboard/github_notifications_shortcuts_window.html" %}
 {% endblock modal-windows %}
+
+{% block header_nav_inner %}
+        <li class="active">
+            <a role="menuitem" href="{{ github_notifications_url }}">
+                <i class="fa fa-envelope"> </i>
+                Github notifications
+            </a>
+        </li>
+        <li>
+            <a href="https://github.com/notifications" title="View your notifications on github" target='_blank'><i class="fa fa-github"> </i></a>
+        </li>
+{% endblock header_nav_inner %}

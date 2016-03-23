@@ -35,6 +35,10 @@ TOPIC_TYPE_PREFIX = 'prefix'
 TOPIC_TYPE_WILDCARD = 'wildcard'
 
 
+def sign(value):
+    return signer.sign('%s' % value).split(':', 1)[1]
+
+
 def serialize(msg_id, topic, *args, **kwargs):
     return json.dumps({
         'msg_id': msg_id,
