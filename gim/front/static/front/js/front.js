@@ -147,6 +147,7 @@ $().ready(function() {
         },
 
         last_msg_id: window.WS_last_msg_id,
+        user_topic_key: window.WS_user_topic_key,
 
         subscriptions: {},
 
@@ -1405,6 +1406,8 @@ $().ready(function() {
     }); // IssuesList_subscribe_updates
 
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
+        if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
+
         if (typeof IssuesList.updating_ids[kwargs.id] != 'undefined' || kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
                 IssuesList.on_update_alert(topic, args, kwargs);
@@ -5354,9 +5357,15 @@ $().ready(function() {
 
         init_subscription: function() {
             WS.subscribe(
-                'gim.front.user.' + window.auth_keys.key1 + '.notifications.ping',
+                'gim.front.user.' + WS.user_topic_key + '.notifications.ping',
                 'GithubNotifications.on_notifications_ping',
                 GithubNotifications.on_notifications_ping,
+                'exact'
+            );
+            WS.subscribe(
+                'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
+                'GithubNotification__on_issue',
+                IssuesList.on_update_alert,
                 'exact'
             );
         }, // init_subscription
