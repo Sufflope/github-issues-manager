@@ -259,6 +259,9 @@ class FinalizeGithubNotification(GithubNotificationJob):
         notification.ready = ready
         notification.save()
 
+        if ready:
+            notification.user.ping_github_notifications()
+
         return True
 
 
