@@ -228,31 +228,32 @@ class FinalizeGithubNotification(GithubNotificationJob):
         try:
             notification.fetch_subscription(gh)
         except ApiNotFoundError:
+            # it may be the case when the notification happened because the user belongs to an org
+            # and in this case there is no subscription
+            pass
+
+        # Fetch the repository
+        try:
+            notification.repository.fetch_minimal(gh)
+        except ApiNotFoundError:
             ready = False
         else:
-
-            # Fetch the repository
+            # Fetch the issue
+            from gim.core.models import Issue
             try:
-                notification.repository.fetch_minimal(gh)
+                issue = notification.repository.issues.get(number=notification.issue_number)
+            except Issue.DoesNotExist:
+                issue = Issue(repository=notification.repository, number=notification.issue_number)
+
+            try:
+                issue.fetch(gh)
             except ApiNotFoundError:
+                if issue.pk:
+                    issue.delete()
                 ready = False
             else:
-                # Fetch the issue
-                from gim.core.models import Issue
-                try:
-                    issue = notification.repository.issues.get(number=notification.issue_number)
-                except Issue.DoesNotExist:
-                    issue = Issue(repository=notification.repository, number=notification.issue_number)
-
-                try:
-                    issue.fetch(gh)
-                except ApiNotFoundError:
-                    if issue.pk:
-                        issue.delete()
-                    ready = False
-                else:
-                    from gim.core.tasks.issue import FetchIssueByNumber
-                    FetchIssueByNumber.add_job('%s#%s' % (notification.repository.pk, notification.issue_number), gh=gh)
+                from gim.core.tasks.issue import FetchIssueByNumber
+                FetchIssueByNumber.add_job('%s#%s' % (notification.repository.pk, notification.issue_number), gh=gh)
 
         notification.issue = issue if issue and issue.pk else None
         notification.ready = ready
