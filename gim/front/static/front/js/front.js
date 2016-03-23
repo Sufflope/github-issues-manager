@@ -360,7 +360,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please refresh the page.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:document.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
             WS.connection.close();
             WS.end_reconcile();
         }), // error_reconcile
@@ -553,16 +553,24 @@ $().ready(function() {
             if (kwargs.utcnow) {
                 time_ago.update_start(kwargs.utcnow);
             }
-            if (kwargs.software_version && kwargs.software_version != window.software.version) {
+            if (kwargs.software_version) {
+                WS.check_software_version(kwargs.software_version);
+            }
+        }), // receive_ping
+
+        check_software_version: (function WS__check_version (last_version) {
+            if (last_version != window.software.version) {
                 window.software.bad_version = true;
-                WS.connection.close();
+                try {
+                    WS.connection.close();
+                } catch (e) {}
                 WS.alert_bad_version();
                 setInterval(function() {
                     WS.alert_close();
                     setTimeout(WS.alert_bad_version, 1000);
                 }, 15000);
             }
-        }), // receive_ping
+        }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
             WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:document.location.reload(true);">reload the whole page</a>.', 'waiting');
@@ -595,13 +603,22 @@ $().ready(function() {
             WS.subscribe('gim.ping', 'ping', WS.receive_ping);
         }), // onopen
 
-        onclose: (function WS__onclose (reason) {
+        onclose: (function WS__onclose (reason, info) {
+            if (info.message) {
+                var parts = info.message.split('|');
+                for (var i = 1; i < parts.length; i++) {
+                    var part = parts[i];
+                    if (part.indexOf('software_version=') == 0) {
+                        WS.check_software_version(part.substring(17));
+                    }
+                }
+            }
             if (window.software.bad_version) { return;}
             var message, timeout;
             switch (reason) {
                 case 'closed':
                     timeout = 5000;  // to not display it if the page is closing
-                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please refresh the page.</p>';
+                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:document.location.reload(true);">refresh the page</a>.</p>';
                     break;
                 case 'unsupported':
                     message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
