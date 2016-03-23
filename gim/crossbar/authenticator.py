@@ -9,6 +9,8 @@ from autobahn.wamp.exception import ApplicationError
 from django.conf import settings
 from django.utils.importlib import import_module
 
+from gim import hashed_version
+
 django_session_engine = import_module(settings.SESSION_ENGINE)
 
 from gim.ws import signer
@@ -61,7 +63,7 @@ class GimAuthenticator(ApplicationSession):
             logger.warning('Authentication failure (auth_id=%s, realm=%s, session_id=%s, '
                            'user_id=%s)  ws-details=%s',
                            authid, realm, django_session_id, django_user_id, details)
-            raise ApplicationError(u"gim.auth.failure", "Could not authenticate session")
+            raise ApplicationError(u"gim.auth.failure", "Could not authenticate session|software_version=%s" % hashed_version)
 
         try:
             yield self.register(authenticate, 'gim.authenticate')

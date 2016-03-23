@@ -100,7 +100,7 @@
     <script src="{% static "front/js/front.js" %}" type="text/javascript"></script>
     {% block js_footer %}{% endblock js_footer %}
     {%  if headwayapp_account %}
-    <script>
+    <script data-cfasync="false">
       var HW_config = {
           selector: "body > header .brand",
           account: "{{ headwayapp_account }}",
@@ -110,7 +110,7 @@
           }
       };
     </script>
-    <script async src="//cdn.headwayapp.co/widget.js"></script>
+    <script data-cfasync="false" async src="//cdn.headwayapp.co/widget.js"></script>
     {% endif %}
 </body>
 </html>
