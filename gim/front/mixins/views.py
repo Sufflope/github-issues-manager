@@ -621,13 +621,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         filter_objects['group_by_field'] = group_by
         order_by.append('%s%s' % ('-' if group_by_direction == 'desc' else '', group_by))
 
-    def get_issues_for_context(self, context):
-        """
-        Read the querystring from the context, already cut in parts,
-        and check parts that can be applied to filter issues, and return
-        an issues queryset ready to use, with some context
-        """
-        qs_parts = self.get_qs_parts(context)
+    def get_filter_parts(self, qs_parts):
 
         qs_filters = {}
         filter_objects = {}
@@ -652,9 +646,6 @@ class BaseIssuesView(WithQueryStringViewMixin):
                 qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
                 filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
 
-        # the base queryset with the current filters
-        queryset = self.get_base_queryset().filter(**query_filters)
-
         # prepare order, by group then asked ordering
         order_by = []
 
@@ -664,18 +655,41 @@ class BaseIssuesView(WithQueryStringViewMixin):
             self._prepare_group_by(group_by, group_by_direction, qs_parts,
                                    qs_filters, filter_objects, order_by)
 
-        # Do we need to select/prefetch related stuff ? If not grouping, no
-        # because we assume all templates are already cached
-        queryset = self.select_and_prefetch_related(queryset, group_by)
-
         # and finally, asked ordering
         sort, sort_direction = self._get_sort(qs_parts)
         qs_filters['sort'] = filter_objects['sort'] = sort
         qs_filters['direction'] = filter_objects['direction'] = sort_direction
         order_by.append('%s%s' % ('-' if sort_direction == 'desc' else '', self._get_sort_field(sort)))
 
-        # final order by, with group and wanted order
-        queryset = queryset.order_by(*order_by)
+        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
+
+    def get_queryset(self, queryset, filters, order_by):
+        if filters:
+            excludes = {key[1:]: value for key, value in filters.items() if key.startswith('-')}
+            filters = {key: value for key, value in filters.items() if not key.startswith('-')}
+            if filters:
+                queryset = queryset.filter(**filters)
+            if excludes:
+                queryset = queryset.exclude(**excludes)
+        if order_by:
+            queryset = queryset.order_by(*order_by)
+
+        return queryset
+
+    def get_issues_for_context(self, context):
+        """
+        Read the querystring from the context, already cut in parts,
+        and check parts that can be applied to filter issues, and return
+        an issues queryset ready to use, with some context
+        """
+
+        qs_parts = self.get_qs_parts(context)
+
+        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction = \
+            self.get_filter_parts(qs_parts)
+
+        queryset = self.get_queryset(self.get_base_queryset(), query_filters, order_by)
+        queryset = self.select_and_prefetch_related(queryset, group_by)
 
         # return the queryset and some context
         filter_context = {

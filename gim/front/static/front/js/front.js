@@ -554,9 +554,19 @@ $().ready(function() {
                 time_ago.update_start(kwargs.utcnow);
             }
             if (kwargs.software_version && kwargs.software_version != window.software.version) {
-                WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:document.location.reload(true);">reload the whole page</a>.', 'waiting');
+                window.software.bad_version = true;
+                WS.connection.close();
+                WS.alert_bad_version();
+                setInterval(function() {
+                    WS.alert_close();
+                    setTimeout(WS.alert_bad_version, 1000);
+                }, 15000);
             }
         }), // receive_ping
+
+        alert_bad_version: (function WS__alert_bad_version () {
+            WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:document.location.reload(true);">reload the whole page</a>.', 'waiting');
+        }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
             if (method === 'wampcra') {
@@ -586,6 +596,7 @@ $().ready(function() {
         }), // onopen
 
         onclose: (function WS__onclose (reason) {
+            if (window.software.bad_version) { return;}
             var message, timeout;
             switch (reason) {
                 case 'closed':
