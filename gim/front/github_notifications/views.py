@@ -197,10 +197,12 @@ class GithubNotifications(BaseIssuesView, TemplateView):
 
         notifications_queryset = self.github_notifications
 
-        if filters:
+        notifications_filters = {}
+        notifications_excludes = {
+            'issue_id__isnull': True
+        }
 
-            notifications_filters = {}
-            notifications_excludes = {}
+        if filters:
 
             for key, value in dict(**filters).items():
                 if key.startswith('githubnotification__'):
@@ -208,16 +210,10 @@ class GithubNotifications(BaseIssuesView, TemplateView):
                 elif key.startswith('-githubnotification__'):
                     notifications_excludes[key[21:]] = filters.pop(key)
 
-            if notifications_filters:
-                notifications_queryset = notifications_queryset.filter(**notifications_filters)
-            if notifications_excludes:
-                notifications_queryset = notifications_queryset.exclude(**notifications_excludes)
-
-            if not notifications_filters and not notifications_excludes:
-                notifications_queryset = notifications_queryset.all()
-
-        else:
-            notifications_queryset = notifications_queryset.all()
+        if notifications_filters:
+            notifications_queryset = notifications_queryset.filter(**notifications_filters)
+        if notifications_excludes:
+            notifications_queryset = notifications_queryset.exclude(**notifications_excludes)
 
         if order_by:
             notifications_orders = []
