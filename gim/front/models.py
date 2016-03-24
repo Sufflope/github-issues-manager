@@ -138,8 +138,10 @@ class _GithubUser(Hashable, models.Model):
         """
         from gim.subscriptions.models import SUBSCRIPTION_STATES
 
-        return core_models.Repository.objects.filter(
-            subscriptions__state__in=SUBSCRIPTION_STATES.READ_RIGHTS).extra(select={
+        ids = self.subscriptions.filter(
+            state__in=SUBSCRIPTION_STATES.READ_RIGHTS).values_list('repository_id', flat=True)
+
+        return core_models.Repository.objects.filter(id__in=ids).extra(select={
                     'lower_name': 'lower(name)',
                     'lower_owner': 'lower(username)',
                 }
