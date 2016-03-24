@@ -5,10 +5,11 @@
 
 {% block header_nav %}
     <ul class="nav">
+        {% include "front/include_repository_switcher.html" %}
         <li{% if view.url_name == "front:dashboard:home" %} class="active"{% endif %}>
             <a role="menuitem" href="{% url "front:dashboard:home" %}">
                 <i class="fa fa-tachometer"> </i>
-                Dashboard
+                Main dashboard
             </a>
         </li>
         <li{% if view.url_name == "front:dashboard:repositories:choose" %} class="active"{% endif %}>

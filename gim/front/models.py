@@ -131,6 +131,21 @@ class _GithubUser(Hashable, models.Model):
                                                )
 
     @cached_property
+    def readable_subscribed_repositories(self):
+        """
+        Return a dict with, for each available repository for the user, the
+        repository fullname as key and the "Subscription" object as value
+        """
+        from gim.subscriptions.models import SUBSCRIPTION_STATES
+
+        return core_models.Repository.objects.filter(
+            subscriptions__state__in=SUBSCRIPTION_STATES.READ_RIGHTS).extra(select={
+                    'lower_name': 'lower(name)',
+                    'lower_owner': 'lower(username)',
+                }
+            ).select_related('owner').order_by('lower_owner', 'lower_name')
+
+    @cached_property
     def unread_notifications_count(self):
         return self.github_notifications.filter(unread=True, issue__isnull=False).count()
 

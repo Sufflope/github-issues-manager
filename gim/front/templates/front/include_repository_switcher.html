@@ -1,0 +1,34 @@
+{% load repository_tags %}
+{% with readable_subscribed_repositories=view.request.user.readable_subscribed_repositories %}
+    {% if readable_subscribed_repositories %}
+        <li class="dropdown">
+            <a id="repository-switcher" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                {% if current_repository %}
+                    {% if current_repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
+                    {{ current_repository }}
+                {% else %}
+                    Go to repository
+                {% endif %}
+                <b class="caret"></b>
+            </a>
+            {% regroup readable_subscribed_repositories by owner as groups %}
+            <ul class="dropdown-menu" id="repository-switcher-content" role="menu" aria-labelledby="repository-switcher">
+                <li>
+                    {% include "front/include_quicksearch.html" with id="repository-switcher-filter" target="#repository-switcher-content li.subscriptions-group li" only %}
+                </li>
+                {% for group in groups %}
+                    <li class="subscriptions-group">
+                        <strong><img class="avatar-micro img-circle" src="{{ group.grouper.avatar_url|default:default_avatar }}" /> {{ group.grouper.username }}</strong>
+                        <ul class="unstyled">
+                            {% for repository in group.list %}
+                                <li{% if repository.id == current_repository.id %} class="active"{% endif %}><a role="menuitem" href="{{ repository.get_absolute_url }}"><span>{{ group.grouper.username }}/</span>{{ repository.name }}</a></li>
+                            {% endfor %}
+                        </ul>
+                        <hr class="divider" />
+                    </li>
+                {% endfor %}
+                <li><a href="{% url "front:dashboard:repositories:choose" %}">Manage your subscriptions</a></li>
+            </ul>
+        </li>
+    {% endif %}
+{% endwith %}

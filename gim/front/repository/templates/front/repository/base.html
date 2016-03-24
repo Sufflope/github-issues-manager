@@ -8,31 +8,7 @@
 
 {% block header_nav %}{% spaceless %}
     <ul class="nav">
-        <li class="dropdown">
-            <a id="repository-switcher" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
-                {% if current_repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
-                {{ current_repository }}
-                <b class="caret"></b>
-            </a>
-            {% regroup subscribed_repositories by owner as groups %}
-            <ul class="dropdown-menu" id="repository-switcher-content" role="menu" aria-labelledby="repository-switcher">
-                <li>
-                    {% include "front/include_quicksearch.html" with id="repository-switcher-filter" target="#repository-switcher-content li.subscriptions-group li" only %}
-                </li>
-                {% for group in groups %}
-                    <li class="subscriptions-group">
-                        <strong><img class="avatar-micro img-circle" src="{{ group.grouper.avatar_url|default:default_avatar }}" /> {{ group.grouper.username }}</strong>
-                        <ul class="unstyled">
-                            {% for repository in group.list %}
-                                <li{% if repository.id == current_repository.id %} class="active"{% endif %}><a role="menuitem" href="{{ repository.get_absolute_url }}"><span>{{ group.grouper.username }}/</span>{{ repository.name }}</a></li>
-                            {% endfor %}
-                        </ul>
-                        <hr class="divider" />
-                    </li>
-                {% endfor %}
-                <li><a href="{% url "front:dashboard:repositories:choose" %}">Manage your subscriptions</a></li>
-            </ul>
-        </li>
+        {% include "front/include_repository_switcher.html" %}
         <li>
             <a href="{{ current_repository.github_url }}" title="View current repository on github" target='_blank'><i class="fa fa-github"> </i></a>
         </li>
