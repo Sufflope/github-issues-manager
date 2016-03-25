@@ -3422,16 +3422,16 @@ $().ready(function() {
                 'off': 'Click to stop filtering on this '
             },
             assigned: {
-                'on': 'Click to filter issues assigned to him',
-                'off': 'Click to stop filtering issues assigned to him'
+                'on': 'Click to filter issues assigned to them',
+                'off': 'Click to stop filtering issues assigned to them'
             },
             created_by: {
-                'on': 'Click to filter issues created by him',
-                'off': 'Click to stop filtering issues created by him'
+                'on': 'Click to filter issues created by them',
+                'off': 'Click to stop filtering issues created by them'
             },
             closed_by: {
-                'on': 'Click to filter issues closed by him',
-                'off': 'Click to stop filtering issues closed by him'
+                'on': 'Click to filter issues closed by them',
+                'off': 'Click to stop filtering issues closed by them'
             }
         }, // messages
         block_empty_links: function(ev) {
