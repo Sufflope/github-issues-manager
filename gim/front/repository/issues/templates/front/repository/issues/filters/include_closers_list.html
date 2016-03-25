@@ -6,15 +6,9 @@
         </li>
     {% endif %}
     {% for username in usernames %}
-        {% if issues_filter.objects.user_filter_type == 'closed_by' and issues_filter.parts.username == username %}
-            <li class="closer active">
-                <a href="{{ root_issues_url }}{{ issues_filter.querystring }}">{{ username }}</a>
-            </li>
-        {% else %}
-            <li class="closer">
-                <a href="{{ current_repository|base_url_issues_filtered_by_closed_by:username }}{{ issues_filter.querystring }}">{{ username }}</a>
-            </li>
-        {% endif %}
+        <li class="closer{% if issues_filter.parts.created_by == username %} active{% endif %}">
+            <a href="{{ current_issues_url }}{% toggle_in_querystring "closed_by" username %}">{{ username }}</a>
+        </li>
     {% endfor %}
 </ul>
 {% if view.request.is_ajax and count > MIN_FOR_FILTER %}

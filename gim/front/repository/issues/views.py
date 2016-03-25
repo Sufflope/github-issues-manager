@@ -45,7 +45,9 @@ from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     WithAjaxRestrictionViewMixin,
                                     DependsOnIssueViewMixin,
                                     CacheControlMixin,
-                                    WithIssueViewMixin)
+                                    WithIssueViewMixin,
+                                    get_querystring_context,
+                                    )
 
 from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
@@ -99,21 +101,23 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
             'list_open': self.request.is_ajax(),
         })
 
+        if context.get('issues_filter', {}).get('parts'):
+            context['qs_parts_for_ttags'] = context['issues_filter']['parts']
+
         if self.request.is_ajax():
-            context['issues_filter'] = {
-                'querystring': self.request.GET.get('if.querystring'),
-                'objects': {
-                    'user_filter_type': self.request.GET.get('if.user_filter_type'),
-                },
-                'parts': {
-                    'username': self.request.GET.get('if.username'),
-                },
-            }
+            context['issues_filter'] = {'parts': {
+                self.request.GET.get('if.user_filter_type'): self.request.GET.get('if.username'),
+            }}
+            context.update(get_querystring_context(self.request.GET.get('if.querystring')))
 
         return context
 
     def get_deferred_context_data(self, **kwargs):
         context = super(UserFilterPart, self).get_deferred_context_data(**kwargs)
+
+        if context.get('issues_filter', {}).get('parts'):
+            context['qs_parts_for_ttags'] = context['issues_filter']['parts']
+
         context.update({
             'count': self.count_usernames(),
             'MAX_USERS': LIMIT_USERS,
@@ -146,14 +150,6 @@ class IssuesFilterAssigned(UserFilterPart):
     deferred_template_name = template_name
     list_template_name = 'front/repository/issues/filters/include_assigned_list.html'
     title = 'Assignees'
-
-    def get_context_data(self, **kwargs):
-        context = super(IssuesFilterAssigned, self).get_context_data(**kwargs)
-        context.update({
-            'no_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__none__'),
-            'someone_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__any__'),
-        })
-        return context
 
 
 class IssuesFilterClosers(UserFilterPart):
@@ -205,6 +201,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         'milestone',
         'pr',
     ])
+
+    user_filter_types_matching = {'created_by': 'user', 'assigned': 'assignee', 'closed_by': 'closed_by'}
 
     def get_base_queryset(self):
         return self.repository.issues.ready()
@@ -284,6 +282,26 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         return super(IssuesView, self)._get_group_by(qs_parts)
 
+    def _get_user_filter(self, qs_parts, filter_type):
+        if filter_type not in self.user_filter_types_matching:
+            return None
+
+        username = qs_parts.get(filter_type, None)
+
+        if username:
+            if username == '__none__' and filter_type == 'assigned':
+                return '__none__'
+            elif username == '__any__' and filter_type == 'assigned':
+                return '__any__'
+            try:
+                user = GithubUser.objects.get(username=username)
+            except GithubUser.DoesNotExist:
+                pass
+            else:
+                return user
+
+        return None
+
     def _prepare_group_by(self, group_by, group_by_direction,
                           qs_parts, qs_filters, filter_objects, order_by):
         if isinstance(group_by, LabelType):
@@ -308,6 +326,20 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             else:
                 qs_filters['milestone'] = '%s' % milestone.number
                 query_filters['milestone__number'] = milestone.number
+
+        # filter by author/assigned/closer
+        for filter_type, filter_field in self.user_filter_types_matching.items():
+            user = self._get_user_filter(qs_parts, filter_type)
+            if user is not None:
+                filter_objects[filter_type] = user
+                qs_filters[filter_type] = user
+                if user == '__none__':
+                    query_filters['%s_id__isnull' % filter_field] = True
+                elif user == '__any__':
+                    query_filters['%s_id__isnull' % filter_field] = False
+                else:
+                    qs_filters[filter_type] = user.username
+                    query_filters[filter_field] = user.id
 
         # now filter by labels
         label_types_to_ignore, labels = self._get_labels(qs_parts)
@@ -358,8 +390,6 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         # final context
         context.update({
-            'no_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__none__'),
-            'someone_assigned_filter_url': self.repository.get_issues_user_filter_url_for_username('assigned', '__any__'),
             'label_types': label_types,
         })
 
@@ -373,13 +403,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             if count:
                 part_kwargs = {
                     'issues_filter': context['issues_filter'],
-                    'root_issues_url': context['root_issues_url'],
+                    'current_issues_url': context['current_issues_url'],
                 }
-                if view.relation == 'issues_assigned':
-                    part_kwargs.update({
-                        'no_assigned_filter_url': context['no_assigned_filter_url'],
-                        'someone_assigned_filter_url': context['someone_assigned_filter_url'],
-                    })
                 context[view.relation]['view'] = view
                 if count > LIMIT_USERS:
                     context[view.relation]['part'] = view.render_deferred(**part_kwargs)
@@ -452,82 +477,6 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         return issues, total_count, limit_reached
 
 
-class UserIssuesView(IssuesView):
-    url_name = 'user_issues'
-    user_filter_types = ['assigned', 'created_by', 'closed_by']
-    user_filter_types_matching = {'created_by': 'user', 'assigned': 'assignee', 'closed_by': 'closed_by'}
-
-    def _get_user_filter(self, qs_parts):
-        """
-        Return the user filter type used, and the user to filter on. The user
-        can be either the string '__none__', or a GithubUser object
-        """
-        filter_type = self.kwargs.get('user_filter_type', qs_parts.get('user_filter_type', None))
-        username = self.kwargs.get('username', qs_parts.get('username', None))
-
-        if username and filter_type in self.user_filter_types:
-            if username == '__none__':
-                return filter_type, '__none__'
-            elif username == '__any__' and filter_type == 'assigned':
-                return filter_type, '__any__'
-            try:
-                user = GithubUser.objects.get(username=username)
-            except GithubUser.DoesNotExist:
-                pass
-            else:
-                return filter_type, user
-
-        return None, None
-
-    def get_issues_for_context(self, context):
-        """
-        Update the previously done queryset by filtering by a user as assigned
-        to issues, or their creator or the one who closed them
-        """
-        qs_parts = self.get_qs_parts(context)
-        queryset, filter_context = super(UserIssuesView, self).get_issues_for_context(context)
-        qs_filters = filter_context['qs_filters']
-        filter_objects = filter_context['filter_objects']
-
-        user_filter_type, user = self._get_user_filter(qs_parts)
-        if user_filter_type and user:
-            filter_objects['user'] = user
-            filter_objects['user_filter_type'] = user_filter_type
-            qs_filters['user_filter_type'] = user_filter_type
-            filter_field = self.user_filter_types_matching[user_filter_type]
-            qs_filters['username'] = user
-            if user == '__none__':
-                queryset = queryset.filter(**{'%s_id__isnull' % filter_field: True})
-            elif user == '__any__' and user_filter_type == 'assigned':
-                queryset = queryset.filter(**{'%s_id__isnull' % filter_field: False})
-            else:
-                qs_filters['username'] = user.username
-                queryset = queryset.filter(**{filter_field: user.id})
-
-        return queryset, filter_context
-
-    def get_context_data(self, **kwargs):
-        """
-        Set the current base url for issues for this view
-        """
-        context = super(UserIssuesView, self).get_context_data(**kwargs)
-
-        user_filter_type = context['issues_filter']['objects'].get('user_filter_type', None)
-        user_filter_user = context['issues_filter']['objects'].get('user', None)
-        if user_filter_type and user_filter_user:
-            context['issues_filter']['objects']['current_%s' % user_filter_type] = context['issues_filter']['parts']['username']
-            current_issues_url_kwargs = self.repository.get_reverse_kwargs()
-            current_issues_url_kwargs.update({
-                'user_filter_type': user_filter_type,
-                'username': user_filter_user,
-            })
-            context['current_issues_url'] = reverse_lazy(
-                                    'front:repository:%s' % UserIssuesView.url_name,
-                                    kwargs=current_issues_url_kwargs)
-
-        return context
-
-
 class IssueView(WithIssueViewMixin, TemplateView):
     url_name = 'issue'
     ajax_template_name = 'front/repository/issues/issue.html'
@@ -557,15 +506,12 @@ class IssueView(WithIssueViewMixin, TemplateView):
                 url_name = resolved_url.namespace + ':' + url_name
             if url_name == GithubNotifications.url_name:
                 return GithubNotifications, url_info, resolved_url
-            elif resolved_url.namespace == u'front:repository' and resolved_url.url_name in (
-                    IssuesView.url_name, UserIssuesView.url_name):
+            elif resolved_url.namespace == u'front:repository'\
+                    and resolved_url.url_name == IssuesView.url_name:
                 # Check that we are on the same repository
                 if resolved_url.kwargs.get('owner_username') == self.kwargs['owner_username']\
                         and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
-                    if resolved_url == IssuesView.url_name:
-                        return IssuesView, url_info, resolved_url
-                    else:
-                        return UserIssuesView, url_info, resolved_url
+                    return IssuesView, url_info, resolved_url
 
         return None, None, None
 

@@ -3408,7 +3408,6 @@ $().ready(function() {
         ARGS: Arg.all(),
         CACHE: {},
         selector: '.issues-list:not(.no-filtering) a.js-filter-trigger',
-        user_search: /^(.+\/)(created_by|assigned|closed_by)\/(.+)\/$/,
         messages: {
             pr: {
                 'on': 'Click to display only pull requests',
@@ -3454,6 +3453,9 @@ $().ready(function() {
                 switch(key) {
                     case 'pr':
                     case 'milestone':
+                    case 'created_by':
+                    case 'assigned':
+                    case 'closed_by':
                         if (typeof args[key] === 'undefined' || args[key] != value) {
                             args[key] = value;
                             message_type = 'on';
@@ -3485,26 +3487,6 @@ $().ready(function() {
                         }
                         title = FilterManager.messages[key][message_type] + ($link.data('type-name') || 'label');
                         href = Arg.url(args);
-                        break;
-                    case 'created_by':
-                    case 'assigned':
-                    case 'closed_by':
-                        var path = location.pathname,
-                            matches = path.match(FilterManager.user_search),
-                            to_add = true;
-                        if (matches) {
-                            if (matches[2] == key && matches[3] == value) {
-                                to_add = false;
-                            }
-                            path = matches[1];
-                        }
-                        message_type = 'off';
-                        if (to_add) {
-                            path = path + key + '/' + value + '/';
-                            message_type = 'on';
-                        }
-                        title = FilterManager.messages[key][message_type];
-                        href = Arg.url(path, args);
                         break;
                 }
                 if (href) {

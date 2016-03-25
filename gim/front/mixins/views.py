@@ -73,6 +73,26 @@ class LinkedToUserFormViewMixin(object):
         return kwargs
 
 
+def get_querystring_context(querystring):
+    # put querystring parts in a dict
+    qs_dict = parse_qs(querystring)
+    qs_parts = {}
+    for key, values in qs_dict.items():
+        if not len(values):
+            continue
+        if len(values) > 1:
+            qs_parts[key] = values
+        elif ',' in values[0]:
+            qs_parts[key] = values[0].split(',')
+        else:
+            qs_parts[key] = values[0]
+
+    return {
+        'querystring_parts': qs_parts,
+        'querystring': querystring,
+    }
+
+
 class WithQueryStringViewMixin(object):
 
     def get_qs_parts(self, context):
@@ -84,24 +104,7 @@ class WithQueryStringViewMixin(object):
         return deepcopy(context['querystring_parts'])
 
     def get_querystring_context(self):
-        # put querystring parts in a dict
-        qs = self.request.META.get('QUERY_STRING', '')
-        qs_dict = parse_qs(qs)
-        qs_parts = {}
-        for key, values in qs_dict.items():
-            if not len(values):
-                continue
-            if len(values) > 1:
-                qs_parts[key] = values
-            elif ',' in values[0]:
-                qs_parts[key] = values[0].split(',')
-            else:
-                qs_parts[key] = values[0]
-
-        return {
-            'querystring_parts': qs_parts,
-            'querystring': qs,
-        }
+        return get_querystring_context(self.request.META.get('QUERY_STRING', ''))
 
     def get_context_data(self, **kwargs):
         """
@@ -718,7 +721,6 @@ class BaseIssuesView(WithQueryStringViewMixin):
 
         issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
-            'root_issues_url': issues_url,
             'current_issues_url': issues_url,
             'issues_filter': issues_filter,
             'qs_parts_for_ttags': issues_filter['parts'],

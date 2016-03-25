@@ -1,13 +1,13 @@
 {% load repository_tags issues_tags frontutils %}
 <div class="col-part deferrable action-nav-normal" id="counters" data-url="{{ defer_url }}">
-    {% with assigned_url=current_repository|base_url_issues_filtered_by_assigned:user createdy_url=current_repository|base_url_issues_filtered_by_created_by:user issues_url=current_repository|repository_view_url:'issues' %}
+    {% with issues_url=current_repository|repository_view_url:'issues' %}
 
         <div class="row-fluid">
 
             {% if counters.assigned or counters.assigned == 0 %}
                 <div class="span4">
                     <div class="action-nav-button">
-                        <a href="{{ assigned_url }}?state=open" title="Assigned to you">
+                        <a href="{{ issues_url }}?state=open&amp;assigned={{ user.username }}" title="Assigned to you">
                             <i class="fa fa-file-text-o"></i>
                             <span>Open assigned to you</span>
                         </a>
@@ -21,7 +21,7 @@
 
             <div class="span4{% if not counters.assigned and counters.assigned != 0 %} offset2{% endif %}">
                 <div class="action-nav-button">
-                    <a href="{{ createdy_url }}?state=open" title="Created by you">
+                    <a href="{{ issues_url }}?state=open&amp;created_by={{ user.username }}" title="Created by you">
                         <i class="fa fa-file-text-o"></i>
                         <span>Open created by you</span>
                     </a>
@@ -34,7 +34,7 @@
 
             <div class="span4">
                 <div class="action-nav-button">
-                    <a href="{{ createdy_url }}?state=open&amp;pr=yes" title="Your pull requests">
+                    <a href="{{ issues_url }}?state=open&amp;pr=yes&amp;created_by={{ user.username }}" title="Your pull requests">
                         <i class="fa fa-file-code-o"></i>
                         <span>Your open pull requests</span>
                     </a>
@@ -64,7 +64,7 @@
 
             <div class="span4">
                 <div class="action-nav-button">
-                    <a href="{{ current_repository|base_url_issues_filtered_by_assigned:'__none__' }}?state=open" title="All open and not assigned issues">
+                    <a href="{{ issues_url }}?state=open&amp;assigned=__none__" title="All open and not assigned issues">
                         <i class="fa fa-file-text-o"></i>
                         <span>All open not assigned</span>
                     </a>

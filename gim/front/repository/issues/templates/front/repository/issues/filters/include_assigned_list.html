@@ -1,38 +1,20 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
 <ul id="filter-{{ view.relation }}" class="collapse{% if list_open %} in{% endif %}">
-    {% if issues_filter.objects.user_filter_type == 'assigned' and issues_filter.parts.username == '__none__' %}
-        <li class="active">
-            <a href="{{ root_issues_url }}{{ issues_filter.querystring }}">(&nbsp;No&nbsp;one&nbsp;assigned&nbsp;)</a>
-        </li>
-    {% else %}
-        <li>
-            <a href="{{ no_assigned_filter_url }}{{ issues_filter.querystring }}">(&nbsp;No&nbsp;one&nbsp;assigned&nbsp;)</a>
-        </li>
-    {% endif %}
-    {% if issues_filter.objects.user_filter_type == 'assigned' and issues_filter.parts.username == '__any__' %}
-        <li class="active">
-            <a href="{{ root_issues_url }}{{ issues_filter.querystring }}">(&nbsp;Someone&nbsp;assigned&nbsp;)</a>
-        </li>
-    {% else %}
-        <li>
-            <a href="{{ someone_assigned_filter_url }}{{ issues_filter.querystring }}">(&nbsp;Someone&nbsp;assigned&nbsp;)</a>
-        </li>
-    {% endif %}
+    <li{% if issues_filter.parts.assigned == "__none__" %} class="active"{% endif %}>
+        <a href="{{ current_issues_url }}{% toggle_in_querystring "assigned" "__none__" %}">(&nbsp;No&nbsp;one&nbsp;assigned&nbsp;)</a>
+    </li>
+    <li{% if issues_filter.parts.assigned == "__any__" %} class="active"{% endif %}>
+        <a href="{{ current_issues_url }}{% toggle_in_querystring "assigned" "__any__" %}">(&nbsp;Someone&nbsp;assigned&nbsp;)</a>
+    </li>
     {% if count > MIN_FOR_FILTER %}
         <li>
             {% include "front/include_quicksearch.html" with id="filter-issues-assigned" target="#filter-"|add:view.relation|add:" li.assigned" only %}
         </li>
     {% endif %}
     {% for username in usernames %}
-        {% if issues_filter.objects.user_filter_type == 'assigned' and issues_filter.parts.username == username %}
-            <li class="assigned active">
-                <a href="{{ root_issues_url }}{{ issues_filter.querystring }}">{{ username }}</a>
-            </li>
-        {% else %}
-            <li class="assigned">
-                <a href="{{ current_repository|base_url_issues_filtered_by_assigned:username }}{{ issues_filter.querystring }}">{{ username }}</a>
-            </li>
-        {% endif %}
+        <li class="assigned{% if issues_filter.parts.created_by == username %} active{% endif %}">
+            <a href="{{ current_issues_url }}{% toggle_in_querystring "assigned" username %}">{{ username }}</a>
+        </li>
     {% endfor %}
 </ul>
 {% if view.request.is_ajax and count > MIN_FOR_FILTER %}
