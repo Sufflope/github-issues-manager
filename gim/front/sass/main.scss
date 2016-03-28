@@ -203,6 +203,16 @@ body > header .brand:hover #HW_badge.HW_softHidden {
     z-index: 2000;
 }
 
+.loading-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 31;
+}
+
 // big empty area with big text light colored
 .empty-area {
     color: $light-text-color;

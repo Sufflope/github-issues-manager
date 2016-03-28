@@ -1028,6 +1028,15 @@ $().ready(function() {
         return {value: filter_value, text: filter_text, description: filter_description};
     });  // IssuesListIssue__get_filter_for
 
+    IssuesListIssue.prototype.clean = (function IssuesListIssue__clean () {
+        this.node.IssuesListIssue = null;
+        this.$node.remove();
+        this.$node = null;
+        this.node = null;
+        this.group = null;
+    }); // IssuesListIssue__clean
+
+
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
         this.list = issues_list;
 
@@ -1291,26 +1300,25 @@ $().ready(function() {
         }
     }); // IssuesListGroup__remove_issue
 
+    IssuesListGroup.prototype.clean = (function IssuesListGroup__clean () {
+        this.node.IssuesListGroup = null;
+        this.$node.remove();
+        this.$node = null;
+        this.node = null;
+        this.list = null;
+        for (var i = 0; i < this.issues.length; i++) {
+            this.issues[i].clean();
+        }
+        this.issues = [];
+    }); // IssuesListGroup__clean
+
 
     var IssuesList = (function IssuesList__constructor (node) {
-        this.node = node;
-        this.node.IssuesList = this;
-        this.$node = $(node);
-        this.$empty_node = this.$node.children('.empty-area');
-        this.$search_input = this.$node.find('.quicksearch');
-        if (!this.$search_input.length && this.$node.data('quicksearch')) {
-            this.$search_input = $(this.$node.data('quicksearch'));
-        }
-
-        this.group_by_key = this.$node.data('group_by-key');
-
-        var list = this;
-        this.groups = $.map(this.$node.find(IssuesListGroup.selector),
-                        function(node) { return new IssuesListGroup(node, list); });
-        this.current_group = null;
+        this.set_node($(node));
     }); // IssuesList__constructor
 
     IssuesList.selector = '.issues-list';
+    IssuesList.container_selector = '.issues-list-container';
     IssuesList.all = [];
     IssuesList.current = null;
     IssuesList.updating_ids = {};
@@ -1344,12 +1352,56 @@ $().ready(function() {
 
     }); // IssuesList_init_all
 
+    IssuesList.get_for_node = (function IssuesList_get_for_node ($node) {
+        for (var i = 0; i < IssuesList.all.length; i++) {
+            if (IssuesList.all[i].$node[0] == $node[0]) {
+                return IssuesList.all[i];
+            }
+        }
+        return null;
+    }); // IssuesList_get_for_node
+
+    IssuesList.prototype.set_node = (function IssuesList__set_node ($node) {
+        this.node = $node[0];
+        this.node.IssuesList = this;
+        this.$node = $node;
+        this.$empty_node = this.$node.children('.empty-area');
+        this.$search_input = this.$node.find('.quicksearch');
+        if (!this.$search_input.length && this.$node.data('quicksearch')) {
+            this.$search_input = $(this.$node.data('quicksearch'));
+        }
+
+        this.group_by_key = this.$node.data('group_by-key');
+
+        var list = this;
+        this.groups = $.map(this.$node.find(IssuesListGroup.selector),
+                        function(node) { return new IssuesListGroup(node, list); });
+        this.current_group = null;
+    }); // IssuesList__set_node
+
+    IssuesList.prototype.replace_by_node = (function IssuesList__replace_by_node ($node) {
+        var is_current = IssuesList.current == this,
+            previous_groups = this.groups;
+        this.node.IssuesList = null;
+        this.set_node($node);
+        if (is_current) {
+            this.set_current();
+        }
+        IssuesList.update_time_ago($node);
+        activate_quicksearches(this.$search_input);
+        PanelsSwapper.update_panel(this, this.$node.parent());
+
+        for (var i = 0; i < previous_groups.length; i++) {
+            previous_groups[i].clean();
+        }
+    }); // IssuesList__replace_by_node
+
     IssuesList.update_time_ago = (function IssuesList_update_time_ago ($lists) {
         $lists = $lists || $(IssuesList.selector);
         for (var i = 0; i < $lists.length; i++) {
             time_ago.replace($lists[i]);
         }
-    }), // IssuesList_update_time_ago
+    }); // IssuesList_update_time_ago
 
     IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
         var decorator = function() {
@@ -1463,8 +1515,7 @@ $().ready(function() {
                 this.groups[index ? index - 1 : 1].set_current(false)
             }
         }
-        group.$node.remove();
-        group.list = null;
+        group.clean();
         if (!this.groups.length) {
             this.$empty_node.show();
         }
@@ -1789,13 +1840,70 @@ $().ready(function() {
         focus_quicksearch_filter: (function IssuesFilters__focus_quicksearch_filter ($filter_node) {
             $filter_node.find('input.quicksearch').focus();
         }), // focus_quicksearch_filter
+        add_waiting: (function IssuesFilters__add_waiting ($node) {
+            $node.append('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>')
+        }),
+        on_filter_click: (function IssuesFilters__on_filter_click () {
+            var $filters_node = $(this).closest(IssuesFilters.selector),
+                $issues_list_node = $filters_node.next(IssuesList.container_selector);
+            return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
+        }), // on_filter_click
+        on_sort_or_groupby_click: (function IssuesFilters__on_sort_groupby_click () {
+            var $issues_list_node = $(this).closest(IssuesList.container_selector),
+                $filters_node = $issues_list_node.prev(IssuesFilters.selector);
+            return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
+        }), // on_sort_groupby_click
+        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node) {
+            var context = {
+                    '$filters_node': $filters_node,
+                    '$issues_list_node': $issues_list_node,
+                    url: url
+                };
+
+            $.get(url)
+                .done($.proxy(IssuesFilters.on_filters_and_list_loaded, context))
+                .fail(function() {
+                    window.location.href = url;
+                });
+
+            IssuesFilters.add_waiting($filters_node);
+            IssuesFilters.add_waiting($issues_list_node);
+
+            return false;
+        }), // on_filter_click
+        on_filters_and_list_loaded: (function IssuesFilters_on_filters_and_list_loaded (data) {
+            var $data = $(data),
+                $new_filters_node = $data.filter(IssuesFilters.selector),
+                $new_issues_list_node = $data.filter(IssuesList.container_selector),
+                current_list = IssuesList.get_for_node(this.$issues_list_node.children(IssuesList.selector));
+
+            if (!current_list) {
+                window.location.href = this.url;
+                return;
+            }
+
+            $new_filters_node.find('.deferrable').deferrable();
+            $new_issues_list_node.find('.deferrable').deferrable();
+
+            this.$filters_node.replaceWith($new_filters_node);
+            this.$issues_list_node.replaceWith($new_issues_list_node);
+
+            current_list.replace_by_node($new_issues_list_node.children(IssuesList.selector));
+
+        }), // on_filters_and_list_loaded
         init: function() {
-            $document.on({
-                'show.collapse': IssuesFilters.on_filter_show,
-                'shown.collapse': IssuesFilters.on_filter_shown,
-                'hide.collapse': IssuesFilters.on_filter_hide,
-                'reloaded': IssuesFilters.on_deferrable_loaded
-            }, IssuesFilters.selector);
+            if ($(IssuesFilters.selector).length) {
+                $document.on({
+                        'show.collapse': IssuesFilters.on_filter_show,
+                        'shown.collapse': IssuesFilters.on_filter_shown,
+                        'hide.collapse': IssuesFilters.on_filter_hide,
+                        'reloaded': IssuesFilters.on_deferrable_loaded
+                    }, IssuesFilters.selector
+                ).on('click', IssuesFilters.selector + ' a:not(.accordion-toggle)', Ev.stop_event_decorate(IssuesFilters.on_filter_click));
+            }
+            if (IssuesList.all.length) {
+                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_sort_or_groupby_click));
+            }
         } // init
     };
     IssuesFilters.init();
@@ -3283,6 +3391,24 @@ $().ready(function() {
                 PanelsSwapper.select_panel(PanelsSwapper.panels[idx + 1]);
             }
         }), // go_next_panel
+        update_panel: (function PanelsSwapper__replace_panel (obj, $node) {
+            var updated_panel = null;
+            for (var i = 0; i < PanelsSwapper.panels.length; i++) {
+                var panel = PanelsSwapper.panels[i];
+                if (panel.obj == obj) {
+                    updated_panel = panel;
+                    panel.$node = $node;
+                    break;
+                }
+            }
+            if (updated_panel) {
+                if (PanelsSwapper.current_panel==updated_panel) {
+                    PanelsSwapper.current_panel.$node.addClass('active-panel');
+                } else {
+                    PanelsSwapper.add_handler(updated_panel);
+                }
+            }
+        }),
         init: (function PanelsSwapper__init (panels) {
             PanelsSwapper.panels = panels;
             if (panels.length) {

@@ -89,7 +89,7 @@
     <nav class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
         <div class="navbar-inner">
             <ul class="nav">
-                <li class="dropdown span4">
+                <li class="dropdown span4 dropdown-sort">
                     <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                         <span>
                             Sort
@@ -124,7 +124,7 @@
                     </ul>
                 </li>
                 <li class="divider-vertical"></li>
-                <li class="dropdown span4">
+                <li class="dropdown span4 dropdown-groupby">
                     <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                         <span>
                             Group by
@@ -199,7 +199,7 @@
             <div class="alert alert-warning">
                 The current filter returned {{ issues_count }} issues but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
                 <br />
-                <a class="btn btn-mini btn-default" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list.</a>
+                <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list.</a>
             </div>
         {% endif %}
         {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}

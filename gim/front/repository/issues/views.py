@@ -85,6 +85,12 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
         return reverse_lazy('front:repository:%s' % self.url_name,
                             kwargs=self.repository.get_reverse_kwargs())
 
+    @cached_property
+    def is_ajax(self):
+        # as we can load the view that load the deferred part in ajax, we cannot rely on
+        # request.is_ajax
+        return 'if.user_filter_type' in self.request.GET
+
     def get_context_data(self, **kwargs):
         context = super(UserFilterPart, self).get_context_data(**kwargs)
 
@@ -95,6 +101,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
 
         context.update({
             'current_repository': self.repository,
+            'current_issues_url': self.repository.get_view_url(IssuesView.url_name),
 
             'usernames': usernames,
             'count': len(usernames),
@@ -102,13 +109,13 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
             'MAX_USERS': LIMIT_USERS,
             'MIN_FOR_FILTER': 20,
 
-            'list_open': self.request.is_ajax(),
+            'list_open': self.is_ajax,
         })
 
         if context.get('issues_filter', {}).get('parts'):
             context['qs_parts_for_ttags'] = context['issues_filter']['parts']
 
-        if self.request.is_ajax():
+        if self.is_ajax:
             context['issues_filter'] = {'parts': {
                 self.request.GET.get('if.user_filter_type'): self.request.GET.get('if.username'),
             }}
@@ -129,7 +136,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
         return context
 
     def get_template_names(self):
-        if self.request.is_ajax():
+        if self.is_ajax:
             return [self.list_template_name]
         else:
             return [self.template_name]
@@ -439,14 +446,12 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         context = super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
-        context['querystring_with_user'] = context['querystring']
-
         # we need a querystring without the created/assigned parts
-        qs_filter_without_user = dict(filter_context['qs_filters'])  # make a copy!
-        qs_filter_without_user.pop('user_filter_type', None)
-        qs_filter_without_user.pop('username', None)
+        querystring = dict(filter_context['qs_filters'])  # make a copy!
+        querystring.pop('user_filter_type', None)
+        querystring.pop('username', None)
 
-        context['querystring'] = make_querystring(qs_filter_without_user)
+        context['querystring'] = make_querystring(querystring)
 
         return context
 

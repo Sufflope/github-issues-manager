@@ -790,3 +790,13 @@ class BaseIssuesView(WithQueryStringViewMixin):
                 issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
 
         return issues, total_count, limit_reached
+
+    def get_template_names(self):
+        """
+        Use a specific template if the request is an ajax one
+        """
+
+        if self.request.is_ajax():
+            return self.filters_and_list_template_name
+
+        return super(BaseIssuesView, self).get_template_names()
