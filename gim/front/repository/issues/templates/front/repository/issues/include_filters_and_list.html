@@ -1,4 +1,4 @@
-{% extends "front/issues/base.html" %}
+{% extends "front/issues/include_filters_and_list.html" %}
 {% load staticfiles querystring frontutils issues_tags %}
 
 {% block group_by_name %}
@@ -112,8 +112,7 @@
 
 {% block after_common_filters %}
     {# The milestones #}
-    {% with milestones=current_repository.milestones.ready %}
-        {% if milestones|length %}
+    {% if milestones|length %}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.objects.milestone %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-milestone">
@@ -148,7 +147,6 @@
                 </ul>
             </li>
         {% endif %}
-    {% endwith %}
 
     {# The different label-types #}
     {% for label_type in label_types %}

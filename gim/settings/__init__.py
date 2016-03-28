@@ -170,6 +170,8 @@ INSTALLED_APPS = (
     'gim.front.dashboard',
     'gim.front.dashboard.repositories',
 
+    'gim.front.github_notifications',
+
     'gim.front.repository',
     'gim.front.repository.issues',
     'gim.front.repository.dashboard',
