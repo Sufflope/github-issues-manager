@@ -10,7 +10,8 @@
 
 @import "widgets/avatar";
 @import "components/issues_mixins";
-@import "components/issues";
+@import "components/issues_filters";
+@import "components/issues_list";
 @import "components/issue";
 
 @import "modals/shortcuts";
@@ -42,7 +43,7 @@ body.issues_list_page #main-inner {
 }
 
 // 3 columns, full height, each one is scrollable
-#issues-list-container, #main-issue-container {
+.row-fluid .issues-list-container, #main-issue-container {
     margin-left: 0;
     margin-right: 0;
     height: 100%;
@@ -50,7 +51,7 @@ body.issues_list_page #main-inner {
     position: relative;
     border-top: solid #FAFAFA 5px;
 }
-#issues-filters { // col 1, sidebar with fixed width
+.issues-filters { // col 1, sidebar with fixed width
     width: $sidebar-width;
     @include box-sizing(border-box);
     border-right: solid 1px $dark-border-color;
@@ -61,7 +62,7 @@ body.issues_list_page #main-inner {
     left: 0;
     overflow: auto;
 }
-#issues-list-container { // col 2
+.row-fluid .issues-list-container { // col 2
     width: (100%/12*5); // 5 cols of 12
     border-right: solid 1px $dark-border-color;
     overflow: auto;
@@ -76,103 +77,16 @@ body.issues_list_page #main-inner {
 
 
 // first column: the filters
-#issues-filters {
-    background: #11161A;
-    .primary-sidebar {
-        width: 100%;
-        margin-top: $header-top;
-        .nav > li {
-            & > a {
-                color: #bbb;
-            }
-            &:hover > a, & > a:focus, & > a.with-selection {
-                color: white;
-            }
-        }
-    }
-    .clear-all-filters > a {
-        padding-left: 5px;
-    }
-    .selection {
-        // current selection of a filter
-        display: block;
-        padding: 0 {
-            left: 5px;
-        }
-        line-height: 10px;
-        font-weight: normal;
-    }
-    a.clear-filter {
-        position: absolute;
-        top: 22px;
-        left: 10px;
-        padding: 0;
-        margin: 0;
-    }
-    .filter-labels {
-        & > li > a > span {
-            border-bottom: solid 1px transparent;
-        }
-    }
-    .deferred {
-        li {
-            padding: 0 5px 0 20px;
-        }
-    }
-    .quicksearch-widget {
-        // quicksearch widgets for filters use the full width (minus 5px on each side)
-        margin: 5px 10px;
-        label {
-            margin-bottom: 0;
-            position: relative;
-            background: white;
-            @include border-radius(4px);
-        }
-        .add-on,.btn {
-            padding: 1px 0 1px 2px;
-            position: absolute;
-            top: 1px;
-            bottom: 0;
-            &:after, &:before {
-                display: none;
-            }
-            border: none;
-        }
-        .add-on {
-            @include border-radius(4px 0 0 4px);
-            left: 0;
-            z-index: 10;
-        }
-        .btn {
-            @include border-radius(0 4px 4px 0);
-            right: 0;
-            z-index: 20;
-            padding: 0;
-            i {
-                height: 22px;
-                line-height: 22px;
-            }
-        }
-        input {
-            @include box-sizing(border-box);
-            height: 24px;
-            display: block;
-            width: 100%;
-            background: transparent;
-            @include border-radius(4px);
-            padding-left: 23px;
-            padding-right: 23px;
-        }
-    } // #issues-filters .quicksearch-widget
-} // #issues-filters
-
+.issues-filters {
+    margin-top: $header-top;
+}
 
 // second column: the list of issues
 
 // position the 3 rows
 
 // first row: the options
-#issues-list-options {
+.issues-list-options {
     position: absolute;
     top: 0;
     left: 0;
@@ -180,7 +94,7 @@ body.issues_list_page #main-inner {
 }
 
 // second row: quicksearch filter
-#issues-list-search {
+.issues-quicksearch {
     position: absolute;
     top: 48px;
     left: 0;
@@ -188,8 +102,8 @@ body.issues_list_page #main-inner {
     border-bottom: solid 1px $box-border-color;
 }
 
-// last row, full height: list of isses
-#issues-list {
+// last row, full height: list of isuses
+.issues-list {
     position: absolute;
     top: 77px;
     left: 0;
@@ -197,82 +111,5 @@ body.issues_list_page #main-inner {
     bottom: 0;
     overflow: auto;
 }
-
-// style of the options navbar
-#issues-list-options {
-    .navbar-inner {
-        border-top: none;
-    }
-    .nav {
-        // each of the 3 nav items will be forced to be 1/3 of width
-        float: none;
-        margin-right: 0;
-        & > li[class*="span"] {
-            width: (100%/3);
-            margin-left: 0;
-            margin-right: 0;
-            a {
-                padding-top: 3px;
-                padding-bottom: 3px;
-            }
-        }
-    }
-}
-#issues-list-options a.no-selection {
-    // encore positionning if there is no selection (all text on one line)
-    line-height: 40px;
-    span {
-        vertical-align: middle;
-        &.caret {
-            margin-top: -5px;
-        }
-    }
-}
-#issues-list-options li.active a {
-    position: relative;
-    i.fa-times {
-        position: absolute;
-        left: 5px;
-        top: 50%;
-        @include transform(translateY(-50%));
-    }
-}
-#issues-list-options .dropdown-toggle > span:not(.selection) {
-    // normal text of a navbar item
-    text-align: center;
-    display: block;
-    padding-left: 5px;
-}
-#issues-list-options span.selection {
-    // smaller, lighter, centered text for selection
-    display: block;
-    font-weight: normal;
-    text-transform: none;
-    font-size: smaller;
-    color: $box-light-text-color;
-    text-align: center;
-    span {
-        padding-right: 0.5ex;
-    }
-    i {
-        font-size: smaller;
-    }
-} // #issues-list-options span.selection
-#issues-list-options .navbar-inner {
-    // decrease occuped space
-    padding-left: 0;
-    padding-right: 0;
-    // occupy the full width to no border on both sides
-    border-left: none;
-    border-right: none;
-}
-#issues-list-options .divider-vertical {
-    // avoid the divider taking place (to let the 3 items occupy 1/3 of width each)
-    margin-left: -1px;
-    margin-right: -1px;
-    // assume all text will only be on one ligne
-    height: 46px;
-}
-
 
 // third column: the issue

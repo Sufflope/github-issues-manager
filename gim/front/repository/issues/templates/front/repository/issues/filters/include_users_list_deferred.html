@@ -4,7 +4,7 @@
 
 {% block deferred-classes %}collapse{% endblock %}
 
-{% block deferred-id %}filter-{{ view.relation }}{% endblock %}
+{% block deferred-id %}filter-{{ view.relation }}-{{ list_uuid }}{% endblock %}
 
 {% block deferred-params %}input[name^=if]{% endblock %}
 
@@ -13,6 +13,7 @@
         <input type="hidden" name="if.querystring" value="{{ issues_filter.querystring|slice:'1:' }}" />
         <input type="hidden" name="if.user_filter_type" value="{{ filter_type }}" />
         <input type="hidden" name="if.username" value="{{ username }}" />
+        <input type="hidden" name="if.list_uuid" value="{{ list_uuid }}" />
         We're loading {{ count }} users, be patient! <i class="fa fa-spinner fa-spin"> </i>
     </li>
 {% endblock deferred-placeholder %}

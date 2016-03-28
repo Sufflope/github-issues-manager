@@ -6,6 +6,7 @@ import json
 from math import ceil
 from time import sleep
 from urlparse import unquote, urlparse, urlunparse
+from uuid import uuid4
 
 from django.contrib import messages
 from django.core.handlers.wsgi import WSGIRequest
@@ -88,6 +89,9 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
         context = super(UserFilterPart, self).get_context_data(**kwargs)
 
         usernames = self.get_usernames()
+
+        if 'list_uuid' not in context:
+            context['list_uuid'] = str(self.request.GET.get('if.list_uuid') or uuid4())
 
         context.update({
             'current_repository': self.repository,
@@ -414,6 +418,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 part_kwargs = {
                     'issues_filter': context['issues_filter'],
                     'current_issues_url': context['current_issues_url'],
+                    'list_uuid': context['list_uuid'],
                 }
                 context[view.relation]['view'] = view
                 if count > LIMIT_USERS:

@@ -23,7 +23,7 @@
     {# The two unread states #}
     <li class="accordion-group dark-nav">
         <span class="glow"></span>
-        <a class="accordion-toggle collapsed{% if issues_filter.parts.read %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-read">
+        <a class="accordion-toggle collapsed{% if issues_filter.parts.read %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-read-{{ list_uuid }}">
             Read status
             <i class="fa fa-caret-right"></i>
             {% if issues_filter.parts.read %}
@@ -32,7 +32,7 @@
                 <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "read" %}" title="Clear this filter"><i class="fa fa-times"> </i>
             {% endif %}
         </a>
-        <ul id="filter-read" class="collapse">
+        <ul id="filter-read-{{ list_uuid }}" class="collapse">
             {% for read in view.allowed_reads %}
                 <li{% if issues_filter.parts.read == read %} class="active"{% endif %}>
                     <a href="{{ current_issues_url }}{% toggle_in_querystring "read" read %}">{{ read|capfirst }}</a>
@@ -44,7 +44,7 @@
     {# The notification reasons #}
     <li class="accordion-group dark-nav">
         <span class="glow"></span>
-        <a class="accordion-toggle collapsed{% if issues_filter.parts.reason %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-reason">
+        <a class="accordion-toggle collapsed{% if issues_filter.parts.reason %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-reason-{{ list_uuid }}">
             Notification reason
             <i class="fa fa-caret-right"></i>
             {% if issues_filter.parts.reason %}
@@ -55,7 +55,7 @@
                 <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "reason" %}" title="Clear this filter"><i class="fa fa-times"> </i>
             {% endif %}
         </a>
-        <ul id="filter-reason" class="collapse">
+        <ul id="filter-reason-{{ list_uuid }}" class="collapse">
             {% for reason in view.allowed_reasons %}
                 <li{% if issues_filter.parts.reason == reason %} class="active"{% endif %}>
                     {% with reason_obj=reasons|dict_item:reason %}
@@ -69,7 +69,7 @@
     {# The repositories #}
     <li class="accordion-group dark-nav">
         <span class="glow"></span>
-        <a class="accordion-toggle collapsed{% if issues_filter.parts.repository %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-repository">
+        <a class="accordion-toggle collapsed{% if issues_filter.parts.repository %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-repository-{{ list_uuid }}">
             Repository
             <i class="fa fa-caret-right"></i>
             {% if issues_filter.parts.repository %}
@@ -78,10 +78,10 @@
                 <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "repository" %}" title="Clear this filter"><i class="fa fa-times"> </i>
             {% endif %}
         </a>
-        <ul id="filter-repository" class="collapse">
+        <ul id="filter-repository-{{ list_uuid }}" class="collapse">
             {% if view.allowed_repositories|length > 10 %}
                 <li>
-                    {% include "front/include_quicksearch.html" with id="filter-repository" target="#filter-repository li.allowed-repository" only %}
+                    {% include "front/include_quicksearch.html"target="#filter-repository-"|add:list_uuid|add:" li.allowed-repository" only %}
                 </li>
             {% endif %}
             {% for repository in view.allowed_repositories %}
@@ -95,7 +95,7 @@
     {# The two active states #}
     <li class="accordion-group dark-nav">
         <span class="glow"></span>
-        <a class="accordion-toggle collapsed{% if issues_filter.parts.active %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-active">
+        <a class="accordion-toggle collapsed{% if issues_filter.parts.active %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-active-{{ list_uuid }}">
             Active status
             <i class="fa fa-caret-right"></i>
             {% if issues_filter.parts.active %}
@@ -104,7 +104,7 @@
                 <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "active" %}" title="Clear this filter"><i class="fa fa-times"> </i>
             {% endif %}
         </a>
-        <ul id="filter-active" class="collapse">
+        <ul id="filter-active-{{ list_uuid }}" class="collapse">
             {% for active in view.allowed_actives %}
                 <li{% if issues_filter.parts.active == active %} class="active"{% endif %}>
                     <a href="{{ current_issues_url }}{% toggle_in_querystring "active" active %}">{{ active|capfirst }}</a>

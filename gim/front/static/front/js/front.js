@@ -1378,9 +1378,9 @@ $().ready(function() {
         }
 
         // keyboard events
-        $document.on('click', '#toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
-        $document.on('click', '#close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
-        $document.on('click', '#open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
+        $document.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
+        $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
+        $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
     }); // IssuesList_init_event
 
     IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
@@ -1767,8 +1767,9 @@ $().ready(function() {
     IssuesList.init_all();
 
     var IssuesFilters = {
+        selector: '.issues-filters',
         on_filter_show: (function IssuesFilters__on_filter_show (ev) {
-            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-right', false).toggleClass('fa-caret-down', true);
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').removeClass('fa-caret-right').addClass('fa-caret-down');
         }), // on_filter_show
         on_filter_shown: (function IssuesFilters__on_filter_shown (ev) {
             var $collapse = $(ev.target);
@@ -1780,7 +1781,7 @@ $().ready(function() {
             }
         }), // on_filter_shown
         on_filter_hide: (function IssuesFilters__on_filter_hide (ev) {
-            $(ev.target).siblings('[data-toggle=collapse]').children('i').toggleClass('fa-caret-down', false).toggleClass('fa-caret-right', true);
+            $(ev.target).siblings('[data-toggle=collapse]').children('i').removeClass('fa-caret-down').addClass('fa-caret-right');
         }), // on_filter_hide
         on_deferrable_loaded: (function IssuesFilters__on_deferrable_loaded (ev) {
             IssuesFilters.focus_quicksearch_filter($(ev.target));
@@ -1789,15 +1790,13 @@ $().ready(function() {
             $filter_node.find('input.quicksearch').focus();
         }), // focus_quicksearch_filter
         init: function() {
-            var $filters = $('#issues-filters');
-            if ($filters.length) {
-                $filters.find('.collapse')
-                    .on('show.collapse', IssuesFilters.on_filter_show)
-                    .on('shown.collapse', IssuesFilters.on_filter_shown)
-                    .on('hide.collapse', IssuesFilters.on_filter_hide);
-                $filters.on('reloaded', IssuesFilters.on_deferrable_loaded);
-            }
-        }
+            $document.on({
+                'show.collapse': IssuesFilters.on_filter_show,
+                'shown.collapse': IssuesFilters.on_filter_shown,
+                'hide.collapse': IssuesFilters.on_filter_hide,
+                'reloaded': IssuesFilters.on_deferrable_loaded
+            }, IssuesFilters.selector);
+        } // init
     };
     IssuesFilters.init();
 

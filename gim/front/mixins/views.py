@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 from math import ceil
 from urlparse import parse_qs
+from uuid import uuid4
 
 from django.contrib import messages
 from django.db.utils import DatabaseError
@@ -722,6 +723,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
 
         issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
+            'list_uuid': str(uuid4()),
             'current_issues_url': issues_url,
             'issues_filter': issues_filter,
             'qs_parts_for_ttags': issues_filter['parts'],
@@ -735,6 +737,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
                     'description': u'issue last update date',
                 },
             },
+            'can_show_shortcuts': True,
         })
 
         context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)

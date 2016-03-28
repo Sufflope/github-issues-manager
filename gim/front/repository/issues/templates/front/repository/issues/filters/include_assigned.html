@@ -1,7 +1,7 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
 <li class="accordion-group dark-nav">
     <span class="glow"></span>
-    <a class="accordion-toggle collapsed{% if issues_filter.objects.assigned %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-{{ view.relation }}">
+    <a class="accordion-toggle collapsed{% if issues_filter.objects.assigned %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ view.relation }}-{{ list_uuid }}">
         Assignees
         <i class="fa fa-caret-right"></i>
 
