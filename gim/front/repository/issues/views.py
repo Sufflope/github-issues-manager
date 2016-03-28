@@ -190,6 +190,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
     url_name = 'issues'
     template_name = 'front/repository/issues/base.html'
     default_qs = 'state=open'
+    display_in_menu = True
+
     filters_and_list_template_name = 'front/repository/issues/include_filters_and_list.html'
 
 

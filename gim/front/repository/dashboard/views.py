@@ -219,6 +219,8 @@ class DashboardView(BaseRepositoryView):
     name = 'Dashboard'
     url_name = 'dashboard'
     template_name = 'front/repository/dashboard/dashboard.html'
+    display_in_menu = True
+
 
     def get_context_data(self, **kwargs):
         context = super(DashboardView, self).get_context_data(**kwargs)
@@ -240,7 +242,6 @@ class LabelsEditor(BaseRepositoryView):
     url_name = 'dashboard.labels.editor'
     template_name = 'front/repository/dashboard/labels-editor/base.html'
     template_name_ajax = 'front/repository/dashboard/labels-editor/include-content.html'
-    display_in_menu = False
     label_type_include_template = 'front/repository/dashboard/labels-editor/include-label-type.html'
     allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
 

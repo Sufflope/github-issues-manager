@@ -5,3 +5,4 @@ class BoardView(BaseRepositoryView):
     name = 'Board'
     url_name = 'board'
     template_name = 'front/repository/board/base.html'
+    display_in_menu = True
