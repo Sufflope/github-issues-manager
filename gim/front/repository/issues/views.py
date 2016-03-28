@@ -383,18 +383,24 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             'labels__label_type'
         )
 
+    @cached_property
+    def label_types(self):
+        return self.repository.label_types.all().prefetch_related('labels').order_by('name')
+
+    @cached_property
+    def milestones(self):
+        return self.repository.milestones.all()
+
     def get_context_data(self, **kwargs):
         """
         Set default content for the issue views
         """
         context = super(IssuesView, self).get_context_data(**kwargs)
 
-        # get the list of label types
-        label_types = self.repository.label_types.all().prefetch_related('labels')
-
         # final context
         context.update({
-            'label_types': label_types,
+            'label_types': self.label_types,
+            'milestones': self.milestones,
         })
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers):
