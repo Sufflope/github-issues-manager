@@ -1931,12 +1931,13 @@ $().ready(function() {
             var active = false;
             if ($(IssuesFilters.selector).length) {
                 $document.on({
-                        'show.collapse': IssuesFilters.on_filter_show,
-                        'shown.collapse': IssuesFilters.on_filter_shown,
-                        'hide.collapse': IssuesFilters.on_filter_hide,
-                        'reloaded': IssuesFilters.on_deferrable_loaded
-                    }, IssuesFilters.selector
-                ).on('click', IssuesFilters.selector + ' a:not(.accordion-toggle)', Ev.stop_event_decorate(IssuesFilters.on_filter_click));
+                    'show.collapse': IssuesFilters.on_filter_show,
+                    'shown.collapse': IssuesFilters.on_filter_shown,
+                    'hide.collapse': IssuesFilters.on_filter_hide,
+                    'reloaded': IssuesFilters.on_deferrable_loaded
+                }, IssuesFilters.selector)
+                    .on('click', IssuesFilters.selector + ' .filters-toggler', Ev.cancel)
+                    .on('click', IssuesFilters.selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(IssuesFilters.on_filter_click));
                 active = true;
             }
             if (IssuesList.all.length) {
@@ -5589,7 +5590,7 @@ $().ready(function() {
 
     var HistoryManager = {
         on_pop_state: function(ev) {
-            var done = false;
+            var done = true;
             if (ev.state && ev.state.type) {
                 switch(ev.state.type) {
                     case 'IssuesFilters':

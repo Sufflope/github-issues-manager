@@ -1,7 +1,28 @@
+$sidebar-hidden-width: 50px;
+$sidebar-toggler-width: 22px;
+
 .issues-filters {
     background: #11161A;
+    .filters-toggler {
+        background: inherit;
+        display: none;
+        position: absolute;
+        top: 0;
+        right: - $sidebar-hidden-width;
+        width: $sidebar-hidden-width;
+        bottom: 0;
+        padding: 1px 5px 0 5px;
+        color: white;
+        font-size: 14px;
+        text-align: right;
+        opacity: 1;
+        @include transition(opacity 0.35s, transform 0.35s, width 0.35s);
+    }
     .primary-sidebar {
         width: 100%;
+        overflow: auto;
+        top: 0;
+        bottom: 0;
         .nav > li {
             & > a {
                 color: #bbb;

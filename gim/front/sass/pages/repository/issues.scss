@@ -60,7 +60,6 @@ body.issues_list_page #main-inner {
     top: 0;
     bottom: 0;
     left: 0;
-    overflow: auto;
 }
 .row-fluid .issues-list-container { // col 2
     width: (100%/12*5); // 5 cols of 12
@@ -113,3 +112,41 @@ body.issues_list_page #main-inner {
 }
 
 // third column: the issue
+
+
+// hide sidebar in small width screens
+@media (max-width: 1023px) {
+    body.issues_list_page #main-inner {
+        padding-left: ($sidebar-toggler-width - 1px);
+    }
+    .issues-filters {
+        .filters-toggler {
+            display: block;
+            z-index: 32;
+        }
+        left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+        z-index: 31;
+        @include transition(transform 0.35s);
+        .primary-sidebar {
+            @include transition(opacity 0.35s);
+            opacity: 0;
+        }
+        &.open, &:hover, &:focus {
+            @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+            .filters-toggler {
+                opacity: 0;
+                width: $sidebar-toggler-width;
+                @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+            }
+            .primary-sidebar {
+                opacity: 1;
+            }
+        }
+    }
+    .row-fluid .issues-list-container { // col 2
+        width: (100%/12*4); // 4 cols of 12
+    }
+    #main-issue-container { // col3
+        width: (100%/12*8); // 8 cols of 12
+    }
+}

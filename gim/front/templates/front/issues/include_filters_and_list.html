@@ -6,7 +6,8 @@
 {% endmacro %}
 {% macro issue_item %}{% block issue_item %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endblock %}{% endmacro %}
 
-<nav class="issues-filters">
+<nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
+    <a class="filters-toggler" href="#issues-filters-{{ list_uuid }}" title="Show filters"><i class="fa fa-bars"></i></a>
     <div class="primary-sidebar">
         {% spaceless %}
         <ul id="issues-filters-accordion-{{ list_uuid }}" class="nav nav-collapse collapse nav-collapse-primary">
