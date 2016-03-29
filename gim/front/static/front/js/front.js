@@ -1352,14 +1352,14 @@ $().ready(function() {
 
     }); // IssuesList_init_all
 
-    IssuesList.get_for_node = (function IssuesList_get_for_node ($node) {
+    IssuesList.get_index_for_node = (function IssuesList_get_index_for_node ($node) {
         for (var i = 0; i < IssuesList.all.length; i++) {
             if (IssuesList.all[i].$node[0] == $node[0]) {
-                return IssuesList.all[i];
+                return i;
             }
         }
         return null;
-    }); // IssuesList_get_for_node
+    }); // IssuesList_get_index_for_node
 
     IssuesList.prototype.set_node = (function IssuesList__set_node ($node) {
         this.node = $node[0];
@@ -1853,12 +1853,18 @@ $().ready(function() {
                 $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
         }), // on_sort_groupby_click
-        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node) {
-            var context = {
+        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
+            var list_index = IssuesList.get_index_for_node($issues_list_node.children(IssuesList.selector)),
+                context = {
                     '$filters_node': $filters_node,
                     '$issues_list_node': $issues_list_node,
+                    list_index: list_index,
                     url: url
                 };
+
+            if (!no_history) {
+                IssuesFilters.add_history(list_index, url);
+            }
 
             $.get(url)
                 .done($.proxy(IssuesFilters.on_filters_and_list_loaded, context))
@@ -1875,8 +1881,13 @@ $().ready(function() {
             var $data = $(data),
                 $new_filters_node = $data.filter(IssuesFilters.selector),
                 $new_issues_list_node = $data.filter(IssuesList.container_selector),
-                current_list = IssuesList.get_for_node(this.$issues_list_node.children(IssuesList.selector));
+                current_list;
 
+            try {
+                current_list = IssuesList.all[this.list_index];
+            } catch(e) {
+                current_list = null;
+            }
             if (!current_list) {
                 window.location.href = this.url;
                 return;
@@ -1891,7 +1902,33 @@ $().ready(function() {
             current_list.replace_by_node($new_issues_list_node.children(IssuesList.selector));
 
         }), // on_filters_and_list_loaded
+        on_history_pop_state: (function IssuesFilters__on_history_pop_state (state) {
+            var list, $filters_node, $issues_list_node;
+            if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
+                return false;
+            }
+            try {
+                list = IssuesList.all[state.list_index];
+            } catch(e) {}
+            if (!list) { return false; }
+            $issues_list_node = list.$node.closest(IssuesList.container_selector);
+            $filters_node = $issues_list_node.prev(IssuesFilters.selector);
+            IssuesFilters.reload_filters_and_list(state.filters_url, $filters_node, $issues_list_node, true);
+            return true;
+        }), // on_history_pop_state
+        add_history: (function IssuesFilters__add_history(list_index, url, replace) {
+            if (window.history && window.history.pushState) {
+                window.history[replace ? 'replaceState' : 'pushState']({
+                    type: 'IssuesFilters',
+                    list_index: list_index,
+                    body_id: body_id,
+                    main_repository_id: main_repository_id,
+                    filters_url: url
+                }, $document.attr('title'), url);
+            }
+        }), // add_history
         init: function() {
+            var active = false;
             if ($(IssuesFilters.selector).length) {
                 $document.on({
                         'show.collapse': IssuesFilters.on_filter_show,
@@ -1900,9 +1937,14 @@ $().ready(function() {
                         'reloaded': IssuesFilters.on_deferrable_loaded
                     }, IssuesFilters.selector
                 ).on('click', IssuesFilters.selector + ' a:not(.accordion-toggle)', Ev.stop_event_decorate(IssuesFilters.on_filter_click));
+                active = true;
             }
             if (IssuesList.all.length) {
                 $document.on('click', '.dropdown-sort a, .dropdown-groupby a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_sort_or_groupby_click));
+                active = true;
+            }
+            if (active) {
+                IssuesFilters.add_history(0, document.location.href, true);
             }
         } // init
     };
@@ -5544,6 +5586,27 @@ $().ready(function() {
     }; // GithubNotifications
 
     GithubNotifications.init();
+
+    var HistoryManager = {
+        on_pop_state: function(ev) {
+            var done = false;
+            if (ev.state && ev.state.type) {
+                switch(ev.state.type) {
+                    case 'IssuesFilters':
+                        done = IssuesFilters.on_history_pop_state(ev.state);
+                        break;
+                }
+            }
+            if (!done) {
+                window.location.reload();
+            }
+        }, // on_pop_state
+
+        init: function() {
+            window.onpopstate = HistoryManager.on_pop_state;
+        }
+    }; // HistoryManager
+    HistoryManager.init();
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {
