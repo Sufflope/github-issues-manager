@@ -59,9 +59,7 @@ $().ready(function() {
             return function(e) {
                 if (e.isPropagationStopped()) { return false; }
                 if (callback.bind(this)(e) === false) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
+                    return Ev.cancel(e);
                 }
             };
         }), // stop_event_decorate
@@ -1390,6 +1388,7 @@ $().ready(function() {
         IssuesList.update_time_ago($node);
         activate_quicksearches(this.$search_input);
         PanelsSwapper.update_panel(this, this.$node.parent());
+        FilterManager.init();
 
         for (var i = 0; i < previous_groups.length; i++) {
             previous_groups[i].clean();
@@ -1848,11 +1847,11 @@ $().ready(function() {
                 $issues_list_node = $filters_node.next(IssuesList.container_selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
-        on_sort_or_groupby_click: (function IssuesFilters__on_sort_groupby_click () {
+        on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
             var $issues_list_node = $(this).closest(IssuesList.container_selector),
                 $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
-        }), // on_sort_groupby_click
+        }), // on_list_filter_click
         reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
             var list_index = IssuesList.get_index_for_node($issues_list_node.children(IssuesList.selector)),
                 context = {
@@ -1941,7 +1940,7 @@ $().ready(function() {
                 active = true;
             }
             if (IssuesList.all.length) {
-                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_sort_or_groupby_click));
+                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
             }
             if (active) {
@@ -3551,9 +3550,7 @@ $().ready(function() {
                     $input.val('');
                     $input.trigger('quicksearch.refresh');
                     $input.focus();
-                    e.stopPropagation();
-                    e.preventDefault();
-                    return false;
+                    return Ev.cancel(e);
                 };
                 $input.on('keydown', jwerty.event('ctrl+u', clear_input));
 
@@ -3573,8 +3570,6 @@ $().ready(function() {
     }
 
     var FilterManager = {
-        ARGS: Arg.all(),
-        CACHE: {},
         selector: '.issues-list:not(.no-filtering) a.js-filter-trigger',
         messages: {
             pr: {
@@ -3604,19 +3599,20 @@ $().ready(function() {
         }, // messages
         block_empty_links: function(ev) {
             if ($(this).is(FilterManager.selector)) {
-                ev.stopPropagation();
-                ev.preventDefault();
+                return Ev.cancel(ev);
+            } else {
+                return Ev.stop_event_decorate($.proxy(IssuesFilters.on_list_filter_click, this))(ev);
             }
         },
-        update: function() {
-            var $link = $(this),
+        update: function(index, link) {
+            var $link = $(link),
                 filter = $link.data('filter'),
                 href, title;
-            if (typeof FilterManager.CACHE[filter] === 'undefined') {
+            if (typeof this.cache[filter] === 'undefined') {
                 var parts = filter.split(':'),
                     key = parts.shift(),
                     value = parts.join(':'),
-                    args = $.extend({}, FilterManager.ARGS),
+                    args = $.extend({}, this.args),
                     message_type;
                 switch(key) {
                     case 'pr':
@@ -3660,20 +3656,20 @@ $().ready(function() {
                 if (href) {
                     var orig_title = $link.attr('title') || '';
                     if (orig_title) { title = orig_title + '. ' + title}
-                    FilterManager.CACHE[filter] = {href: href, title: title + '.'};
+                    this.cache[filter] = {href: href, title: title + '.'};
                 }
             }
-            if (typeof FilterManager.CACHE[filter] !== 'undefined') {
-                $link.attr('href', FilterManager.CACHE[filter].href)
-                     .attr('title', FilterManager.CACHE[filter].title)
+            if (typeof this.cache[filter] !== 'undefined') {
+                $link.attr('href', this.cache[filter].href)
+                     .attr('title', this.cache[filter].title)
                      .removeClass('js-filter-trigger');
             }
         }, // update
         init: function() {
+            var cache = {};
             $(FilterManager.selector)
                 .on('click', FilterManager.block_empty_links)
-                .each(FilterManager.update);
-            FilterManager.CACHE = {};  // reset cache for memory
+                .each($.proxy(FilterManager.update, {cache: cache, args: Arg.parse(location.href)}));
         } // init
     }; // FilterManager
     FilterManager.init();
@@ -3742,8 +3738,7 @@ $().ready(function() {
                 repository_id: issue_ident_data.repositoryId
             };
             if (!issue_ident.repository || !issue_ident.number) { return; }
-            ev.stopPropagation();
-            ev.preventDefault();
+            Ev.cancel(ev);
             IssuesListIssue.open_issue(issue_ident, true);
             return false;
         }, // handle_issue_link
@@ -3893,8 +3888,7 @@ $().ready(function() {
         }), // get_form_context
 
         handle_form: (function IssueEditor__handle_form ($form, ev) {
-            ev.preventDefault();
-            ev.stopPropagation();
+            Ev.cancel(ev);
             if ($form.data('disabled')) { return false; }
             IssueEditor.disable_form($form);
             var context = IssueEditor.get_form_context($form),
@@ -4561,8 +4555,7 @@ $().ready(function() {
             }), // update_form
 
             on_form_submit: (function IssueEditor_create__on_form_submit (ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
+                Ev.cancel(ev);
                 var $form = IssueEditor.create.get_form();
                 if ($form.data('disabled')) { return false; }
                 IssueEditor.disable_form($form);
