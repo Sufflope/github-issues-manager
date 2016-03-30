@@ -770,7 +770,7 @@ class WithIssueManager(GithubObjectManager):
         """
         from .models import Issue
 
-        url = data.get('issue_url', data.get('pull_request_url'))
+        url = data.get('issue_url', data.get('pull_request_url', None))
 
         fields = super(WithIssueManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
