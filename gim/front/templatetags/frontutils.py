@@ -358,3 +358,7 @@ def group_by_filter_value(grouper, group_field):
         return grouper.name
 
     return ''
+
+@register.filter
+def concat(str1, str2):
+    return "%s%s" % (str1, str2)

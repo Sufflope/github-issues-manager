@@ -81,7 +81,7 @@
         <ul id="filter-repository-{{ list_uuid }}" class="collapse">
             {% if view.allowed_repositories|length > 10 %}
                 <li>
-                    {% include "front/include_quicksearch.html" with target="#filter-repository-"|add:list_uuid|add:" li.allowed-repository" only %}
+                    {% include "front/include_quicksearch.html" with target="#filter-repository-"|concat:list_uuid|concat:" li.allowed-repository" only %}
                 </li>
             {% endif %}
             {% for repository in view.allowed_repositories %}

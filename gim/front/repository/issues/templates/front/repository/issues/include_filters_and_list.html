@@ -30,7 +30,7 @@
     {% if label_types|length %}
         <li class="divider"></li>
         {% for label_type in label_types %}
-            {% with "type:"|add:label_type.name as label_type_group_name %}
+            {% with "type:"|concat:label_type.name as label_type_group_name %}
                 {% if label_type.labels.ready.count %}
                     <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
                         <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">
@@ -47,7 +47,7 @@
 {% endblock %}
 
 {% block before_common_filters %}
-    {% with current_url=view.request.path|add:'?'|add:view.request.META.QUERY_STRING %}
+    {% with current_url=view.request.path|concat:'?'|concat:view.request.META.QUERY_STRING %}
 
         <li class="accordion-group dark-nav">
             <span class="glow"></span>
@@ -58,33 +58,33 @@
 
             <ul id="default-filters-{{ list_uuid }}" class="collapse">
                 {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
-                    {% with default_filter_url=current_issues_url|add:'?state=open&amp;assigned='|add:user.username %}
+                    {% with default_filter_url=current_issues_url|concat:'?state=open&amp;assigned='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Open assigned to you">Open assigned to you</a>
                     </li>
                     {% endwith %}
                 {% endif %}
-                {% with default_filter_url=current_issues_url|add:'?state=open&amp;created_by='|add:user.username %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;created_by='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Open created by you">Open created by you</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=current_issues_url|add:'?state=open&amp;pr=yes;created_by='|add:user.username %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;pr=yes;created_by='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Your open pull requests">Your open pull requests</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=current_issues_url|add:'?state=open' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open issues">All open issues</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=current_issues_url|add:'?state=open&amp;assigned=__none__' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;assigned=__none__' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open not assigned">All open not assigned</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=current_issues_url|add:'?state=open&amp;pr=yes' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;pr=yes' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open pull requests">All open pull requests</a>
                     </li>
@@ -136,7 +136,7 @@
                     </li>
                     {% if milestones|length > 10 %}
                         <li>
-                            {% include "front/include_quicksearch.html" with target="#filter-milestone-"|add:list_uuid|add:" li.milestone" only %}
+                            {% include "front/include_quicksearch.html" with target="#filter-milestone-"|concat:list_uuid|concat:" li.milestone" only %}
                         </li>
                     {% endif %}
                     {% for milestone in milestones %}
@@ -153,7 +153,7 @@
         {% with label_type.labels.ready as label_type_labels %}
             {% if label_type_labels|length %}
                 {% attributes_for_list label_type_labels "name" as label_names %}
-                {% with unset=label_type.name|add:":__none__" %}{% with label_names=label_names|append:unset current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
+                {% with unset=label_type.name|concat:":__none__" %}{% with label_names=label_names|append:unset current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
                 <li class="accordion-group dark-nav">
                     <span class="glow"></span>
                     <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
@@ -177,7 +177,7 @@
                         </li>
                         {% if label_type_labels|length > 10 %}
                             <li>
-                                {% include "front/include_quicksearch.html" with target="#filter-label-type-"|add:label_type.id|add:"-"|add:list_uuid|add:" li.typed_label" only %}
+                                {% include "front/include_quicksearch.html" with target="#filter-label-type-"|concat:label_type.id|concat:"-"|concat:list_uuid|concat:" li.typed_label" only %}
                             </li>
                         {% endif %}
                         {% for label in label_type_labels %}
@@ -212,7 +212,7 @@
                 <ul id="filter-labels-{{ list_uuid }}" class="collapse filter-labels">
                     {% if untyped_labels|length > 10 %}
                         <li>
-                            {% include "front/include_quicksearch.html" with  target="#filter-labels-"|add:list_uuid|add:" li.untyped_label" only %}
+                            {% include "front/include_quicksearch.html" with  target="#filter-labels-"|concat:list_uuid|concat:" li.untyped_label" only %}
                         </li>
                     {% endif %}
                     {% for label in untyped_labels %}
