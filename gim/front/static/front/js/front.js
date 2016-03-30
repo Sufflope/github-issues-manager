@@ -5367,12 +5367,14 @@ $().ready(function() {
                 GithubNotifications.on_notifications_ping,
                 'exact'
             );
-            WS.subscribe(
-                'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
-                'GithubNotification__on_issue',
-                IssuesList.on_update_alert,
-                'exact'
-            );
+            if (body_id == 'github_notifications') {
+                WS.subscribe(
+                    'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
+                    'GithubNotification__on_issue',
+                    IssuesList.on_update_alert,
+                    'exact'
+                );
+            }
         }, // init_subscription
 
         on_notifications_ping: function (topic, args, kwargs) {
