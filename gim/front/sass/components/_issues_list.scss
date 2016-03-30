@@ -141,38 +141,36 @@
             }
         }
     }
-    &.without-details {
-        .issue-item {
-            padding: 5px;
-            padding-left: 8px;
-            min-height: 20px;
-            .issue-item-header, .avatar, .issue-item-footer {
-                display: none;
+    &.without-details .issue-item:not(.details-toggled), &:not(.without-details) .issue-item.details-toggled {
+        padding: 5px;
+        padding-left: 8px;
+        min-height: 20px;
+        .issue-item-header, .avatar, .issue-item-footer {
+            display: none;
+        }
+        .news-content {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .news-title {
+            margin-bottom: 0;
+            min-height: 0;
+        }
+        .issue-item-repository {
+            margin-top: -6px;
+            margin-bottom: 6px;
+            margin-left: -8px;
+            &:not(.is-private) {
+                padding-left: 9px;
             }
-            .news-content {
-                margin-left: 0;
-                margin-right: 0;
-            }
-            .news-title {
-                margin-bottom: 0;
-                min-height: 0;
-            }
+        }
+        &.active {
+            padding-left: 3px;
             .issue-item-repository {
-                margin-top: -6px;
-                margin-bottom: 6px;
-                margin-left: -8px;
-                &:not(.is-private) {
-                    padding-left: 9px;
-                }
+                margin-left: -3px;
+                padding-left: 4px;
             }
-            &.active {
-                padding-left: 3px;
-                .issue-item-repository {
-                    margin-left: -3px;
-                    padding-left: 4px;
-                }
-            }
-        } // .issue-item
+        }
     } // &.without-details
 
     .loading-mask {

@@ -761,12 +761,30 @@ $().ready(function() {
         return stop ? Ev.stop_event_decorate(decorator) : decorator;
     }); // IssuesListIssue_on_issue_node_event
 
+    IssuesListIssue.on_current_issue_key_event = (function IssuesListIssue_on_current_issue_key_event (group_method, param) {
+        var decorator = function() {
+            if (!IssuesList.current) { return; }
+            if (!IssuesList.current.current_group) { return; }
+            if (!IssuesList.current.current_group.current_issue) { return; }
+            return IssuesList.current.current_group.current_issue[group_method](param);
+        };
+        return Ev.key_decorate(decorator);
+    }); // IssuesListIssue_on_current_issue_key_event
+
     IssuesListIssue.init_events = (function IssuesListIssue_init_events () {
         $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true, true));
+        jwerty.key('space', IssuesListIssue.on_current_issue_key_event('toggle_details', true));
     });
 
+    IssuesListIssue.prototype.toggle_details = (function IssuesListIssue__toggle_details (ev) {
+        this.$node.toggleClass('details-toggled');
+        return false; // stop event propagation
+    }); // IssuesListIssue__toggle_details
+
     IssuesListIssue.prototype.on_click = (function IssuesListIssue__on_click (ev) {
-        if (ev.shiftKey) {
+        if (ev.ctrlKey) {
+            return this.toggle_details();
+        } else if (ev.shiftKey) {
             this.get_html_and_display (null, true);
         } else {
             this.set_current(true);
