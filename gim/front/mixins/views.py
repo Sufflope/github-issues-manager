@@ -765,7 +765,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         if not issues_count:
             return [], 0, False
 
-        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES:
+        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES + 5:  # tolerance
             issues_count = self.LIMIT_ISSUES
             issues = issues[:self.LIMIT_ISSUES]
             limit_reached = True
