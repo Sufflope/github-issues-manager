@@ -362,3 +362,38 @@ def group_by_filter_value(grouper, group_field):
 @register.filter
 def concat(str1, str2):
     return "%s%s" % (str1, str2)
+
+@register.filter
+def filter_truthy(list, attribute):
+    result = []
+    for entry in list:
+        try:
+            value = getattr(entry, attribute)
+        except AttributeError:
+            try:
+                value = entry.get(attribute)
+            except AttributeError:
+                continue
+        if value:
+            result.append(entry)
+    return result
+
+
+@register.filter
+def filter_falsy(list, attribute):
+    result = []
+    for entry in list:
+        try:
+            value = getattr(entry, attribute)
+        except AttributeError:
+            try:
+                value = entry.get(attribute)
+            except AttributeError:
+                value = False
+        if not value:
+            result.append(entry)
+    return result
+
+
+
+
