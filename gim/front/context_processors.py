@@ -41,6 +41,7 @@ def default_context_data(request):
             'last_msg_id': publisher.get_last_msg_id(),
         },
         'new_uuid': uuid4,
+        'AVATARS_PREFIX': settings.AVATARS_PREFIX,
         'default_avatar': GithubUser.get_default_avatar()
     }
 
