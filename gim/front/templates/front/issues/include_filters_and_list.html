@@ -200,7 +200,7 @@
         </div>
     {% endspaceless %}</nav>
     {% include "front/include_quicksearch.html" with id="issues-list-search-"|concat:list_uuid class="issues-quicksearch" target="#issues-list-"|concat:list_uuid|concat:" .issue-item" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
-    <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}">
+    <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}">
         <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing :(</p>
         {% if limit_reached %}
             <div class="alert alert-warning">

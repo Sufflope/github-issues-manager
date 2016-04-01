@@ -712,6 +712,112 @@ $().ready(function() {
     window.WS = WS;
 
 
+    var FilterManager = {
+        lists_selector: '.issues-list:not(.no-filtering)',
+        links_selector: 'a.js-filter-trigger',
+        messages: {
+            pr: {
+                'on': 'Click to display only pull requests',
+                'off': 'Click to stop displaying only pull requests'
+            },
+            milestone: {
+                'on': 'Click to filter on this milestone',
+                'off': 'Click to stop filtering on this milestone'
+            },
+            labels: {
+                'on': 'Click to filter on this ',
+                'off': 'Click to stop filtering on this '
+            },
+            assigned: {
+                'on': 'Click to filter issues assigned to them',
+                'off': 'Click to stop filtering issues assigned to them'
+            },
+            created_by: {
+                'on': 'Click to filter issues created by them',
+                'off': 'Click to stop filtering issues created by them'
+            },
+            closed_by: {
+                'on': 'Click to filter issues closed by them',
+                'off': 'Click to stop filtering issues closed by them'
+            }
+        }, // messages
+        block_empty_links: function(ev) {
+            if ($(this).is(FilterManager.lists_selector + ' ' + FilterManager.links_selector)) {
+                return Ev.cancel(ev);
+            } else {
+                return Ev.stop_event_decorate($.proxy(IssuesFilters.on_list_filter_click, this))(ev);
+            }
+        },
+        update: function(index, link) {
+            var $link = $(link),
+                filter = $link.data('filter'),
+                href, title;
+            if (typeof this.cache[filter] === 'undefined') {
+                var parts = filter.split(':'),
+                    key = parts.shift(),
+                    value = parts.join(':'),
+                    args = $.extend({}, this.args),
+                    message_type;
+                switch(key) {
+                    case 'pr':
+                    case 'milestone':
+                    case 'created_by':
+                    case 'assigned':
+                    case 'closed_by':
+                        if (typeof args[key] === 'undefined' || args[key] != value) {
+                            args[key] = value;
+                            message_type = 'on';
+                        } else {
+                            delete args[key];
+                            message_type = 'off';
+                        }
+                        title = FilterManager.messages[key][message_type];
+                        href = Arg.url(this.path, args);
+                        break;
+                    case 'labels':
+                        var labels = (args[key] || '').split(','),
+                            pos = labels.indexOf(value),
+                            final_labels = [];
+                        if (pos >= 0) {
+                            labels.splice(pos, 1);
+                        } else {
+                            labels.push(value);
+                        }
+                        for (var i = 0; i < labels.length; i++) {
+                            if (labels[i]) { final_labels.push(labels[i]); }
+                        }
+                        if (final_labels.length) {
+                            args[key] = final_labels.join(',');
+                            message_type = 'on';
+                        } else {
+                            delete args[key];
+                            message_type = 'off';
+                        }
+                        title = FilterManager.messages[key][message_type] + ($link.data('type-name') || 'label');
+                        href = Arg.url(this.path, args);
+                        break;
+                }
+                if (href) {
+                    var orig_title = $link.attr('title') || '';
+                    if (orig_title) { title = orig_title + '. ' + title}
+                    this.cache[filter] = {href: href, title: title + '.'};
+                }
+            }
+            if (typeof this.cache[filter] !== 'undefined') {
+                $link.attr('href', this.cache[filter].href)
+                     .attr('title', this.cache[filter].title)
+                     .removeClass('js-filter-trigger');
+            }
+        }, // update
+        convert_links: function(list) {
+            var cache = {};
+            list.$node.filter(FilterManager.lists_selector).find(FilterManager.links_selector)
+                .on('click', FilterManager.block_empty_links)
+                .each($.proxy(FilterManager.update, {cache: cache, args: Arg.parse(list.url), path: list.base_url}));
+        } // convert_links
+    }; // FilterManager
+
+
     var IssuesListIssue = (function IssuesListIssue__constructor (node, issues_list_group) {
         this.group = issues_list_group;
         this.prepare(node);
@@ -941,7 +1047,7 @@ $().ready(function() {
                 issue.set_current(true);
             }
 
-            FilterManager.init();
+            FilterManager.convert_links(list);
 
             if (!kwargs.front_uuid || !front_uuid_exists) {
                 var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
@@ -1387,12 +1493,16 @@ $().ready(function() {
             this.$search_input = $(this.$node.data('quicksearch'));
         }
 
+        this.url = this.$node.data('url');
+        this.base_url = this.$node.data('base-url');
         this.group_by_key = this.$node.data('group_by-key');
 
         var list = this;
         this.groups = $.map(this.$node.find(IssuesListGroup.selector),
                         function(node) { return new IssuesListGroup(node, list); });
         this.current_group = null;
+
+        FilterManager.convert_links(this);
     }); // IssuesList__set_node
 
     IssuesList.prototype.replace_by_node = (function IssuesList__replace_by_node ($node) {
@@ -1406,7 +1516,6 @@ $().ready(function() {
         IssuesList.update_time_ago($node);
         activate_quicksearches(this.$search_input);
         PanelsSwapper.update_panel(this, this.$node.parent());
-        FilterManager.init();
 
         for (var i = 0; i < previous_groups.length; i++) {
             previous_groups[i].clean();
@@ -1589,7 +1698,7 @@ $().ready(function() {
             }
             list.reinit_quicksearch_results();
 
-            FilterManager.init();
+            FilterManager.convert_links(list);
 
             var with_repository = issue.$node.hasClass('with-repository');
             var with_notification = issue.$node.hasClass('with-notification');
@@ -3600,111 +3709,6 @@ $().ready(function() {
     if ($().deferrable) {
         $('.deferrable').deferrable();
     }
-
-    var FilterManager = {
-        selector: '.issues-list:not(.no-filtering) a.js-filter-trigger',
-        messages: {
-            pr: {
-                'on': 'Click to display only pull requests',
-                'off': 'Click to stop displaying only pull requests'
-            },
-            milestone: {
-                'on': 'Click to filter on this milestone',
-                'off': 'Click to stop filtering on this milestone'
-            },
-            labels: {
-                'on': 'Click to filter on this ',
-                'off': 'Click to stop filtering on this '
-            },
-            assigned: {
-                'on': 'Click to filter issues assigned to them',
-                'off': 'Click to stop filtering issues assigned to them'
-            },
-            created_by: {
-                'on': 'Click to filter issues created by them',
-                'off': 'Click to stop filtering issues created by them'
-            },
-            closed_by: {
-                'on': 'Click to filter issues closed by them',
-                'off': 'Click to stop filtering issues closed by them'
-            }
-        }, // messages
-        block_empty_links: function(ev) {
-            if ($(this).is(FilterManager.selector)) {
-                return Ev.cancel(ev);
-            } else {
-                return Ev.stop_event_decorate($.proxy(IssuesFilters.on_list_filter_click, this))(ev);
-            }
-        },
-        update: function(index, link) {
-            var $link = $(link),
-                filter = $link.data('filter'),
-                href, title;
-            if (typeof this.cache[filter] === 'undefined') {
-                var parts = filter.split(':'),
-                    key = parts.shift(),
-                    value = parts.join(':'),
-                    args = $.extend({}, this.args),
-                    message_type;
-                switch(key) {
-                    case 'pr':
-                    case 'milestone':
-                    case 'created_by':
-                    case 'assigned':
-                    case 'closed_by':
-                        if (typeof args[key] === 'undefined' || args[key] != value) {
-                            args[key] = value;
-                            message_type = 'on';
-                        } else {
-                            delete args[key];
-                            message_type = 'off';
-                        }
-                        title = FilterManager.messages[key][message_type];
-                        href = Arg.url(args);
-                        break;
-                    case 'labels':
-                        var labels = (args[key] || '').split(','),
-                            pos = labels.indexOf(value),
-                            final_labels = [];
-                        if (pos >= 0) {
-                            labels.splice(pos, 1);
-                        } else {
-                            labels.push(value);
-                        }
-                        for (var i = 0; i < labels.length; i++) {
-                            if (labels[i]) { final_labels.push(labels[i]); }
-                        }
-                        if (final_labels.length) {
-                            args[key] = final_labels.join(',');
-                            message_type = 'on';
-                        } else {
-                            delete args[key];
-                            message_type = 'off';
-                        }
-                        title = FilterManager.messages[key][message_type] + ($link.data('type-name') || 'label');
-                        href = Arg.url(args);
-                        break;
-                }
-                if (href) {
-                    var orig_title = $link.attr('title') || '';
-                    if (orig_title) { title = orig_title + '. ' + title}
-                    this.cache[filter] = {href: href, title: title + '.'};
-                }
-            }
-            if (typeof this.cache[filter] !== 'undefined') {
-                $link.attr('href', this.cache[filter].href)
-                     .attr('title', this.cache[filter].title)
-                     .removeClass('js-filter-trigger');
-            }
-        }, // update
-        init: function() {
-            var cache = {};
-            $(FilterManager.selector)
-                .on('click', FilterManager.block_empty_links)
-                .each($.proxy(FilterManager.update, {cache: cache, args: Arg.parse(location.href)}));
-        } // init
-    }; // FilterManager
-    FilterManager.init();
 
     var MarkdownManager = {
         re: new RegExp('https?://github.com/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issue|pull)s?/(\\d+)'),
