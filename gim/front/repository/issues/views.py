@@ -87,21 +87,34 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
 
     @cached_property
     def is_ajax(self):
-        # as we can load the view that load the deferred part in ajax, we cannot rely on
+        # as we can load the view that load the deferred part in ajax, we cannot rely only on
         # request.is_ajax
-        return 'if.user_filter_type' in self.request.GET
+        return self.request.is_ajax() and 'if.user_filter_type' in self.request.GET
 
     def get_context_data(self, **kwargs):
         context = super(UserFilterPart, self).get_context_data(**kwargs)
 
-        usernames = self.get_usernames()
+        if self.is_ajax:
+            # we get variables via the url
+            context['list_uuid'] = self.request.GET['if.list_uuid']
+            context['current_issues_url'] = self.request.GET['if.current_issues_url']
+            context['issues_filter'] = {
+                'parts': {
+                    self.request.GET['if.user_filter_type']: self.request.GET.get('if.username')
+                }
+            }
+            context.update(
+                get_querystring_context(self.request.GET.get('if.querystring'))
+            )
+        else:
+            # we already have variables in the contexct via the caller
+            if context.get('issues_filter', {}).get('parts'):
+                context['qs_parts_for_ttags'] = context['issues_filter']['parts']
 
-        if 'list_uuid' not in context:
-            context['list_uuid'] = str(self.request.GET.get('if.list_uuid') or uuid4())
+        usernames = self.get_usernames()
 
         context.update({
             'current_repository': self.repository,
-            'current_issues_url': self.repository.get_view_url(IssuesView.url_name),
 
             'usernames': usernames,
             'count': len(usernames),
@@ -112,14 +125,6 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
             'list_open': self.is_ajax,
         })
 
-        if context.get('issues_filter', {}).get('parts'):
-            context['qs_parts_for_ttags'] = context['issues_filter']['parts']
-
-        if self.is_ajax:
-            context['issues_filter'] = {'parts': {
-                self.request.GET.get('if.user_filter_type'): self.request.GET.get('if.username'),
-            }}
-            context.update(get_querystring_context(self.request.GET.get('if.querystring')))
 
         return context
 
@@ -223,7 +228,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         return self.repository.issues.ready()
 
     def get_base_url(self):
-        return self.repository.get_view_url(IssuesView.url_name)
+        return self.repository.get_view_url(self.url_name)
 
     def _get_milestone(self, qs_parts):
         """
