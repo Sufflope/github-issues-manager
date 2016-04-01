@@ -20,6 +20,8 @@ def auth_keys(request):
 
 
 def default_context_data(request):
+    from gim.core.models import GithubUser
+
     return {
         'brand': {
             'short_name': settings.BRAND_SHORT_NAME,
@@ -39,6 +41,7 @@ def default_context_data(request):
             'last_msg_id': publisher.get_last_msg_id(),
         },
         'new_uuid': uuid4,
+        'default_avatar': GithubUser.get_default_avatar()
     }
 
 

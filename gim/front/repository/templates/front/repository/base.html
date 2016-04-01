@@ -1,6 +1,5 @@
 {% extends "front/base.html" %}
-{% load staticfiles repository_tags %}
-{% static 'front/img/default-avatar.png' as default_avatar %}
+{% load repository_tags %}
 
 {% block body_classes %}repository{% endblock %}
 {% block body_attributes %} data-repository="{{ current_repository.full_name }}" data-repository-id="{{ current_repository.id }}"{% endblock %}

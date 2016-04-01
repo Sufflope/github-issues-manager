@@ -1,5 +1,4 @@
-{% load frontutils staticfiles %}
-{% static 'front/img/default-avatar.png' as default_avatar %}
+{% load frontutils %}
 <div class='area-top commit-details{% if not current_commit.committer_is_author %} multi{% endif %}'>
     <p>
         <span>
@@ -11,13 +10,13 @@
             authored
             {% endif %}
             by
-            <img class="avatar-tiny img-circle" src="{{ current_commit.author.avatar_url|default:default_avatar }}" alt="{{ current_commit.real_author_name }}">&nbsp;<span title="{{ current_commit.real_author_name }}">{{ current_commit.real_author_name }}</span>
+            <img class="avatar-tiny img-circle" src="{{ current_commit.author.full_avatar_url }}" alt="{{ current_commit.real_author_name }}">&nbsp;<span title="{{ current_commit.real_author_name }}">{{ current_commit.real_author_name }}</span>
             on {{ current_commit.authored_at|date:"DATETIME_FORMAT" }}
         </span>
         {% if not current_commit.committer_is_author %}
             <span>
                 commited by
-                <img class="avatar-tiny img-circle" src="{{ current_commit.committer.avatar_url|default:default_avatar }}" alt="{{ current_commit.real_committer_name }}">&nbsp;<span title="{{ current_commit.real_committer_name }}">{{ current_commit.real_committer_name }}</span>
+                <img class="avatar-tiny img-circle" src="{{ current_commit.committer.full_avatar_url }}" alt="{{ current_commit.real_committer_name }}">&nbsp;<span title="{{ current_commit.real_committer_name }}">{{ current_commit.real_committer_name }}</span>
                 {% if current_commit.authored_at != current_commit.committed_at %}
                     on  {{ current_commit.committed_at|date:"DATETIME_FORMAT" }}
                 {% endif %}

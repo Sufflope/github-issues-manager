@@ -5,6 +5,7 @@ from operator import attrgetter, itemgetter
 from threading import local
 import re
 
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
 from django.db.models import ForeignKey, FieldDoesNotExist
@@ -104,6 +105,16 @@ class _GithubUser(Hashable, models.Model):
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def get_default_avatar(cls):
+        if not hasattr(core_models.GithubUser, '_default_avatar'):
+            core_models.GithubUser._default_avatar = staticfiles_storage.url('front/img/default-avatar.png')
+        return core_models.GithubUser._default_avatar
+
+    @cached_property
+    def full_avatar_url(self):
+        return self.avatar_url or core_models.GithubUser.get_default_avatar()
 
     @property
     def hash(self):
