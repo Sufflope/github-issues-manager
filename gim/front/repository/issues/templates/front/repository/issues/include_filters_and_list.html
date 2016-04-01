@@ -133,7 +133,7 @@
                                 {% if issues_filter.objects.milestone == '__none__' %}
                                     (&nbsp;No&nbsp;milestones&nbsp;)
                                 {% else %}
-                                    {{ issues_filter.objects.milestone }}
+                                    {{ issues_filter.objects.milestone }} <em>({{ issues_filter.objects.milestone.state }})</em>
                                 {% endif %}
                             </span>
                         </a>
@@ -151,7 +151,7 @@
                     {% endif %}
                     {% for milestone in milestones %}
                         <li class="milestone{% if issues_filter.objects.milestone.number == milestone.number %} active{% endif %}">
-                            <a href="{{ current_issues_url }}{% toggle_in_querystring "milestone" milestone.number %}">{{ milestone }}</a>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "milestone" milestone.number %}">{{ milestone }} <em>({{ milestone.state }})</em></a>
                         </li>
                     {% endfor %}
                 </ul>
