@@ -5,6 +5,7 @@
     {% endblock %}
 {% endmacro %}
 {% macro issue_item %}{% block issue_item %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endblock %}{% endmacro %}
+{% static 'front/img/default-avatar.png' as default_avatar %}
 
 <nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
     <a class="filters-toggler" href="#issues-filters-{{ list_uuid }}" title="Show filters"><i class="fa fa-bars"></i></a>
@@ -92,7 +93,10 @@
         </ul>{% endspaceless %}
     </div>
 </nav>
-<section class="issues-list-container span5">
+<section class="issues-list-container span5{% if list_key %} with-title{% endif %}"{% if list_key %} data-key="{{ list_key }}"{% endif %}>
+    {% if list_key %}
+        <div class="issues-list-title{% block list-title-classes %}{% endblock %}" title="{% block list-title-description %}{{ list_description|default_if_none:""|capfirst }}{% endblock %}"{%  block list-title-attrs %}{% endblock %}>{%  block list-title-content %}{{ list_title|capfirst }}{% endblock %}</div>
+    {% endif %}
     <nav class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
         <div class="navbar-inner">
             <ul class="nav">
@@ -186,6 +190,7 @@
                     </a>
                     <ul class="dropdown-menu pull-right" role="menu" aria-label="Options">
                         <li><a href="#" class="toggle-issues-details">Toggle details</a></li>
+                        <li><a href="#" class="refresh-list">Refresh list</a></li>
                         <li><a href="#" class="close-all-groups">Close all groups</a></li>
                         <li><a href="#" class="open-all-groups">Open all groups</a></li>
                         {% if can_show_shortcuts %}
@@ -201,12 +206,12 @@
     {% endspaceless %}</nav>
     {% include "front/include_quicksearch.html" with id="issues-list-search-"|concat:list_uuid class="issues-quicksearch" target="#issues-list-"|concat:list_uuid|concat:" .issue-item" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
     <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}">
-        <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing :(</p>
+        <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing</p>
         {% if limit_reached %}
             <div class="alert alert-warning">
                 The current filter returned {{ issues_count }} issues but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
                 <br />
-                <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list.</a>
+                <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
             </div>
         {% endif %}
         {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}

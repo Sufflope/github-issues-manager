@@ -126,6 +126,7 @@ $().ready(function() {
             }
         }) // set_focus
     };
+    window.Ev = Ev;
 
 
     // globally manage escape key to close modal
@@ -359,7 +360,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:document.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
             WS.connection.close();
             WS.end_reconcile();
         }), // error_reconcile
@@ -572,7 +573,7 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:document.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
         }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
@@ -617,7 +618,7 @@ $().ready(function() {
             switch (reason) {
                 case 'closed':
                     timeout = 5000;  // to not display it if the page is closing
-                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:document.location.reload(true);">refresh the page</a>.</p>';
+                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>';
                     break;
                 case 'unsupported':
                     message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
@@ -688,7 +689,7 @@ $().ready(function() {
             WS.$alert.close.on('click', WS.alert_close);
             WS.alert('Connecting for real-time capabilities...', 'waiting');
 
-            WS.URI = (document.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.WS_uri;
+            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.WS_uri;
             WS.connection = new autobahn.Connection({
                 url: WS.URI,
                 realm: 'gim',
@@ -879,8 +880,14 @@ $().ready(function() {
 
     IssuesListIssue.init_events = (function IssuesListIssue_init_events () {
         $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true, true));
+        jwerty.key('↩', IssuesListIssue.on_current_issue_key_event('open', true));
         jwerty.key('space', IssuesListIssue.on_current_issue_key_event('toggle_details', true));
     });
+
+    IssuesListIssue.prototype.open = (function IssuesListIssue__open (ev) {
+        this.get_html_and_display ();
+        return false; // stop event propagation
+    }); // IssuesListIssue__open
 
     IssuesListIssue.prototype.toggle_details = (function IssuesListIssue__toggle_details (ev) {
         this.$node.toggleClass('details-toggled');
@@ -894,6 +901,9 @@ $().ready(function() {
             this.get_html_and_display (null, true);
         } else {
             this.set_current(true);
+            if (!IssueDetail.$main_container.length) {
+                this.get_html_and_display (null, true);
+            }
         }
         return false; // stop event propagation
     }); // IssuesListIssue__on_click
@@ -904,7 +914,9 @@ $().ready(function() {
     }); // IssuesListIssue__unset_current
 
     IssuesListIssue.prototype.set_current = (function IssuesListIssue__set_current (propagate, force_load, no_loading) {
-        this.get_html_and_display(null, null, force_load, no_loading);
+        if (IssueDetail.$main_container.length || force_load) {
+            this.get_html_and_display(null, null, force_load, no_loading);
+        }
         if (!this.group.no_visible_issues) {
             if (propagate) {
                 this.group.list.set_current();
@@ -1487,6 +1499,7 @@ $().ready(function() {
         this.node = $node[0];
         this.node.IssuesList = this;
         this.$node = $node;
+        this.$container_node = this.$node.closest(IssuesList.container_selector);
         this.$empty_node = this.$node.children('.empty-area');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
@@ -1513,6 +1526,7 @@ $().ready(function() {
         if (is_current) {
             this.set_current();
         }
+        GithubNotifications.init_item_forms();
         IssuesList.update_time_ago($node);
         activate_quicksearches(this.$search_input);
         PanelsSwapper.update_panel(this, this.$node.parent());
@@ -1545,6 +1559,7 @@ $().ready(function() {
         jwerty.key('f', IssuesList.on_current_list_key_event('focus_search_input'));
         jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input'));
         jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details'));
+        jwerty.key('r', IssuesList.on_current_list_key_event('refresh'));
         for (var i = 0; i < IssuesList.all.length; i++) {
             var issues_list = IssuesList.all[i];
             if (issues_list.$search_input.length) {
@@ -1557,6 +1572,7 @@ $().ready(function() {
 
         // keyboard events
         $document.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
+        $document.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
         $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
     }); // IssuesList_init_event
@@ -1869,6 +1885,16 @@ $().ready(function() {
         return false; // stop event propagation
     }); // IssuesList__toggle_details
 
+    IssuesList.prototype.refresh = (function IssuesList__refresh () {
+        IssuesFilters.reload_filters_and_list(
+            this.url,
+            this.$container_node.prev(IssuesFilters.selector),
+            this.$container_node,
+            true
+        );
+        return false; // stop event propagation
+    }); // IssuesList__refresh
+
     IssuesList.close_all_groups = (function IssuesList_close_all_groups () {
         for (var i = 0; i < IssuesList.all.length; i++) {
             var list = IssuesList.all[i];
@@ -1942,9 +1968,11 @@ $().ready(function() {
     }); // IssuesList__reinit_quicksearch_results
 
     IssuesList.init_all();
+    window.IssuesList = IssuesList;
 
     var IssuesFilters = {
         selector: '.issues-filters',
+        lists_count: 0,
         on_filter_show: (function IssuesFilters__on_filter_show (ev) {
             $(ev.target).siblings('[data-toggle=collapse]').children('i').removeClass('fa-caret-right').addClass('fa-caret-down');
         }), // on_filter_show
@@ -1967,7 +1995,12 @@ $().ready(function() {
             $filter_node.find('input.quicksearch').focus();
         }), // focus_quicksearch_filter
         add_waiting: (function IssuesFilters__add_waiting ($node) {
-            $node.append('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>')
+            var $mask = $node.children('.loading-mask');
+            if (!$mask.length) {
+                $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
+                $node.append($mask);
+            }
+            return $mask;
         }),
         on_filter_click: (function IssuesFilters__on_filter_click () {
             var $filters_node = $(this).closest(IssuesFilters.selector),
@@ -1979,24 +2012,53 @@ $().ready(function() {
                 $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
         }), // on_list_filter_click
-        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
+        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history, fail_callback) {
+
+            if (typeof no_history === 'undefined' ) {
+                no_history = (IssuesFilters.lists_count > 1);
+            }
+
+            if (!fail_callback) {
+                fail_callback = function(xhr, data) {
+                    if (IssuesFilters.lists_count > 1) {
+                        var $container = IssuesFilters.add_waiting($issues_list_node).children('.empty-area'),
+                            $spin = $container.children('i'),
+                            $alert = $container.children('.alert'),
+                            $button;
+                        if ($alert.length) {
+                            $button = $alert.children('.btn');
+                            $alert.show();
+                        } else {
+                            $button = $('<a class="btn btn-mini btn-default" href="#">Try again</a>');
+                            $alert = $('<div class="alert alert-error">The list couldn\'t be loaded.</div>').append($button);
+                            $container.append($alert);
+                            $button.on('click', Ev.stop_event_decorate(function() {
+                                $alert.hide();
+                                $spin.show();
+                                IssuesFilters.reload_filters_and_list(url, $filters_node, $issues_list_node, no_history, fail_callback);
+                                return false;
+                            }));
+                        }
+                        $spin.hide();
+                    } else {
+                        window.location.href = url;
+                    }
+                }
+            }
+
             var list_index = IssuesList.get_index_for_node($issues_list_node.children(IssuesList.selector)),
                 context = {
                     '$filters_node': $filters_node,
                     '$issues_list_node': $issues_list_node,
                     list_index: list_index,
-                    url: url
+                    url: url,
+                    no_history: no_history,
+                    fail_callback: fail_callback
                 };
-
-            if (!no_history) {
-                IssuesFilters.add_history(list_index, url);
-            }
 
             $.get(url)
                 .done($.proxy(IssuesFilters.on_filters_and_list_loaded, context))
-                .fail(function() {
-                    window.location.href = url;
-                });
+                .fail($.proxy(fail_callback, context));
 
             IssuesFilters.add_waiting($filters_node);
             IssuesFilters.add_waiting($issues_list_node);
@@ -2015,8 +2077,12 @@ $().ready(function() {
                 current_list = null;
             }
             if (!current_list) {
-                window.location.href = this.url;
+                this.fail_callback(null, data);
                 return;
+            }
+
+            if (!this.no_history) {
+                IssuesFilters.add_history(this.list_index, this.url);
             }
 
             $new_filters_node.find('.deferrable').deferrable();
@@ -2037,7 +2103,7 @@ $().ready(function() {
                 list = IssuesList.all[state.list_index];
             } catch(e) {}
             if (!list) { return false; }
-            $issues_list_node = list.$node.closest(IssuesList.container_selector);
+            $issues_list_node = list.$node.$container_node;
             $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             IssuesFilters.reload_filters_and_list(state.filters_url, $filters_node, $issues_list_node, true);
             return true;
@@ -2055,7 +2121,8 @@ $().ready(function() {
         }), // add_history
         init: function() {
             var active = false;
-            if ($(IssuesFilters.selector).length) {
+            IssuesFilters.lists_count = $(IssuesFilters.selector).length;
+            if (IssuesFilters.lists_count) {
                 $document.on({
                     'show.collapse': IssuesFilters.on_filter_show,
                     'shown.collapse': IssuesFilters.on_filter_shown,
@@ -2071,11 +2138,12 @@ $().ready(function() {
                 active = true;
             }
             if (active) {
-                IssuesFilters.add_history(0, document.location.href, true);
+                IssuesFilters.add_history(0, window.location.href, true);
             }
         } // init
     };
     IssuesFilters.init();
+    window.IssuesFilters = IssuesFilters;
 
     var $IssueByNumberWindow = $('#go-to-issue-window');
     var IssueByNumber = {
@@ -2152,11 +2220,11 @@ $().ready(function() {
     jwerty.key('s', Ev.key_decorate(toggle_full_screen_for_current_modal));
 
     var on_help = (function on_help() {
-        $('#show-shortcuts').click();
+        $('#show-shortcuts').first().click();
         return false; // stop event propagation
     }); // on_help
 
-    if ($('#show-shortcuts').length) {
+    if ($('#shortcuts-window').length) {
         $document.on('keypress', Ev.key_decorate(Ev.charcode(63, on_help)));  // 63 = ?
     }
 
@@ -3540,7 +3608,7 @@ $().ready(function() {
             if (panel.handlable) { PanelsSwapper.remove_handler(panel); }
             var old_panel = PanelsSwapper.current_panel;
             PanelsSwapper.current_panel = panel;
-            if (old_panel.handlable) { PanelsSwapper.add_handler(old_panel); }
+            if (old_panel && old_panel.handlable) { PanelsSwapper.add_handler(old_panel); }
             $('.active-panel').removeClass('active-panel');
             PanelsSwapper.current_panel.$node.addClass('active-panel');
             PanelsSwapper.current_panel.obj.on_panel_activated(PanelsSwapper.current_panel);
@@ -3549,15 +3617,22 @@ $().ready(function() {
         go_prev_panel: (function PanelsSwapper__go_prev_panel() {
             if (!PanelsSwapper.current_panel.handlable) { return }
             var idx = PanelsSwapper.current_panel.index;
-            if (idx > 0) {
-                PanelsSwapper.select_panel(PanelsSwapper.panels[idx - 1]);
+            while (--idx >= 0) {
+                if (PanelsSwapper.panels[idx].handlable) {
+                    PanelsSwapper.select_panel(PanelsSwapper.panels[idx]);
+                    break;
+                }
             }
         }), // go_prev_panel
         go_next_panel: (function PanelsSwapper__go_next_panel() {
             if (!PanelsSwapper.current_panel.handlable) { return }
             var idx = PanelsSwapper.current_panel.index;
-            if (idx < PanelsSwapper.panels.length - 1) {
-                PanelsSwapper.select_panel(PanelsSwapper.panels[idx + 1]);
+            while (++idx < PanelsSwapper.panels.length) {
+                if (PanelsSwapper.panels[idx].handlable) {
+                    PanelsSwapper.select_panel(PanelsSwapper.panels[idx]);
+                    break;
+                }
+                idx += 1;
             }
         }), // go_next_panel
         update_panel: (function PanelsSwapper__replace_panel (obj, $node) {
@@ -3577,16 +3652,88 @@ $().ready(function() {
                     PanelsSwapper.add_handler(updated_panel);
                 }
             }
-        }),
-        init: (function PanelsSwapper__init (panels) {
-            PanelsSwapper.panels = panels;
-            if (panels.length) {
-                PanelsSwapper.current_panel = panels[0];
-                PanelsSwapper.current_panel.$node.addClass('active-panel');
-                for (var i = 0; i < panels.length; i++) {
-                    panels[i].index = i;
-                    if (panels[i].handlable && i != PanelsSwapper.current_panel.index) {
-                        PanelsSwapper.add_handler(panels[i]);
+        }), // update_panel
+        find_panels: (function PanelsSwapper__find_panels () {
+            var panels = [],
+                ordered_issues_lists = [];
+            // add all issues lists
+            for (var i = 0; i < IssuesList.all.length; i++) {
+                var issues_list = IssuesList.all[i],
+                    $parent = issues_list.$node.parent(),
+                    $column = $parent.parent('.board-column'),
+                    flex_order = $column.length ? $column.css('order') : 0,
+                    data = {$node: $parent, obj: issues_list, handlable: true};
+                flex_order = isNaN(flex_order) ? 0 : parseInt(flex_order, 10); // 0 for not flex-ordered lists
+                if (flex_order <= 0) {
+                    if (flex_order == -1) { // it has a flex order but we chose to hide it
+                        data.handlable = false;
+                    }
+                    panels.push(data);
+                } else {
+                    ordered_issues_lists[flex_order] = data;
+                }
+            }
+            for (var j = ordered_issues_lists.length - 1; j >= 0; j--) {
+                if (typeof ordered_issues_lists[j] !== 'undefined') {
+                    panels.unshift(ordered_issues_lists[j]);
+                }
+            }
+            // add the main issue detail if exists
+            if (IssueDetail.$main_container.length) {
+                panels.push({$node: IssueDetail.$main_container, obj: IssueDetail, handlable: true});
+            }
+            // add the popup issue detail if exists
+            if (IssueDetail.$modal_container.length) {
+                panels.push({$node: IssueDetail.$modal_container, obj: IssueDetail, handlable: false});
+            }
+            return panels;
+        }), // find_panels
+        update_panels_order: (function PanelsSwapper__update_panels_order () {
+            var dom_panels = PanelsSwapper.find_panels(),
+                ordered_panels = [];
+            for (var i = 0; i < dom_panels.length; i++) {
+                var dom_panel = dom_panels[i];
+                for (var j = 0; j < PanelsSwapper.panels.length; j++) {
+                    var panel = PanelsSwapper.panels[j];
+                    if (panel.$node[0] == dom_panel.$node[0]) {
+                        if (dom_panel.handlable && !panel.handlable) {
+                            PanelsSwapper.add_handler(panel);
+                        } else if (!dom_panel.handlable && panel.handlable) {
+                            PanelsSwapper.remove_handler(panel);
+                        }
+                        panel.handlable = dom_panel.handlable;
+                        panel.index = i;
+                        ordered_panels.push(panel);
+                        break;
+                    }
+                }
+            }
+            PanelsSwapper.panels = ordered_panels;
+            if (PanelsSwapper.current_panel && !PanelsSwapper.current_panel.handlable) {
+                PanelsSwapper.current_panel.$node.removeClass('active-panel');
+                PanelsSwapper.current_panel = null;
+            }
+            if (!PanelsSwapper.current_panel) {
+                for (var k = 0; k < PanelsSwapper.panels.length; k++) {
+                    if (PanelsSwapper.panels[k].handlable) {
+                        PanelsSwapper.select_panel(PanelsSwapper.panels[k]);
+                        break;
+                    }
+                }
+            }
+        }), // update_panels_order
+        init: (function PanelsSwapper__init () {
+            PanelsSwapper.panels = PanelsSwapper.find_panels();
+            if (PanelsSwapper.panels.length) {
+                for (var i = 0; i < PanelsSwapper.panels.length; i++) {
+                    PanelsSwapper.panels[i].index = i;
+                    if (PanelsSwapper.panels[i].handlable) {
+                        if (!PanelsSwapper.current_panel) {
+                            PanelsSwapper.current_panel = PanelsSwapper.panels[i];
+                            PanelsSwapper.current_panel.$node.addClass('active-panel');
+                        } else {
+                            PanelsSwapper.add_handler(PanelsSwapper.panels[i]);
+                        }
                     }
                 }
                 jwerty.key('ctrl+←', Ev.key_decorate(PanelsSwapper.go_prev_panel));
@@ -3595,25 +3742,8 @@ $().ready(function() {
         }) // init
 
     }; // PanelsSwapper
-
-    // add all issues lists
-    (function() {
-        var panels = [];
-        for (var i = 0; i < IssuesList.all.length; i++) {
-            var issues_list = IssuesList.all[i];
-            panels.push({$node: issues_list.$node.parent(), obj: issues_list, handlable: true});
-        }
-        // add the main issue detail if exists
-        if (IssueDetail.$main_container.length) {
-            panels.push({$node: IssueDetail.$main_container, obj: IssueDetail, handlable: true});
-        }
-        // add the popup issue detail if exists
-        if (IssueDetail.$modal_container.length) {
-            panels.push({$node: IssueDetail.$modal_container, obj: IssueDetail, handlable: false});
-        }
-        PanelsSwapper.init(panels);
-        window.PanelsSwpr = PanelsSwapper;
-    })();
+    PanelsSwapper.init();
+    window.PanelsSwpr = PanelsSwapper;
 
 
     // select the issue given in the url's hash, or an active one in the html,
@@ -4534,7 +4664,7 @@ $().ready(function() {
         }), // on_delete_alert
 
         create: {
-            allowed_path_re: new RegExp('^/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issues/|dashboard/$)'),
+            allowed_path_re: new RegExp('^/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issues/|dashboard/|board/)'),
             $modal: null,
             $modal_body: null,
             $modal_footer: null,
@@ -4547,7 +4677,7 @@ $().ready(function() {
             },
 
             start: (function IssueEditor_create__start () {
-                if (!location.pathname.match(IssueEditor.create.allowed_path_re)) {
+                if (!window.location.pathname.match(IssueEditor.create.allowed_path_re)) {
                     return;
                 }
                 if ($('#milestone-edit-form').is(':visible')) {
@@ -5495,7 +5625,7 @@ $().ready(function() {
                 count: data.count,
                 last: data.last
             });
-;
+
         }, // on_post_submit_done
 
         on_post_submit_failed: function (xhr, data) {
@@ -5531,6 +5661,7 @@ $().ready(function() {
         }, // toggle_read
 
         init_item_forms: function() {
+            if (body_id != 'github_notifications') { return; }
             var $forms = $(GithubNotifications.item_selector + ' form:not(.js-managed)'),
                 $checkboxes = $forms.find('input[type=checkbox]');
             $forms.each(function() { GithubNotifications.save_values($(this));});

@@ -1,0 +1,37 @@
+{% extends "front/repository/issues/include_filters_and_list.html" %}
+{% load frontutils %}
+
+{% block issues-list-classes %}{{ block.super }} without-details{% endblock %}
+
+{% block filter-state %}
+    {% if current_board_key != 'auto-state' %}{{ block.super }}{% endif %}
+{% endblock filter-state %}
+
+{% block filter-assigned %}
+    {% if current_board_key != 'auto-assigned' %}{{ block.super }}{% endif %}
+{% endblock filter-assigned %}
+
+{% block filter-milestone %}
+    {% if current_board_key != 'auto-milestone' %}{{ block.super }}{% endif %}
+{% endblock filter-milestone %}
+
+{% block filter-label_type %}
+    {% if current_board.mode != 'labels' or label_type.name != current_board.name %}{{ block.super }}{% endif %}
+{% endblock filter-label_type %}
+
+{% block list-title-classes %}{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}{% endblock list-title-classes %}
+
+{% block list-title-content %}
+    {% with default=block.super %}
+    {% if current_board.mode == 'labels' and current_column.object %}
+        <span style="border-bottom-color: #{{ current_column.object.color }}">
+        {{ default }}
+        </span>
+    {% elif current_board_key == 'auto-assigned' and current_column.object %}
+        <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_column.object.full_avatar_url|avatar_size:16 }}" />
+        {{ default }}
+    {% else %}
+        {{ default }}
+    {% endif %}
+    {% endwith %}
+{% endblock list-title-content %}

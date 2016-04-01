@@ -399,14 +399,6 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             'labels__label_type'
         )
 
-    @cached_property
-    def label_types(self):
-        return self.repository.label_types.all().prefetch_related('labels').order_by('name')
-
-    @cached_property
-    def milestones(self):
-        return self.repository.milestones.all()
-
     def get_context_data(self, **kwargs):
         """
         Set default content for the issue views
@@ -531,12 +523,15 @@ class IssueView(WithIssueViewMixin, TemplateView):
                 url_name = resolved_url.namespace + ':' + url_name
             if url_name == GithubNotifications.url_name:
                 return GithubNotifications, url_info, resolved_url
-            elif resolved_url.namespace == u'front:repository'\
-                    and resolved_url.url_name == IssuesView.url_name:
+            elif resolved_url.namespace == u'front:repository':
                 # Check that we are on the same repository
                 if resolved_url.kwargs.get('owner_username') == self.kwargs['owner_username']\
                         and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
-                    return IssuesView, url_info, resolved_url
+                    if resolved_url.url_name == IssuesView.url_name:
+                        return IssuesView, url_info, resolved_url
+                    from gim.front.repository.board.views import BoardView
+                    if resolved_url.url_name == BoardView.url_name:
+                        return BoardView, url_info, resolved_url
 
         return None, None, None
 

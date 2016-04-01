@@ -104,8 +104,10 @@ class WithQueryStringViewMixin(object):
             context['querystring_parts'] = {}
         return deepcopy(context['querystring_parts'])
 
-    def get_querystring_context(self):
-        return get_querystring_context(self.request.META.get('QUERY_STRING', ''))
+    def get_querystring_context(self, querystring=None):
+        if querystring is None:
+            querystring = self.request.META.get('QUERY_STRING', '')
+        return get_querystring_context(querystring)
 
     def get_context_data(self, **kwargs):
         """

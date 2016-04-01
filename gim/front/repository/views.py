@@ -1,5 +1,6 @@
 from django.core.urlresolvers import reverse_lazy
 from django.utils.decorators import classonlymethod
+from django.utils.functional import cached_property
 from django.views.generic import DetailView
 
 from gim.front.mixins.views import SubscribedRepositoryViewMixin, WithSubscribedRepositoriesViewMixin
@@ -64,3 +65,11 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         context['repository_main_views'] = repo_main_views
 
         return context
+
+    @cached_property
+    def label_types(self):
+        return self.repository.label_types.all().prefetch_related('labels').order_by('name')
+
+    @cached_property
+    def milestones(self):
+        return self.repository.milestones.all()

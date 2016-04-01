@@ -1,10 +1,121 @@
 {% extends "front/repository/base.html" %}
+{% load staticfiles frontutils %}
 
 {% block body_id %}repository_board{% endblock %}
+
+{% block extra_css %}
+    <link href="{% static "front/css/select.2.css" %}" rel="stylesheet">
+    <link href="{% static "front/jquery-ui/jquery-ui.min.css" %}" rel="stylesheet">
+    <link href="{% static "front/css/pages/repository/board.css" %}" rel="stylesheet">
+{% endblock extra_css %}
+
 {% block main %}
-<div class="row-fluid">
-    <div class="span12">
-        <p class="empty-area">board not coded ;)<p>
+    <div class="row-fluid row-header">
+        <div class="span12">
+            <div class="area-top">
+                {% if current_board_key %}
+                    <div class="row-fluid">
+                        <div class="span6">
+                {% endif %}
+                <select id="board-selector">
+                {% if not current_board_key %}
+                    <option></option>
+                {% endif %}
+                {% for board_key, board in boards.items %}
+                    <option value="{{ board_key }}"
+                            title="{{ board.description|capfirst }}"
+                            data-name="{{ board.name|capfirst }}"
+                            data-columns="{{ board.visible_count }}"
+                            data-url="{{ board.board_url }}"
+                            {% if current_board_key == board_key %} selected="selected"{% endif %}>
+                        {% if current_board_key == board_key %}Current board: {% endif %} {{ board.name|capfirst }}
+                    </option>
+                {% endfor %}
+                </select>
+                {% if current_board_key %}
+                    </div>
+                    <div class="span6">
+                        <button id="board-columns-arranger-toggler" class="btn btn-default" data-toggle="collapse" data-target="#board-columns-arranger-holder">
+                            <span>
+                                Arrange columns
+                                <span class="caret"></span>
+                            </span>
+                        </button>
+                        <div class="collapse" id="board-columns-arranger-holder">
+                            <div>
+                                <div>
+                                    <button value="clear" class="btn btn-default btn-mini" title="Remove all columns">Empty</button>
+                                    <button value="reset" class="btn btn-default btn-mini" title="Restore default columns set">Reset</button>
+                                    <button value="close" class="btn btn-default btn-mini" title="Close the columns arranger"><i class="fa fa-times"> </i></button>
+                                </div>
+                                <p>
+                                    You can hide columns and change their order by drag & drop:
+                                </p>
+                                {% with visible_columns_keys=current_board.columns.values|filter_falsy:"hidden"|map_dict_item:"key"|join:"," %}
+                                <input id="board-columns-arranger"
+                                       type="hidden"
+                                       autocomplete="off"
+                                       value="{{ visible_columns_keys }}"
+                                />
+                                {% endwith %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
-</div>
+    {% if current_board_key %}
+    <div id="board-columns">
+        {% for column_key, current_column in current_board.columns.items %}
+            {% with list_uuid=new_uuid %}
+        <div class="board-column{% if current_column.hidden %} hidden{% endif %}">
+            {# Minimal html to simulate the issues lists that will be loaded via ajax #}
+            <nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
+            </nav>
+            <section class="issues-list-container span5 with-title" data-key="{{ column_key }}">
+                <div class="issues-list-title{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}" title="{{ current_column.description|capfirst }}">
+                    {% with default=current_column.name|capfirst %}
+                    {% if current_board.mode == 'labels' and current_column.object %}
+                        <span style="border-bottom-color: #{{ current_column.object.color }}">
+                        {{ default }}
+                        </span>
+                    {% elif current_board_key == 'auto-assigned' and current_column.object %}
+                        <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_column.object.full_avatar_url|avatar_size:16 }}" />
+                        {{ default }}
+                    {% else %}
+                        {{ default }}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div id="issues-list-{{ column_key }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-url="{{ current_column.url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ column_url }}"></div>
+                <div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>
+            </section>
+            <a href="#" class="board-column-closer" title="Close this column"><i class="fa fa-times"> </i></a>
+        </div>
+            {% endwith %}
+        {% endfor %}
+    </div>
+    {% else %}
+        <div class="empty-area">Please select a board</div>
+    {% endif %}
 {% endblock main %}
+
+
+{% block js_pre_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/select.2.js" %}" type="text/javascript"></script>
+    <script src="{% static "front/jquery-ui/jquery-ui.min.js" %}" type="text/javascript"></script>
+    <script src="{% static "front/js/requestNextAnimationFrame.js" %}" type="text/javascript"></script>
+{% endblock js_pre_footer %}
+
+{% block js_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/repository-boards.js" %}" type="text/javascript"></script>
+{% endblock js_footer %}
+
+{% block modal-windows %}
+    {{ block.super }}
+    {% include "front/repository/board/shortcuts_window.html" %}
+{% endblock modal-windows %}
