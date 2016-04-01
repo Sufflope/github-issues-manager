@@ -3511,15 +3511,29 @@ $().ready(function() {
     // or the first item of the current list
     if (IssuesList.all.length) {
         IssuesList.all[0].set_current();
-        var issue_to_select = null;
-        if (location.hash && /^#issue\-\d+$/.test(location.hash)) {
-            issue_to_select = $(location.hash);
+        var re = new RegExp('^#issue\-(\\d+)$'),
+            issue_to_select = null,
+            issue_id = null;
+        if (window.location.hash && re.test(window.location.hash)) {
+            issue_to_select = $(window.location.hash);
+            if (!issue_to_select.length) {
+                issue_to_select = null;
+                issue_id = re.exec(window.location.hash)[1];
+            }
         } else {
             issue_to_select = $(IssuesListIssue.selector + '.active');
+            if (!issue_to_select.length) {
+                issue_to_select = null;
+            }
         }
         if (issue_to_select && issue_to_select.length && issue_to_select[0].IssuesListIssue) {
-           issue_to_select.removeClass('active');
-           issue_to_select[0].IssuesListIssue.set_current(true);
+            issue_to_select.removeClass('active');
+            issue_to_select[0].IssuesListIssue.set_current(true, true);
+        } else if (issue_id && main_repository_id) {
+            IssuesListIssue.open_issue({
+                number: 'pk-' + issue_id,
+                repository: main_repository
+            });
         } else {
             IssuesList.current.go_to_next_item();
         }
