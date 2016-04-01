@@ -1,8 +1,12 @@
+$sidebar-width: 160px;
 $sidebar-hidden-width: 50px;
 $sidebar-toggler-width: 22px;
 
 .issues-filters {
     background: #11161A;
+    width: $sidebar-width;
+    @include box-sizing(border-box);
+    border-right: solid 1px $dark-border-color;
     .filters-toggler {
         background: inherit;
         display: none;

@@ -8,18 +8,13 @@
 @import "compass/css3/text-shadow";
 @import "compass/css3/transition";
 
-@import "widgets/avatar";
-@import "components/issues_mixins";
-@import "components/issues_filters";
-@import "components/issues_list";
+@import "components/issues_full_list";
 @import "components/issue";
 
 @import "modals/shortcuts";
 @import "modals/gotoissue";
 
 @import "mixins";
-
-$sidebar-width: 160px;
 
 // enforce height to tell columns to scroll in this height
 html, body {
@@ -49,13 +44,8 @@ body.issues_list_page #main-inner {
     height: 100%;
     overflow: hidden;
     position: relative;
-    border-top: solid #FAFAFA 5px;
 }
 .issues-filters { // col 1, sidebar with fixed width
-    width: $sidebar-width;
-    @include box-sizing(border-box);
-    border-right: solid 1px $dark-border-color;
-    float: none;
     position: absolute;
     top: 0;
     bottom: 0;
@@ -79,40 +69,6 @@ body.issues_list_page #main-inner {
 .issues-filters {
     margin-top: $header-top;
 }
-
-// second column: the list of issues
-
-// position the 3 rows
-
-// first row: the options
-.issues-list-options {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-}
-
-// second row: quicksearch filter
-.issues-quicksearch {
-    position: absolute;
-    top: 48px;
-    left: 0;
-    right: 0;
-    border-bottom: solid 1px $box-border-color;
-}
-
-// last row, full height: list of isuses
-.issues-list {
-    position: absolute;
-    top: 77px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: auto;
-}
-
-// third column: the issue
-
 
 // hide sidebar in small width screens
 @media (max-width: 1023px) {
