@@ -47,6 +47,8 @@
 {% endblock %}
 
 {% block before_common_filters %}
+
+    {% block default_filters %}
     {% with current_url=view.request.path|concat:'?'|concat:view.request.META.QUERY_STRING %}
 
         <li class="accordion-group dark-nav">
@@ -93,24 +95,32 @@
         </li>
 
     {% endwith %}
+    {% endblock default_filters %}
 
+    {% block filter-creators %}
     {# List of issues creators #}
     {% if issues_creators.count %}
         {{ issues_creators.part|safe }}
     {% endif %}
+    {% endblock filter-creators %}
 
+    {% block filter-assigned %}
     {# List of assigned #}
     {% if issues_assigned.count %}
         {{ issues_assigned.part|safe }}
     {% endif %}
+    {% endblock filter-assigned %}
 
+    {% block filter-closers %}
     {# List of closed-by #}
     {% if issues_closers.count %}
         {{ issues_closers.part|safe }}
     {% endif %}
+    {% endblock filter-closers %}
 {% endblock before_common_filters %}
 
 {% block after_common_filters %}
+    {% block filter-milestone %}
     {# The milestones #}
     {% if milestones|length %}
             <li class="accordion-group dark-nav">
@@ -147,9 +157,12 @@
                 </ul>
             </li>
         {% endif %}
+    {% endblock filter-milestone %}
 
+    {% block filter-label_types %}
     {# The different label-types #}
     {% for label_type in label_types %}
+        {% block filter-label_type %}
         {% with label_type.labels.ready as label_type_labels %}
             {% if label_type_labels|length %}
                 {% attributes_for_list label_type_labels "name" as label_names %}
@@ -192,8 +205,11 @@
                 {% endwith %}{% endwith %}
             {% endif %}
         {% endwith %}
+        {% endblock filter-label_type %}
     {% endfor %}
+    {% endblock filter-label_types %}
 
+    {% block filter-labels %}
     {# Simple labels #}
     {% with untyped_labels=current_repository.untyped_labels.all %}
         {% if untyped_labels|length %}
@@ -226,4 +242,5 @@
             </li>
         {% endif %}
     {% endwith %}
+    {% endblock filter-labels %}
 {% endblock after_common_filters %}

@@ -16,6 +16,7 @@
 
             {% block before_common_filters %}{% endblock %}
 
+            {% block filter-state %}
             {# The open/close states #}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
@@ -36,7 +37,9 @@
                     {% endfor %}
                 </ul>
             </li>
+            {% endblock filter-state %}
 
+            {% block filter-pr %}
             {# The two pull-requests states #}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
@@ -57,7 +60,9 @@
                     {% endfor %}
                 </ul>
             </li>
+            {% endblock filter-pr %}
 
+            {% block filter-mergeable %}
             {# The two mergeable states, only if filter on pull requests #}
             {% if issues_filter.parts.pr == 'yes' %}
                 <li class="accordion-group dark-nav">
@@ -80,6 +85,7 @@
                     </ul>
                 </li>
             {% endif %}
+            {% endblock filter-mergeable %}
 
             {% block after_common_filters %}{% endblock %}
 
