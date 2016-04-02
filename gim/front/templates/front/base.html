@@ -1,4 +1,4 @@
-{% load staticfiles %}<!doctype html>
+{% load staticfiles frontutils %}<!doctype html>
 <html lang="en">
 <head>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700">
@@ -15,7 +15,6 @@
     <link href="{% static "front/css/font-awesome.min.css" %}" rel="stylesheet">
     <link href="{% static "front/css/main.css" %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
-    {% static 'front/img/default-avatar.png' as default_avatar %}
 </head>
 <body id="{% block body_id %}{% endblock %}" class="{% block body_classes %}{% endblock %}"{% block body_attributes %}{% endblock %} data-base-datetime="{{ utcnow|date:'r' }}" data-csrf="{{ csrf_token }}">
     <header class="navbar navbar-inverse navbar-fixed-top">
@@ -30,7 +29,7 @@
                         <li class="dropdown user-avatar">
                             <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                                 <span>
-                                    <img src="{{ user.avatar_url|default:default_avatar }}" class="img-rounded menu-avatar avatar" />
+                                    <img src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:36 }}" class="img-rounded menu-avatar avatar lazyload" />
                                     <span>
                                         {{ user.username }}
                                     </span>
@@ -111,7 +110,8 @@
           }
       };
     </script>
-    <script data-cfasync="false" async src="//cdn.headwayapp.co/widget.js"></script>
+        <script src="{% static "front/js/lazysizes.min.js" %}" async=""></script>
+        <script data-cfasync="false" async src="//cdn.headwayapp.co/widget.js"></script>
     {% endif %}
 </body>
 </html>

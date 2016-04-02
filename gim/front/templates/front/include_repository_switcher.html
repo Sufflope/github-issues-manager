@@ -1,4 +1,4 @@
-{% load repository_tags %}
+{% load repository_tags frontutils %}
 {% with readable_subscribed_repositories=view.request.user.readable_subscribed_repositories %}
     {% if readable_subscribed_repositories %}
         <li class="dropdown">
@@ -18,7 +18,7 @@
                 </li>
                 {% for group in groups %}
                     <li class="subscriptions-group">
-                        <strong><img class="avatar-micro img-circle" src="{{ group.grouper.avatar_url|default:default_avatar }}" /> {{ group.grouper.username }}</strong>
+                        <strong><img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ group.grouper.full_avatar_url|avatar_size:16 }}" /> {{ group.grouper.username }}</strong>
                         <ul class="unstyled">
                             {% for repository in group.list %}
                                 <li{% if repository.id == current_repository.id %} class="active"{% endif %}><a role="menuitem" href="{{ repository.get_absolute_url }}"><span>{{ group.grouper.username }}/</span>{{ repository.name }}</a></li>

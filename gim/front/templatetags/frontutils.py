@@ -150,6 +150,14 @@ def ago(date, short=False):
 register.filter('ago', ago)
 
 
+@register.filter
+def avatar_size(avatar_url, size):
+    if not size:
+        return avatar_url
+    if '?' in avatar_url:
+        return avatar_url + '&s=%s' % size
+    return avatar_url + '?s=%s' % size
+
 class NoSpacesNode(template.Node):
     """
     """
