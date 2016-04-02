@@ -14,7 +14,7 @@
                         {% with count=counters.assigned %}
                             <span class="label label-{% if count > 10 %}important{% elif count > 5 %}warning{% elif count %}info{% else %}success{% endif %}">{{ count }}</span>
                         {% endwith %}
-                        <span class="label left"><img class="avatar-tiny img-circle" src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
+                        <span class="label left"><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
                     </div>
                 </div>
             {% endif %}
@@ -28,7 +28,7 @@
                     {% with count=counters.created %}
                         <span class="label label-{% if count > 10 %}important{% elif count > 5 %}warning{% elif count %}info{% else %}success{% endif %}">{{ count }}</span>
                     {% endwith %}
-                    <span class="label left"><img class="avatar-tiny img-circle" src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
+                    <span class="label left"><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
                 </div>
             </div>
 
@@ -41,7 +41,7 @@
                     {% with count=counters.prs %}
                         <span class="label label-{% if count > 10 %}important{% elif count > 5 %}warning{% elif count %}info{% else %}success{% endif %}">{{ count }}</span>
                     {% endwith %}
-                    <span class="label left"><img class="avatar-tiny img-circle" src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
+                    <span class="label left"><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:24 }}" /></span>
                 </div>
             </div>
 
