@@ -1,5 +1,5 @@
 {% load frontutils macros %}
-{% macro render_user user with_count %}<strong><img class="avatar-tiny img-circle" src="{{ user.full_avatar_url }}"> {{ user.username }}</strong>{% if with_count %} ({{ user.count }}){% endif %}{% endmacro %}
+{% macro render_user user with_count %}<strong><img class="avatar-tiny img-circle" src="{{ user.full_avatar_url|avatar_size:24 }}"> {{ user.username }}</strong>{% if with_count %} ({{ user.count }}){% endif %}{% endmacro %}
 <li>
     <div class="box code-comments-group">
         {% with nb_comments=group|length %}

@@ -22,7 +22,7 @@
                     <div class="activity-repository">
                         <div class="box-header">
                             <span class="title">
-                                <div class="avatar"><img class="avatar-micro" src="{{ entry.issue.repository.owner.full_avatar_url }}" /></div>
+                                <div class="avatar"><img class="avatar-micro" src="{{ entry.issue.repository.owner.full_avatar_url|avatar_size:16 }}" /></div>
                                 <a href="{{ entry.issue.repository.get_absolute_url }}">
                                     {% if entry.issue.repository.private %}<i class="fa fa-lock" title="This repository is private"> </i>{% endif %}
                                     {{ entry.issue.repository }}
@@ -51,7 +51,7 @@
                     <div class="avatar"><img class="avatar-small" src="{{ default_avatar }}" /></div>
                     <span class="name"><strong>The {{ entry.issue.type }} was updated</strong></span>
                 {% else %}
-                    <div class="avatar"><img class="avatar-small" src="{{ entry.issue.user.full_avatar_url }}" /></div>
+                    <div class="avatar"><img class="avatar-small" src="{{ entry.issue.user.full_avatar_url|avatar_size:36 }}" /></div>
                     <span class="name">
                         <strong>{{ entry.issue.user }}</strong>
                         {% usemacro tags entry.issue entry.issue.user %}
@@ -94,7 +94,7 @@
                 {% endfor  %}
             </div>
         {% elif model == 'PullRequestComment' %}
-            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url }}" /></div>
+            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">
                 <span class="name">
                     <strong>{{ entry.user }}</strong>
@@ -113,7 +113,7 @@
                 </blockquote>
             </div>
         {% elif model == 'CommitComment' %}
-            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url }}" /></div>
+            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">
                 <span class="name">
                     <strong>{{ entry.user }}</strong>
@@ -133,7 +133,7 @@
             </div>
         {% elif model == 'IssueCommits' %}
             {% with author_name=entry.commit.author.username|default:entry.commit.author_name %}
-            <div class="avatar"><img class="avatar-small" src="{{ entry.commit.author.full_avatar_url }}" /></div>
+            <div class="avatar"><img class="avatar-small" src="{{ entry.commit.author.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">
                 <span class="name">
                     <strong>{{ author_name }}</strong>
@@ -162,7 +162,7 @@
             </div>
             {% endwith %}
         {% elif model == 'IssueEvent' %}
-            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url }}" /></div>
+            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">
                 <span class="name">
                     <strong>{{ entry.user }}</strong>
@@ -322,7 +322,7 @@
                 </div>
             {% endif %}
         {% elif model == 'IssueComment' %}
-            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url }}" /></div>
+            <div class="avatar"><img class="avatar-small" src="{{ entry.user.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">
                 <span class="name">
                     <strong>{{ entry.user }}</strong>
