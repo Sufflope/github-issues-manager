@@ -355,13 +355,13 @@ class IssueTracker(ChangeTracker):
             result['new_value'] = {
                 'id': new,
                 'username': users_by_id[new].username,
-                'avatar_url': users_by_id[new].avatar_url,
+                'full_avatar_url': users_by_id[new].full_avatar_url,
             }
         if old and old in users_by_id:
             result['old_value'] = {
                 'id': old,
                 'username': users_by_id[old].username,
-                'avatar_url': users_by_id[old].avatar_url,
+                'full_avatar_url': users_by_id[old].full_avatar_url,
             }
 
         return [result]
@@ -402,13 +402,13 @@ class IssueTracker(ChangeTracker):
         if new == 'closed'and instance.closed_by_id:
             result['new_value']['by'] = {
                 'username': instance.closed_by.username,
-                'avatar_url': instance.closed_by.avatar_url,
+                'full_avatar_url': instance.closed_by.full_avatar_url,
             }
         # TODO : uncomment when repoened_by will be implemented
         # elif new == 'open' and instance.reopened_by_id:
         #     result['new_value']['by'] = {
         #         'username': instance.reopened_by.username,
-        #         'avatar_url': instance.reopened_by.avatar_url,
+        #         'full_avatar_url': instance.reopened_by.full_avatar_url,
         #     }
 
         return [result]
@@ -429,7 +429,7 @@ class IssueTracker(ChangeTracker):
         if new and instance.merged_by_id:
             result['new_value']['by'] = {
                 'username': instance.merged_by.username,
-                'avatar_url': instance.merged_by.avatar_url,
+                'full_avatar_url': instance.merged_by.full_avatar_url,
             }
 
         return [result]

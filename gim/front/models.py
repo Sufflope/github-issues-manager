@@ -704,7 +704,7 @@ class GroupedItems(list):
         author = getattr(entry, cls.author_field)
         return {
             'username': author.username,
-            'avatar_url': author.avatar_url,
+            'full_avatar_url': author.full_avatar_url,
         }
 
     def authors(self):
@@ -748,7 +748,7 @@ class GroupedCommits(GroupedItems):
         else:
             return {
                 'username': entry.author_name,
-                'avatar_url': None,
+                'full_avatar_url': None,
             }
 
 

@@ -4188,7 +4188,8 @@ $().ready(function() {
                         var data = collaborators_data[state.id],
                             result;
                         if (data) {
-                            var avatar_url = data.avatar_url || window.default_avatar;
+                            var avatar_url = data.avatar_url;
+                            if (avatar_url.indexOf('?') == -1) { avatar_url += '&s=24' } else { avatar_url += '?s=24'; }
                             result = '<img class="avatar-tiny img-circle" src="' + avatar_url + '" /> <strong>' + (data.username.length > 25 ? data.username.substring(0, 20) + '…' : data.username);
                         } else {
                             result = 'No one assigned';
