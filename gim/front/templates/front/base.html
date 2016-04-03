@@ -110,7 +110,8 @@
           }
       };
     </script>
-        <script src="{% static "front/js/lazysizes.min.js" %}" async=""></script>
+        {# lazysizes bug with cloudflare #}
+        <script data-cfasync="false" src="{% static "front/js/lazysizes.min.js" %}" async=""></script>
         <script data-cfasync="false" async src="//cdn.headwayapp.co/widget.js"></script>
     {% endif %}
 </body>
