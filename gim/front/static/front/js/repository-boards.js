@@ -9,8 +9,13 @@ $().ready(function() {
             $select: $('#board-selector'),
 
             format_option: function(state, $container) {
-                var $option = $(state.element);
-                if (!$option.attr('value')) { return state.text; }
+                var $option = $(state.element),
+                    value = $option.attr('value');
+                if (value == 'labels-editor') {
+                    $container.addClass('labels-editor-link');
+                    value = null;
+                }
+                if (!value) { return state.text; }
                 var nb_columns = $option.data('columns');
                 $container.attr('title', $option.attr('title'));
                 $container.append($('<span/>').text($option.data('name')));
@@ -18,8 +23,12 @@ $().ready(function() {
             }, // format_option
 
             format_selection: function(state, $container) {
-                var $option = $(state.element);
-                if (!$option.attr('value')) { return state.text; }
+                var $option = $(state.element),
+                    value = $option.attr('value');
+                if (value == 'labels-editor') {
+                    return '';
+                }
+                if (!value) { return state.text; }
                 return 'Current board: <strong>' + $option.data('name') + '</strong>';
             }, // format_selection
 
@@ -210,7 +219,9 @@ $().ready(function() {
             Board.lists.init();
             Board.selector.init();
             Board.arranger.init();
-            Board.container.addEventListener('scroll', Board.on_scroll); // no jquery overhead
+            if (Board.container) {
+                Board.container.addEventListener('scroll', Board.on_scroll); // no jquery overhead
+            }
         } // init
 
     }; // Board

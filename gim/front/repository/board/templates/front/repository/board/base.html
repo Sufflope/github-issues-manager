@@ -17,7 +17,7 @@
                     <div class="row-fluid">
                         <div class="span6">
                 {% endif %}
-                <select id="board-selector">
+                <select id="board-selector" autocomplete="off">
                 {% if not current_board_key %}
                     <option></option>
                 {% endif %}
@@ -31,6 +31,9 @@
                         {% if current_board_key == board_key %}Current board: {% endif %} {{ board.name|capfirst }}
                     </option>
                 {% endfor %}
+                {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
+                    <option value="labels-editor" data-url="{{ labels_editor_url }}">Edit boards from groups of labels</option>
+                {% endif %}
                 </select>
                 {% if current_board_key %}
                     </div>

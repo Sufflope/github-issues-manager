@@ -4,6 +4,7 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import Http404
 from django.utils.functional import cached_property
 
+from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView
@@ -81,7 +82,7 @@ class BoardMixin(object):
         ])
         # No board on assigned if no collaborators
         if len(boards['auto-assigned']['columns']) < 2:
-            del boards['auto-assigned']['columns']
+            del boards['auto-assigned']
 
         # Fill milestone columns
         boards['auto-milestone']['columns'] = OrderedDict([
@@ -104,7 +105,7 @@ class BoardMixin(object):
         ])
         # No board on milestones if no milestones
         if len(boards['auto-milestone']['columns']) < 2:
-            del boards['auto-milestone']['columns']
+            del boards['auto-milestone']
 
         # Add label types
         for label_type in self.label_types:
@@ -160,6 +161,8 @@ class BoardMixin(object):
 
         if current_board_key:
             self.current_board = context['current_board'] = context['boards'][current_board_key]
+
+        context['labels_editor_url'] = reverse_lazy( 'front:repository:%s' % LabelsEditor.url_name, kwargs=self.repository.get_reverse_kwargs())
 
         return context
 

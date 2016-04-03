@@ -3596,13 +3596,22 @@ body#repository_board #main-inner {
   max-height: 80%;
 }
 
-/* line 154, ../../../../../sass/pages/repository/board.scss */
+/* line 153, ../../../../../sass/pages/repository/board.scss */
+.select2-results .select2-result-label.labels-editor-link {
+  border-top: 1px solid #ddd;
+  font-style: italic;
+  font-weight: bold;
+  margin-top: 3px;
+  padding-top: 6px;
+}
+
+/* line 161, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-toggler {
   font-size: 12px;
   font-weight: normal;
 }
 
-/* line 159, ../../../../../sass/pages/repository/board.scss */
+/* line 166, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder {
   position: absolute;
   left: 0;
@@ -3613,7 +3622,7 @@ body#repository_board #main-inner {
   -webkit-transition: none;
   transition: none;
 }
-/* line 165, ../../../../../sass/pages/repository/board.scss */
+/* line 172, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div {
   background: #f5f5f5;
   -moz-box-shadow: 0 4px 5px 0 #888;
@@ -3626,17 +3635,17 @@ body#repository_board #main-inner {
   padding: 5px;
   overflow: auto;
 }
-/* line 172, ../../../../../sass/pages/repository/board.scss */
+/* line 179, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > p {
   margin: 0;
   line-height: 22px;
 }
-/* line 176, ../../../../../sass/pages/repository/board.scss */
+/* line 183, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > div {
   float: right;
   margin-bottom: 5px;
 }
-/* line 179, ../../../../../sass/pages/repository/board.scss */
+/* line 186, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > div button {
   font-weight: normal;
   margin-left: 5px;

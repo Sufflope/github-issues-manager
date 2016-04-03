@@ -150,6 +150,13 @@ body#repository_board #main-inner {
 #select2-drop.board-selector .select2-results {
   max-height: 80%;
 }
+.select2-results .select2-result-label.labels-editor-link {
+    border-top: 1px solid #ddd;
+    font-style: italic;
+    font-weight: bold;
+    margin-top: 3px;
+    padding-top: 6px;
+}
 
 #board-columns-arranger-toggler {
   font-size: 12px;
