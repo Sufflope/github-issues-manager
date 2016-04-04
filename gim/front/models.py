@@ -193,27 +193,6 @@ class _Repository(models.Model):
     def get_view_url(self, url_name):
         return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
 
-    def get_issues_filter_url(self):
-        return self.get_view_url('issues')
-
-    def get_issues_user_filter_url_for_username(self, filter_type, username):
-        """
-        Return the url to filter issues of this repositories by filter_type, for
-        the given username
-        Calls are cached for faster access
-        """
-        cache_key = (self.id, filter_type, username)
-        if cache_key not in self.get_issues_user_filter_url_for_username._cache:
-            kwargs = self.get_reverse_kwargs()
-            kwargs.update({
-                'username': username,
-                'user_filter_type': filter_type
-            })
-            self.get_issues_user_filter_url_for_username._cache[cache_key] = \
-                        reverse('front:repository:user_issues', kwargs=kwargs)
-        return self.get_issues_user_filter_url_for_username._cache[cache_key]
-    get_issues_user_filter_url_for_username._cache = {}
-
     def get_create_issue_url(self):
         return self.get_view_url('issue.create')
 

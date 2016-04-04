@@ -1,0 +1,113 @@
+$sidebar-width: 160px;
+$sidebar-hidden-width: 50px;
+$sidebar-toggler-width: 22px;
+
+.issues-filters {
+    background: #11161A;
+    width: $sidebar-width;
+    @include box-sizing(border-box);
+    border-right: solid 1px $dark-border-color;
+    .filters-toggler {
+        background: inherit;
+        display: none;
+        position: absolute;
+        top: 0;
+        right: - $sidebar-hidden-width;
+        width: $sidebar-hidden-width;
+        bottom: 0;
+        padding: 1px 5px 0 5px;
+        color: white;
+        font-size: 14px;
+        text-align: right;
+        opacity: 1;
+        @include transition(opacity 0.35s, transform 0.35s, width 0.35s);
+    }
+    .primary-sidebar {
+        width: 100%;
+        overflow: auto;
+        top: 0;
+        bottom: 0;
+        .nav > li {
+            & > a {
+                color: #bbb;
+            }
+            &:hover > a, & > a:focus, & > a.with-selection {
+                color: white;
+            }
+        }
+    }
+    .clear-all-filters > a {
+        padding-left: 5px;
+    }
+    .selection {
+        // current selection of a filter
+        display: block;
+        padding: 0 {
+            left: 5px;
+        }
+        line-height: 10px;
+        font-weight: normal;
+    }
+    a.clear-filter {
+        position: absolute;
+        top: 22px;
+        left: 10px;
+        padding: 0 !important;
+        margin: 0;
+    }
+    .filter-labels {
+        & > li > a > span {
+            border-bottom: solid 1px transparent;
+        }
+    }
+    .deferred {
+        li {
+            padding: 0 5px 0 20px;
+        }
+    }
+    .quicksearch-widget {
+        // quicksearch widgets for filters use the full width (minus 5px on each side)
+        margin: 5px 10px;
+        label {
+            margin-bottom: 0;
+            position: relative;
+            background: white;
+            @include border-radius(4px);
+        }
+        .add-on,.btn {
+            padding: 1px 0 1px 2px;
+            position: absolute;
+            top: 1px;
+            bottom: 0;
+            &:after, &:before {
+                display: none;
+            }
+            border: none;
+        }
+        .add-on {
+            @include border-radius(4px 0 0 4px);
+            left: 0;
+            z-index: 10;
+        }
+        .btn {
+            @include border-radius(0 4px 4px 0);
+            right: 0;
+            z-index: 20;
+            padding: 0;
+            i {
+                height: 22px;
+                line-height: 22px;
+            }
+        }
+        input {
+            @include box-sizing(border-box);
+            height: 24px;
+            display: block;
+            width: 100%;
+            background: transparent;
+            @include border-radius(4px);
+            padding-left: 23px;
+            padding-right: 23px;
+        }
+    } // .issues-filters .quicksearch-widget
+} // .issues-filters

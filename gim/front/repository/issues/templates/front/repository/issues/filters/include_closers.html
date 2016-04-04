@@ -1,17 +1,17 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
 <li class="accordion-group dark-nav">
     <span class="glow"></span>
-    <a class="accordion-toggle collapsed{% if issues_filter.objects.user_filter_type == 'closed_by' and issues_filter.parts.username %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-{{ view.relation }}">
+    <a class="accordion-toggle collapsed{% if issues_filter.objects.closed_by %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ view.relation }}-{{ list_uuid }}">
         Closed by
         <i class="fa fa-caret-right"></i>
-        {% if issues_filter.objects.user_filter_type == 'closed_by' and issues_filter.parts.username %}
-                <span class="selection">{{ issues_filter.parts.username }}</span>
+        {% if issues_filter.objects.closed_by %}
+                <span class="selection">{{ issues_filter.parts.closed_by }}</span>
             </a>
-            <a class="clear-filter" href="{{ root_issues_url }}{{ issues_filter.querystring }}" title="Clear this filter"><i class="fa fa-times"> </i>
+            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "closed_by" %}" title="Clear this filter"><i class="fa fa-times"> </i>
         {% endif %}
     </a>
     {% if deferred %}
-        {% include "front/repository/issues/filters/include_users_list_deferred.html" %}
+        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="closed_by" username=issues_filter.parts.closed_by %}
     {% else %}
         {% include "front/repository/issues/filters/include_closers_list.html" %}
     {% endif %}

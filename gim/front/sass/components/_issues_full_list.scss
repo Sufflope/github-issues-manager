@@ -1,0 +1,78 @@
+@import "widgets/avatar";
+@import "components/issues_mixins";
+@import "components/issues_filters";
+@import "components/issues_list";
+
+$list-title-height: 20px;
+
+.issues-list-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: $list-title-height;
+    text-align: center;
+    background: #eee;
+    border-bottom: solid 1px #d4d4d4;
+    font-weight: 600;
+    @include box-sizing(border-box);
+    cursor: default;
+}
+
+.issues-list-options {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+// second row: quicksearch filter
+.issues-quicksearch {
+    position: absolute;
+    top: $issues-list-options-height;
+    left: 0;
+    right: 0;
+    border-bottom: solid 1px $box-border-color;
+}
+
+// last row, full height: list of isuses
+.issues-list {
+    position: absolute;
+    top: $issues-list-options-height + $issues-quicksearch-height;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
+}
+
+.issues-list-container {
+  border-top: solid #FAFAFA 5px;
+  &.with-title {
+    border-top-color: #ddd;
+    .issues-list-options {
+      top: $list-title-height;
+    }
+    .issues-quicksearch {
+      top: $issues-list-options-height + $list-title-height;
+    }
+    .issues-list {
+      top: $issues-list-options-height + $issues-quicksearch-height + $list-title-height;
+    }
+  }
+  .alert {
+    margin: 0;
+    padding-right: 14px;
+    @include border-radius(0);
+    font-size: 13px;
+    font-weight: normal;
+    line-height: 18px;
+    .btn {
+      margin: 8px auto 0;
+      display: block;
+      max-width: 13em;
+    }
+    & + .box {
+      border-top-width: 1px;
+    }
+  }
+}
