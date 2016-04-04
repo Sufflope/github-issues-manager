@@ -1363,3 +1363,13 @@ class GithubNotificationManager(WithRepositoryManager):
                 pass
 
         return fields
+
+    def delete_missing_after_fetch(self, queryset):
+        """
+        By default we don't touch entries not fetched, but in the case with the parameter
+        `all=false`, and a force-fetch, we get only unread ones, so it allows you to mark all the
+        others (not fetched) as `read` (ie `unread=False`)
+        """
+        for notification in queryset.filter(manual_unread=False):
+            notification.unread = False
+            notification.save(update_fields=['unread'])

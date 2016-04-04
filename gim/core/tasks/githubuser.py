@@ -226,6 +226,9 @@ class GithubNotificationJob(DjangoModelJob):
 class FinalizeGithubNotification(GithubNotificationJob):
 
     queue_name = 'finalize-notification'
+    publish = fields.InstanceHashField()
+
+    clonable_fields = ('gh', 'publish')
 
     def run(self, queue):
         """
@@ -283,7 +286,7 @@ class FinalizeGithubNotification(GithubNotificationJob):
 
         notification.issue = issue if issue and issue.pk else None
         notification.ready = ready
-        notification.save()
+        notification.save(publish=ready and self.publish.hget() == '1')
 
         return True
 

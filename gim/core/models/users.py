@@ -8,6 +8,7 @@ __all__ = [
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.dateformat import format
 
 from extended_choices import Choices
 
@@ -295,18 +296,31 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         if parameters is None:
             parameters = {}
 
-        if 'all' not in parameters:
-            parameters['all'] = 'true'
-
-        if 'participating' not in parameters:
-            parameters['participating'] = 'false'
+        parameters['participating'] = 'false'
 
         defaults = {'fk': {'user': self}}
 
-        return self._fetch_many('github_notifications', gh,
-                                force_fetch=force_fetch,
-                                parameters=parameters,
-                                defaults=defaults)
+        # We start by fetching all new notifications
+        count = self._fetch_many('github_notifications', gh,
+                                 force_fetch=force_fetch,
+                                 parameters=parameters.update({
+                                     'all': 'true'
+                                 }),
+                                 defaults=defaults,
+                                 # mark all not fetched as read if we know all entries are fetched
+                                 remove_missing=force_fetch)
+
+        if not force_fetch:
+            # Now we fetch only - but all - unread ones to know which one are read
+            self._fetch_many('github_notifications', gh,
+                             force_fetch=True,
+                             parameters=parameters.update({
+                                 'all': 'false'
+                             }),
+                             defaults=defaults,
+                             remove_missing=True)
+
+        return count
 
     def fetch_all(self, gh=None, force_fetch=False, **kwargs):
         # FORCE GH
@@ -572,6 +586,8 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
     issue_number = models.PositiveIntegerField(blank=True, null=True, db_index=True)
     title = models.TextField()
     unread = models.BooleanField(db_index=True)
+    previous_unread = models.NullBooleanField()
+    manual_unread = models.BooleanField(default=False, db_index=True)
     last_read_at = models.DateTimeField(db_index=True, null=True)
     updated_at = models.DateTimeField(db_index=True)
     previous_updated_at = models.DateTimeField(blank=True, null=True)
@@ -600,30 +616,39 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
         ordering = ('-updated_at', )
 
     github_per_page = {'min': 100, 'max': 100}
-    delete_missing_after_fetch = False
 
     def __unicode__(self):
         return '%s notified "%s" on %s #%s' % (self.user, self.reason, self.repository, self.issue_number)
 
     def save(self, *args, **kwargs):
 
+        publish = kwargs.pop('publish', False)
+
         changed = self.updated_at != self.previous_updated_at
-        self.previous_updated_at = self.updated_at
         if changed:
+            self.previous_updated_at = self.updated_at
             self.ready = False
 
+        status_changed = self.unread != self.previous_unread
+        if status_changed:
+            self.previous_unread = self.unread
+
         if kwargs.get('update_fields') is not None:
-            kwargs['update_fields'].append('previous_updated_at')
             if changed:
+                kwargs['update_fields'].append('previous_updated_at')
                 kwargs['update_fields'].append('ready')
+            if status_changed:
+                kwargs['update_fields'].append('previous_unread')
 
         super(GithubNotification, self).save(*args, **kwargs)
 
         if changed:
             from gim.core.tasks.githubuser import FinalizeGithubNotification
-            FinalizeGithubNotification.add_job(self.pk)
+            FinalizeGithubNotification.add_job(self.pk, publish='1')
+        elif status_changed:
+            publish = True
 
-        if self.ready:
+        if publish:
             self.user.ping_github_notifications()
             self.publish()
 
@@ -703,5 +728,7 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
             id=str(self.issue.pk),
             hash=str(self.issue.saved_hash),
             url=str(self.issue.get_websocket_data_url()),
+            read=not self.unread,
+            active=self.subscribed,
         )
 
