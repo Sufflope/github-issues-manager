@@ -10,6 +10,7 @@ __all__ = [
 ]
 
 import sys
+from random import randint
 
 try:
     from cStringIO import StringIO
@@ -337,8 +338,12 @@ class FetchNotifications(UserJob):
         if not gh:
             return  # it's delayed !
 
+        # some times to times, fetch all notifications to know which one are read
+        force_fetch = not bool(randint(0, 14))  # in average every 15 calls
+
         response_headers = {}
-        count = user.fetch_github_notifications(None, parameters={'response_headers': response_headers})
+        count = user.fetch_github_notifications(None, force_fetch=force_fetch,
+                                                parameters={'response_headers': response_headers})
 
         try:
             delay = int(response_headers['x-poll-interval'])
