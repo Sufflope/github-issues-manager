@@ -20,7 +20,7 @@ class InjectNotificationForm(Node):
                     <span data-filter="reason:{{ notification.reason }}" title="{{ reason.description_one|capfirst }}" title_all="{{ reason.description|capfirst }}">{{ reason.name }}</span>.
                 {% endwith %}
             </span>
-            <form action="{{ notification.get_edit_url }}" method="post">{% csrf_token %}
+            <form action="{{ notification.get_edit_url }}" method="post"{% if notification.manual_unread %} data-manual-unread="true"{% endif %}>{% csrf_token %}
                 <div>
                     <span title="Marking unread a read notification will not update the notification on the Github side." data-filter="unread:{{ notification.unread|yesno }}">
                         <input type="checkbox" name="read" id="notif-read-{{ uuid }}" value="1"{% if not notification.unread %} checked=checked{% endif %} autocomplete="off" />

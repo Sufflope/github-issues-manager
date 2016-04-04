@@ -5622,6 +5622,8 @@ $().ready(function() {
             $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
             $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
 
+            $form.data('manual-unread', data.manual_unread);
+
             GithubNotifications.on_notifications_ping(null, null, {
                 count: data.count,
                 last: data.last
@@ -5682,12 +5684,25 @@ $().ready(function() {
             if (body_id == 'github_notifications') {
                 WS.subscribe(
                     'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
-                    'GithubNotification__on_issue',
-                    IssuesList.on_update_alert,
+                    'GithubNotifications__on_issue',
+                    GithubNotifications.on_notification_updated,
                     'exact'
                 );
             }
         }, // init_subscription
+
+        on_notification_updated: function(topic, args, kwargs) {
+            if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
+            var issue = IssuesList.get_issue_by_id(kwargs.id);
+            if (issue) {
+                var $form = issue.$node.find(GithubNotifications.item_selector + ' form'),
+                    values = {read: kwargs.read, active: kwargs.active};
+                GithubNotifications.save_values($form, values);
+                GithubNotifications.apply_values($form, values);
+            }
+
+            IssuesList.on_update_alert(topic, args, kwargs);
+        }, // on_notification_updated
 
         on_notifications_ping: function (topic, args, kwargs) {
             var $node = GithubNotifications.$count_node,

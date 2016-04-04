@@ -322,6 +322,7 @@ class GithubNotificationEditView(UpdateView):
                 'read': not self.object.unread,
                 'active': self.object.subscribed,
             },
+            'manual_unread': self.object.manual_unread,
             'count': self.request.user.unread_notifications_count,
             'last': self.request.user.last_unread_notification_date,
         }
@@ -331,7 +332,16 @@ class GithubNotificationEditView(UpdateView):
             data['error_msg'] = error_msg
         return json.dumps(data)
 
+    def get_object(self, queryset=None):
+        obj = super(GithubNotificationEditView, self).get_object(queryset)
+        self.original_unread = obj.unread
+        return obj
+
     def form_valid(self, form):
+
+        # If a read notification is marked unread by the user, mark it as "manually_unread"
+        if self.original_unread != form.cleaned_data['unread']:
+            self.object.manual_unread = form.cleaned_data['unread']
         self.object = form.save()
 
         from gim.core.tasks.githubuser import GithubNotificationEditJob
