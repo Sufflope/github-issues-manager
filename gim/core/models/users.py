@@ -296,31 +296,20 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         if parameters is None:
             parameters = {}
 
-        parameters['participating'] = 'false'
+        parameters.update({
+            'participating': 'false',
+            'all': 'true',
+        })
 
         defaults = {'fk': {'user': self}}
 
         # We start by fetching all new notifications
-        count = self._fetch_many('github_notifications', gh,
-                                 force_fetch=force_fetch,
-                                 parameters=parameters.update({
-                                     'all': 'true'
-                                 }),
-                                 defaults=defaults,
-                                 # mark all not fetched as read if we know all entries are fetched
-                                 remove_missing=force_fetch)
-
-        if not force_fetch:
-            # Now we fetch only - but all - unread ones to know which one are read
-            self._fetch_many('github_notifications', gh,
-                             force_fetch=True,
-                             parameters=parameters.update({
-                                 'all': 'false'
-                             }),
-                             defaults=defaults,
-                             remove_missing=True)
-
-        return count
+        return self._fetch_many('github_notifications', gh,
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                defaults=defaults,
+                                # mark all not fetched as read if we know all entries are fetched
+                                remove_missing=force_fetch)
 
     def fetch_all(self, gh=None, force_fetch=False, **kwargs):
         # FORCE GH
