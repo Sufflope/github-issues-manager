@@ -1543,9 +1543,10 @@ $().ready(function() {
         }
     }); // IssuesList_update_time_ago
 
-    IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
+    IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method, current_panel) {
         var decorator = function() {
             if (!IssuesList.current) { return; }
+            if (current_panel && (!PanelsSwapper.current_panel || PanelsSwapper.current_panel.obj != IssuesList.current)) { return; }
             return IssuesList.current[list_method]();
         };
         return Ev.key_decorate(decorator);
@@ -1559,7 +1560,7 @@ $().ready(function() {
         jwerty.key('f', IssuesList.on_current_list_key_event('focus_search_input'));
         jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input'));
         jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details'));
-        jwerty.key('r', IssuesList.on_current_list_key_event('refresh'));
+        jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true));
         for (var i = 0; i < IssuesList.all.length; i++) {
             var issues_list = IssuesList.all[i];
             if (issues_list.$search_input.length) {
