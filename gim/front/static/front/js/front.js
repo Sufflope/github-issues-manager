@@ -4006,6 +4006,7 @@ $().ready(function() {
         } // converts
     }); // ajaxSetup
     MessagesManager.init();
+    window.MessagesManager = MessagesManager;
 
     var IssueEditor = {
         disable_form: (function IssueEditor__disable_form ($form) {

@@ -200,7 +200,7 @@ body > header .brand:hover #HW_badge.HW_softHidden {
     position: fixed;
     top: $header-top + 20px;
     right: 16px;
-    z-index: 2000;
+    z-index: 10000;
 }
 
 .loading-mask {

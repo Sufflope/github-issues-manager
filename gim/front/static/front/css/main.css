@@ -5086,7 +5086,7 @@ body > header .brand:hover #HW_badge.HW_softHidden {
   position: fixed;
   top: 67px;
   right: 16px;
-  z-index: 2000;
+  z-index: 10000;
 }
 
 /* line 206, ../../../sass/main.scss */

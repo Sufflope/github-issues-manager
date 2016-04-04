@@ -221,6 +221,8 @@ $().ready(function() {
             Board.arranger.init();
             if (Board.container) {
                 Board.container.addEventListener('scroll', Board.on_scroll); // no jquery overhead
+            } else {
+                MessagesManager.add_messages(MessagesManager.make_message('Boards are read-only for now.', 'info'));
             }
         } // init
 
