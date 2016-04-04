@@ -243,7 +243,7 @@ LOGGING = {
         'gim.ws': {
             'handlers': ['console'],
             'level': 'INFO',
-            'propagage': True,
+            'propagate': False,
         },
     }
 }
