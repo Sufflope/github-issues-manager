@@ -5742,6 +5742,10 @@ $().ready(function() {
                 $node.addClass('new-notifications');
             }
 
+            // new info are now the reference
+            GithubNotifications.orig_count = new_count;
+            GithubNotifications.orig_date = new_date;
+
         }, // on_notifications_ping
 
         init: function () {
