@@ -22,7 +22,7 @@ class Renderer(object):
                 default_avatar=GithubUser.get_default_avatar(),
                 full_avatar_url=avatar_size(user['full_avatar_url'], 24),
             )
-            return self.USER_HTML_TEMPLATE % user
+            return self.USER_HTML_TEMPLATE % data
 
     def helper_strong(self, value, mode, quote_if_text=True):
         if mode == 'text':
