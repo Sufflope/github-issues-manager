@@ -1,26 +1,26 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
 <li class="accordion-group dark-nav">
     <span class="glow"></span>
-    <a class="accordion-toggle collapsed{% if issues_filter.objects.user_filter_type == 'assigned' and issues_filter.parts.username %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-{{ view.relation }}">
+    <a class="accordion-toggle collapsed{% if issues_filter.objects.assigned %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ view.relation }}-{{ list_uuid }}">
         Assignees
         <i class="fa fa-caret-right"></i>
 
-        {% if issues_filter.objects.user_filter_type == 'assigned' and issues_filter.parts.username %}
+        {% if issues_filter.objects.assigned %}
                 <span class="selection">
-                    {% if issues_filter.parts.username == '__none__' %}
+                    {% if issues_filter.parts.assigned == '__none__' %}
                         (&nbsp;No&nbsp;one&nbsp;assigned&nbsp;)
-                    {% elif issues_filter.parts.username == '__any__' %}
+                    {% elif issues_filter.parts.assigned == '__any__' %}
                         (&nbsp;Someone&nbsp;assigned&nbsp;)
                     {% else %}
-                        {{ issues_filter.parts.username }}
+                        {{ issues_filter.parts.assigned }}
                     {% endif %}
                 </span>
             </a>
-            <a class="clear-filter" href="{{ root_issues_url }}{{ issues_filter.querystring }}" title="Clear this filter"><i class="fa fa-times"> </i>
+            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "assigned" %}" title="Clear this filter"><i class="fa fa-times"> </i>
         {% endif %}
     </a>
     {% if deferred %}
-        {% include "front/repository/issues/filters/include_users_list_deferred.html" %}
+        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="assigned" username=issues_filter.parts.assigned %}
     {% else %}
         {% include "front/repository/issues/filters/include_assigned_list.html" %}
     {% endif %}

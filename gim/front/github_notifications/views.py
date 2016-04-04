@@ -38,10 +38,11 @@ GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_b
 
 class GithubNotifications(BaseIssuesView, TemplateView):
 
-    template_name = 'front/dashboard/github_notifications.html'
+    template_name = 'front/github_notifications/base.html'
     url_name = 'front:github-notifications:home'
 
-    issue_item_template_name = 'front/dashboard/include_issue_item_for_cache.html'
+    filters_and_list_template_name = 'front/github_notifications/include_filters_and_list.html'
+    issue_item_template_name = 'front/github_notifications/include_issue_item_for_cache.html'
 
     default_qs = 'read=no&sort=notification&direction=desc'
 

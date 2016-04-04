@@ -1,10 +1,9 @@
-{% load staticfiles frontutils %}{% spaceless %}
+{% load frontutils %}{% spaceless %}
 {% url "front:dashboard:repositories:add" as repository_add_url %}
 {% url "front:dashboard:repositories:remove" as repository_remove_url %}
-{% static 'front/img/default-avatar.png' as default_avatar %}
 <div class="area-top">
     {{ tab.class.description }}
-    {% include "front/include_quicksearch.html" with id="tab-"|add:tab.class.slug|add:"-search" target="#available-repositories .tab-pane.tab-"|add:tab.class.slug|add:" tbody tr" content="td:first-child" class="small pull-right" only %}
+    {% include "front/include_quicksearch.html" with id="tab-"|concat:tab.class.slug|concat:"-search" target="#available-repositories .tab-pane.tab-"|concat:tab.class.slug|concat:" tbody tr" content="td:first-child" class="small pull-right" only %}
     {% block top-addon %}{% endblock %}
 </div>
 {% if groups|length %}

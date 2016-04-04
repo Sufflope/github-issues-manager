@@ -1,4 +1,4 @@
-{% extends "front/issues/base.html" %}
+{% extends "front/issues/include_filters_and_list.html" %}
 {% load staticfiles querystring frontutils issues_tags %}
 
 {% block group_by_name %}
@@ -30,7 +30,7 @@
     {% if label_types|length %}
         <li class="divider"></li>
         {% for label_type in label_types %}
-            {% with "type:"|add:label_type.name as label_type_group_name %}
+            {% with "type:"|concat:label_type.name as label_type_group_name %}
                 {% if label_type.labels.ready.count %}
                     <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
                         <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">
@@ -47,44 +47,46 @@
 {% endblock %}
 
 {% block before_common_filters %}
-    {% with assigned_url=current_repository|base_url_issues_filtered_by_assigned:user createdy_url=current_repository|base_url_issues_filtered_by_created_by:user current_url=view.request.path|add:'?'|add:view.request.META.QUERY_STRING %}
+
+    {% block default_filters %}
+    {% with current_url=view.request.path|concat:'?'|concat:view.request.META.QUERY_STRING %}
 
         <li class="accordion-group dark-nav">
             <span class="glow"></span>
-            <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#default-filters">
+            <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#default-filters-{{ list_uuid }}">
                 Default filters
                 <i class="fa fa-caret-right"></i>
             </a>
 
-            <ul id="default-filters" class="collapse">
+            <ul id="default-filters-{{ list_uuid }}" class="collapse">
                 {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
-                    {% with default_filter_url=assigned_url|add:'?state=open' %}
+                    {% with default_filter_url=current_issues_url|concat:'?state=open&amp;assigned='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Open assigned to you">Open assigned to you</a>
                     </li>
                     {% endwith %}
                 {% endif %}
-                {% with default_filter_url=createdy_url|add:'?state=open' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;created_by='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Open created by you">Open created by you</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=createdy_url|add:'?state=open&amp;pr=yes' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;pr=yes;created_by='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Your open pull requests">Your open pull requests</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=root_issues_url|add:'?state=open' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open issues">All open issues</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=current_repository|base_url_issues_filtered_by_assigned:'__none__'|add:'?state=open' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;assigned=__none__' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open not assigned">All open not assigned</a>
                     </li>
                 {% endwith %}
-                {% with default_filter_url=root_issues_url|add:'?state=open&amp;pr=yes' %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;pr=yes' %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="All open pull requests">All open pull requests</a>
                     </li>
@@ -93,30 +95,37 @@
         </li>
 
     {% endwith %}
+    {% endblock default_filters %}
 
+    {% block filter-creators %}
     {# List of issues creators #}
     {% if issues_creators.count %}
         {{ issues_creators.part|safe }}
     {% endif %}
+    {% endblock filter-creators %}
 
+    {% block filter-assigned %}
     {# List of assigned #}
     {% if issues_assigned.count %}
         {{ issues_assigned.part|safe }}
     {% endif %}
+    {% endblock filter-assigned %}
 
+    {% block filter-closers %}
     {# List of closed-by #}
     {% if issues_closers.count %}
         {{ issues_closers.part|safe }}
     {% endif %}
+    {% endblock filter-closers %}
 {% endblock before_common_filters %}
 
 {% block after_common_filters %}
+    {% block filter-milestone %}
     {# The milestones #}
-    {% with milestones=current_repository.milestones.ready %}
-        {% if milestones|length %}
+    {% if milestones|length %}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
-                <a class="accordion-toggle collapsed{% if issues_filter.objects.milestone %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-milestone">
+                <a class="accordion-toggle collapsed{% if issues_filter.objects.milestone %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-milestone-{{ list_uuid }}">
                     Milestone
                     <i class="fa fa-caret-right"></i>
                     {% if issues_filter.objects.milestone %}
@@ -124,41 +133,43 @@
                                 {% if issues_filter.objects.milestone == '__none__' %}
                                     (&nbsp;No&nbsp;milestones&nbsp;)
                                 {% else %}
-                                    {{ issues_filter.objects.milestone }}
+                                    {{ issues_filter.objects.milestone }} <em>({{ issues_filter.objects.milestone.state }})</em>
                                 {% endif %}
                             </span>
                         </a>
                         <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "milestone" %}" title="Clear this filter"><i class="fa fa-times"> </i>
                     {% endif %}
                 </a>
-                <ul id="filter-milestone" class="collapse">
+                <ul id="filter-milestone-{{ list_uuid }}" class="collapse">
                     <li{% if issues_filter.parts.milestone == "__none__" %} class="active"{% endif %}>
                         <a href="{{ current_issues_url }}{% toggle_in_querystring "milestone" "__none__" %}">(&nbsp;No&nbsp;milestones&nbsp;)</a>
                     </li>
                     {% if milestones|length > 10 %}
                         <li>
-                            {% include "front/include_quicksearch.html" with id="filter-milestone" target="#filter-milestone li.milestone" only %}
+                            {% include "front/include_quicksearch.html" with target="#filter-milestone-"|concat:list_uuid|concat:" li.milestone" only %}
                         </li>
                     {% endif %}
                     {% for milestone in milestones %}
                         <li class="milestone{% if issues_filter.objects.milestone.number == milestone.number %} active{% endif %}">
-                            <a href="{{ current_issues_url }}{% toggle_in_querystring "milestone" milestone.number %}">{{ milestone }}</a>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "milestone" milestone.number %}">{{ milestone }} <em>({{ milestone.state }})</em></a>
                         </li>
                     {% endfor %}
                 </ul>
             </li>
         {% endif %}
-    {% endwith %}
+    {% endblock filter-milestone %}
 
+    {% block filter-label_types %}
     {# The different label-types #}
     {% for label_type in label_types %}
+        {% block filter-label_type %}
         {% with label_type.labels.ready as label_type_labels %}
             {% if label_type_labels|length %}
                 {% attributes_for_list label_type_labels "name" as label_names %}
-                {% with unset=label_type.name|add:":__none__" %}{% with label_names=label_names|append:unset current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
+                {% with unset=label_type.name|concat:":__none__" %}{% with label_names=label_names|append:unset current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
                 <li class="accordion-group dark-nav">
                     <span class="glow"></span>
-                    <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-label-type-{{ label_type.id }}">
+                    <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
                         {{ label_type.name }}
                         <i class="fa fa-caret-right"></i>
                             {% if current_label_for_label_type %}
@@ -173,13 +184,13 @@
                                 {% endif %}
                             {% endif %}
                     </a>
-                    <ul id="filter-label-type-{{ label_type.id }}" class="collapse filter-labels">
+                    <ul id="filter-label-type-{{ label_type.id }}-{{ list_uuid }}" class="collapse filter-labels">
                         <li{% if current_label_for_label_type == '__none__' %} class="active"{% endif %}>
                             <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}">(&nbsp;Not set&nbsp;)</a>
                         </li>
                         {% if label_type_labels|length > 10 %}
                             <li>
-                                {% include "front/include_quicksearch.html" with id="filter-label-type-"|add:label_type.id target="#filter-label-type-"|add:label_type.id|add:" li.typed_label" only %}
+                                {% include "front/include_quicksearch.html" with target="#filter-label-type-"|concat:label_type.id|concat:"-"|concat:list_uuid|concat:" li.typed_label" only %}
                             </li>
                         {% endif %}
                         {% for label in label_type_labels %}
@@ -194,14 +205,17 @@
                 {% endwith %}{% endwith %}
             {% endif %}
         {% endwith %}
+        {% endblock filter-label_type %}
     {% endfor %}
+    {% endblock filter-label_types %}
 
+    {% block filter-labels %}
     {# Simple labels #}
     {% with untyped_labels=current_repository.untyped_labels.all %}
         {% if untyped_labels|length %}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
-                <a class="accordion-toggle collapsed{% if issues_filter.objects.current_labels %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion" href="#filter-labels">
+                <a class="accordion-toggle collapsed{% if issues_filter.objects.current_labels %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-labels-{{ list_uuid }}">
                     Labels
                     <i class="fa fa-caret-right"></i>
                     {% if issues_filter.objects.current_labels %}
@@ -211,10 +225,10 @@
                         <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "labels" current_label_names %}" title="Clear this filter"><i class="fa fa-times"> </i>
                     {% endif %}
                 </a>
-                <ul id="filter-labels" class="collapse filter-labels">
+                <ul id="filter-labels-{{ list_uuid }}" class="collapse filter-labels">
                     {% if untyped_labels|length > 10 %}
                         <li>
-                            {% include "front/include_quicksearch.html" with id="filter-labels" target="#filter-labels li.untyped_label" only %}
+                            {% include "front/include_quicksearch.html" with  target="#filter-labels-"|concat:list_uuid|concat:" li.untyped_label" only %}
                         </li>
                     {% endif %}
                     {% for label in untyped_labels %}
@@ -228,4 +242,5 @@
             </li>
         {% endif %}
     {% endwith %}
+    {% endblock filter-labels %}
 {% endblock after_common_filters %}

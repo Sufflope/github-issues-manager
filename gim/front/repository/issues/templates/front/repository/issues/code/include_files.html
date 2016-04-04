@@ -7,8 +7,8 @@
     <div class="code-files-list-nav">
         <nav>
             {% if nb_changed_files > 1 %}
-                {% with base=id_prefix|add:'-files' %}
-                    {% include "front/include_quicksearch.html" with id=base|add:'-search' target='#'|add:base|add:' .code-file, #'|add:base|add:' .code-files-list tr' content='.path' title="Fiter on file names" class="files-filter" only %}
+                {% with base=id_prefix|concat:'-files' %}
+                    {% include "front/include_quicksearch.html" with id=base|concat:'-search' target='#'|concat:base|concat:' .code-file, #'|concat:base|concat:' .code-files-list tr' content='.path' title="Fiter on file names" class="files-filter" only %}
                 {% endwith %}
             {% endif %}
             {% if nb_changed_files > 1 or entry_points_dict|length%}

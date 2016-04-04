@@ -48,6 +48,7 @@ AVAILABLE_PERMISSIONS = Choices(
 class GithubUser(GithubObjectWithId, AbstractUser):
     # username will hold the github "login"
     token = models.TextField(blank=True, null=True)
+    full_name = models.TextField(blank=True, null=True)
     avatar_url = models.TextField(blank=True, null=True)
     is_organization = models.BooleanField(default=False)
     organizations = models.ManyToManyField('self', related_name='members')
@@ -67,6 +68,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
     github_matching = dict(GithubObjectWithId.github_matching)
     github_matching.update({
         'login': 'username',
+        'name': 'full_name',
     })
     github_ignore = GithubObjectWithId.github_ignore + ('token', 'is_organization', 'password',
         'is_staff', 'is_active', 'date_joined', 'username', ) + ('following_url', 'events_url',
@@ -76,6 +78,9 @@ class GithubUser(GithubObjectWithId, AbstractUser):
     class Meta:
         app_label = 'core'
         ordering = ('username', )
+
+    def must_be_fetched(self):
+        return not self.fetched_at or self.full_name is None
 
     @property
     def github_url(self):

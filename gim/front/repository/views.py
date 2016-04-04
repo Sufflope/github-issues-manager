@@ -1,5 +1,6 @@
 from django.core.urlresolvers import reverse_lazy
 from django.utils.decorators import classonlymethod
+from django.utils.functional import cached_property
 from django.views.generic import DetailView
 
 from gim.front.mixins.views import SubscribedRepositoryViewMixin, WithSubscribedRepositoriesViewMixin
@@ -14,8 +15,8 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
     url_name = None
     default_qs = None
 
-    # set to False to not display in the main menu bar
-    display_in_menu = True
+    # set to True to display in the main menu bar
+    display_in_menu = False
 
     # internal attributes
     main_views = []
@@ -25,7 +26,7 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         """
         Override to call register_main_view if the view is a main one
         """
-        if BaseRepositoryView in cls.__bases__:
+        if cls.display_in_menu:
             BaseRepositoryView.register_main_view(cls)
         return super(BaseRepositoryView, cls).as_view(*args, **kwargs)
 
@@ -55,7 +56,7 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
                 'display_in_menu': view_class.display_in_menu,
                 'url': reverse_lazy('front:repository:%s' % view_class.url_name, kwargs=reverse_kwargs),
                 'qs': view_class.default_qs,
-                'is_current': self.main_url_name == view_class.url_name,
+                'is_current': self.display_in_menu and self.main_url_name == view_class.url_name,
                 'title': view_class.name
             }
             repo_main_views.append(main_view)
@@ -64,3 +65,11 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         context['repository_main_views'] = repo_main_views
 
         return context
+
+    @cached_property
+    def label_types(self):
+        return self.repository.label_types.all().prefetch_related('labels').order_by('name')
+
+    @cached_property
+    def milestones(self):
+        return self.repository.milestones.all()

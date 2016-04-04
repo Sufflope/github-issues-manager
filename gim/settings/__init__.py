@@ -170,6 +170,8 @@ INSTALLED_APPS = (
     'gim.front.dashboard',
     'gim.front.dashboard.repositories',
 
+    'gim.front.github_notifications',
+
     'gim.front.repository',
     'gim.front.repository.issues',
     'gim.front.repository.dashboard',
@@ -361,6 +363,8 @@ CROSSBAR_REST_PORT = get_env_variable('CROSSBAR_REST_PORT', default='8888')
 CROSSBAR_REST_KEY = str(get_env_variable('CROSSBAR_REST_KEY'))
 CROSSBAR_REST_SECRET = str(get_env_variable('CROSSBAR_REST_SECRET'))
 WS_SUBDOMAIN = get_env_variable('WS_SUBDOMAIN', default=None) or None
+
+AVATARS_PREFIX = get_env_variable('AVATARS_PREFIX', default='') or ''
 
 BRAND_SHORT_NAME = get_env_variable('BRAND_SHORT_NAME', default='G.I.M')
 BRAND_LONG_NAME = get_env_variable('BRAND_LONG_NAME', default='Github Issues Manager')

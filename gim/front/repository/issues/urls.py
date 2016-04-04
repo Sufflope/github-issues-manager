@@ -1,6 +1,6 @@
 from django.conf.urls import patterns, url
 
-from .views import (IssuesView, IssueView, IssueSummaryView, UserIssuesView, IssuePreviewView,
+from .views import (IssuesView, IssueView, IssueSummaryView, IssuePreviewView,
                     CreatedIssueView,
                     SimpleAjaxIssueView, FilesAjaxIssueView, CommitAjaxIssueView,
                     IssueEditState, IssueEditTitle, IssueEditBody,
@@ -19,7 +19,6 @@ urlpatterns = patterns('',
     url(r'^filter/creators/', IssuesFilterCreators.as_view(), name=IssuesFilterCreators.url_name),
                        url(r'^filter/assigned/', IssuesFilterAssigned.as_view(), name=IssuesFilterAssigned.url_name),
                        url(r'^filter/closers/', IssuesFilterClosers.as_view(), name=IssuesFilterClosers.url_name),
-                       url(r'^(?P<user_filter_type>(?:assigned|created_by|closed_by))/(?P<username>[^/]+)/$', UserIssuesView.as_view(), name=UserIssuesView.url_name),
 
                        # issue view
     url(r'^(?P<issue_number>\d+)/$', IssueView.as_view(), name=IssueView.url_name),

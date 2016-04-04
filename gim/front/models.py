@@ -5,6 +5,8 @@ from operator import attrgetter, itemgetter
 from threading import local
 import re
 
+from django.conf import settings
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
 from django.db.models import ForeignKey, FieldDoesNotExist
@@ -105,6 +107,18 @@ class _GithubUser(Hashable, models.Model):
     class Meta:
         abstract = True
 
+    @classmethod
+    def get_default_avatar(cls):
+        if not hasattr(core_models.GithubUser, '_default_avatar'):
+            core_models.GithubUser._default_avatar = staticfiles_storage.url('front/img/default-avatar.png')
+        return core_models.GithubUser._default_avatar
+
+    @cached_property
+    def full_avatar_url(self):
+        if self.avatar_url:
+            return '%s%s' % (settings.AVATARS_PREFIX, self.avatar_url)
+        return core_models.GithubUser.get_default_avatar()
+
     @property
     def hash(self):
         """
@@ -178,27 +192,6 @@ class _Repository(models.Model):
 
     def get_view_url(self, url_name):
         return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
-
-    def get_issues_filter_url(self):
-        return self.get_view_url('issues')
-
-    def get_issues_user_filter_url_for_username(self, filter_type, username):
-        """
-        Return the url to filter issues of this repositories by filter_type, for
-        the given username
-        Calls are cached for faster access
-        """
-        cache_key = (self.id, filter_type, username)
-        if cache_key not in self.get_issues_user_filter_url_for_username._cache:
-            kwargs = self.get_reverse_kwargs()
-            kwargs.update({
-                'username': username,
-                'user_filter_type': filter_type
-            })
-            self.get_issues_user_filter_url_for_username._cache[cache_key] = \
-                        reverse('front:repository:user_issues', kwargs=kwargs)
-        return self.get_issues_user_filter_url_for_username._cache[cache_key]
-    get_issues_user_filter_url_for_username._cache = {}
 
     def get_create_issue_url(self):
         return self.get_view_url('issue.create')
@@ -690,7 +683,7 @@ class GroupedItems(list):
         author = getattr(entry, cls.author_field)
         return {
             'username': author.username,
-            'avatar_url': author.avatar_url,
+            'full_avatar_url': author.full_avatar_url,
         }
 
     def authors(self):
@@ -734,7 +727,7 @@ class GroupedCommits(GroupedItems):
         else:
             return {
                 'username': entry.author_name,
-                'avatar_url': None,
+                'full_avatar_url': None,
             }
 
 

@@ -1,0 +1,9 @@
+{% extends "front/issues/shortcuts_window.html" %}
+
+{% block column1 %}
+    {{ block.super }}
+    <h4>On boards</h4>
+    <table class="table table-condensed">
+        <tr><td><span class="label label-inverse">x</span></td><td>Close the current column</td></tr>
+    </table>
+{% endblock column1 %}

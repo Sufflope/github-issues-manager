@@ -2,12 +2,13 @@
 
 from django.utils.html import escape
 
-from gim.core.models import GITHUB_COMMIT_STATUS_CHOICES
+from gim.core.models import GITHUB_COMMIT_STATUS_CHOICES, GithubUser
 from gim.front.diff import HtmlDiff, HtmlDiffWithoutControl
+from gim.front.templatetags.frontutils import avatar_size
 
 
 class Renderer(object):
-    USER_HTML_TEMPLATE = '<strong><img class="avatar-tiny img-circle" src="%(avatar_url)s"> %(username)s</strong>'
+    USER_HTML_TEMPLATE = '<strong><img class="avatar-tiny img-circle lazyload" src="%(default_avatar)s" data-src="%(full_avatar_url)s"> %(username)s</strong>'
     STRONG = '<strong>%s</strong>'
 
     def __init__(self, event):
@@ -17,7 +18,11 @@ class Renderer(object):
         if mode == 'text':
             return user['username']
         else:
-            return self.USER_HTML_TEMPLATE % user
+            data = dict(user,
+                default_avatar=GithubUser.get_default_avatar(),
+                full_avatar_url=avatar_size(user['full_avatar_url'], 24),
+            )
+            return self.USER_HTML_TEMPLATE % data
 
     def helper_strong(self, value, mode, quote_if_text=True):
         if mode == 'text':

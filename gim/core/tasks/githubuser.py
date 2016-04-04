@@ -1,6 +1,7 @@
 from django.utils.functional import cached_property
 
 __all__ = [
+    'FetchUser',
     'FetchAvailableRepositoriesJob',
     'ManageDualUser',
     'FinalizeGithubNotification',
@@ -36,6 +37,31 @@ class UserJob(DjangoModelJob):
     @cached_property
     def user(self):
         return self.object
+
+
+class FetchUser(UserJob):
+    """We need to fetch the full user to have its name"""
+
+    queue_name = 'fetch-user'
+    clonable_fields = ('force_fetch', )
+
+    force_fetch = fields.InstanceHashField()
+
+    permission = 'read'
+
+    def run(self, queue):
+        super(FetchUser, self).run(queue)
+
+        user = self.user
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        force_fetch = self.force_fetch.hget() == '1' or user.must_be_fetched()
+
+        return user.fetch(gh, force_fetch=force_fetch)
+
 
 
 class FetchAvailableRepositoriesJob(UserJob):

@@ -6,6 +6,7 @@
         <div class="modal-body">
             <div class="row-fluid">
                 <div class="span6">
+                    {% block column1 %}
                     <h4>On the issue detail view</h4>
                     <table class="table table-condensed">
                         <tr><td><span class="label label-inverse">CTRL + <i class="fa fa-arrow-left"> </i></span></td><td>Focus the list of issues</td></tr>
@@ -27,6 +28,7 @@
                         <tr><td><span class="label label-inverse">f</span></td><td>Focus the filter input</td></tr>
                         <tr><td><span class="label label-inverse">t</span></td><td>Toggle the top files list</td></tr>
                     </table>
+                    {% endblock column1 %}
                     <h4>Other</h4>
                     <table class="table table-condensed">
                         {% if can_add_issues %}
@@ -39,15 +41,20 @@
                     </table>
                 </div>
                 <div class="span6">
+                    {% block column2 %}
                     <h4>Anywhere on the issues-list</h4>
                     <table class="table table-condensed">
                         <tr><td><span class="label label-inverse">d</span></td><td>Toggle details for issues</td></tr>
+                        <tr><td><span class="label label-inverse">r</span></td><td>Refresh the list</td></tr>
                         <tr><td><span class="label label-inverse">f</span></td><td>Focus the filter input</td></tr>
                         <tr><td><span class="label label-inverse">CTRL + u</span></td><td>Clear the search input</td></tr>
-                        <tr><td><span class="label label-inverse">CTRL + <i class="fa fa-arrow-right"> </i></span></td><td>Focus the detail view</td></tr>
+                        <tr><td><span class="label label-inverse">CTRL + <i class="fa fa-arrow-right"> </i></span></td><td>Focus the next list or the details view</td></tr>
                     </table>
-                    <h4>On issues in the issues list</h4>
+                    <h4>On issues an issues list</h4>
                     <table class="table table-condensed">
+                        <tr>
+                            <td><span class="label label-inverse">SPACE or <span class="label label-inverse">CTRL + CLICK</span></span></td><td>Toggle details</td>
+                        </tr>
                         <tr>
                             <td><span class="label label-inverse">n</span>, <span class="label label-inverse">j</span> or <span class="label label-inverse"><i class="fa fa-arrow-down"> </i></span></td><td>Focus the next issue</td>
                         </tr>
@@ -57,6 +64,10 @@
                         <tr><td><span class="label label-inverse">HOME</span></td><td>Focus the first issue of the current group</td></tr>
                         <tr><td><span class="label label-inverse">END</span></td><td>Focus the last issue of the current group</td></tr>
                         <tr><td><span class="label label-inverse">c</span> or <span class="label label-inverse"><i class="fa fa-arrow-left"> </i></span></td><td>Close the current group</td></tr>
+                        <tr>
+                            <td><span class="label label-inverse">CLICK</span> or <span class="label label-inverse">ENTER</span></td><td>Open the details view</td>
+                        </tr>
+                        <tr><td><span class="label label-inverse">SHIFT + CLICK</span></td><td>Open the details view in modal</td> </tr>
                         {% block on-issues-on-issues-list %}{% endblock %}
                     </table>
                     <h4>On Groups in the issues list</h4>
@@ -73,6 +84,7 @@
                         <tr><td><span class="label label-inverse">HOME</span></td><td>Focus the first group</td></tr>
                         <tr><td><span class="label label-inverse">END</span></td><td>Focus the last group</td></tr>
                     </table>
+                    {% endblock column2 %}
                 </div>
             </div>
         </div>

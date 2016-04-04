@@ -161,7 +161,7 @@ class IssueAssigneeFormPart(object):
     def get_collaborators_json(self, collaborators):
         data = {u.id: {
                         'id': u.id,
-                        'avatar_url': u.avatar_url,
+                        'full_avatar_url': u.full_avatar_url,
                         'username': u.username,
                       }
                 for u in collaborators}

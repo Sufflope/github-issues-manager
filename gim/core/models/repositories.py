@@ -149,9 +149,16 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_collaborators(self, gh, force_fetch=False, parameters=None):
-        return self._fetch_many('collaborators', gh,
-                                force_fetch=force_fetch,
-                                parameters=parameters)
+        count = self._fetch_many('collaborators', gh,
+                                 force_fetch=force_fetch,
+                                 parameters=parameters)
+
+        from gim.core.tasks.githubuser import FetchUser
+        for user in self.collaborators.all():
+            if user.must_be_fetched():
+                FetchUser.add_job(user.pk, force_fetch=1)
+
+        return count
 
     @property
     def github_callable_identifiers_for_labels(self):

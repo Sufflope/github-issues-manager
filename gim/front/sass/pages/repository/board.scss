@@ -1,0 +1,192 @@
+@import "bootstrap/variables";
+@import "variables";
+@import "gim_variables";
+
+@import "compass/css3/border-radius";
+@import "compass/css3/box-sizing";
+@import "compass/css3/box-shadow";
+@import "compass/css3/text-shadow";
+@import "compass/css3/transition";
+
+@import "components/issues_full_list";
+@import "components/issue";
+
+@import "modals/shortcuts";
+@import "modals/gotoissue";
+
+$board-header-height: 51px;
+
+// enforce height to tell columns to scroll in this height
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+#main {
+  height: 100%;
+  overflow: hidden;
+  padding-right: 0;
+  padding-left: 0;
+  padding-top: 0;
+}
+
+body#repository_board #main-inner {
+  padding: 0;
+  padding-top: $header-top;
+  height: 100%;
+  @include box-sizing(border-box);
+  position: relative;
+}
+
+
+.row-header {
+  height: ($board-header-height - 1px);
+  position: relative;
+  top: $header-top;
+  margin-bottom: 0;
+  .area-top {
+    margin-bottom: 0;
+    .row-fluid > div {
+      position: relative;
+    }
+  }
+  select {
+    margin: 0;
+  }
+}
+
+#board-columns {
+  position: absolute;
+  top: $header-top + $board-header-height;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0;
+}
+.board-column {
+  position: relative;
+  min-width: 300px;
+  width: 500px;
+  overflow: hidden;
+  &.hidden {
+    order: -1;
+    display: none;
+  }
+}
+
+.issues-list-container {
+  margin-left: 0;
+  margin-right: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  border-right: solid 1px $dark-border-color;
+  @include box-sizing(border-box);
+}
+
+.board-column-closer {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.issues-list-title {
+  &.type-label span {
+    border-bottom: solid 2px transparent;
+    position: relative;
+    top: -2px;
+  }
+  &.type-assigned img {
+    position: relative;
+    top: -1px;
+    margin-right: 2px;
+  }
+  &.value-none {
+    font-style: italic;
+  }
+}
+
+.issues-filters {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+    z-index: 31;
+    @include transition(transform 0.35s);
+    .filters-toggler {
+        display: block;
+        z-index: 32;
+        bottom: auto;
+        height: 20px;
+        top: 5px;
+        padding-top: 0;
+        background: transparent;
+        color: inherit;
+    }
+    .primary-sidebar {
+        @include transition(opacity 0.35s);
+        opacity: 0;
+    }
+    &.open, &:hover, &:focus {
+        @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+        .filters-toggler {
+            opacity: 0;
+            width: $sidebar-toggler-width;
+            @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+        }
+        .primary-sidebar {
+            opacity: 1;
+        }
+    }
+}
+
+#select2-drop.board-selector .select2-results {
+  max-height: 80%;
+}
+.select2-results .select2-result-label.labels-editor-link {
+    border-top: 1px solid #ddd;
+    font-style: italic;
+    font-weight: bold;
+    margin-top: 3px;
+    padding-top: 6px;
+}
+
+#board-columns-arranger-toggler {
+  font-size: 12px;
+  font-weight: normal;
+}
+
+#board-columns-arranger-holder {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 32;
+  @include transition(none);
+  > div {
+    background: #f5f5f5;
+    @include box-shadow(0 4px 5px 0 #888);
+    @include border-radius(2px);
+    border: 1px solid #d4d4d4;
+    padding: 5px;
+    overflow: auto;
+    > p {
+      margin: 0;
+      line-height: 22px;
+    }
+    > div {
+      float: right;
+      margin-bottom: 5px;
+      button {
+        font-weight: normal;
+        margin-left: 5px;
+      }
+    }
+  }
+}

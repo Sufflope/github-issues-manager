@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 from math import ceil
 from urlparse import parse_qs
+from uuid import uuid4
 
 from django.contrib import messages
 from django.db.utils import DatabaseError
@@ -73,6 +74,26 @@ class LinkedToUserFormViewMixin(object):
         return kwargs
 
 
+def get_querystring_context(querystring):
+    # put querystring parts in a dict
+    qs_dict = parse_qs(querystring)
+    qs_parts = {}
+    for key, values in qs_dict.items():
+        if not len(values):
+            continue
+        if len(values) > 1:
+            qs_parts[key] = values
+        elif ',' in values[0]:
+            qs_parts[key] = values[0].split(',')
+        else:
+            qs_parts[key] = values[0]
+
+    return {
+        'querystring_parts': qs_parts,
+        'querystring': querystring,
+    }
+
+
 class WithQueryStringViewMixin(object):
 
     def get_qs_parts(self, context):
@@ -83,25 +104,10 @@ class WithQueryStringViewMixin(object):
             context['querystring_parts'] = {}
         return deepcopy(context['querystring_parts'])
 
-    def get_querystring_context(self):
-        # put querystring parts in a dict
-        qs = self.request.META.get('QUERY_STRING', '')
-        qs_dict = parse_qs(qs)
-        qs_parts = {}
-        for key, values in qs_dict.items():
-            if not len(values):
-                continue
-            if len(values) > 1:
-                qs_parts[key] = values
-            elif ',' in values[0]:
-                qs_parts[key] = values[0].split(',')
-            else:
-                qs_parts[key] = values[0]
-
-        return {
-            'querystring_parts': qs_parts,
-            'querystring': qs,
-        }
+    def get_querystring_context(self, querystring=None):
+        if querystring is None:
+            querystring = self.request.META.get('QUERY_STRING', '')
+        return get_querystring_context(querystring)
 
     def get_context_data(self, **kwargs):
         """
@@ -535,6 +541,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
     LIMIT_ISSUES = 300
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
 
+    filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
     issue_item_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
 
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
@@ -718,7 +725,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
 
         issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
-            'root_issues_url': issues_url,
+            'list_uuid': str(uuid4()),
             'current_issues_url': issues_url,
             'issues_filter': issues_filter,
             'qs_parts_for_ttags': issues_filter['parts'],
@@ -732,6 +739,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
                     'description': u'issue last update date',
                 },
             },
+            'can_show_shortcuts': True,
         })
 
         context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)
@@ -759,7 +767,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         if not issues_count:
             return [], 0, False
 
-        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES:
+        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES + 5:  # tolerance
             issues_count = self.LIMIT_ISSUES
             issues = issues[:self.LIMIT_ISSUES]
             limit_reached = True
@@ -784,3 +792,13 @@ class BaseIssuesView(WithQueryStringViewMixin):
                 issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
 
         return issues, total_count, limit_reached
+
+    def get_template_names(self):
+        """
+        Use a specific template if the request is an ajax one
+        """
+
+        if self.request.is_ajax():
+            return self.filters_and_list_template_name
+
+        return super(BaseIssuesView, self).get_template_names()
