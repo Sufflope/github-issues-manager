@@ -4,6 +4,7 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import Http404
 from django.utils.functional import cached_property
 
+from gim.front.mixins.views import WithAjaxRestrictionViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring
 from gim.front.repository.views import BaseRepositoryView
@@ -197,10 +198,11 @@ class BoardView(BoardMixin, BaseRepositoryView):
         return context
 
 
-class BoardColumnView(BoardMixin, IssuesView):
+class BoardColumnView(WithAjaxRestrictionViewMixin, BoardMixin, IssuesView):
     url_name = 'board-column'
 
     display_in_menu = False
+    ajax_only = True
 
     filters_and_list_template_name = 'front/repository/board/include_filters_and_list.html'
     template_name = filters_and_list_template_name
@@ -213,9 +215,13 @@ class BoardColumnView(BoardMixin, IssuesView):
             column_key=self.kwargs['column_key']
         ))
 
-    def get_context_data(self, **kwargs):
-
+    def get_pre_context_data(self, **kwargs):
         context = self.get_boards_context()
+        context.update(super(BoardColumnView, self).get_pre_context_data(**kwargs))
+        return context
+
+    def get_boards_context(self):
+        context = super(BoardColumnView, self).get_boards_context()
 
         if not context.get('current_board', None):
             raise Http404
@@ -232,8 +238,13 @@ class BoardColumnView(BoardMixin, IssuesView):
 
         context['current_column']['url'] = self.get_base_url()
 
+        return context
+
+    def get_context_data(self, **kwargs):
+        context = super(BoardColumnView, self).get_context_data()
+
         context.update({
-            'list_key': current_column_key,
+            'list_key': self.current_column['key'],
             'list_title': self.current_column['name'],
             'list_description': self.current_column['description'],
         })
