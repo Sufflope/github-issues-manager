@@ -685,10 +685,29 @@ class BaseIssuesView(WithQueryStringViewMixin):
         if filters:
             excludes = {key[1:]: value for key, value in filters.items() if key.startswith('-')}
             filters = {key: value for key, value in filters.items() if not key.startswith('-')}
+
             if filters:
-                queryset = queryset.filter(**filters)
+                filters_single = {key: value for key, value in filters.items() if not isinstance(value, list) or key.endswith('__in')}
+                if filters_single:
+                    queryset = queryset.filter(**filters_single)
+                if len(filters_single) != len(filters):
+                    filters_many = {key: value for key, value in filters.items() if isinstance(value, list) and not key.endswith('__in')}
+                    if filters_many:
+                        for key, values in filters_many.items():
+                            for value in values:
+                                queryset = queryset.filter(**{key: value})
+
             if excludes:
-                queryset = queryset.exclude(**excludes)
+                excludes_single = {key: value for key, value in excludes.items() if not isinstance(value, list) or key.endswith('__in')}
+                if excludes_single:
+                    queryset = queryset.exclude(**excludes_single)
+                if len(excludes_single) != len(excludes):
+                    excludes_many = {key: value for key, value in excludes.items() if isinstance(value, list) and not key.endswith('__in')}
+                    if excludes_many:
+                        for key, values in excludes_many.items():
+                            for value in values:
+                                queryset = queryset.exclude(**{key: value})
+
         if order_by:
             queryset = queryset.order_by(*order_by)
 
