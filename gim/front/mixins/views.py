@@ -94,7 +94,17 @@ def get_querystring_context(querystring):
     }
 
 
-class WithQueryStringViewMixin(object):
+class WithPreContextData(object):
+
+    def get_pre_context_data(self, **kwargs):
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = self.get_pre_context_data(**kwargs)
+        return super(WithPreContextData, self).get_context_data(**context)
+
+
+class WithQueryStringViewMixin(WithPreContextData):
 
     def get_qs_parts(self, context):
         """
@@ -109,14 +119,15 @@ class WithQueryStringViewMixin(object):
             querystring = self.request.META.get('QUERY_STRING', '')
         return get_querystring_context(querystring)
 
-    def get_context_data(self, **kwargs):
+    def get_pre_context_data(self, **kwargs):
         """
         By default, simply split the querystring in parts for use in other
         views, and put the parts and the whole querystring in the context
         """
-        context = super(WithQueryStringViewMixin, self).get_context_data(**kwargs)
+        context = super(WithQueryStringViewMixin, self).get_pre_context_data(**kwargs)
         context.update(self.get_querystring_context())
         return context
+
 
 
 class DependsOnSubscribedViewMixin(object):

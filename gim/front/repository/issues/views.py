@@ -498,13 +498,14 @@ class IssueView(WithIssueViewMixin, TemplateView):
     url_name = 'issue'
     ajax_template_name = 'front/repository/issues/issue.html'
 
-    def get_referer_issues_view(self):
+    def get_referer_issues_view(self, accept_http_referer=True):
         referer = self.request.GET.get('referer')
         if referer:
             referer = unquote(referer)
         else:
-            # No way to have this in https, but...
-            referer = self.request.META.get('HTTP_REFERER')
+            if accept_http_referer:
+                # No way to have this in https, but...
+                referer = self.request.META.get('HTTP_REFERER')
 
         if not referer:
             return None, None, None
@@ -529,9 +530,11 @@ class IssueView(WithIssueViewMixin, TemplateView):
                         and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
                     if resolved_url.url_name == IssuesView.url_name:
                         return IssuesView, url_info, resolved_url
-                    from gim.front.repository.board.views import BoardView
+                    from gim.front.repository.board.views import BoardColumnView, BoardView
                     if resolved_url.url_name == BoardView.url_name:
                         return BoardView, url_info, resolved_url
+                    if resolved_url.url_name == BoardColumnView.url_name:
+                        return BoardColumnView, url_info, resolved_url
 
         return None, None, None
 
@@ -759,14 +762,19 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
     http_method_names = ['get']
     ajax_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
 
-    def get_referer_issues_view(self):
-        self.referer_view, url_info, resolved_url = super(IssueSummaryView, self).get_referer_issues_view()
+    def get_referer_issues_view(self, accept_http_referer=True):
+        # We never accept http referer for this view
+        self.referer_view, url_info, resolved_url = \
+            super(IssueSummaryView, self).get_referer_issues_view(accept_http_referer=False)
         return self.referer_view, url_info, resolved_url
 
     def get_referer_issues_queryset(self):
 
         view, url_info, resolved_url = self.get_referer_issues_view()
         if not view:
+            return None
+
+        if BaseIssuesView not in view.mro():
             return None
 
         environ = dict(os.environ)
@@ -785,9 +793,13 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
         request = WSGIRequest(environ)
         request.user = self.request.user
 
-        view = view(request=request, args=resolved_url.args, kwargs=resolved_url.kwargs)
-        querystring_context = view.get_querystring_context()
-        issues_queryset, self.referer_filter_context = view.get_issues_for_context(querystring_context)
+        view = view()
+        view.request = request
+        view.args = resolved_url.args
+        view.kwargs = resolved_url.kwargs
+
+        view_context = view.get_pre_context_data()
+        issues_queryset, self.referer_filter_context = view.get_issues_for_context(view_context)
 
         return issues_queryset
 

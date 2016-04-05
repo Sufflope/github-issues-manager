@@ -168,6 +168,17 @@ $issues-quicksearch-height: 29px;
                 padding-left: 4px;
             }
         }
+        &.recent {
+            &:after {
+                border-left: solid transparent 3px;
+                @include animation(breathing-recent-issue-without-details 5s infinite normal);
+            }
+            &.active {
+                &:after {
+                    @include animation(breathing-recent-issue-without-details-active 5s infinite normal);
+                }
+            }
+        }
     } // &.without-details
 
     .loading-mask {
@@ -194,6 +205,42 @@ $issues-quicksearch-height: 29px;
     100% {
         background: $active-color;
         color: darken($active-color, 40%);
+    }
+}
+
+@include keyframes(breathing-recent-issue-without-details) {
+    0% {
+        border-left-color: $active-color;
+    }
+
+    35% {
+        border-left-color: $box-background;
+    }
+
+    84% {
+        border-left-color: $active-color;
+    }
+
+    100% {
+        border-left-color: $active-color;
+    }
+}
+
+@include keyframes(breathing-recent-issue-without-details-active) {
+    0% {
+        border-left-color: $active-color;
+    }
+
+    35% {
+        border-left-color: $highlight-background-color;
+    }
+
+    84% {
+        border-left-color: $active-color;
+    }
+
+    100% {
+        border-left-color: $active-color;
     }
 }
 
