@@ -376,13 +376,14 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         if labels:
             filter_objects['labels'] = labels
             filter_objects['current_labels'] = []
+            query_filters['labels'] = []
             for label in labels:
                 qs_filters['labels'].append(label.name)
                 if label.label_type_id and label.label_type_id not in filter_objects['current_label_types']:
                     filter_objects['current_label_types'][label.label_type_id] = label
                 elif not label.label_type_id:
                     filter_objects['current_labels'].append(label)
-                query_filters['labels'] = label.id
+                query_filters['labels'].append(label.id)
 
         return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
 
