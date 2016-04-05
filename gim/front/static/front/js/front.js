@@ -913,7 +913,7 @@ $().ready(function() {
         this.$node.removeClass('active');
     }); // IssuesListIssue__unset_current
 
-    IssuesListIssue.prototype.set_current = (function IssuesListIssue__set_current (propagate, force_load, no_loading) {
+    IssuesListIssue.prototype.set_current = (function IssuesListIssue__set_current (propagate, force_load, no_loading, keep_recent) {
         if (IssueDetail.$main_container.length || force_load) {
             this.get_html_and_display(null, null, force_load, no_loading);
         }
@@ -927,7 +927,7 @@ $().ready(function() {
             }
             this.group.current_issue = this;
             this.group.unset_active();
-            this.$node.removeClass('recent');
+            if (!keep_recent) { this.$node.removeClass('recent'); }
             this.$node.addClass('active');
             var issue = this;
             if (this.group.collapsed) {
@@ -1003,7 +1003,63 @@ $().ready(function() {
         }
     }); // IssuesListIssue_open_issue
 
-    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs) {
+    IssuesListIssue.finalize_alert = (function IssuesListIssue__finalize_alert ($issue_node, kwargs, front_uuid_exists, $data, $containers, message_mode, message_conf) {
+        var with_repository = $data ? $data.hasClass('with-repository') : ($issue_node ? $issue_node.hasClass('with-repository') : false),
+            with_notification = $data ? $data.hasClass('with-notification') : ($issue_node ? $issue_node.hasClass('with-notification') : false),
+            display_repository = (with_repository || with_notification) ? ($data ? $data.data('repository') : ($issue_node ? $issue_node.data('repository') : '')) : '',
+            text, $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
+
+        if ($issue_node && with_notification) {
+            GithubNotifications.init_item_forms();
+        }
+
+        if (!kwargs.front_uuid || !front_uuid_exists) {
+
+            $containers = $containers || IssueDetail.get_containers_for_ident({'id': kwargs.id});
+
+            if ($containers.length) {
+                IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
+            }
+
+            if (!message_conf.done) {
+                message_conf.done = true;
+
+                if ($containers.length) {
+                    text = 'The current ' + issue_type + ' ' + display_repository + '#' + kwargs.number + ' was just updated';
+                    if (!message_conf.no_extended_message) {
+                        if (message_mode == 'removed') {
+                            text += ' and does not match your filter anymore';
+                        } else if (message_mode == 'hidden') {
+                            text += ' and does not match your filter';
+                        } else if (message_mode == 'added') {
+                            text += ' and now matches your filter';
+                        }
+                    }
+                    $message = $('<span>' + text + '.</span>');
+                } else {
+                    text = 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created' : 'updated');
+                    if (!message_conf.no_extended_message) {
+                        if (message_mode == 'removed') {
+                            text += ' and does not match your filter' + (kwargs.is_new ? '' : ' anymore');
+                        } else if (message_mode == 'hidden') {
+                            text += ' and does not match your filter';
+                        } else if (message_mode == 'added') {
+                            text += (kwargs.is_new ? ' and' : ' and now') + ' matches your filter';
+                        }
+                    }
+                    $message = $('<span>' + text + ':<br /></span>');
+                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + $issue_node.find('.issue-link').text()));
+                }
+
+                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+            }
+
+        } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+            IssueDetail.refresh_created_issue(kwargs.front_uuid);
+        }
+    }); // IssuesListIssue__finalize_alert
+
+    IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, message_conf) {
         var existing_hash = this.$node.data('issue-hash'), issue=this,
             front_uuid_exists = UUID.exists(kwargs.front_uuid);
 
@@ -1014,35 +1070,27 @@ $().ready(function() {
             delete IssuesList.updating_ids[kwargs.id];
             return;
         }
-        var is_active = this.$node.hasClass('active');
 
-        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(issue.group.list.url)).done(function(data) {
             var $data = $(data),
-                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
-            if (!$containers.length) {
-                $data.addClass('recent');
-            }
-            if (is_active) {
-                $data.addClass('active');
-            }
+                $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id}),
+                group = issue.group,
+                is_issue_active = issue.$node.hasClass('active'),
+                is_group_active = issue.group.$node.hasClass('active'),
+                is_group_current = group.is_current();
 
-            var with_repository = $data.hasClass('with-repository');
-            var with_notification = $data.hasClass('with-notification');
-            var display_repository = (with_repository || with_notification) ? $data.data('repository') : '';
+            if (!$containers.length) { $data.addClass('recent'); }
+            if (is_issue_active) { $data.addClass('active'); }
 
             issue.$node.replaceWith($data);
             issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
-
-            if (with_notification) {
-                GithubNotifications.init_item_forms();
-            }
 
             // check if we have to change group
             var list = issue.group.list,
                 refresh_quicksearch = true;
             if (list.group_by_key) {
                 var filter = issue.get_filter_for(list.group_by_key);
-                var group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
+                group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
                 if (group != issue.group) {
                     refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
@@ -1051,51 +1099,21 @@ $().ready(function() {
                     }
                 }
             }
-            if (refresh_quicksearch) {
-                list.reinit_quicksearch_results();
-            }
 
-            if (is_active) {
-                issue.set_current(true);
-            }
+            if (refresh_quicksearch) { list.reinit_quicksearch_results(); }
+            if (is_issue_active) { issue.set_current(null, null, null, true); }
+            if (is_group_current) { group.set_current(is_group_active); }
 
             FilterManager.convert_links(list);
+            IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'updated', message_conf);
 
-            if (!kwargs.front_uuid || !front_uuid_exists) {
-                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
-                if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
-                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
-                } else {
-                    $message = $('<span>The following ' + issue_type + ' was just updated:<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
-                }
-                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
-                IssueDetail.refresh_created_issue(kwargs.front_uuid);
-            }
         }).fail(function(response) {
-            if (response.status == 404 && issue.group) {
-                var with_repository = issue.$node.hasClass('with-repository');
-                var with_notification = issue.$node.hasClass('with-notification');
-                var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
-                issue.group.remove_issue(issue);
-                if (!kwargs.front_uuid || !front_uuid_exists) {
-                    var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue',
-                        $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
-                    if ($containers.length) {
-                        $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated and does not match your filter anymore.</span>');
-                        IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
-                    } else {
-                        $message = $('<span>The following ' + issue_type + ' was just updated and does not match your filter anymore:<br /></span>');
-                        $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
-                    }
-                    MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-                } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
-                    IssueDetail.refresh_created_issue(kwargs.front_uuid);
-                }
+            if (response.status == 404) {
+                if (issue.group) { issue.group.remove_issue(issue); }
+                IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, {}, null, 'removed', message_conf);
             }
         }).always(function() {
+            message_conf.on_list_done();
             if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
@@ -1220,6 +1238,10 @@ $().ready(function() {
         }
         this.list.current_group = null;
     }); // IssuesListGroup__set_current
+
+    IssuesListGroup.prototype.is_current = (function IssuesListGroup__is_current () {
+        return this.list.current_group == this;
+    }); // IssuesListGroup__is_current
 
     IssuesListGroup.prototype.set_current = (function IssuesListGroup__set_current (active) {
         if (this.list.current_group) {
@@ -1543,9 +1565,10 @@ $().ready(function() {
         }
     }); // IssuesList_update_time_ago
 
-    IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method) {
+    IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method, current_panel) {
         var decorator = function() {
             if (!IssuesList.current) { return; }
+            if (current_panel && (!PanelsSwapper.current_panel || PanelsSwapper.current_panel.obj != IssuesList.current)) { return; }
             return IssuesList.current[list_method]();
         };
         return Ev.key_decorate(decorator);
@@ -1559,7 +1582,7 @@ $().ready(function() {
         jwerty.key('f', IssuesList.on_current_list_key_event('focus_search_input'));
         jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input'));
         jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details'));
-        jwerty.key('r', IssuesList.on_current_list_key_event('refresh'));
+        jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true));
         for (var i = 0; i < IssuesList.all.length; i++) {
             var issues_list = IssuesList.all[i];
             if (issues_list.$search_input.length) {
@@ -1614,11 +1637,39 @@ $().ready(function() {
             return;
         }
         IssuesList.updating_ids[kwargs.id] = true;
-        var issue = IssuesList.get_issue_by_id(kwargs.id);
-        if (issue) {
-            issue.on_update_alert(topic, args, kwargs);
-        } else {
-            IssuesList.on_create_alert(topic, args, kwargs);
+
+        var loaded_lists = $.grep(IssuesList.all, function(list) { return !list.$node.hasClass('not-loaded'); });
+
+        var message_conf = {
+            count: 0,
+            expected_count: loaded_lists.length,
+            done: false,
+            no_extended_message: loaded_lists.length > 1,
+            on_list_done: function() {
+                message_conf.count ++;
+                if (message_conf.count == message_conf.expected_count) {
+                    var front_uuid_exists = UUID.exists(kwargs.front_uuid);
+                    if (!message_conf.done && (!kwargs.front_uuid || !front_uuid_exists)) {
+                        // the issue is not in a list, so we fetch it again to display the msg
+                        $.get(kwargs.url).done(function (data) {
+                            var $data = $(data);
+                            IssuesListIssue.finalize_alert($data, kwargs, front_uuid_exists, $data, null, 'hidden', message_conf);
+                        });
+                    }
+                }
+
+            }
+        };
+
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i],
+                issue = list.get_issue_by_id(kwargs.id);
+            if (issue) {
+                issue.on_update_alert(topic, args, kwargs, message_conf);
+            } else {
+                list.on_issue_create_alert(topic, args, kwargs, message_conf);
+            }
+
         }
     }); // IssuesList_on_update_alert
 
@@ -1689,16 +1740,20 @@ $().ready(function() {
 
     }); // IssuesList__change_issue_group
 
-    IssuesList.on_create_alert = (function IssuesList_on_create_alert (topic, args, kwargs) {
-        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0])).done(function(data) {
+    IssuesList.prototype.on_issue_create_alert = (function IssuesList__on_issue_create_alert (topic, args, kwargs, message_conf) {
+        var list = this,
+            front_uuid_exists = UUID.exists(kwargs.front_uuid);
+
+        message_conf = message_conf || {};
+
+        $.get(kwargs.url + '?referer=' + window.encodeURIComponent(list.url)).done(function(data) {
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
-                list = IssuesList.all[0], filter, group,
-                front_uuid_exists = UUID.exists(kwargs.front_uuid),
+                filter, group,
                 $containers = IssueDetail.get_containers_for_ident({'id': kwargs.id});
-            if (!$containers.length) {
-                $data.addClass('recent');
-            }
+
+            if (!$containers.length) { $data.addClass('recent'); }
+
             if (list.group_by_key) {
                 filter = issue.get_filter_for(list.group_by_key);
                 group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
@@ -1716,36 +1771,19 @@ $().ready(function() {
 
             FilterManager.convert_links(list);
 
-            var with_repository = issue.$node.hasClass('with-repository');
-            var with_notification = issue.$node.hasClass('with-notification');
-            var display_repository = (with_repository || with_notification) ? issue.$node.data('repository') : '';
+            IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'added', message_conf);
 
-            if (with_notification) {
-                GithubNotifications.init_item_forms();
-            }
-
-            if (!kwargs.front_uuid || !front_uuid_exists) {
-                var $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
-                if ($containers.length) {
-                    $message = $('<span>The current ' + issue_type + ' ' + display_repository +  '#' + kwargs.number + ' was just updated.</span>');
-                    IssueDetail.mark_containers_nodes_as_updated($containers, issue_type);
-                } else {
-                    $message = $('<span>' + 'The following ' + issue_type + ' was just ' + (kwargs.is_new ? 'created and' : 'updated and now') + '  matches your filter' + ':<br /></span>');
-                    $message.append($('<span style="font-weight: bold"/>').text(display_repository + issue.$node.find('.issue-link').text()));
-                }
-                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
-            } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
-                IssueDetail.refresh_created_issue(kwargs.front_uuid);
+            if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
                 $data.removeClass('recent');
             }
-
         }).always(function() {
+            message_conf.on_list_done();
             if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
         });
-    }); // IssuesList_on_create_alert
+    }); // IssuesList__on_issue_create_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
         var continue_issue_search = this.$search_input.val() !== '';
@@ -1936,6 +1974,17 @@ $().ready(function() {
         return issue;
     }); // IssuesList_get_issue_by_ident
 
+    IssuesList.get_issues_by_ident = (function IssuesList_get_issues_by_ident(issue_ident) {
+        var issues = [], issue;
+        for (var i = 0; i < IssuesList.all.length; i++) {
+            issue = IssuesList.all[i].get_issue_by_ident(issue_ident);
+            if (issue) {
+                issues.push(issue);
+            }
+        }
+        return issues;
+    }); // IssuesList_get_issues_by_ident
+
     IssuesList.prototype.get_issue_by_ident = (function IssuesList__get_issue_by_ident(issue_ident) {
         var issue = null;
         for (var i = 0; i < this.groups.length; i++) {
@@ -1953,6 +2002,17 @@ $().ready(function() {
         }
         return issue;
     }); // IssuesList_get_issue_by_id
+
+    IssuesList.get_issues_by_id = (function IssuesList_get_issues_by_id(issue_id) {
+        var issues = [], issue;
+        for (var i = 0; i < IssuesList.all.length; i++) {
+            issue = IssuesList.all[i].get_issue_by_id(issue_id);
+            if (issue) {
+                issues.push(issue);
+            }
+        }
+        return issues;
+    }); // IssuesList_get_issues_by_id
 
     IssuesList.prototype.get_issue_by_id = (function IssuesList__get_issue_by_id(issue_id) {
         var issue = null;
@@ -3442,7 +3502,7 @@ $().ready(function() {
             subscription = {
                 repository_id: issue_ident.repository_id,
                 id: issue_ident.id
-            }
+            };
             WS.subscribe(
                 'gim.front.Repository.' + subscription.repository_id + '.model.updated.isRelatedTo.Issue.' + subscription.id,
                 'IssueDetail__on_update_alert',
