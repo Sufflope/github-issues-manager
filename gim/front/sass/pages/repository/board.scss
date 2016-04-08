@@ -165,15 +165,17 @@ body#repository_board #main-inner {
 
 #board-columns-arranger-holder {
   position: absolute;
-  left: 0;
+  left: -12px;
   right: 0;
+  margin-top: -1px;
   z-index: 32;
   @include transition(none);
   > div {
     background: #f5f5f5;
     @include box-shadow(0 4px 5px 0 #888);
-    @include border-radius(2px);
+    @include border-radius(0 2px 2px 2px);
     border: 1px solid #d4d4d4;
+    margin: 0 12px 12px;
     padding: 5px;
     overflow: auto;
     > p {
@@ -189,4 +191,14 @@ body#repository_board #main-inner {
       }
     }
   }
+}
+
+.issues-group.empty-sortable {
+    visibility: hidden;
+    &.visible {
+      visibility: visible;
+    }
+}
+#board-columns.dragging .issues-group-issues {
+    min-height: 31px;
 }

@@ -31,6 +31,7 @@ $().ready(function() {
         };
         return self;
     })();
+    window.UUID = UUID;
 
     function GetVendorAttribute(prefixedAttributes) {
        var tmp = document.createElement("div");
@@ -1079,7 +1080,7 @@ $().ready(function() {
                 is_group_active = issue.group.$node.hasClass('active'),
                 is_group_current = group.is_current();
 
-            if (!$containers.length) { $data.addClass('recent'); }
+            if (!$containers.length && (!kwargs.front_uuid || !front_uuid_exists)) { $data.addClass('recent'); }
             if (is_issue_active) { $data.addClass('active'); }
 
             issue.$node.replaceWith($data);
@@ -1094,7 +1095,7 @@ $().ready(function() {
                 if (group != issue.group) {
                     refresh_quicksearch = false;
                     list.change_issue_group(issue, group);
-                    if (!$containers.length) {
+                    if (!$containers.length && (!kwargs.front_uuid || !front_uuid_exists)) {
                         group.$node.addClass('recent');
                     }
                 }
@@ -1417,6 +1418,13 @@ $().ready(function() {
         return issue;
     }); // IssuesListGroup__get_issue_by_id
 
+    IssuesListGroup.prototype.update_issues_list = (function IssuesListGroup__update_issues_list () {
+        this.issues = $.map(this.$node.find(IssuesListIssue.selector),
+                          function(node) { return node.IssuesListIssue });
+
+        this.update_filtered_issues();
+    }); // IssuesListGroup__update_issues_list
+
     IssuesListGroup.prototype.update_filtered_issues = (function IssuesListGroup__update_filtered_issues () {
         this.filtered_issues = [];
         for (var i = 0; i < this.issues.length; i++) {
@@ -1429,7 +1437,7 @@ $().ready(function() {
         var filtered_length = this.filtered_issues.length,
             total_length = this.issues.length;
         this.$count_node.text(filtered_length == total_length ? total_length : filtered_length + '/' + total_length);
-    }); // update_filtered_issues
+    }); // IssuesListGroup__update_filtered_issues
 
     IssuesListGroup.prototype.add_issue = (function IssuesListGroup__add_issue (issue, prepend_node) {
         if (prepend_node) {
@@ -1508,9 +1516,17 @@ $().ready(function() {
 
     }); // IssuesList_init_all
 
+    IssuesList.get_for_node = (function IssuesList_get_for_node($node) {
+        var index = IssuesList.get_index_for_node($node);
+        if (index || index === 0) {
+            return IssuesList.all[index];
+        }
+        return null;
+    }); // IssuesList_get_for_node
+
     IssuesList.get_index_for_node = (function IssuesList_get_index_for_node ($node) {
         for (var i = 0; i < IssuesList.all.length; i++) {
-            if (IssuesList.all[i].$node[0] == $node[0]) {
+            if (IssuesList.all[i].$node[0] == $node[0] || IssuesList.all[i].$container_node[0] == $node[0]) {
                 return i;
             }
         }
@@ -1522,7 +1538,7 @@ $().ready(function() {
         this.node.IssuesList = this;
         this.$node = $node;
         this.$container_node = this.$node.closest(IssuesList.container_selector);
-        this.$empty_node = this.$node.children('.empty-area');
+        this.$empty_node = this.$node.children('.no-issues');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
             this.$search_input = $(this.$node.data('quicksearch'));
@@ -1540,6 +1556,12 @@ $().ready(function() {
         FilterManager.convert_links(this);
     }); // IssuesList__set_node
 
+    IssuesList.prototype.create_empty_node = (function IssuesList__create_empty_node () {
+        if (this.$empty_node.length) { return; }
+        this.$empty_node = $('<div class="alert alert-info no-issues">No issues to display.</div>');
+        this.$node.prepend(this.$empty_node);
+    }); // IssuesList__create_empty_node
+
     IssuesList.prototype.replace_by_node = (function IssuesList__replace_by_node ($node) {
         var is_current = IssuesList.current == this,
             previous_groups = this.groups;
@@ -1551,7 +1573,10 @@ $().ready(function() {
         GithubNotifications.init_item_forms();
         IssuesList.update_time_ago($node);
         activate_quicksearches(this.$search_input);
+        this.init_quicksearch_events();
         PanelsSwapper.update_panel(this, this.$node.parent());
+
+        this.$container_node.trigger('reloaded');
 
         for (var i = 0; i < previous_groups.length; i++) {
             previous_groups[i].clean();
@@ -1565,14 +1590,24 @@ $().ready(function() {
         }
     }); // IssuesList_update_time_ago
 
-    IssuesList.on_current_list_key_event = (function IssuesList_key_decorate (list_method, current_panel) {
+    IssuesList.on_current_list_key_event = (function IssuesList_on_current_list_key_event (list_method, current_panel) {
         var decorator = function() {
             if (!IssuesList.current) { return; }
             if (current_panel && (!PanelsSwapper.current_panel || PanelsSwapper.current_panel.obj != IssuesList.current)) { return; }
             return IssuesList.current[list_method]();
         };
         return Ev.key_decorate(decorator);
-    });
+    }); // IssuesList_on_current_list_key_event
+
+    IssuesList.prototype.init_quicksearch_events = (function IssuesList__init_quicksearch_events () {
+        if (this.$search_input.length && !this.$search_input.data('events-done')) {
+            this.$search_input.data('events-done', true);
+            this.$search_input.on('quicksearch.after', $.proxy(this.on_filter_done, this));
+            this.$search_input.on('keydown', jwerty.event('↑', this.go_to_previous_item, this));
+            this.$search_input.on('keydown', jwerty.event('↓', this.go_to_next_item, this));
+            this.$search_input.on('keydown', jwerty.event('return', this.go_to_first_issue, this))
+        }
+    }); // IssuesList__init_quicksearch_events
 
     IssuesList.init_events = (function IssuesList_init_event () {
         jwerty.key('p/k/↑', IssuesList.on_current_list_key_event('go_to_previous_item'));
@@ -1584,13 +1619,7 @@ $().ready(function() {
         jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details'));
         jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true));
         for (var i = 0; i < IssuesList.all.length; i++) {
-            var issues_list = IssuesList.all[i];
-            if (issues_list.$search_input.length) {
-                issues_list.$search_input.on('quicksearch.after', $.proxy(issues_list.on_filter_done, issues_list));
-                issues_list.$search_input.on('keydown', jwerty.event('↑', issues_list.go_to_previous_item, issues_list));
-                issues_list.$search_input.on('keydown', jwerty.event('↓', issues_list.go_to_next_item, issues_list));
-                issues_list.$search_input.on('keydown', jwerty.event('return', issues_list.go_to_first_issue, issues_list))
-            }
+            IssuesList.all[i].init_quicksearch_events();
         }
 
         // keyboard events
@@ -1689,8 +1718,12 @@ $().ready(function() {
         var new_uuid = UUID.generate();
         $group.children('.box-header').attr('data-target', '#group_by-list-' + new_uuid);
         $group.children('.issues-group-issues').attr('id', 'group_by-list-' + new_uuid);
-        this.$empty_node.hide();
-        this.$node.prepend($group);
+        if (this.$empty_node.length) {
+            this.$empty_node.hide();
+            this.$empty_node.after($group);
+        } else {
+            this.$node.prepend($group);
+        }
         $group.show();
         var group = new IssuesListGroup($group[0], this);
         this.groups.unshift(group);
@@ -1710,6 +1743,7 @@ $().ready(function() {
         }
         group.clean();
         if (!this.groups.length) {
+            this.create_empty_node();
             this.$empty_node.show();
         }
     }); // IssuesList__remove_group
@@ -2024,6 +2058,7 @@ $().ready(function() {
     }); // IssuesList__get_issue_by_id
 
     IssuesList.prototype.reinit_quicksearch_results = (function IssuesList__reinit_quicksearch_results () {
+        this.init_quicksearch_events();
         this.$search_input.data('quicksearch').cache();
     }); // IssuesList__reinit_quicksearch_results
 
@@ -2072,39 +2107,37 @@ $().ready(function() {
                 $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
         }), // on_list_filter_click
-        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history, fail_callback) {
+        reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
 
             if (typeof no_history === 'undefined' ) {
                 no_history = (IssuesFilters.lists_count > 1);
             }
 
-            if (!fail_callback) {
-                fail_callback = function(xhr, data) {
-                    if (IssuesFilters.lists_count > 1) {
-                        var $container = IssuesFilters.add_waiting($issues_list_node).children('.empty-area'),
-                            $spin = $container.children('i'),
-                            $alert = $container.children('.alert'),
-                            $button;
-                        if ($alert.length) {
-                            $button = $alert.children('.btn');
-                            $alert.show();
-                        } else {
-                            $button = $('<a class="btn btn-mini btn-default" href="#">Try again</a>');
-                            $alert = $('<div class="alert alert-error">The list couldn\'t be loaded.</div>').append($button);
-                            $container.append($alert);
-                            $button.on('click', Ev.stop_event_decorate(function() {
-                                $alert.hide();
-                                $spin.show();
-                                IssuesFilters.reload_filters_and_list(url, $filters_node, $issues_list_node, no_history, fail_callback);
-                                return false;
-                            }));
-                        }
-                        $spin.hide();
+            var fail_callback = function(xhr, data) {
+                if (IssuesFilters.lists_count > 1) {
+                    var $container = IssuesFilters.add_waiting($issues_list_node).children('.empty-area'),
+                        $spin = $container.children('i'),
+                        $alert = $container.children('.alert'),
+                        $button;
+                    if ($alert.length) {
+                        $button = $alert.children('.btn');
+                        $alert.show();
                     } else {
-                        window.location.href = url;
+                        $button = $('<a class="btn btn-mini btn-default" href="#">Try again</a>');
+                        $alert = $('<div class="alert alert-error">The list couldn\'t be loaded.</div>').append($button);
+                        $container.append($alert);
+                        $button.on('click', Ev.stop_event_decorate(function() {
+                            $alert.hide();
+                            $spin.show();
+                            IssuesFilters.reload_filters_and_list(url, $filters_node, $issues_list_node, no_history);
+                            return false;
+                        }));
                     }
+                    $spin.hide();
+                } else {
+                    window.location.href = url;
                 }
-            }
+            };
 
             var list_index = IssuesList.get_index_for_node($issues_list_node.children(IssuesList.selector)),
                 context = {
@@ -2112,8 +2145,7 @@ $().ready(function() {
                     '$issues_list_node': $issues_list_node,
                     list_index: list_index,
                     url: url,
-                    no_history: no_history,
-                    fail_callback: fail_callback
+                    no_history: no_history
                 };
 
             $.get(url)
@@ -2137,7 +2169,7 @@ $().ready(function() {
                 current_list = null;
             }
             if (!current_list) {
-                this.fail_callback(null, data);
+                $.proxy(this.fail_callback, this)(data);
                 return;
             }
 
@@ -2154,6 +2186,7 @@ $().ready(function() {
             current_list.replace_by_node($new_issues_list_node.children(IssuesList.selector));
 
         }), // on_filters_and_list_loaded
+
         on_history_pop_state: (function IssuesFilters__on_history_pop_state (state) {
             var list, $filters_node, $issues_list_node;
             if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
@@ -4020,9 +4053,9 @@ $().ready(function() {
         }), // get_alerts
 
         hide_delays: {
-            1: 4000,
-            2: 2000,
-            3: 1500,
+            1: 10000,
+            2: 5000,
+            3: 2500,
             4: 1250,
             'others': 1000
         },
@@ -4411,7 +4444,12 @@ $().ready(function() {
             return false;
         }), // on_issue_edit_field_click
 
-        on_issue_edit_field_failed: (function IssueEditor__on_issue_edit_field_failed () {
+        on_issue_edit_field_failed: (function IssueEditor__on_issue_edit_field_failed (xhr, data) {
+            if (xhr.status == 409) {
+                // 409 Conflict Indicates that the request could not be processed because of
+                // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                return $.proxy(IssueEditor.on_issue_edit_field_ready, this)(data);
+            }
             var $link = this;
             $link.removeClass('loading');
              alert('A problem prevented us to do your action !');
@@ -4419,7 +4457,7 @@ $().ready(function() {
 
         on_issue_edit_field_ready: (function IssueEditor__on_issue_edit_field_ready (data) {
             var $link = this;
-            if (!data.trim()) {
+            if (!data.trim() || data == 'error') {  // error if 409 from on_issue_edit_field_failed
                 $link.removeClass('loading');
                 return false;
             }
@@ -4658,7 +4696,7 @@ $().ready(function() {
 
         on_issue_edit_submit_done: (function IssueEditor__on_issue_edit_submit_done (data) {
             this.$form.find('button.loading').removeClass('loading');
-            if (data.trim()) {
+            if (data.trim() || data == 'error') {  // error if 409 from on_issue_edit_submit_fail
                 IssueEditor.display_issue(data, this);
             } else {
                 IssueEditor.enable_form(this.$form);
@@ -4667,7 +4705,12 @@ $().ready(function() {
             }
         }), // on_issue_edit_submit_done
 
-        on_issue_edit_submit_fail: (function IssueEditor__on_issue_edit_submit_fail () {
+        on_issue_edit_submit_fail: (function IssueEditor__on_issue_edit_submit_fail (xhr, data) {
+            if (xhr.status == 409) {
+                // 409 Conflict Indicates that the request could not be processed because of
+                // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                return $.proxy(IssueEditor.on_issue_edit_submit_done, this)(data);
+            }
             IssueEditor.enable_form(this.$form);
             this.$form.find('button.loading').removeClass('loading');
             alert('A problem prevented us to do your action !');
@@ -5320,6 +5363,8 @@ $().ready(function() {
     var HoverIssue = {
         selector: '.hoverable-issue',
         abort_selector: '.not-hoverable',
+        activated: true,
+        delay_enter: 500,
         popover_options: null,  // defined in init
 
         extract_issue_ident: function ($node) {
@@ -5465,12 +5510,12 @@ $().ready(function() {
             setTimeout(function() {
                 node.hover_issue_is_hover = false;
                 if (node.hover_issue_popover) {
-                    HoverIssue.remove_popover(node);
+                    HoverIssue.remove_popover(node, true);
                 }
             }, 3);
         }, // force_close_popover
 
-        remove_popover: function (node) {
+        remove_popover: function (node, fast) {
             var popover = node.hover_issue_popover;
             node.hover_issue_popover = null;
 
@@ -5486,12 +5531,15 @@ $().ready(function() {
                 delete node.hover_issue_popover_trigger_parent;
             }
 
-            var $node = $(node);
+            var $node = $(node), $target = popover.getTarget();
 
-            popover.getTarget().off({
-                mouseenter: HoverIssue.on_mouseenter,
-                mouseleave: HoverIssue.on_mouseleave
-            });
+            if ($target.length) {
+                if (fast) { $target.removeClass('fade'); }
+                $target.off({
+                    mouseenter: HoverIssue.on_mouseenter,
+                    mouseleave: HoverIssue.on_mouseleave
+                });
+            }
 
             $(node).off('mouseleave', HoverIssue.on_mouseleave);
 
@@ -5506,7 +5554,7 @@ $().ready(function() {
                     if (node.hover_issue_popover_trigger_childs) {
                         delete node.hover_issue_popover_trigger_childs;
                     }
-                }, 300);
+                }, fast ? 0 : 300);
             };
 
             popover.hide();
@@ -5518,17 +5566,18 @@ $().ready(function() {
         }, // get_hover_node
 
         on_delayed_mouseenter: function () {
-            if (this.hover_issue_is_hover && !this.hover_issue_popover) {
+            if (HoverIssue.activated && this.hover_issue_is_hover && !this.hover_issue_popover) {
                 HoverIssue.display_popover(this);
             }
         }, // on_delayed_mouseenter
 
         on_mouseenter: function () {
+            if (!HoverIssue.activated) { return; }
             var node = HoverIssue.get_node_from_node_or_popover(this);
             $(node).off('mouseleave', HoverIssue.on_mouseleave)
                    .on('mouseleave', HoverIssue.on_mouseleave);
             node.hover_issue_is_hover = true;
-            setTimeout($.proxy(HoverIssue.on_delayed_mouseenter, node), 500);
+            setTimeout($.proxy(HoverIssue.on_delayed_mouseenter, node), HoverIssue.delay_enter);
         }, // on_mouseenter
 
         on_delayed_mouseleave: function () {
@@ -5559,11 +5608,26 @@ $().ready(function() {
             }, 100);
         }, // on_abort_mouseleave
 
+        deactivate: function () {
+            var $popovers = $('.webui-popover-hover-issue.in');
+            for (var i = 0; i < $popovers.length; i++) {
+                var node = HoverIssue.get_node_from_node_or_popover($popovers[i]);
+                $.proxy(HoverIssue.force_close_popover, node)();
+            }
+            HoverIssue.activated = false;
+        }, // deactivate
+
+        reactivate: function () {
+            HoverIssue.activated = true;
+        }, // reactivate
+
         init_events: function () {
             $document.on('mouseenter', HoverIssue.selector, HoverIssue.on_mouseenter);
             $document.on('mouseenter', HoverIssue.abort_selector, HoverIssue.on_abort_mouseenter);
             $document.on('mouseleave', HoverIssue.abort_selector, HoverIssue.on_abort_mouseleave);
             $document.on('click', HoverIssue.selector, HoverIssue.force_close_popover);
+            $document.on('sortstart', HoverIssue.deactivate);
+            $document.on('sortstop', HoverIssue.reactivate);
         }, // init_events
 
         init: function () {
@@ -5593,6 +5657,7 @@ $().ready(function() {
 
     }; // HoverIssue
     HoverIssue.init();
+    window.HoverIssue = HoverIssue;
 
     var GithubNotifications = {
         item_selector: '.issue-item-notification',

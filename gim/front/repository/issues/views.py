@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
 from collections import OrderedDict
 from datetime import datetime
-import os
 import json
-from math import ceil
 from time import sleep
 from urlparse import unquote, urlparse, urlunparse
-from uuid import uuid4
 
 from django.contrib import messages
-from django.core.handlers.wsgi import WSGIRequest
 from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
-from django.test.client import FakePayload
 from django.utils.datastructures import SortedDict
-from django.utils.encoding import force_str
 from django.utils.functional import cached_property
 from django.utils.http import is_safe_url
 from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
@@ -54,7 +48,7 @@ from gim.front.models import GroupedCommits
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.mixins.views import BaseIssuesView
 
-from gim.front.utils import make_querystring
+from gim.front.utils import make_querystring, forge_request
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueMilestoneForm, IssueAssigneeForm, IssueLabelsForm,
@@ -692,7 +686,6 @@ class IssueView(WithIssueViewMixin, TemplateView):
                 current_issue_state = 'undefined'
 
         # fetch other useful data
-        edit_level = self.get_edit_level(current_issue)
         if current_issue:
             activity = current_issue.get_activity()
             involved = self.get_involved_people(current_issue, activity,
@@ -712,25 +705,9 @@ class IssueView(WithIssueViewMixin, TemplateView):
             'current_issue_state': current_issue_state,
             'current_issue_activity': activity,
             'current_issue_involved': involved,
-            'current_issue_edit_level':  edit_level,
         })
 
         return context
-
-    def get_edit_level(self, issue):
-        """
-        Return the edit level of the given issue. It may be None (read only),
-        "self" or "full"
-        """
-        edit_level = None
-        if issue and issue.number:
-            if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
-                edit_level = 'full'
-            elif self.subscription.state == SUBSCRIPTION_STATES.READ\
-                                    and issue.user == self.request.user:
-                edit_level = 'self'
-
-        return edit_level
 
     def get_entry_points_dict(self, entry_points):
         """
@@ -778,24 +755,11 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
         if BaseIssuesView not in view.mro():
             return None
 
-        environ = dict(os.environ)
-
-        environ.update({
-            'PATH_INFO':       unquote(force_str(url_info.path)),
-            'QUERY_STRING':    force_str(url_info.query),
-            'REQUEST_METHOD':  str('GET'),
-            'wsgi.input': FakePayload(b''),
-        })
-
-        for key in ('wsgi.multiprocess', 'wsgi.multithread', 'wsgi.run_once', 'wsgi.url_scheme', 'wsgi.version'):
-            if key in self.request.META:
-                environ[key] = self.request.META[key]
-
-        request = WSGIRequest(environ)
-        request.user = self.request.user
+        new_request = forge_request(url_info.path, url_info.query, 'GET',
+                                    source_request=self.request, pass_user=True)
 
         view = view()
-        view.request = request
+        view.request = new_request
         view.args = resolved_url.args
         view.kwargs = resolved_url.kwargs
 
@@ -1053,16 +1017,10 @@ class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
 
     def get_context_data(self, **kwargs):
         """
-        Add the issue and its files in the context
+       Ignore while things in IssueView, get from the parent
         """
-        context = super(IssueView, self).get_context_data(**kwargs)
+        return super(IssueView, self).get_context_data(**kwargs)
 
-        current_issue = self.current_issue
-
-        context['current_issue'] = current_issue
-        context['current_issue_edit_level'] = self.get_edit_level(current_issue)
-
-        return context
 
 
 class FilesAjaxIssueView(SimpleAjaxIssueView):
@@ -1178,13 +1136,14 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     url_name = None
     form_class = None
     template_name = 'front/one_field_form.html'
+    author_allowed = True
 
-    def form_valid(self, form):
-        """
-        Override the default behavior to add a job to update the issue on the
-        github side
-        """
-        response = super(IssueEditFieldMixin, self).form_valid(form)
+    def is_issue_allowed(self, issue):
+        if self.author_allowed and self.request.user.id == issue.user_id:
+            return True
+        return self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS
+
+    def after_form_valid(self, form):
         value = self.get_final_value(form.cleaned_data[self.field])
 
         self.job_model.add_job(self.object.pk,
@@ -1192,6 +1151,15 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
                           value=value)
 
         messages.success(self.request, self.get_success_user_message(self.object))
+
+    def form_valid(self, form):
+        """
+        Override the default behavior to add a job to update the issue on the
+        github side
+        """
+        response = super(IssueEditFieldMixin, self).form_valid(form)
+
+        self.after_form_valid(form)
 
         return response
 
@@ -1217,31 +1185,47 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     def get_object(self, queryset=None):
         # use current self.object if we have it
         if getattr(self, 'object', None):
-            return self.object
-        return super(IssueEditFieldMixin, self).get_object(queryset)
+            issue = self.object
+        else:
+            issue =  super(IssueEditFieldMixin, self).get_object(queryset)
+        if not self.is_issue_allowed(issue):
+            raise Http404
+        return issue
 
-    def current_job(self):
-        self.object = self.get_object()
+    @classmethod
+    def get_current_job_for_issue(cls, issue):
         try:
-            job = self.job_model.collection(identifier=self.object.id, queued=1).instances()[0]
+            job = cls.job_model.collection(identifier=issue.id, queued=1).instances()[0]
         except IndexError:
             return None
         else:
             return job
 
-    def dispatch(self, request, *args, **kwargs):
-        current_job = self.current_job()
+    @classmethod
+    def get_job_for_issue(cls, issue):
+
+        current_job = cls.get_current_job_for_issue(issue)
 
         if current_job:
             for i in range(0, 3):
                 sleep(0.1)  # wait a little, it may be fast
-                current_job = self.current_job()
+                current_job = cls.get_current_job_for_issue(issue)
                 if not current_job:
                     break
 
             if current_job:
                 who = current_job.gh_args.hget('username')
-                return self.render_not_editable(request, who)
+                return current_job, who
+
+        return None, None
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        current_job, who = self.get_job_for_issue(self.object)
+
+        if current_job:
+            return self.render_not_editable(request, who)
 
         return super(IssueEditFieldMixin, self).dispatch(request, *args, **kwargs)
 
@@ -1249,13 +1233,16 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
         if who == request.user.username:
             who = 'yourself'
         messages.warning(request, self.get_not_editable_user_message(self.object, who))
-        return render(self.request, 'front/messages.html')
+        # 409 Conflict Indicates that the request could not be processed because of
+        # conflict in the request, such as an edit conflict between multiple simultaneous updates.
+        return self.render_messages(status=409)
 
-    def get_not_editable_user_message(self, issue, who):
+    @classmethod
+    def get_not_editable_user_message(cls, issue, who):
         return u"""The <strong>%s</strong> for the %s <strong>#%d</strong> is
                 currently being updated (asked by <strong>%s</strong>), please
                 wait a few seconds and retry""" % (
-                                    self.field, issue.type, issue.number, who)
+                                    cls.field, issue.type, issue.number, who)
 
 
 class IssueEditState(LinkedToUserFormViewMixin, IssueEditFieldMixin):
@@ -1264,13 +1251,15 @@ class IssueEditState(LinkedToUserFormViewMixin, IssueEditFieldMixin):
     url_name = 'issue.edit.state'
     form_class = IssueStateForm
     http_method_names = [u'post']
+    author_allowed = True
 
     def get_success_user_message(self, issue):
         new_state = 'reopened' if issue.state == 'open' else 'closed'
         return u'The %s <strong>#%d</strong> will be %s shortly' % (
                                             issue.type, issue.number, new_state)
 
-    def get_not_editable_user_message(self, issue, who):
+    @classmethod
+    def get_not_editable_user_message(cls, issue, who):
         new_state = 'reopened' if issue.state == 'open' else 'closed'
         return u"""The %s <strong>#%d</strong> is currently being %s (asked by
                 <strong>%s</strong>), please wait a few seconds and retry""" % (
@@ -1282,6 +1271,7 @@ class IssueEditTitle(IssueEditFieldMixin):
     job_model = IssueEditTitleJob
     url_name = 'issue.edit.title'
     form_class = IssueTitleForm
+    author_allowed = True
 
 
 class IssueEditBody(IssueEditFieldMixin):
@@ -1290,6 +1280,7 @@ class IssueEditBody(IssueEditFieldMixin):
     url_name = 'issue.edit.body'
     form_class = IssueBodyForm
     template_name = 'front/one_field_form_real_buttons.html'
+    author_allowed = True
 
 
 class IssueEditMilestone(IssueEditFieldMixin):
@@ -1297,6 +1288,7 @@ class IssueEditMilestone(IssueEditFieldMixin):
     job_model = IssueEditMilestoneJob
     url_name = 'issue.edit.milestone'
     form_class = IssueMilestoneForm
+    author_allowed = False
 
     def get_final_value(self, value):
         """
@@ -1310,6 +1302,7 @@ class IssueEditAssignee(IssueEditFieldMixin):
     job_model = IssueEditAssigneeJob
     url_name = 'issue.edit.assignee'
     form_class = IssueAssigneeForm
+    author_allowed = False
 
     def get_final_value(self, value):
         """
@@ -1323,6 +1316,7 @@ class IssueEditLabels(IssueEditFieldMixin):
     job_model = IssueEditLabelsJob
     url_name = 'issue.edit.labels'
     form_class = IssueLabelsForm
+    author_allowed = False
 
     def get_final_value(self, value):
         """
@@ -1332,11 +1326,12 @@ class IssueEditLabels(IssueEditFieldMixin):
         labels = [l.name for l in value] if value else []
         return json.dumps(labels)
 
-    def get_not_editable_user_message(self, issue, who):
+    @classmethod
+    def get_not_editable_user_message(cls, issue, who):
         return u"""The <strong>%s</strong> for the %s <strong>#%d</strong> are
                 currently being updated (asked by <strong>%s</strong>), please
                 wait a few seconds and retry""" % (
-                                    self.field, issue.type, issue.number, who)
+                                    cls.field, issue.type, issue.number, who)
 
 
 class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):

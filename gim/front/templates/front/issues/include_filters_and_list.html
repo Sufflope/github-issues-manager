@@ -206,10 +206,14 @@
     {% endspaceless %}</nav>
     {% include "front/include_quicksearch.html" with id="issues-list-search-"|concat:list_uuid class="issues-quicksearch" target="#issues-list-"|concat:list_uuid|concat:" .issue-item" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
     <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}">
-        <p class="empty-area"{% if issues %} style="display: none"{% endif %}>Nothing</p>
+        {% if not issues_count %}
+            <div class="alert alert-info no-issues">
+                No issues to display.
+            </div>
+        {% endif %}
         {% if limit_reached %}
-            <div class="alert alert-warning">
-                The current filter returned {{ issues_count }} issues but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
+            <div class="alert alert-warning too-many-issues">
+                {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
                 <br />
                 <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
             </div>
@@ -250,7 +254,7 @@
                             <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                         </ul>
                     </a>
-                    <ul class="unstyled box issues-group-issues">
+                    <ul class="unstyled box-content issues-group-issues">
                         {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
                     </ul>
                 </div>

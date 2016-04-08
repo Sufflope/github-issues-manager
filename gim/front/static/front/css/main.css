@@ -5298,6 +5298,11 @@ ol.errorlist, ul.errorlist {
   border-radius: 0 0 6px 6px;
 }
 
+/* line 400, ../../../sass/main.scss */
+.alert-warning {
+  color: #8E6A47;
+}
+
 @media (max-width: 1023px) {
   /* line 4, ../../../sass/_responsive.scss */
   .navbar-fixed-top .user-avatar .dropdown-toggle {
