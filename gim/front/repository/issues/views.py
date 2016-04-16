@@ -17,8 +17,7 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
-                             PullRequestCommentEntryPoint, IssueComment,
-                             PullRequestComment, CommitComment,
+                             IssueComment, PullRequestComment, CommitComment,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
@@ -44,7 +43,7 @@ from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     get_querystring_context,
                                     )
 
-from gim.front.models import GroupedCommits
+from gim.front.models import GroupedCommits, GroupedCommitComments, GroupedPullRequestComments
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.mixins.views import BaseIssuesView
 
@@ -643,9 +642,9 @@ class IssueView(WithIssueViewMixin, TemplateView):
             add_involved(issue.closed_by)
 
         for entry in activity:
-            if isinstance(entry, PullRequestCommentEntryPoint):
-                for pr_comment in entry.comments.all():
-                    add_involved(pr_comment.user, is_comment=True)
+            if isinstance(entry, (GroupedPullRequestComments, GroupedCommitComments)):
+                for comment in entry:
+                    add_involved(comment.user, is_comment=True)
             elif isinstance(entry, IssueComment):
                 add_involved(entry.user, is_comment=True)
             elif isinstance(entry, GroupedCommits):
