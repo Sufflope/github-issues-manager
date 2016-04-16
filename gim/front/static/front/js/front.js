@@ -3307,7 +3307,7 @@ $().ready(function() {
 
         on_modal_shown: (function IssueDetail__on_modal_show () {
             var $modal = $(this);
-            if (PanelsSwapper.current_panel.$node == $modal.data('$container')) {
+            if (PanelsSwapper.current_panel && PanelsSwapper.current_panel.$node == $modal.data('$container')) {
                 return;
             }
             $modal.data('previous-panel', PanelsSwapper.current_panel);
