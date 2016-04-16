@@ -958,7 +958,7 @@ class CreatedIssueView(IssueView):
         """
         try:
             job = IssueCreateJob.get(identifier=self.kwargs['issue_pk'])
-            issue = Issue.objects.get(pk=job.created_pk.hget())
+            self.issue = Issue.objects.get(pk=job.created_pk.hget())
         except:
             if wait_if_failure > 0:
                 sleep(0.1)
@@ -966,7 +966,7 @@ class CreatedIssueView(IssueView):
             else:
                 raise Http404
         else:
-            return HttpResponsePermanentRedirect(issue.get_absolute_url())
+            return HttpResponsePermanentRedirect(self.issue.get_absolute_url())
 
     def get(self, request, *args, **kwargs):
         """
@@ -977,13 +977,13 @@ class CreatedIssueView(IssueView):
         Redirect to the final url too if with now have a number
         """
         try:
-            issue = self.current_issue
+            self.issue = self.current_issue
         except Http404:
             # ok, deleted/recreated by dist_edit...
             return self.redirect_to_created_issue(wait_if_failure=0.3)
         else:
-            if issue.number:
-                return HttpResponsePermanentRedirect(issue.get_absolute_url())
+            if self.issue.number:
+                return HttpResponsePermanentRedirect(self.issue.get_absolute_url())
 
         try:
             return super(CreatedIssueView, self).get(request, *args, **kwargs)
@@ -998,7 +998,7 @@ class CreatedIssueView(IssueView):
         """
         issue = None
         if 'issue_pk' in self.kwargs:
-            qs = self.repository.issues.ready().select_related(
+            qs = self.repository.issues.select_related(
                 'user',  'assignee', 'closed_by', 'milestone',
             ).prefetch_related(
                 'labels__label_type'
