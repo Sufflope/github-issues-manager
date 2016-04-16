@@ -141,6 +141,7 @@ $().ready(function() {
             lists_selector: '.issues-list-container',
             filters_selector: '.issues-filters',
             loading: false,
+            asked_scroll_to: {},
 
             is_column_visible: function(column, container_left, container_right) {
                 if (typeof container_left === 'undefined') {
@@ -205,6 +206,50 @@ $().ready(function() {
                 Board.arranger.remove_column($(this).prev(Board.lists.lists_selector).data('key'));
                 return false;
             }, // on_closer_click
+
+            animate_scroll_to: function() {
+                if (!Board.lists.asked_scroll_to.running) { return; }
+                Board.lists.asked_scroll_to.currentTime += Board.lists.asked_scroll_to.increment;
+                var val = Math.easeInOutQuad(
+                    Board.lists.asked_scroll_to.currentTime,
+                    Board.lists.asked_scroll_to.start,
+                    Board.lists.asked_scroll_to.change,
+                    Board.lists.asked_scroll_to.duration
+                );
+                Board.container.scrollLeft = val;
+                if (Board.lists.asked_scroll_to.currentTime < Board.lists.asked_scroll_to.duration) {
+                    requestNextAnimationFrame(Board.lists.animate_scroll_to);
+                } else {
+                    Board.lists.asked_scroll_to.running = false;
+                }
+            },
+
+            scroll_to: function (position) {
+                if (position === null) {
+                    Board.lists.asked_scroll_to.running = false;
+                    return;
+                }
+                if (position < 0) {
+                    position = 0;
+                } else if (position > Board.dragger.dimensions.scrollLeftMax) {
+                    position = Board.dragger.dimensions.scrollLeftMax;
+                }
+                var already_running = Board.lists.asked_scroll_to.running,
+                    start = Board.container.scrollLeft;
+
+                Board.lists.asked_scroll_to = {
+                    start: start,
+                    change: position - start,
+                    currentTime: 0,
+                    increment: 20,
+                    duration: 500,
+                    running: true
+                };
+
+                if (!already_running) {
+                    requestNextAnimationFrame(Board.lists.animate_scroll_to);
+                }
+            }, // scroll_to
 
             init: function() {
                 if (!Board.$columns.length) { return; }
@@ -695,6 +740,37 @@ $().ready(function() {
     IssuesList.prototype.close = function close () {
         Board.arranger.remove_column(this.$container_node.data('key'));
         return false;
+    };
+
+    IssuesList.prototype.set_current_original = IssuesList.prototype.set_current;
+    IssuesList.prototype.set_current = (function IssuesList__set_current () {
+        this.set_current_original();
+        if (!Board.$columns.length) { return; }
+        if (!Board.dragger.dimensions.scrollLeftMax) { return; }
+        var $column = this.$node.closest('.board-column'),
+            column_left = $column.position().left,
+            column_width = $column.width(),
+            column_right = column_left + column_width,
+            container_left = Board.container.scrollLeft,
+            container_width = Board.container.offsetWidth,
+            scroll_to = null;
+
+        if (column_right > container_width) {
+            scroll_to = container_left + column_right - container_width;
+        } else if (column_left < 0) {
+            scroll_to = container_left + column_left;
+        }
+        Board.lists.scroll_to(scroll_to);
+
+    }); // IssuesList__set_current
+
+    Math.easeInOutQuad = function (t, b, c, d) {
+      t /= d/2;
+      if (t < 1) {
+        return c/2*t*t + b
+      }
+      t--;
+      return -c/2 * (t*(t-2) - 1) + b;
     };
 
     window.Board = Board;

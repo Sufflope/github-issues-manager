@@ -3716,6 +3716,7 @@ $().ready(function() {
                     break;
                 }
             }
+            return false;
         }), // go_prev_panel
         go_next_panel: (function PanelsSwapper__go_next_panel() {
             if (!PanelsSwapper.current_panel.handlable) { return }
@@ -3727,6 +3728,7 @@ $().ready(function() {
                 }
                 idx += 1;
             }
+            return false;
         }), // go_next_panel
         update_panel: (function PanelsSwapper__replace_panel (obj, $node) {
             var updated_panel = null;
