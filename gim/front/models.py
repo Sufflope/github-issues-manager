@@ -608,6 +608,12 @@ class _Issue(Hashable, FrontEditable):
             files.append(file)
         return files
 
+    def publish_notifications(self):
+        for notification in self.github_notifications.select_related('user').all():
+            if hasattr(self, '_repository_cache'):
+                notification._repository_cache = self._repository_cache
+            notification.publish()
+
 contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
 
@@ -1150,6 +1156,20 @@ def publish_update(instance, message_type, extra_data=None):
             repository_id=message_repository_id,
             **data
         )
+
+    # If we published about an issue that have some notifications, publish the notifications
+    issue_to_notif = None
+    if isinstance(instance, core_models.Issue):
+        issue_to_notif = instance
+    else:
+        for topic_with_repo, topic_without_repo, data in to_publish:
+            if data.get('parent_model') == 'Issue':
+                try:
+                    issue_to_notif = core_models.Issue.objects.get(id=data['parent_id'])
+                except core_models.Issue.DoesNotExist:
+                    pass
+    if issue_to_notif:
+        issue_to_notif.publish_notifications()
 
     # No we can remove the front_uuid field and the is_new flag
     if hasattr(instance, 'is_new'):

@@ -569,7 +569,7 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
     user = models.ForeignKey('GithubUser', related_name='github_notifications')
     thread_id = models.PositiveIntegerField(null=True, blank=True)
     repository = models.ForeignKey('Repository', related_name='github_notifications')
-    issue = models.ForeignKey('Issue', blank=True, null=True)
+    issue = models.ForeignKey('Issue', blank=True, null=True, related_name='github_notifications')
     type = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     reason = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     issue_number = models.PositiveIntegerField(blank=True, null=True, db_index=True)

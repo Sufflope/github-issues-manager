@@ -50,6 +50,10 @@ $().ready(function() {
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
+    var GithubNotifications = {
+        on_page: (body_id == 'github_notifications')
+    };
+
 
     var Ev = {
         stop_event_decorate: (function stop_event_decorate(callback) {
@@ -1633,7 +1637,9 @@ $().ready(function() {
         var repositories = [];
         if (main_repository_id) {
             repositories.push(main_repository_id);
-        } else {
+        } else if (!GithubNotifications.on_page) {
+            // don't watch full repositories on notifications page, publish will be done on the
+            // user's notification chanel
             for (var i = 0; i < IssuesList.all.length; i++) {
                 var issues_list = IssuesList.all[i];
                 repositories = repositories.concat(issues_list.$node.find(IssuesListIssue.selector).map(function() {
@@ -5661,7 +5667,7 @@ $().ready(function() {
     HoverIssue.init();
     window.HoverIssue = HoverIssue;
 
-    var GithubNotifications = {
+    $.extend(GithubNotifications, {
         item_selector: '.issue-item-notification',
         default_error_msg: 'Internal problem: we were unable to update your notification',
         spin: '<span class="spin-holder"><i style="" class="fa fa-spinner fa-spin"> </i></span>',
@@ -5791,7 +5797,7 @@ $().ready(function() {
         }, // toggle_read
 
         init_item_forms: function() {
-            if (body_id != 'github_notifications') { return; }
+            if (!GithubNotifications.on_page) { return; }
             var $forms = $(GithubNotifications.item_selector + ' form:not(.js-managed)'),
                 $checkboxes = $forms.find('input[type=checkbox]');
             $forms.each(function() { GithubNotifications.save_values($(this));});
@@ -5808,7 +5814,7 @@ $().ready(function() {
                 GithubNotifications.on_notifications_ping,
                 'exact'
             );
-            if (body_id == 'github_notifications') {
+            if (GithubNotifications.on_page) {
                 WS.subscribe(
                     'gim.front.user.' + WS.user_topic_key + '.notifications.issue',
                     'GithubNotifications__on_issue',
@@ -5885,13 +5891,13 @@ $().ready(function() {
                 }
                 GithubNotifications.init_subscription();
             }
-            if (body_id != 'github_notifications') { return; }
+            if (!GithubNotifications.on_page) { return; }
             GithubNotifications.init_item_forms();
             jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));
             jwerty.key('shift+a', GithubNotifications.on_current_issue_toggle_event('active'));
         } // init
 
-    }; // GithubNotifications
+    }); // GithubNotifications
 
     GithubNotifications.init();
 
