@@ -161,6 +161,7 @@ $().ready(function() {
                 $to_focus = $name_input;
             $color_input.spectrum(LabelEditor.spectrum_options)
                         .data('label-title', $label_title);
+            $name_input.data('label-title', $label_title);
             if ($popover.find('form').hasClass('show-order')) {
                 $to_focus = $popover.find('input[name=order]');
             }
