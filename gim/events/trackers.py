@@ -314,8 +314,12 @@ class IssueTracker(ChangeTracker):
             except Event.MultipleObjectsReturned:
                 # Find duplicates on a longer perdiod
                 Event.objects.clean_duplicates(instance.repository, days=30)
-                event, created = get_or_create()
-                # If it still doesn't work, we raise
+                try:
+                    event, created = get_or_create()
+                except Event.MultipleObjectsReturned:
+                    # Find duplicates on the whole repository
+                    Event.objects.clean_duplicates(instance.repository, days=None)
+                    event, created = get_or_create()
 
         instance.repository.counters.update_from_updated_issue(instance, changed_fields)
 
