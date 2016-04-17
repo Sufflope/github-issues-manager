@@ -179,12 +179,10 @@ class TypedLabelEditForm(LabelEditForm):
 
     def clean_label_type(self):
         label_type = self.cleaned_data.get('label_type')
-        if (
-                not label_type
-                or
-                label_type.repository_id != self.repository.id
-                or self.instance and label_type.id != self.instance.label_type_id
-            ):
+        if (not label_type
+            or label_type.repository_id != self.repository.id
+            or self.instance and self.instance.pk and label_type.id != self.instance.label_type_id
+                ):
             raise forms.ValidationError('Impossible to save this label')
         return label_type
 
