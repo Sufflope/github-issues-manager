@@ -395,5 +395,6 @@ def filter_falsy(list, attribute):
     return result
 
 
-
-
+@register.filter
+def split(string, separator):
+    return string.split(separator)

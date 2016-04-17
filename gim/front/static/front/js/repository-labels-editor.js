@@ -19,7 +19,7 @@ $().ready(function() {
     var redraw_full_content = function(data) {
         $('.container-fluid').children('.row-fluid.label-type, .alert').remove();
         $('#labels-editor-content').html(data);
-    }
+    };
 
     var LabelEditor = {
         opened_popover: null,
@@ -28,22 +28,26 @@ $().ready(function() {
             title: '<strong style="border-bottom-color: #%(color)s">%(name)s</strong>',
             content: $('#label-edit-form').html(),
             html: true,
-            placement: function(tip, element) {
+            placement: function(tip) {
                 var $tip = $(tip);
 
                 // place the tip in the dom to get its width (will be redone exactly the same way in tooltip.js)
                 $tip.detach().css({ top: 0, left: 0, display: 'block' });
-                this.options.container ? $tip.appendTo(this.options.container) : $tip.insertAfter(this.$element)
+                if (this.options.container) {
+                    $tip.appendTo(this.options.container);
+                } else {
+                    $tip.insertAfter(this.$element);
+                }
 
                 var width = tip.offsetWidth + 10,  // arrow size
                     pos = this.getPosition();
 
                 return (document.body.offsetWidth < pos.right + width) ? 'left' : 'right';
             },
-            trigger: 'manual',
+            trigger: 'manual'
         },
         success_tooltip_options: {
-            template: '<div class="tooltip success"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>',
+            template: '<div class="tooltip success"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
         },
         spectrum_options: {
             showInitial: true,
@@ -90,9 +94,9 @@ $().ready(function() {
         on_spectrum_change: function(color) {
             LabelEditor.update_color($(this), color.toHexString());
         },
-        on_spectrum_hide: function(ev) {
+        on_spectrum_hide: function() {
             var $color_input = $(this);
-            $color_input.val($color_input.val().replace('#',  ''))
+            $color_input.val($color_input.val().replace('#',  ''));
             LabelEditor.update_color($color_input);
         },
         update_name: function($name_input) {
@@ -101,7 +105,7 @@ $().ready(function() {
                 $label_title.text($name_input.val().trim() || '...');
             }
         },
-        on_name_focus: function(ev) {
+        on_name_focus: function() {
             var $name_input = $(this);
             if (LabelEditor.name_change_interval) {
                 clearInterval(LabelEditor.name_change_interval);
@@ -110,7 +114,7 @@ $().ready(function() {
                 LabelEditor.update_name($name_input);
             }, 300);
         },
-        on_name_blur: function(ev) {
+        on_name_blur: function() {
             if (LabelEditor.name_change_interval) {
                 clearInterval(LabelEditor.name_change_interval);
                 LabelEditor.name_change_interval = null;
@@ -120,12 +124,13 @@ $().ready(function() {
             $label.data('parent-title', $label.parent().attr('title'));
             var $type_node = $label.closest('.label-type'),
                 label_type_id = $type_node.data('label-type-id'),
+                label_type_mode = label_type_id ? $type_node.data('label-type-edit-mode') : null,
                 display_order = label_type_id ? !!$type_node.data('has-order') : false,
                 name = escapeMarkup($label.data('name')),
                 color = $label.data('color'),
                 id = $label.data('id'),
                 order = display_order ? $label.data('order') || '' : '',
-                display_name = label_type_id ? $label.data('typed-name') || name : name,
+                display_name = (label_type_id && label_type_mode != 1) ? $label.data('typed-name') || name : name,
                 content = LabelEditor.popover_options.content
                             .replace('%(name)s', display_name)
                             .replace('%(color)s', color)
@@ -136,6 +141,18 @@ $().ready(function() {
                 content = content.replace('%(id)s', "");
             } else {
                 content = content.replace('%(id)s', id);
+            }
+            if (label_type_mode) {
+                switch (label_type_mode) {
+                    case 1: // regex
+                        content = content.replace('hide-note', 'show-note');
+                        content = content.replace('%(help_text)s', 'Enter the full label text that must match this regex:<br />' + escapeMarkup($type_node.data('label-type-regex')));
+                        break;
+                    case 2: // format
+                        content = content.replace('hide-note', 'show-note');
+                        content = content.replace('%(help_text)s', 'Enter only {label} part for this format:<br />' + escapeMarkup($type_node.data('label-type-edit-details').format_string));
+                        break;
+                }
             }
             if (display_order) {
                 content = content.replace('hide-order', 'show-order');
@@ -152,7 +169,7 @@ $().ready(function() {
             )).on('shown.tooltip', LabelEditor.on_popover_shown);
             $label.removeAttr('title');
         },
-        on_popover_shown: function(ev) {
+        on_popover_shown: function() {
             var $label = $(this),
                 $popover = $label.next('.popover'),
                 $color_input = $popover.find('input[name=color]'),
@@ -261,7 +278,7 @@ $().ready(function() {
         clean_errors: function($form) {
             $form.children('.alert, .error').remove();
         },
-        on_form_delete: function(ev) {
+        on_form_delete: function() {
             var $delete_btn = $(this),
                 $form = $delete_btn.closest('form');
             LabelEditor.clean_errors($form);
@@ -277,10 +294,10 @@ $().ready(function() {
             $form.find('.btn.delete').removeClass('loading');
             $form.prepend('<div class="alert alert-error">A problem prevented us to delete this label</div>');
         },
-        on_confirm_deletion: function(ev) {
+        on_confirm_deletion: function() {
             var $form = $(this).closest('form'),
                 id = $form.data('id'),
-                url = LabelEditor.base_delete_url.replace('label/0/', 'label/' + id + '/');
+                url = LabelEditor.base_delete_url.replace('label/0/', 'label/' + id + '/'),
                 data = {
                     csrfmiddlewaretoken: $form[0].csrfmiddlewaretoken.value
                 },
@@ -289,13 +306,13 @@ $().ready(function() {
             $delete_btn.addClass('loading');
             if (url && data.csrfmiddlewaretoken) {
                 $.post(url, data)
-                    .done(function(data) { LabelEditor.on_delete_done($form, data) })
-                    .fail(function(data) { LabelEditor.on_delete_failed($form) });
+                    .done(function(data) { LabelEditor.on_delete_done($form, data); })
+                    .fail(function() { LabelEditor.on_delete_failed($form); });
             } else {
                 LabelEditor.on_delete_failed($form);
             }
         },
-        on_cancel_deletion: function(ev) {
+        on_cancel_deletion: function() {
             $(this).closest('.popover').prev().popover('hide');
         },
         init: function() {
@@ -355,10 +372,10 @@ $().ready(function() {
 
     window.LabelTypeForm = {
         $modal: $('#label-type-edit-form'),
-        $modal_body: $('#label-type-edit-form .modal-body'),
-        $modal_footer: $('#label-type-edit-form .modal-footer'),
-        $modal_submit: $('#label-type-edit-form .modal-footer button.submit'),
-        $modal_delete: $('#label-type-edit-form .modal-footer button.delete'),
+        $modal_body: null,
+        $modal_footer: null,
+        $modal_submit: null,
+        $modal_delete: null,
         edit_mode_texts: {
             1: 'The more powerful mode, you can enter a real regular expression to automatically assign labels to this group',
             2: 'This intermediate mode allow you to simply construct a format to automatically assign labels to this group',
@@ -401,14 +418,15 @@ $().ready(function() {
             formatResult: function(state) { return LabelTypeForm.format_labels_list_select2(state); }
         },
         prepare_labels_list_select2: function() {
-            var labels = $('#id_labels_list').data('labels');
+            var $list = $('#id_labels_list'),
+                labels = $list.data('labels');
             LabelTypeForm.labels_list_select2_options.tags = $.map(labels, function(value, key) { 
                 return key;
             }).sort(function(a, b) {
                return a.toLowerCase().localeCompare(b.toLowerCase());
             });
             LabelTypeForm.labels_data = labels;
-            $('#id_labels_list').select2(LabelTypeForm.labels_list_select2_options);
+            $list.select2(LabelTypeForm.labels_list_select2_options);
         },
         update: function() {
             LabelTypeForm.prepare_edit_mode_select2();
@@ -422,15 +440,15 @@ $().ready(function() {
                 content = $li.find('strong').text().replace('&lt;', '<').replace('&gt;', '>');
             $target.val(content);
         },
-        on_modal_hide: function(ev) {
+        on_modal_hide: function() {
             LabelTypeForm.$modal_body.scrollTop(0);
             LabelTypeForm.$modal_footer.find('.alert').remove();
         },
-        on_modal_hidden: function(ev) {
+        on_modal_hidden: function() {
             TestButton.$button.popover('hide');
             LabelTypeForm.$modal_delete.popover('hide');
         },
-        init_modal: function(ev) {
+        init_modal: function() {
             LabelTypeForm.$modal.modal({
                 backdrop: 'static',
                 show: false
@@ -461,7 +479,7 @@ $().ready(function() {
                 .done(function(data) {
                     LabelTypeForm.on_load_done($link, data);
                 })
-                .fail(function(data) {
+                .fail(function() {
                     LabelTypeForm.on_load_failed($link);
                 });
 
@@ -502,7 +520,7 @@ $().ready(function() {
                 .done(LabelTypeForm.on_submit_done)
                 .fail(LabelTypeForm.on_submit_failed);
         },
-        on_cancel_deletion: function(ev) {
+        on_cancel_deletion: function() {
             LabelTypeForm.$modal_delete.popover('hide');
         },
         on_delete_done: function(data) {
@@ -513,7 +531,7 @@ $().ready(function() {
             LabelTypeForm.$modal_delete.removeClass('loading');
             LabelTypeForm.$modal_footer.prepend('<div class="alert alert-error">A problem prevented us to delete this group</div>');
         },
-        on_confirm_deletion: function(ev) {
+        on_confirm_deletion: function() {
             LabelTypeForm.$modal_delete.popover('hide');
             LabelTypeForm.$modal_delete.addClass('loading');
             var $form = LabelTypeForm.get_form(),
@@ -535,6 +553,12 @@ $().ready(function() {
             LabelTypeForm.$modal_footer.on('click', '.confirm-deletion', LabelTypeForm.on_confirm_deletion);
         },
         init: function() {
+            LabelTypeForm.$modal_body = LabelTypeForm.$modal.find('.modal-body');
+            LabelTypeForm.$modal_footer = LabelTypeForm.$modal.find('.modal-footer');
+            LabelTypeForm.$modal_submit = LabelTypeForm.$modal.find('.modal-footer button.submit');
+            LabelTypeForm.$modal_delete = LabelTypeForm.$modal.find('.modal-footer button.delete');
+
+
             LabelTypeForm.init_modal();
             $document.on('click', '.btn-edit-label-type a', LabelTypeForm.on_link_click);
             $document.on('submit', '#label-type-form', LabelTypeForm.on_form_submit);
