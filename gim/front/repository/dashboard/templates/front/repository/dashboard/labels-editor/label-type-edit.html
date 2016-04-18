@@ -14,7 +14,7 @@
         {{ form.edit_mode.errors }}
         {{ form.edit_mode }}
         <div class="note">
-            {{ form.edit_mode.help_text}}
+            {{ form.edit_mode.help_text|safe }}
         </div>
     </div>
 
@@ -23,7 +23,7 @@
         {{ form.regex.errors }}
         {{ form.regex }}
         <div class="note">
-            {{ form.regex.help_text }}
+            {{ form.regex.help_text|safe }}
         </div>
     </div>
 

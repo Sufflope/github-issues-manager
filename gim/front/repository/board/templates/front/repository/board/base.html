@@ -1,7 +1,8 @@
 {% extends "front/repository/base.html" %}
-{% load staticfiles frontutils %}
+{% load staticfiles frontutils repository_tags %}
 
 {% block body_id %}repository_board{% endblock %}
+{% block title %}{{ block.super }}{% if current_board %} - {{ current_board.name|capfirst }}{% endif %}{% endblock title %}
 
 {% block extra_css %}
     <link href="{% static "front/css/select.2.css" %}" rel="stylesheet">
@@ -70,7 +71,7 @@
         </div>
     </div>
     {% if current_board_key %}
-    <div id="board-columns">
+    <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ current_repository|can_user_write:user|lower }}">
         {% for column_key, current_column in current_board.columns.items %}
             {% with list_uuid=new_uuid %}
         <div class="board-column{% if current_column.hidden %} hidden{% endif %}">

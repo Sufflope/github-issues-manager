@@ -407,8 +407,23 @@ class WithIssueViewMixin(WithRepositoryViewMixin):
         """
         context = super(WithIssueViewMixin, self).get_context_data(**kwargs)
         context['current_issue'] = self.issue
+        context['current_issue_edit_level'] = self.get_edit_level(self.issue)
         return context
 
+    def get_edit_level(self, issue):
+        """
+        Return the edit level of the given issue. It may be None (read only),
+        "self" or "full"
+        """
+        edit_level = None
+        if issue and issue.number:
+            if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+                edit_level = 'full'
+            elif self.subscription.state == SUBSCRIPTION_STATES.READ\
+                                    and issue.user == self.request.user:
+                edit_level = 'self'
+
+        return edit_level
 
 class DependsOnIssueViewMixin(WithIssueViewMixin, DependsOnRepositoryViewMixin):
     """

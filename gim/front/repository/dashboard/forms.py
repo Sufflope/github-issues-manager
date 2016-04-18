@@ -158,6 +158,9 @@ class LabelEditForm(LinkedToRepositoryFormMixin):
             self.fields['name'].validators = [self.label_name_validator]
         self.fields['color'].validators = [self.color_validator]
 
+    def clean_name(self):
+        return (self.cleaned_data.get('name') or '').strip()
+
     def save(self, commit=True):
         """
         Set the github status
@@ -179,38 +182,51 @@ class TypedLabelEditForm(LabelEditForm):
 
     def clean_label_type(self):
         label_type = self.cleaned_data.get('label_type')
-        if (
-                not label_type
-                or
-                label_type.repository_id != self.repository.id
-                or self.instance and label_type.id != self.instance.label_type_id
-            ):
+        if (not label_type
+            or label_type.repository_id != self.repository.id
+            or self.instance and self.instance.pk and label_type.id != self.instance.label_type_id
+                ):
             raise forms.ValidationError('Impossible to save this label')
         return label_type
+
+    def clean_typed_name(self):
+        return (self.cleaned_data.get('typed_name') or '').strip()
 
     def clean(self):
         cleaned_data = super(TypedLabelEditForm, self).clean()
 
         label_type = cleaned_data.get('label_type')
+        typed_name =  cleaned_data.get('typed_name')
 
-        if label_type:  # if not, we are in error mode
+        if label_type and typed_name :  # if not, we are in error mode
             if label_type.edit_mode == LABELTYPE_EDITMODE.REGEX:
-                raise forms.ValidationError('You cannot add a label directly to a "regex" group')
+                if not label_type.match(typed_name):
+                    raise forms.ValidationError('This label does not match the regex')
 
             if label_type.edit_mode == LABELTYPE_EDITMODE.FORMAT:
                 # try to get the full label name, will raise ValidationError if problem
                 cleaned_data['name'] = label_type.create_from_format(
-                    cleaned_data['typed_name'],
+                    typed_name,
                     cleaned_data.get('order')
                 )
 
             else:  # label_type.edit_mode == LABELTYPE_EDITMODE.LIST:
-                cleaned_data['name'] = cleaned_data['typed_name']
+                cleaned_data['name'] = typed_name
                 # remember the name if changed to remove it from the list
                 if self.instance and self.instance.name != cleaned_data['name']:
                     self._old_label_name = self.instance.name
 
         return cleaned_data
+
+    @property
+    def errors(self):
+        errors = super(LabelEditForm, self).errors
+        if errors:
+            if 'typed_name' in errors:
+                if 'name' not in errors:
+                    errors['name'] = errors['typed_name']
+                del errors['typed_name']
+        return errors
 
     def save(self, commit=True):
         label = super(TypedLabelEditForm, self).save(commit=commit)

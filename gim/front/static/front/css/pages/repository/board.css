@@ -194,7 +194,7 @@ p.state-closed {
 }
 
 /* line 147, ../../../../../sass/components/_issues_mixins.scss */
-.box-section.issue-item, .issue-commits .code-files-list tr, .issue-review .code-files-list tr, .code-files .code-files-list tr {
+.issue-item, .issue-commits .code-files-list tr, .issue-review .code-files-list tr, .code-files .code-files-list tr {
   background-color: transparent;
   -moz-transition: background-color 0.35s ease;
   -o-transition: background-color 0.35s ease;
@@ -202,7 +202,7 @@ p.state-closed {
   transition: background-color 0.35s ease;
 }
 /* line 150, ../../../../../sass/components/_issues_mixins.scss */
-.active.box-section.issue-item, .issue-commits .code-files-list tr.active, .issue-review .code-files-list tr.active, .code-files .code-files-list tr.active {
+.active.issue-item, .issue-commits .code-files-list tr.active, .issue-review .code-files-list tr.active, .code-files .code-files-list tr.active {
   background-color: #e6f1f4;
 }
 
@@ -340,50 +340,50 @@ p.state-closed {
   padding-right: 23px;
 }
 
-/* line 10, ../../../../../sass/components/_issues_list.scss */
+/* line 11, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options {
   margin: 0;
 }
-/* line 12, ../../../../../sass/components/_issues_list.scss */
+/* line 13, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .navbar-inner {
   border-top: none;
 }
-/* line 15, ../../../../../sass/components/_issues_list.scss */
+/* line 16, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav {
   float: none;
   margin-right: 0;
 }
-/* line 19, ../../../../../sass/components/_issues_list.scss */
+/* line 20, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav > li[class*="span"] {
   width: 33.33333%;
   margin-left: 0;
   margin-right: 0;
   height: 47px;
 }
-/* line 24, ../../../../../sass/components/_issues_list.scss */
+/* line 25, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav > li[class*="span"] a {
   padding-top: 3px;
   padding-bottom: 3px;
 }
 
-/* line 31, ../../../../../sass/components/_issues_list.scss */
+/* line 32, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection {
   line-height: 40px;
 }
-/* line 34, ../../../../../sass/components/_issues_list.scss */
+/* line 35, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection span {
   vertical-align: middle;
 }
-/* line 36, ../../../../../sass/components/_issues_list.scss */
+/* line 37, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection span.caret {
   margin-top: -4px !important;
 }
 
-/* line 41, ../../../../../sass/components/_issues_list.scss */
+/* line 42, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options li.active a {
   position: relative;
 }
-/* line 43, ../../../../../sass/components/_issues_list.scss */
+/* line 44, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options li.active a i.fa-times {
   position: absolute;
   left: 5px;
@@ -394,7 +394,7 @@ p.state-closed {
   transform: translateY(-50%);
 }
 
-/* line 50, ../../../../../sass/components/_issues_list.scss */
+/* line 51, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .dropdown-toggle > span:not(.selection) {
   text-align: center;
   display: block;
@@ -402,7 +402,7 @@ p.state-closed {
   white-space: nowrap;
 }
 
-/* line 57, ../../../../../sass/components/_issues_list.scss */
+/* line 58, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection {
   display: block;
   font-weight: normal;
@@ -411,16 +411,16 @@ p.state-closed {
   color: #999;
   text-align: center;
 }
-/* line 65, ../../../../../sass/components/_issues_list.scss */
+/* line 66, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection span {
   padding-right: 0.5ex;
 }
-/* line 68, ../../../../../sass/components/_issues_list.scss */
+/* line 69, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection i {
   font-size: smaller;
 }
 
-/* line 72, ../../../../../sass/components/_issues_list.scss */
+/* line 73, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .navbar-inner {
   padding-left: 0;
   padding-right: 0;
@@ -432,7 +432,7 @@ p.state-closed {
   box-sizing: border-box;
 }
 
-/* line 82, ../../../../../sass/components/_issues_list.scss */
+/* line 83, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .divider-vertical {
   margin-left: -1px;
   margin-right: -1px;
@@ -440,6 +440,10 @@ p.state-closed {
 }
 
 /* line 92, ../../../../../sass/components/_issues_list.scss */
+.issues-list {
+  background: #fbfbfb;
+}
+/* line 94, ../../../../../sass/components/_issues_list.scss */
 .issues-list .box {
   margin-bottom: 0;
   -moz-border-radius: 0;
@@ -449,48 +453,54 @@ p.state-closed {
   border-left-width: 0;
   border-right-width: 0;
 }
-/* line 99, ../../../../../sass/components/_issues_list.scss */
+/* line 101, ../../../../../sass/components/_issues_list.scss */
 .issues-list .box-content {
-  margin-bottom: -1px;
+  margin-bottom: 0;
 }
-/* line 102, ../../../../../sass/components/_issues_list.scss */
+/* line 104, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.js-filter-trigger {
   cursor: default;
 }
-/* line 105, ../../../../../sass/components/_issues_list.scss */
+/* line 107, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header {
   padding-left: 7px;
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 108, ../../../../../sass/components/_issues_list.scss */
+/* line 110, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .title {
   font-size: 13px;
   padding-top: 5px;
   padding-bottom: 5px;
   text-transform: capitalize;
 }
-/* line 113, ../../../../../sass/components/_issues_list.scss */
+/* line 115, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .title span {
   font-weight: normal;
   text-transform: none;
 }
-/* line 119, ../../../../../sass/components/_issues_list.scss */
+/* line 121, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .box-toolbar > li {
   line-height: 27px;
   padding-right: 5px;
 }
-/* line 126, ../../../../../sass/components/_issues_list.scss */
+/* line 127, ../../../../../sass/components/_issues_list.scss */
+.issues-list .issues-group {
+  -moz-box-shadow: 0 2px 2px #ccc;
+  -webkit-box-shadow: 0 2px 2px #ccc;
+  box-shadow: 0 2px 2px #ccc;
+}
+/* line 129, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group:first-child .box-header {
   border-top: 0;
 }
-/* line 129, ../../../../../sass/components/_issues_list.scss */
+/* line 132, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group.active a.box-header {
   padding-left: 2px;
   border-left: solid #7BC8D7 5px;
 }
-/* line 134, ../../../../../sass/components/_issues_list.scss */
+/* line 137, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group.recent:not(.active) .issues-count {
   font-weight: normal;
   background-image: none;
@@ -498,61 +508,70 @@ p.state-closed {
   -webkit-animation: breathing-recent-issues-count 5s infinite normal;
   animation: breathing-recent-issues-count 5s infinite normal;
 }
-/* line 141, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled {
+/* line 145, ../../../../../sass/components/_issues_list.scss */
+.issues-list .loading-mask {
+  margin-top: -5px;
+}
+/* line 149, ../../../../../sass/components/_issues_list.scss */
+.issues-list .no-issues, .issues-list .too-many-issues {
+  text-align: center;
+}
+
+/* line 154, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {
   padding: 5px;
   padding-left: 8px;
   min-height: 20px;
 }
-/* line 145, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-header, .issues-list.without-details .issue-item:not(.details-toggled) .avatar, .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-footer, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-header, .issues-list:not(.without-details) .issue-item.details-toggled .avatar, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-footer {
+/* line 158, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-header, .issues-list.without-details .issue-item:not(.details-toggled) .avatar, .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-footer, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-header, .issues-list:not(.without-details) .issue-item.details-toggled .avatar, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-footer, .issue-item.force-without-details .issue-item-header, .issue-item.force-without-details .avatar, .issue-item.force-without-details .issue-item-footer {
   display: none;
 }
-/* line 148, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled) .news-content, .issues-list:not(.without-details) .issue-item.details-toggled .news-content {
+/* line 161, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled) .news-content, .issues-list:not(.without-details) .issue-item.details-toggled .news-content, .issue-item.force-without-details .news-content {
   margin-left: 0;
   margin-right: 0;
 }
-/* line 152, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled) .news-title, .issues-list:not(.without-details) .issue-item.details-toggled .news-title {
+/* line 165, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled) .news-title, .issues-list:not(.without-details) .issue-item.details-toggled .news-title, .issue-item.force-without-details .news-title {
   margin-bottom: 0;
   min-height: 0;
 }
-/* line 156, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository {
+/* line 169, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository, .issue-item.force-without-details .issue-item-repository {
   margin-top: -6px;
   margin-bottom: 6px;
   margin-left: -8px;
 }
-/* line 160, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository:not(.is-private), .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository:not(.is-private) {
+/* line 173, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository:not(.is-private), .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository:not(.is-private), .issue-item.force-without-details .issue-item-repository:not(.is-private) {
   padding-left: 9px;
 }
-/* line 164, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled).active, .issues-list:not(.without-details) .issue-item.details-toggled.active {
+/* line 177, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).active, .issues-list:not(.without-details) .issue-item.details-toggled.active, .issue-item.force-without-details.active {
   padding-left: 3px;
 }
-/* line 166, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled).active .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled.active .issue-item-repository {
+/* line 179, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).active .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled.active .issue-item-repository, .issue-item.force-without-details.active .issue-item-repository {
   margin-left: -3px;
   padding-left: 4px;
 }
-/* line 172, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled).recent:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent:after {
-  border-left: solid transparent 3px;
+/* line 184, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled):after, .issues-list:not(.without-details) .issue-item.details-toggled:after, .issue-item.force-without-details:after {
+  width: 3px;
+}
+/* line 188, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).recent:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent:after, .issue-item.force-without-details.recent:after {
+  border-left: solid transparent 6px;
   -moz-animation: breathing-recent-issue-without-details 5s infinite normal;
   -webkit-animation: breathing-recent-issue-without-details 5s infinite normal;
   animation: breathing-recent-issue-without-details 5s infinite normal;
 }
-/* line 177, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:not(.details-toggled).recent.active:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent.active:after {
+/* line 193, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).recent.active:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent.active:after, .issue-item.force-without-details.recent.active:after {
   -moz-animation: breathing-recent-issue-without-details-active 5s infinite normal;
   -webkit-animation: breathing-recent-issue-without-details-active 5s infinite normal;
   animation: breathing-recent-issue-without-details-active 5s infinite normal;
-}
-/* line 184, ../../../../../sass/components/_issues_list.scss */
-.issues-list .loading-mask {
-  margin-top: -5px;
 }
 
 @-moz-keyframes breathing-recent-issue-item-times {
@@ -735,7 +754,7 @@ p.state-closed {
     background: #7BC8D7;
   }
 }
-/* line 265, ../../../../../sass/components/_issues_list.scss */
+/* line 277, ../../../../../sass/components/_issues_list.scss */
 .issue-item {
   padding: 5px;
   padding-top: 0;
@@ -750,11 +769,11 @@ p.state-closed {
   -webkit-hyphens: auto;
   hyphens: auto;
 }
-/* line 276, ../../../../../sass/components/_issues_list.scss */
+/* line 288, ../../../../../sass/components/_issues_list.scss */
 .issue-item.with-repository {
   min-height: 100px;
 }
-/* line 280, ../../../../../sass/components/_issues_list.scss */
+/* line 292, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-repository {
   background: #eee;
   border-bottom: solid 1px #e6e6e6;
@@ -768,12 +787,12 @@ p.state-closed {
   -webkit-transition: border-bottom-color 0.35s ease;
   transition: border-bottom-color 0.35s ease;
 }
-/* line 288, ../../../../../sass/components/_issues_list.scss */
+/* line 300, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-repository .fa-lock {
   width: 9px;
   margin-left: -12px;
 }
-/* line 296, ../../../../../sass/components/_issues_list.scss */
+/* line 308, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-header {
   margin-top: -1px;
   margin-bottom: 5px;
@@ -781,15 +800,15 @@ p.state-closed {
   font-size: 11px;
   line-height: 15px;
 }
-/* line 302, ../../../../../sass/components/_issues_list.scss */
+/* line 314, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-header a {
   color: inherit;
 }
-/* line 306, ../../../../../sass/components/_issues_list.scss */
+/* line 318, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request, .issue-item .issue-item-milestone, .issue-item .issue-item-times, .issue-item .issue-item-repository {
   text-shadow: 0 1px rgba(255, 255, 255, 0.5);
 }
-/* line 309, ../../../../../sass/components/_issues_list.scss */
+/* line 321, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request {
   float: left;
   padding: 1px 0 2px;
@@ -802,18 +821,18 @@ p.state-closed {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 318, ../../../../../sass/components/_issues_list.scss */
+/* line 330, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request i {
   font-size: 14px;
 }
-/* line 322, ../../../../../sass/components/_issues_list.scss */
+/* line 334, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone {
   margin-left: 50px;
   margin-right: 95px;
   padding: 0;
   overflow: hidden;
 }
-/* line 327, ../../../../../sass/components/_issues_list.scss */
+/* line 339, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone a {
   font-weight: bold;
   display: inline-block;
@@ -823,13 +842,13 @@ p.state-closed {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 334, ../../../../../sass/components/_issues_list.scss */
+/* line 346, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone i {
   position: relative;
   top: 2px;
   margin-right: 5px;
 }
-/* line 340, ../../../../../sass/components/_issues_list.scss */
+/* line 352, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-times {
   float: right;
   white-space: nowrap;
@@ -840,7 +859,7 @@ p.state-closed {
   border-radius: 0 0 0 2px;
   cursor: default;
 }
-/* line 347, ../../../../../sass/components/_issues_list.scss */
+/* line 359, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-times i {
   font-size: inherit;
   color: inherit;
@@ -848,96 +867,111 @@ p.state-closed {
   margin: 0 1px 0 2px;
   opacity: 0.5;
 }
-/* line 355, ../../../../../sass/components/_issues_list.scss */
+/* line 367, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-content {
   margin-right: 5px;
 }
-/* line 358, ../../../../../sass/components/_issues_list.scss */
+/* line 370, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-title {
   font-size: 14px;
   margin-bottom: 5px;
 }
-/* line 361, ../../../../../sass/components/_issues_list.scss */
+/* line 373, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-title .label {
   margin-left: 3px;
 }
-/* line 365, ../../../../../sass/components/_issues_list.scss */
+/* line 377, ../../../../../sass/components/_issues_list.scss */
 .issue-item .avatar {
   margin-bottom: 5px;
 }
-/* line 368, ../../../../../sass/components/_issues_list.scss */
+/* line 380, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-link {
   outline: none !important;
   text-decoration: none !important;
 }
-/* line 372, ../../../../../sass/components/_issues_list.scss */
+/* line 384, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-footer {
   overflow: auto;
 }
-/* line 375, ../../../../../sass/components/_issues_list.scss */
+/* line 387, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-footer.with-labels {
   clear: both;
 }
-/* line 378, ../../../../../sass/components/_issues_list.scss */
+/* line 390, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-comments-count {
   float: right;
   margin-right: 5px;
   line-height: 24px;
   cursor: default;
 }
-/* line 383, ../../../../../sass/components/_issues_list.scss */
+/* line 395, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-comments-count i {
   margin-right: 2px;
 }
-/* line 387, ../../../../../sass/components/_issues_list.scss */
+/* line 399, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-assignee {
   float: right;
   margin-right: 5px;
 }
-/* line 392, ../../../../../sass/components/_issues_list.scss */
+/* line 404, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-labels {
   padding-right: 5px;
 }
-/* line 399, ../../../../../sass/components/_issues_list.scss */
+/* line 411, ../../../../../sass/components/_issues_list.scss */
 .issue-item.recent .issue-item-times {
   -moz-animation: breathing-recent-issue-item-times 5s infinite normal;
   -webkit-animation: breathing-recent-issue-item-times 5s infinite normal;
   animation: breathing-recent-issue-item-times 5s infinite normal;
 }
-
-/* line 404, ../../../../../sass/components/_issues_list.scss */
-.issues-list.without-details .issue-item:after {
-  width: 3px;
+/* line 416, ../../../../../sass/components/_issues_list.scss */
+.issue-item.ui-sortable-helper {
+  -moz-box-shadow: 0 4px 5px 0 #888;
+  -webkit-box-shadow: 0 4px 5px 0 #888;
+  box-shadow: 0 4px 5px 0 #888;
+}
+/* line 420, ../../../../../sass/components/_issues_list.scss */
+.issue-item.ui-sortable-placeholder {
+  border-top-color: #aaa;
+}
+/* line 422, ../../../../../sass/components/_issues_list.scss */
+.issue-item.ui-sortable-placeholder .mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
 }
 
-/* line 407, ../../../../../sass/components/_issues_list.scss */
-.box-section.issue-item {
+/* line 433, ../../../../../sass/components/_issues_list.scss */
+.issue-item {
+  background: #fbfbfb;
   padding-left: 13px;
 }
-/* line 410, ../../../../../sass/components/_issues_list.scss */
-.box-section.issue-item.active {
+/* line 437, ../../../../../sass/components/_issues_list.scss */
+.issue-item.active {
   padding-left: 8px;
   border-left: solid #7BC8D7 5px;
   border-top-color: #f0fcff;
 }
-/* line 414, ../../../../../sass/components/_issues_list.scss */
-.box-section.issue-item.active .issue-item-repository {
+/* line 441, ../../../../../sass/components/_issues_list.scss */
+.issue-item.active .issue-item-repository {
   background: transparent;
   margin-left: -8px;
   padding-left: 12px;
   border-bottom-color: rgba(0, 0, 0, 0.05);
 }
-/* line 419, ../../../../../sass/components/_issues_list.scss */
-.box-section.issue-item.active .issue-item-repository.is-private {
+/* line 446, ../../../../../sass/components/_issues_list.scss */
+.issue-item.active .issue-item-repository.is-private {
   padding-left: 17px;
 }
 
-/* line 428, ../../../../../sass/components/_issues_list.scss */
+/* line 455, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch {
   margin: 0;
   padding: 0;
 }
-/* line 431, ../../../../../sass/components/_issues_list.scss */
+/* line 458, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch label {
   margin: 0;
   padding: 0;
@@ -947,7 +981,7 @@ p.state-closed {
   height: 28px;
   background: white;
 }
-/* line 440, ../../../../../sass/components/_issues_list.scss */
+/* line 467, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on, .issues-quicksearch input, .issues-quicksearch .btn {
   border: 0;
   -moz-border-radius: 0;
@@ -956,14 +990,14 @@ p.state-closed {
   position: absolute;
   top: 0;
 }
-/* line 446, ../../../../../sass/components/_issues_list.scss */
+/* line 473, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on {
   border-right: solid 1px #d4d4d4;
   left: 0;
   width: 16px;
   z-index: 10;
 }
-/* line 452, ../../../../../sass/components/_issues_list.scss */
+/* line 479, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch input {
   display: block;
   width: 100%;
@@ -978,7 +1012,7 @@ p.state-closed {
   height: 28px;
   z-index: 20;
 }
-/* line 464, ../../../../../sass/components/_issues_list.scss */
+/* line 491, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .btn {
   border-left: solid 1px #d4d4d4;
   right: 0;
@@ -2060,9 +2094,10 @@ div.selector span {
 
 /* line 429, ../../../../../sass/components/_issue.scss */
 .issue-container {
+  border-top: solid #FAFAFA 5px;
   position: relative;
 }
-/* line 430, ../../../../../sass/components/_issue.scss */
+/* line 431, ../../../../../sass/components/_issue.scss */
 .issue-container .stuck {
   position: fixed;
   width: -moz-calc(0.583333 * 100% - 0.583333 * 160px - 13px);
@@ -2071,15 +2106,15 @@ div.selector span {
   width: calc(0.583333 * 100% - 0.583333 * 160px - 13px);
   right: 13px;
 }
-/* line 438, ../../../../../sass/components/_issue.scss */
+/* line 439, ../../../../../sass/components/_issue.scss */
 .issue-container > .alert-error {
   margin-bottom: 0;
 }
-/* line 443, ../../../../../sass/components/_issue.scss */
+/* line 444, ../../../../../sass/components/_issue.scss */
 .issue-container.with-repository .issue-nav {
   top: 41px;
 }
-/* line 448, ../../../../../sass/components/_issue.scss */
+/* line 449, ../../../../../sass/components/_issue.scss */
 .issue-container.big-issue {
   position: absolute !important;
   float: none !important;
@@ -2094,93 +2129,93 @@ div.selector span {
   background-color: #f0f0f0 !important;
   background: url('/static/front/css/images/bg.png?1450021794') !important;
 }
-/* line 462, ../../../../../sass/components/_issue.scss */
+/* line 463, ../../../../../sass/components/_issue.scss */
 .issue-container.big-issue .stuck {
   width: -moz-calc(100% - 13px) !important;
   width: -o-calc(100% - 13px) !important;
   width: -webkit-calc(100% - 13px) !important;
   width: calc(100% - 13px) !important;
 }
-/* line 466, ../../../../../sass/components/_issue.scss */
+/* line 467, ../../../../../sass/components/_issue.scss */
 .issue-container.big-issue .issue-involved {
   max-width: 300px;
 }
-/* line 470, ../../../../../sass/components/_issue.scss */
+/* line 471, ../../../../../sass/components/_issue.scss */
 .issue-container.big-issue > .alert-error {
   width: 50%;
   margin-left: 25%;
   margin-top: 25%;
 }
-/* line 479, ../../../../../sass/components/_issue.scss */
+/* line 480, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn i {
   float: none;
   color: #ccc;
   font-size: inherit;
   font-weight: inherit;
 }
-/* line 485, ../../../../../sass/components/_issue.scss */
+/* line 486, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn.loading i.fa-edit {
   display: none;
 }
-/* line 488, ../../../../../sass/components/_issue.scss */
+/* line 489, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn, .issue-container a.issue-edit-btn:hover {
   text-decoration: none;
 }
-/* line 491, ../../../../../sass/components/_issue.scss */
+/* line 492, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn.issue-edit-btn-title {
   margin-left: 5px;
 }
-/* line 494, ../../../../../sass/components/_issue.scss */
+/* line 495, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn.issue-edit-btn-body {
   font-size: 18px;
   position: absolute;
   top: 3px;
   right: 7px;
 }
-/* line 500, ../../../../../sass/components/_issue.scss */
+/* line 501, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn.issue-edit-btn-milestone, .issue-container a.issue-edit-btn.issue-edit-btn-assignee, .issue-container a.issue-edit-btn.issue-edit-btn-labels {
   font-size: 16px;
   position: relative;
   top: 1px;
   margin-left: 3px;
 }
-/* line 510, ../../../../../sass/components/_issue.scss */
+/* line 511, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title {
   position: absolute;
   left: 130px;
   right: 75px;
   height: 35px;
 }
-/* line 515, ../../../../../sass/components/_issue.scss */
+/* line 516, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title div.edit-buttons {
   position: absolute;
   bottom: 0;
   right: 0;
 }
-/* line 519, ../../../../../sass/components/_issue.scss */
+/* line 520, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title div.edit-buttons .btn-cancel {
   margin-left: 7px;
 }
-/* line 523, ../../../../../sass/components/_issue.scss */
+/* line 524, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title div.edit-field {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 88px;
 }
-/* line 528, ../../../../../sass/components/_issue.scss */
+/* line 529, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title div.edit-field input {
   width: 100%;
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 533, ../../../../../sass/components/_issue.scss */
+/* line 534, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-title input {
   font-family: inherit;
   font-size: 14px;
 }
-/* line 539, ../../../../../sass/components/_issue.scss */
+/* line 540, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body {
   display: block;
   padding: 10px;
@@ -2191,12 +2226,12 @@ div.selector span {
   -webkit-box-shadow: rgba(0, 0, 0, 0.1) 0 1px 3px -1px;
   box-shadow: rgba(0, 0, 0, 0.1) 0 1px 3px -1px;
 }
-/* line 547, ../../../../../sass/components/_issue.scss */
+/* line 548, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body div.edit-field {
   display: block;
   padding: 5px 5px 0;
 }
-/* line 551, ../../../../../sass/components/_issue.scss */
+/* line 552, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body textarea {
   width: 100%;
   padding: 0;
@@ -2215,82 +2250,82 @@ div.selector span {
   -webkit-box-shadow: none;
   box-shadow: none;
 }
-/* line 565, ../../../../../sass/components/_issue.scss */
+/* line 566, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body div.edit-buttons {
   display: block;
   margin-top: 10px;
   padding-top: 10px;
   border-top: solid 1px #cdcdcd;
 }
-/* line 571, ../../../../../sass/components/_issue.scss */
+/* line 572, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body button {
   width: auto;
   font-size: inherit;
   margin: 0;
 }
-/* line 575, ../../../../../sass/components/_issue.scss */
+/* line 576, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-body button.btn-cancel {
   font-weight: normal;
 }
-/* line 581, ../../../../../sass/components/_issue.scss */
+/* line 582, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-milestone,
 .issue-container .issue-edit-assignee,
 .issue-container .issue-edit-labels {
   display: block;
 }
-/* line 585, ../../../../../sass/components/_issue.scss */
+/* line 586, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-milestone div.edit-field,
 .issue-container .issue-edit-assignee div.edit-field,
 .issue-container .issue-edit-labels div.edit-field {
   min-width: 200px;
 }
-/* line 589, ../../../../../sass/components/_issue.scss */
+/* line 590, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-milestone div.edit-buttons button,
 .issue-container .issue-edit-assignee div.edit-buttons button,
 .issue-container .issue-edit-labels div.edit-buttons button {
   margin-left: 6px;
 }
-/* line 591, ../../../../../sass/components/_issue.scss */
+/* line 592, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-milestone div.edit-buttons button:first-of-type,
 .issue-container .issue-edit-assignee div.edit-buttons button:first-of-type,
 .issue-container .issue-edit-labels div.edit-buttons button:first-of-type {
   margin-left: 3px;
 }
-/* line 597, ../../../../../sass/components/_issue.scss */
+/* line 598, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels {
   display: block !important;
   position: relative;
   overflow: auto;
 }
-/* line 601, ../../../../../sass/components/_issue.scss */
+/* line 602, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels div.edit-field,
 .issue-container .issue-edit-labels div.edit-buttons {
   vertical-align: top;
 }
-/* line 605, ../../../../../sass/components/_issue.scss */
+/* line 606, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels div.edit-field {
   width: -moz-calc(100% - 72px);
   width: -o-calc(100% - 72px);
   width: -webkit-calc(100% - 72px);
   width: calc(100% - 72px);
 }
-/* line 607, ../../../../../sass/components/_issue.scss */
+/* line 608, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels div.edit-field select {
   width: 100%;
 }
-/* line 611, ../../../../../sass/components/_issue.scss */
+/* line 612, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels div.edit-buttons {
   position: absolute;
   top: 0;
   right: 0;
 }
-/* line 616, ../../../../../sass/components/_issue.scss */
+/* line 617, ../../../../../sass/components/_issue.scss */
 .issue-container .issue-edit-labels ~ div.issue-footer-infos {
   display: block;
   margin-top: 7px;
 }
 
-/* line 625, ../../../../../sass/components/_issue.scss */
+/* line 626, ../../../../../sass/components/_issue.scss */
 .select2-milestone .select2-result-sub li > div > div {
   white-space: nowrap;
   overflow: hidden;
@@ -2299,43 +2334,43 @@ div.selector span {
   text-overflow: ellipsis;
 }
 
-/* line 630, ../../../../../sass/components/_issue.scss */
+/* line 631, ../../../../../sass/components/_issue.scss */
 .select2-labels .select2-results {
   max-height: 400px;
   display: block;
 }
-/* line 633, ../../../../../sass/components/_issue.scss */
+/* line 634, ../../../../../sass/components/_issue.scss */
 .select2-labels .select2-results > li li:not(.select2-selected) {
   display: inline-block;
 }
-/* line 635, ../../../../../sass/components/_issue.scss */
+/* line 636, ../../../../../sass/components/_issue.scss */
 .select2-labels .select2-results > li li:not(.select2-selected) .select2-result-label {
   padding-left: 5px !important;
 }
 
-/* line 646, ../../../../../sass/components/_issue.scss */
+/* line 647, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices {
   min-height: 27px;
   padding: 0 4px 1px 0;
 }
-/* line 647, ../../../../../sass/components/_issue.scss */
+/* line 648, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices * {
   -moz-box-sizing: content-box;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
 }
-/* line 652, ../../../../../sass/components/_issue.scss */
+/* line 653, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices .select2-search-field {
   padding: 4px 0 0 4px;
   margin: 0;
 }
-/* line 655, ../../../../../sass/components/_issue.scss */
+/* line 656, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices .select2-search-field input {
   margin: 0;
   padding: 0;
   height: 20px;
 }
-/* line 661, ../../../../../sass/components/_issue.scss */
+/* line 662, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices .select2-search-choice {
   margin: 2px 0 0 4px;
   -moz-border-radius: 0;
@@ -2345,31 +2380,31 @@ div.selector span {
   border: none !important;
   padding: 0 0 0 18px !important;
 }
-/* line 667, ../../../../../sass/components/_issue.scss */
+/* line 668, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices .select2-search-choice span {
   margin-left: -18px;
   padding-left: 18px;
   padding-right: 3px;
   line-height: 20px;
 }
-/* line 675, ../../../../../sass/components/_issue.scss */
+/* line 676, ../../../../../sass/components/_issue.scss */
 .edit-field-labels .select2-container-multi .select2-choices .select2-search-choice-close {
   top: 5px;
 }
 
-/* line 682, ../../../../../sass/components/_issue.scss */
+/* line 683, ../../../../../sass/components/_issue.scss */
 #issue-create-form input[type=submit] {
   display: none;
 }
-/* line 685, ../../../../../sass/components/_issue.scss */
+/* line 686, ../../../../../sass/components/_issue.scss */
 #issue-create-form .select2-container {
   margin-bottom: 10px;
 }
-/* line 687, ../../../../../sass/components/_issue.scss */
+/* line 688, ../../../../../sass/components/_issue.scss */
 #issue-create-form .select2-container .select2-choice {
   height: 29px;
 }
-/* line 692, ../../../../../sass/components/_issue.scss */
+/* line 693, ../../../../../sass/components/_issue.scss */
 #issue-create-form .edit-field > input, #issue-create-form .edit-field > textarea {
   color: #555;
   font-size: 13px;
@@ -2377,45 +2412,45 @@ div.selector span {
   padding: 4px 6px;
   line-height: 20px;
 }
-/* line 699, ../../../../../sass/components/_issue.scss */
+/* line 700, ../../../../../sass/components/_issue.scss */
 #issue-create-form .edit-field > input {
   height: 28px;
 }
-/* line 702, ../../../../../sass/components/_issue.scss */
+/* line 703, ../../../../../sass/components/_issue.scss */
 #issue-create-form .edit-field > textarea {
   min-height: 180px;
 }
-/* line 705, ../../../../../sass/components/_issue.scss */
+/* line 706, ../../../../../sass/components/_issue.scss */
 #issue-create-form .edit-field:last-of-type .select2-container {
   margin-bottom: 0;
 }
 
-/* line 711, ../../../../../sass/components/_issue.scss */
+/* line 712, ../../../../../sass/components/_issue.scss */
 #issue-create-modal .modal-body > .empty-area {
   position: static;
   margin: 0;
 }
-/* line 715, ../../../../../sass/components/_issue.scss */
+/* line 716, ../../../../../sass/components/_issue.scss */
 #issue-create-modal .modal-header {
   position: relative;
 }
-/* line 717, ../../../../../sass/components/_issue.scss */
+/* line 718, ../../../../../sass/components/_issue.scss */
 #issue-create-modal .modal-header > h6 > span {
   font-style: italic;
 }
-/* line 722, ../../../../../sass/components/_issue.scss */
+/* line 723, ../../../../../sass/components/_issue.scss */
 #issue-create-modal .modal-footer button {
   font-size: inherit;
 }
 
-/* line 727, ../../../../../sass/components/_issue.scss */
+/* line 728, ../../../../../sass/components/_issue.scss */
 .issue-create-nav {
   position: absolute;
   top: 4px;
   right: 5px;
 }
 
-/* line 733, ../../../../../sass/components/_issue.scss */
+/* line 734, ../../../../../sass/components/_issue.scss */
 .commit-details {
   margin: -15px -15px 15px -15px;
   padding-bottom: 0;
@@ -2426,14 +2461,14 @@ div.selector span {
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
 }
-/* line 740, ../../../../../sass/components/_issue.scss */
+/* line 741, ../../../../../sass/components/_issue.scss */
 .commit-details blockquote {
   padding-left: 5px;
   margin-bottom: 10px;
   margin-left: -10px;
   border-left-color: #e3e3e3;
 }
-/* line 745, ../../../../../sass/components/_issue.scss */
+/* line 746, ../../../../../sass/components/_issue.scss */
 .commit-details blockquote p {
   font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
   white-space: pre-wrap;
@@ -2443,11 +2478,11 @@ div.selector span {
   -webkit-transition: margin 0.35s, height 0.35s;
   transition: margin 0.35s, height 0.35s;
 }
-/* line 750, ../../../../../sass/components/_issue.scss */
+/* line 751, ../../../../../sass/components/_issue.scss */
 .commit-details blockquote p:last-child.in {
   margin-top: 10px;
 }
-/* line 753, ../../../../../sass/components/_issue.scss */
+/* line 754, ../../../../../sass/components/_issue.scss */
 .commit-details blockquote p > span[data-toggle=collapse] {
   font-family: "Open Sans",HelveticaNeue,Helvetica,Arial;
   position: relative;
@@ -2455,15 +2490,15 @@ div.selector span {
 }
 
 @media (min-width: 1023px) {
-  /* line 764, ../../../../../sass/components/_issue.scss */
+  /* line 765, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files {
     position: relative;
   }
-  /* line 766, ../../../../../sass/components/_issue.scss */
+  /* line 767, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .files-list-sticky-wrapper {
     height: auto !important;
   }
-  /* line 769, ../../../../../sass/components/_issue.scss */
+  /* line 770, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container {
     display: -webkit-flex;
     display: flex;
@@ -2476,23 +2511,23 @@ div.selector span {
     padding: 0;
     border-right: 1px solid #ddd;
   }
-  /* line 778, ../../../../../sass/components/_issue.scss */
+  /* line 779, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container:not(.stuck) {
     position: absolute;
     top: 0;
   }
-  /* line 782, ../../../../../sass/components/_issue.scss */
+  /* line 783, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container.stuck {
     border-right-color: #ccc;
     -moz-box-shadow: rgba(0, 0, 0, 0.07) 2px 0 1px -1px;
     -webkit-box-shadow: rgba(0, 0, 0, 0.07) 2px 0 1px -1px;
     box-shadow: rgba(0, 0, 0, 0.07) 2px 0 1px -1px;
   }
-  /* line 786, ../../../../../sass/components/_issue.scss */
+  /* line 787, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .code-files-list-nav {
     padding: 15px 15px 0;
   }
-  /* line 789, ../../../../../sass/components/_issue.scss */
+  /* line 790, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .code-files-list {
     -webkit-flex: 1 auto;
     flex: 1 auto;
@@ -2501,164 +2536,164 @@ div.selector span {
     height: auto !important;
     margin: 15px;
   }
-  /* line 796, ../../../../../sass/components/_issue.scss */
+  /* line 797, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .files-list-summary {
     cursor: default;
   }
-  /* line 798, ../../../../../sass/components/_issue.scss */
+  /* line 799, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .files-list-summary i.fa-sort {
     display: none;
   }
-  /* line 802, ../../../../../sass/components/_issue.scss */
+  /* line 803, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .commit-details {
     margin: 0;
     max-height: 50%;
   }
-  /* line 805, ../../../../../sass/components/_issue.scss */
+  /* line 806, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .commit-details.multi > p:first-child > span {
     display: block;
   }
-  /* line 807, ../../../../../sass/components/_issue.scss */
+  /* line 808, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .commit-details.multi > p:first-child > span:not(:first-child) {
     margin-left: 1em;
   }
-  /* line 809, ../../../../../sass/components/_issue.scss */
+  /* line 810, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .code-files-list-container .commit-details.multi > p:first-child > span:not(:first-child):before {
     content: "•";
   }
-  /* line 816, ../../../../../sass/components/_issue.scss */
+  /* line 817, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files .issue-activity {
     margin-left: 400px;
   }
-  /* line 819, ../../../../../sass/components/_issue.scss */
+  /* line 820, ../../../../../sass/components/_issue.scss */
   .issue-container.big-issue .code-files table.diff tr:not(.diff-comments) td.code span {
     left: 400px;
   }
 }
-/* line 826, ../../../../../sass/components/_issue.scss */
+/* line 827, ../../../../../sass/components/_issue.scss */
 .issue-nav {
   position: absolute;
   right: 23px;
   top: 21px;
   z-index: 120;
 }
-/* line 831, ../../../../../sass/components/_issue.scss */
+/* line 832, ../../../../../sass/components/_issue.scss */
 .issue-nav i {
   cursor: pointer;
   color: #707070;
 }
 
-/* line 838, ../../../../../sass/components/_issue.scss */
+/* line 839, ../../../../../sass/components/_issue.scss */
 .header-stuck .issue-nav {
   top: 60px;
   position: fixed;
 }
-/* line 843, ../../../../../sass/components/_issue.scss */
+/* line 844, ../../../../../sass/components/_issue.scss */
 .header-stuck.with-repository .issue-nav {
   top: 90px;
 }
 
-/* line 849, ../../../../../sass/components/_issue.scss */
+/* line 850, ../../../../../sass/components/_issue.scss */
 .issue-activity {
   padding: 15px 15px;
 }
-/* line 851, ../../../../../sass/components/_issue.scss */
+/* line 852, ../../../../../sass/components/_issue.scss */
 .issue-activity .time {
   color: #949494 !important;
   font-weight: normal;
 }
-/* line 854, ../../../../../sass/components/_issue.scss */
+/* line 855, ../../../../../sass/components/_issue.scss */
 .issue-activity .time i {
   margin-right: 3px;
 }
-/* line 858, ../../../../../sass/components/_issue.scss */
+/* line 859, ../../../../../sass/components/_issue.scss */
 .issue-activity a.time:hover {
   text-decoration: none;
 }
-/* line 860, ../../../../../sass/components/_issue.scss */
+/* line 861, ../../../../../sass/components/_issue.scss */
 .issue-activity a.time:hover span {
   text-decoration: underline;
 }
-/* line 864, ../../../../../sass/components/_issue.scss */
+/* line 865, ../../../../../sass/components/_issue.scss */
 .issue-activity > li > .box .box-toolbar > li {
   margin-left: 10px;
 }
-/* line 866, ../../../../../sass/components/_issue.scss */
+/* line 867, ../../../../../sass/components/_issue.scss */
 .issue-activity > li > .box .box-toolbar > li:first-child {
   margin-left: 5px;
 }
-/* line 870, ../../../../../sass/components/_issue.scss */
+/* line 871, ../../../../../sass/components/_issue.scss */
 .issue-activity .box-header > .fa-stack {
   float: left;
   margin-top: 7px;
   margin-left: 7px;
 }
-/* line 875, ../../../../../sass/components/_issue.scss */
+/* line 876, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry {
   margin-left: 50px;
 }
-/* line 877, ../../../../../sass/components/_issue.scss */
+/* line 878, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry > .info .label {
   margin-right: 4px;
 }
-/* line 881, ../../../../../sass/components/_issue.scss */
+/* line 882, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event > .info {
   color: #393939;
 }
-/* line 883, ../../../../../sass/components/_issue.scss */
+/* line 884, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event > .info > .label {
   margin-left: -4px;
   margin-right: 4px;
 }
-/* line 892, ../../../../../sass/components/_issue.scss */
+/* line 893, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event.event-referenced-by-issue > .content > span.label, .issue-activity .chat-box-entry.event.event-referenced-by-issuecomment > .content > span.label, .issue-activity .chat-box-entry.event.event-referenced-by-pullrequestcomment > .content > span.label, .issue-activity .chat-box-entry.event.event-referenced-by-milestone > .content > span.label {
   float: right;
   margin-top: 1px;
 }
-/* line 898, ../../../../../sass/components/_issue.scss */
+/* line 899, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event.event-referenced-in-commit .comment-commits table {
   border-top: none;
 }
-/* line 900, ../../../../../sass/components/_issue.scss */
+/* line 901, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event.event-referenced-in-commit .comment-commits table tr:first-child {
   border-top: none;
 }
-/* line 902, ../../../../../sass/components/_issue.scss */
+/* line 903, ../../../../../sass/components/_issue.scss */
 .issue-activity .chat-box-entry.event.event-referenced-in-commit .comment-commits table tr:first-child td {
   border-top: none;
 }
-/* line 911, ../../../../../sass/components/_issue.scss */
+/* line 912, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-commits-group .box-header > .title, .issue-activity .pr-commits-group .box-header > .box-toolbar > li {
   font-size: 13px;
 }
-/* line 914, ../../../../../sass/components/_issue.scss */
+/* line 915, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-commits-group .box-header > .title {
   font-weight: normal;
 }
-/* line 920, ../../../../../sass/components/_issue.scss */
+/* line 921, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point.outdated {
   border: solid #b35d5d 1px;
 }
-/* line 923, ../../../../../sass/components/_issue.scss */
+/* line 924, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point .outdated {
   color: #b35d5d;
 }
-/* line 926, ../../../../../sass/components/_issue.scss */
+/* line 927, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header {
   position: relative;
   min-height: 65px;
 }
-/* line 929, ../../../../../sass/components/_issue.scss */
+/* line 930, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .title {
   font-size: 13px;
   font-weight: normal;
   margin-right: 160px;
 }
-/* line 933, ../../../../../sass/components/_issue.scss */
+/* line 934, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .title > span {
   display: block;
 }
-/* line 937, ../../../../../sass/components/_issue.scss */
+/* line 938, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .box-toolbar {
   font-weight: normal;
   color: #949494;
@@ -2667,7 +2702,7 @@ div.selector span {
   top: 2px;
   right: 5px;
 }
-/* line 944, ../../../../../sass/components/_issue.scss */
+/* line 945, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .box-toolbar li.link {
   float: none;
   clear: both;
@@ -2676,89 +2711,89 @@ div.selector span {
   line-height: 21px;
   display: block;
 }
-/* line 953, ../../../../../sass/components/_issue.scss */
+/* line 954, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .comments-count {
   padding-right: 5px;
 }
-/* line 955, ../../../../../sass/components/_issue.scss */
+/* line 956, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .comments-count i {
   margin-right: 2px;
 }
-/* line 959, ../../../../../sass/components/_issue.scss */
+/* line 960, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .time {
   margin-left: 5px;
 }
-/* line 961, ../../../../../sass/components/_issue.scss */
+/* line 962, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-header .time i.fa-caret-right {
   font-size: 11px;
   color: #bbb;
   width: auto;
   margin: 0 4px;
 }
-/* line 969, ../../../../../sass/components/_issue.scss */
+/* line 970, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point > .box-content.collapse.in {
   position: static;
 }
-/* line 974, ../../../../../sass/components/_issue.scss */
+/* line 975, ../../../../../sass/components/_issue.scss */
 .issue-activity .box-section.code-comments {
   padding-top: 5px;
   padding-bottom: 0;
   position: relative;
 }
-/* line 983, ../../../../../sass/components/_issue.scss */
+/* line 984, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .box-toolbar {
   margin-top: 8px;
   margin-right: 8px;
   text-align: right;
 }
-/* line 987, ../../../../../sass/components/_issue.scss */
+/* line 988, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .box-toolbar > li {
   line-height: normal;
   padding: 0;
   margin: 0;
   float: none;
 }
-/* line 992, ../../../../../sass/components/_issue.scss */
+/* line 993, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .box-toolbar > li:first-of-type {
   margin-bottom: 3px;
 }
-/* line 994, ../../../../../sass/components/_issue.scss */
+/* line 995, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .box-toolbar > li:first-of-type li:first-of-type {
   margin-right: 3px;
 }
-/* line 998, ../../../../../sass/components/_issue.scss */
+/* line 999, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .box-toolbar > li a.btn {
   display: block;
 }
-/* line 1003, ../../../../../sass/components/_issue.scss */
+/* line 1004, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file > .box-content.collapse.in {
   position: static;
 }
-/* line 1006, ../../../../../sass/components/_issue.scss */
+/* line 1007, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .title span {
   display: block;
   font-weight: normal;
 }
-/* line 1010, ../../../../../sass/components/_issue.scss */
+/* line 1011, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-file .no-diff {
   color: #bbb;
   background: white;
   padding: 10px;
 }
-/* line 1018, ../../../../../sass/components/_issue.scss */
+/* line 1019, ../../../../../sass/components/_issue.scss */
 .issue-activity .pr-entry-point div.collapse.in, .issue-activity .code-file div.collapse.in {
   height: auto !important;
   overflow: visible;
 }
-/* line 1023, ../../../../../sass/components/_issue.scss */
+/* line 1024, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-commits {
   margin: -5px -10px;
 }
-/* line 1027, ../../../../../sass/components/_issue.scss */
+/* line 1028, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-form {
   margin: 5px 0;
 }
-/* line 1029, ../../../../../sass/components/_issue.scss */
+/* line 1030, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-form textarea {
   width: 100%;
   -moz-box-sizing: border-box;
@@ -2770,87 +2805,87 @@ div.selector span {
   -webkit-transition: height 0.35s;
   transition: height 0.35s;
 }
-/* line 1034, ../../../../../sass/components/_issue.scss */
+/* line 1035, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-form textarea.focused {
   height: 15em;
 }
-/* line 1038, ../../../../../sass/components/_issue.scss */
+/* line 1039, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-form .alert {
   margin-bottom: 10px;
 }
-/* line 1044, ../../../../../sass/components/_issue.scss */
+/* line 1045, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-delete-form .auto-align {
   padding-bottom: 10px;
   border-bottom: solid 1px #cdcdcd;
 }
-/* line 1050, ../../../../../sass/components/_issue.scss */
+/* line 1051, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-create-placeholder {
   margin-left: 50px;
   margin-bottom: 15px;
 }
-/* line 1055, ../../../../../sass/components/_issue.scss */
+/* line 1056, ../../../../../sass/components/_issue.scss */
 .issue-activity .change-event .box-content {
   margin: 5px 10px;
 }
-/* line 1059, ../../../../../sass/components/_issue.scss */
+/* line 1060, ../../../../../sass/components/_issue.scss */
 .issue-activity .part-last_head_status .state-success {
   color: #468847;
 }
-/* line 1062, ../../../../../sass/components/_issue.scss */
+/* line 1063, ../../../../../sass/components/_issue.scss */
 .issue-activity .part-last_head_status .state-failure, .issue-activity .part-last_head_status .state-error {
   color: #b94a48;
 }
-/* line 1065, ../../../../../sass/components/_issue.scss */
+/* line 1066, ../../../../../sass/components/_issue.scss */
 .issue-activity .part-last_head_status .state-pending, .issue-activity .part-last_head_status .state-unknown {
   color: #c09853;
 }
-/* line 1070, ../../../../../sass/components/_issue.scss */
+/* line 1071, ../../../../../sass/components/_issue.scss */
 .issue-activity .code-comments-group .box-content {
   margin: 5px 10px;
   padding-right: 70px;
 }
-/* line 1075, ../../../../../sass/components/_issue.scss */
+/* line 1076, ../../../../../sass/components/_issue.scss */
 .issue-activity .go-to-review-link {
   position: absolute;
   right: 20px;
   margin-top: -1px;
 }
-/* line 1081, ../../../../../sass/components/_issue.scss */
+/* line 1082, ../../../../../sass/components/_issue.scss */
 .issue-activity .commit-comments-group .box-content {
   margin: 5px 10px;
 }
-/* line 1083, ../../../../../sass/components/_issue.scss */
+/* line 1084, ../../../../../sass/components/_issue.scss */
 .issue-activity .commit-comments-group .box-content .comment-commits {
   margin-top: 5px;
 }
-/* line 1092, ../../../../../sass/components/_issue.scss */
+/* line 1093, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-nav {
   float: right;
   margin: -2px -5px -1px 7px;
 }
-/* line 1096, ../../../../../sass/components/_issue.scss */
+/* line 1097, ../../../../../sass/components/_issue.scss */
 .issue-activity .comment-nav a.loading i.fa-edit, .issue-activity .comment-nav a.loading i.fa-times {
   display: none;
 }
-/* line 1103, ../../../../../sass/components/_issue.scss */
+/* line 1104, ../../../../../sass/components/_issue.scss */
 .issue-activity ~ .issue-activity {
   padding-top: 0;
   margin-top: -17px;
 }
-/* line 1107, ../../../../../sass/components/_issue.scss */
+/* line 1108, ../../../../../sass/components/_issue.scss */
 .issue-activity ~ .issue-activity > li.divider span {
   font-size: 14px;
   top: -10px;
 }
 
-/* line 1116, ../../../../../sass/components/_issue.scss */
+/* line 1117, ../../../../../sass/components/_issue.scss */
 .issue-tabs {
   overflow: hidden;
   position: relative;
   padding: 0 25px;
   display: none;
 }
-/* line 1121, ../../../../../sass/components/_issue.scss */
+/* line 1122, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul {
   margin-bottom: 0;
   padding-top: 5px;
@@ -2868,7 +2903,7 @@ div.selector span {
   -webkit-transition: -webkit-transform 0.35s ease-in-out, left 0.35s ease-in-out;
   transition: transform 0.35s ease-in-out, left 0.35s ease-in-out;
 }
-/* line 1131, ../../../../../sass/components/_issue.scss */
+/* line 1132, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li {
   margin-left: 1px;
   margin-right: 1px;
@@ -2876,28 +2911,28 @@ div.selector span {
   display: inline-block;
   float: none;
 }
-/* line 1137, ../../../../../sass/components/_issue.scss */
+/* line 1138, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li > a {
   padding: 5px 8px 8px;
 }
-/* line 1139, ../../../../../sass/components/_issue.scss */
+/* line 1140, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li > a > .badge:last-of-type {
   margin-left: 3px;
 }
-/* line 1143, ../../../../../sass/components/_issue.scss */
+/* line 1144, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li.pr-discussion-tab > a > .badge:first-child {
   margin-left: 0;
 }
-/* line 1146, ../../../../../sass/components/_issue.scss */
+/* line 1147, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li.commit-tab > a > strong {
   margin-right: 3px;
 }
-/* line 1150, ../../../../../sass/components/_issue.scss */
+/* line 1151, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li.closable a {
   position: relative;
   padding-right: 22px;
 }
-/* line 1154, ../../../../../sass/components/_issue.scss */
+/* line 1155, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li.closable i.fa-times {
   position: absolute;
   right: 0;
@@ -2909,15 +2944,15 @@ div.selector span {
   font-size: 12px;
   color: #CCC;
 }
-/* line 1164, ../../../../../sass/components/_issue.scss */
+/* line 1165, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li.closable i.fa-times:hover {
   color: #666;
 }
-/* line 1169, ../../../../../sass/components/_issue.scss */
+/* line 1170, ../../../../../sass/components/_issue.scss */
 .issue-tabs > ul > li span.label > span + span {
   margin-left: 5px;
 }
-/* line 1174, ../../../../../sass/components/_issue.scss */
+/* line 1175, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow {
   position: absolute;
   display: block;
@@ -2931,7 +2966,7 @@ div.selector span {
   background-color: #f0f0f0;
   z-index: 1;
 }
-/* line 1186, ../../../../../sass/components/_issue.scss */
+/* line 1187, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow > .badge {
   font-size: 8px;
   position: absolute;
@@ -2941,7 +2976,7 @@ div.selector span {
   height: 8px;
   padding: 0 1px;
 }
-/* line 1196, ../../../../../sass/components/_issue.scss */
+/* line 1197, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow > i, .issue-tabs > .arrow > .badge {
   opacity: 1;
   -moz-transition: opacity 0.35s ease-in-out;
@@ -2949,7 +2984,7 @@ div.selector span {
   -webkit-transition: opacity 0.35s ease-in-out;
   transition: opacity 0.35s ease-in-out;
 }
-/* line 1200, ../../../../../sass/components/_issue.scss */
+/* line 1201, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow.scroll-left {
   left: 0;
   padding-left: 2px;
@@ -2960,11 +2995,11 @@ div.selector span {
   background: -webkit-linear-gradient(right, rgba(240, 240, 240, 0) 0%, rgba(240, 240, 240, 0.8) 30%, #f0f0f0 100%);
   background: linear-gradient(to left, rgba(240, 240, 240, 0) 0%, rgba(240, 240, 240, 0.8) 30%, #f0f0f0 100%);
 }
-/* line 1205, ../../../../../sass/components/_issue.scss */
+/* line 1206, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow.scroll-left > .badge {
   left: 2px;
 }
-/* line 1209, ../../../../../sass/components/_issue.scss */
+/* line 1210, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow.scroll-right {
   right: 0;
   padding-left: 5px;
@@ -2975,19 +3010,19 @@ div.selector span {
   background: -webkit-linear-gradient(left, rgba(240, 240, 240, 0) 0%, rgba(240, 240, 240, 0.8) 30%, #f0f0f0 100%);
   background: linear-gradient(to right, rgba(240, 240, 240, 0) 0%, rgba(240, 240, 240, 0.8) 30%, #f0f0f0 100%);
 }
-/* line 1214, ../../../../../sass/components/_issue.scss */
+/* line 1215, ../../../../../sass/components/_issue.scss */
 .issue-tabs > .arrow.scroll-right > .badge {
   right: 2px;
 }
-/* line 1221, ../../../../../sass/components/_issue.scss */
+/* line 1222, ../../../../../sass/components/_issue.scss */
 .issue-tabs.no-scroll-left .scroll-left > i, .issue-tabs.no-scroll-right .scroll-right > i {
   opacity: 0.1;
 }
-/* line 1224, ../../../../../sass/components/_issue.scss */
+/* line 1225, ../../../../../sass/components/_issue.scss */
 .issue-tabs.no-scroll-left .scroll-left > .badge, .issue-tabs.no-scroll-right .scroll-right > .badge {
   opacity: 0;
 }
-/* line 1228, ../../../../../sass/components/_issue.scss */
+/* line 1229, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck {
   background: #f0f0F0;
   max-height: 37px;
@@ -2995,17 +3030,17 @@ div.selector span {
   z-index: 99;
   padding: 0 25px;
 }
-/* line 1234, ../../../../../sass/components/_issue.scss */
+/* line 1235, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > ul {
   padding-top: 2px;
   padding-bottom: 3px;
   border-bottom: none;
 }
-/* line 1238, ../../../../../sass/components/_issue.scss */
+/* line 1239, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > ul > li {
   margin-bottom: 0;
 }
-/* line 1240, ../../../../../sass/components/_issue.scss */
+/* line 1241, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > ul > li > a {
   -moz-border-radius: 4px;
   -webkit-border-radius: 4px;
@@ -3013,36 +3048,36 @@ div.selector span {
   border-color: none;
   padding-bottom: 4px;
 }
-/* line 1244, ../../../../../sass/components/_issue.scss */
+/* line 1245, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > ul > li > a:hover, .issue-tabs.stuck > ul > li > a:focus {
   border-color: #ddd;
 }
-/* line 1248, ../../../../../sass/components/_issue.scss */
+/* line 1249, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > ul > li.active > a {
   border-color: #ddd;
 }
-/* line 1253, ../../../../../sass/components/_issue.scss */
+/* line 1254, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > .arrow {
   top: -6px;
   bottom: -1px;
   padding-top: 16px;
 }
-/* line 1257, ../../../../../sass/components/_issue.scss */
+/* line 1258, ../../../../../sass/components/_issue.scss */
 .issue-tabs.stuck > .arrow > .badge {
   top: 9px;
 }
 
-/* line 1263, ../../../../../sass/components/_issue.scss */
+/* line 1264, ../../../../../sass/components/_issue.scss */
 .with-repository .issue-tabs.stuck {
   top: 129px;
 }
 
-/* line 1267, ../../../../../sass/components/_issue.scss */
+/* line 1268, ../../../../../sass/components/_issue.scss */
 .issue-discussion .issue-body {
   margin-top: 0;
 }
 
-/* line 1272, ../../../../../sass/components/_issue.scss */
+/* line 1273, ../../../../../sass/components/_issue.scss */
 .issue-commits .deleted-commits-toggler {
   font-size: inherit;
   display: inline-block;
@@ -3050,31 +3085,31 @@ div.selector span {
   line-height: normal;
   vertical-align: middle;
 }
-/* line 1278, ../../../../../sass/components/_issue.scss */
+/* line 1279, ../../../../../sass/components/_issue.scss */
 .issue-commits .deleted-commits-toggler input {
   vertical-align: middle;
   margin-right: 1ex;
 }
-/* line 1282, ../../../../../sass/components/_issue.scss */
+/* line 1283, ../../../../../sass/components/_issue.scss */
 .issue-commits .deleted-commits-toggler span {
   vertical-align: middle;
 }
-/* line 1286, ../../../../../sass/components/_issue.scss */
+/* line 1287, ../../../../../sass/components/_issue.scss */
 .issue-commits .all-commits {
   display: none;
 }
-/* line 1290, ../../../../../sass/components/_issue.scss */
+/* line 1291, ../../../../../sass/components/_issue.scss */
 .issue-commits.view-deleted .all-commits {
   display: block;
   padding-top: 15px;
   margin-top: 0;
 }
-/* line 1295, ../../../../../sass/components/_issue.scss */
+/* line 1296, ../../../../../sass/components/_issue.scss */
 .issue-commits.view-deleted .active-commits {
   display: none;
 }
 
-/* line 1301, ../../../../../sass/components/_issue.scss */
+/* line 1302, ../../../../../sass/components/_issue.scss */
 .issue-commits > .content, .issue-commits .code-files-list-container, .issue-commits .review-header, .issue-review > .content, .issue-review .code-files-list-container, .issue-review .review-header, .code-files > .content, .code-files .code-files-list-container, .code-files .review-header {
   padding: 15px;
   background: white;
@@ -3083,26 +3118,26 @@ div.selector span {
   -webkit-box-shadow: rgba(0, 0, 0, 0.1) 0 1px 3px -1px;
   box-shadow: rgba(0, 0, 0, 0.1) 0 1px 3px -1px;
 }
-/* line 1306, ../../../../../sass/components/_issue.scss */
+/* line 1307, ../../../../../sass/components/_issue.scss */
 .issue-commits > .content > nav, .issue-commits > .content > .code-files-list-nav > nav, .issue-commits .code-files-list-container > nav, .issue-commits .code-files-list-container > .code-files-list-nav > nav, .issue-commits .review-header > nav, .issue-commits .review-header > .code-files-list-nav > nav, .issue-review > .content > nav, .issue-review > .content > .code-files-list-nav > nav, .issue-review .code-files-list-container > nav, .issue-review .code-files-list-container > .code-files-list-nav > nav, .issue-review .review-header > nav, .issue-review .review-header > .code-files-list-nav > nav, .code-files > .content > nav, .code-files > .content > .code-files-list-nav > nav, .code-files .code-files-list-container > nav, .code-files .code-files-list-container > .code-files-list-nav > nav, .code-files .review-header > nav, .code-files .review-header > .code-files-list-nav > nav {
   margin-left: 10px;
   float: right;
   position: relative;
   top: -6px;
 }
-/* line 1311, ../../../../../sass/components/_issue.scss */
+/* line 1312, ../../../../../sass/components/_issue.scss */
 .issue-commits > .content > nav > .btn-group, .issue-commits > .content > .code-files-list-nav > nav > .btn-group, .issue-commits .code-files-list-container > nav > .btn-group, .issue-commits .code-files-list-container > .code-files-list-nav > nav > .btn-group, .issue-commits .review-header > nav > .btn-group, .issue-commits .review-header > .code-files-list-nav > nav > .btn-group, .issue-review > .content > nav > .btn-group, .issue-review > .content > .code-files-list-nav > nav > .btn-group, .issue-review .code-files-list-container > nav > .btn-group, .issue-review .code-files-list-container > .code-files-list-nav > nav > .btn-group, .issue-review .review-header > nav > .btn-group, .issue-review .review-header > .code-files-list-nav > nav > .btn-group, .code-files > .content > nav > .btn-group, .code-files > .content > .code-files-list-nav > nav > .btn-group, .code-files .code-files-list-container > nav > .btn-group, .code-files .code-files-list-container > .code-files-list-nav > nav > .btn-group, .code-files .review-header > nav > .btn-group, .code-files .review-header > .code-files-list-nav > nav > .btn-group {
   margin-left: 6px;
 }
-/* line 1314, ../../../../../sass/components/_issue.scss */
+/* line 1315, ../../../../../sass/components/_issue.scss */
 .issue-commits > .content > nav > div.quicksearch-widget, .issue-commits > .content > .code-files-list-nav > nav > div.quicksearch-widget, .issue-commits .code-files-list-container > nav > div.quicksearch-widget, .issue-commits .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget, .issue-commits .review-header > nav > div.quicksearch-widget, .issue-commits .review-header > .code-files-list-nav > nav > div.quicksearch-widget, .issue-review > .content > nav > div.quicksearch-widget, .issue-review > .content > .code-files-list-nav > nav > div.quicksearch-widget, .issue-review .code-files-list-container > nav > div.quicksearch-widget, .issue-review .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget, .issue-review .review-header > nav > div.quicksearch-widget, .issue-review .review-header > .code-files-list-nav > nav > div.quicksearch-widget, .code-files > .content > nav > div.quicksearch-widget, .code-files > .content > .code-files-list-nav > nav > div.quicksearch-widget, .code-files .code-files-list-container > nav > div.quicksearch-widget, .code-files .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget, .code-files .review-header > nav > div.quicksearch-widget, .code-files .review-header > .code-files-list-nav > nav > div.quicksearch-widget {
   display: inline-block;
 }
-/* line 1316, ../../../../../sass/components/_issue.scss */
+/* line 1317, ../../../../../sass/components/_issue.scss */
 .issue-commits > .content > nav > div.quicksearch-widget input[type='text'], .issue-commits > .content > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .issue-commits .code-files-list-container > nav > div.quicksearch-widget input[type='text'], .issue-commits .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .issue-commits .review-header > nav > div.quicksearch-widget input[type='text'], .issue-commits .review-header > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .issue-review > .content > nav > div.quicksearch-widget input[type='text'], .issue-review > .content > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .issue-review .code-files-list-container > nav > div.quicksearch-widget input[type='text'], .issue-review .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .issue-review .review-header > nav > div.quicksearch-widget input[type='text'], .issue-review .review-header > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .code-files > .content > nav > div.quicksearch-widget input[type='text'], .code-files > .content > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .code-files .code-files-list-container > nav > div.quicksearch-widget input[type='text'], .code-files .code-files-list-container > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'], .code-files .review-header > nav > div.quicksearch-widget input[type='text'], .code-files .review-header > .code-files-list-nav > nav > div.quicksearch-widget input[type='text'] {
   width: 100px;
 }
-/* line 1322, ../../../../../sass/components/_issue.scss */
+/* line 1323, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list, .issue-review .code-files-list, .code-files .code-files-list {
   clear: both;
   margin-bottom: -12px;
@@ -3113,105 +3148,105 @@ div.selector span {
   -webkit-transition: height 0.01s ease;
   transition: height 0.01s ease;
 }
-/* line 1328, ../../../../../sass/components/_issue.scss */
+/* line 1329, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list.in, .issue-review .code-files-list.in, .code-files .code-files-list.in {
   margin-top: 15px;
   margin-bottom: -5px;
 }
-/* line 1332, ../../../../../sass/components/_issue.scss */
+/* line 1333, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list table, .issue-review .code-files-list table, .code-files .code-files-list table {
   margin-bottom: 0;
   table-layout: fixed;
 }
-/* line 1339, ../../../../../sass/components/_issue.scss */
+/* line 1340, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:first-of-type, .issue-review .code-files-list td:first-of-type, .code-files .code-files-list td:first-of-type {
   width: 12px;
   color: #767676;
 }
-/* line 1342, ../../../../../sass/components/_issue.scss */
+/* line 1343, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:first-of-type.status-added, .issue-review .code-files-list td:first-of-type.status-added, .code-files .code-files-list td:first-of-type.status-added {
   color: #8cc079;
 }
-/* line 1345, ../../../../../sass/components/_issue.scss */
+/* line 1346, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:first-of-type.status-removed, .issue-review .code-files-list td:first-of-type.status-removed, .code-files .code-files-list td:first-of-type.status-removed {
   color: #b35d5d;
 }
-/* line 1348, ../../../../../sass/components/_issue.scss */
+/* line 1349, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:first-of-type.status-renamed, .issue-review .code-files-list td:first-of-type.status-renamed, .code-files .code-files-list td:first-of-type.status-renamed {
   color: #7fb3d4;
 }
-/* line 1352, ../../../../../sass/components/_issue.scss */
+/* line 1353, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:last-of-type, .issue-review .code-files-list td:last-of-type, .code-files .code-files-list td:last-of-type {
   text-align: right;
 }
-/* line 1354, ../../../../../sass/components/_issue.scss */
+/* line 1355, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list td:last-of-type li, .issue-review .code-files-list td:last-of-type li, .code-files .code-files-list td:last-of-type li {
   margin-left: 4px;
 }
-/* line 1358, ../../../../../sass/components/_issue.scss */
+/* line 1359, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list tr:last-of-type td, .issue-review .code-files-list tr:last-of-type td, .code-files .code-files-list tr:last-of-type td {
   border-bottom: 1px solid #DDD;
 }
-/* line 1361, ../../../../../sass/components/_issue.scss */
+/* line 1362, ../../../../../sass/components/_issue.scss */
 .issue-commits .code-files-list ul, .issue-review .code-files-list ul, .code-files .code-files-list ul {
   margin-bottom: 0;
   white-space: nowrap;
 }
-/* line 1366, ../../../../../sass/components/_issue.scss */
+/* line 1367, ../../../../../sass/components/_issue.scss */
 .issue-commits .empty-area, .issue-review .empty-area, .code-files .empty-area {
   position: static;
   height: 200px;
   margin-top: 100px;
 }
-/* line 1370, ../../../../../sass/components/_issue.scss */
+/* line 1371, ../../../../../sass/components/_issue.scss */
 .issue-commits .empty-area i, .issue-review .empty-area i, .code-files .empty-area i {
   font-size: inherit;
 }
-/* line 1374, ../../../../../sass/components/_issue.scss */
+/* line 1375, ../../../../../sass/components/_issue.scss */
 .issue-commits .global-comments > .divider, .issue-review .global-comments > .divider, .code-files .global-comments > .divider {
   margin-top: 15px;
   margin-bottom: 30px;
 }
 
-/* line 1382, ../../../../../sass/components/_issue.scss */
+/* line 1383, ../../../../../sass/components/_issue.scss */
 .code-files .code-files-list-container.stuck {
   min-height: 49px;
   z-index: 98;
   padding-bottom: 3px;
 }
-/* line 1386, ../../../../../sass/components/_issue.scss */
+/* line 1387, ../../../../../sass/components/_issue.scss */
 .code-files .code-files-list-container.stuck .code-files-list {
   margin-bottom: 0;
 }
-/* line 1388, ../../../../../sass/components/_issue.scss */
+/* line 1389, ../../../../../sass/components/_issue.scss */
 .code-files .code-files-list-container.stuck .code-files-list.in {
   margin-bottom: 7px;
 }
 
-/* line 1396, ../../../../../sass/components/_issue.scss */
+/* line 1397, ../../../../../sass/components/_issue.scss */
 .issue-review .review-header {
   position: relative;
 }
-/* line 1398, ../../../../../sass/components/_issue.scss */
+/* line 1399, ../../../../../sass/components/_issue.scss */
 .issue-review .review-header > nav {
   float: none;
   position: absolute;
   top: 9px;
   right: 10px;
 }
-/* line 1404, ../../../../../sass/components/_issue.scss */
+/* line 1405, ../../../../../sass/components/_issue.scss */
 .issue-review .review-header.stuck {
   position: fixed;
   height: 49px;
 }
 
-/* line 1410, ../../../../../sass/components/_issue.scss */
+/* line 1411, ../../../../../sass/components/_issue.scss */
 .code-files .code-files-list-container, .issue-review .review-header {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
 }
-/* line 1412, ../../../../../sass/components/_issue.scss */
+/* line 1413, ../../../../../sass/components/_issue.scss */
 .code-files .code-files-list-container.stuck, .issue-review .review-header.stuck {
   top: 136px;
   z-index: 98;
@@ -3221,24 +3256,24 @@ div.selector span {
   width: calc(0.583333 * 100% - 0.583333 * 160px - 13px);
 }
 
-/* line 1421, ../../../../../sass/components/_issue.scss */
+/* line 1422, ../../../../../sass/components/_issue.scss */
 .with-repository .code-files .code-files-list-container.stuck, .with-repository .issue-review .review-header.stuck {
   top: 166px;
 }
 
-/* line 1428, ../../../../../sass/components/_issue.scss */
+/* line 1429, ../../../../../sass/components/_issue.scss */
 table.commits-list td {
   line-height: 22px;
   padding: 4px;
   vertical-align: top;
 }
-/* line 1432, ../../../../../sass/components/_issue.scss */
+/* line 1433, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-author {
   width: 16ex;
   white-space: nowrap;
   font-weight: bold;
 }
-/* line 1436, ../../../../../sass/components/_issue.scss */
+/* line 1437, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-author span {
   overflow: hidden;
   white-space: nowrap;
@@ -3251,98 +3286,98 @@ table.commits-list td.cell-author span {
   width: 12ex;
   margin-left: 3px;
 }
-/* line 1445, ../../../../../sass/components/_issue.scss */
+/* line 1446, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message {
   border-right: none;
 }
-/* line 1447, ../../../../../sass/components/_issue.scss */
+/* line 1448, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message .label {
   float: left;
   margin-right: 4px;
   margin-top: 3px;
 }
-/* line 1451, ../../../../../sass/components/_issue.scss */
+/* line 1452, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message .label.comments-count {
   float: right;
   margin-right: 3px;
   margin-left: 1em;
 }
-/* line 1457, ../../../../../sass/components/_issue.scss */
+/* line 1458, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message p {
   font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
   font-size: 11px;
   margin: 0;
   white-space: pre-wrap;
 }
-/* line 1462, ../../../../../sass/components/_issue.scss */
+/* line 1463, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message p:first-of-type {
   margin-top: 3px;
   font-size: 12px;
 }
-/* line 1466, ../../../../../sass/components/_issue.scss */
+/* line 1467, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-message p > span[data-toggle=collapse] {
   font-family: "Open Sans",HelveticaNeue,Helvetica,Arial;
   position: relative;
   top: -2px;
 }
-/* line 1474, ../../../../../sass/components/_issue.scss */
+/* line 1475, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-sha {
   width: 10ex;
   text-align: center;
   font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
 }
-/* line 1479, ../../../../../sass/components/_issue.scss */
+/* line 1480, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-stats {
   white-space: nowrap;
   text-align: right;
   border-left: none;
 }
-/* line 1483, ../../../../../sass/components/_issue.scss */
+/* line 1484, ../../../../../sass/components/_issue.scss */
 table.commits-list td.cell-stats li:not(:first-child) {
   margin-left: 2px;
 }
-/* line 1487, ../../../../../sass/components/_issue.scss */
+/* line 1488, ../../../../../sass/components/_issue.scss */
 table.commits-list td .comments-count {
   color: white;
   font-weight: normal;
 }
 
-/* line 1494, ../../../../../sass/components/_issue.scss */
+/* line 1495, ../../../../../sass/components/_issue.scss */
 .files-navigator {
   width: 20em;
 }
-/* line 1496, ../../../../../sass/components/_issue.scss */
+/* line 1497, ../../../../../sass/components/_issue.scss */
 .files-navigator li a {
   padding-right: 5px;
   padding-left: 5px;
 }
-/* line 1499, ../../../../../sass/components/_issue.scss */
+/* line 1500, ../../../../../sass/components/_issue.scss */
 .files-navigator li a > span.label {
   position: absolute;
   right: 10px;
   color: white;
 }
-/* line 1503, ../../../../../sass/components/_issue.scss */
+/* line 1504, ../../../../../sass/components/_issue.scss */
 .files-navigator li a > span.label > i {
   color: white;
 }
-/* line 1508, ../../../../../sass/components/_issue.scss */
+/* line 1509, ../../../../../sass/components/_issue.scss */
 .files-navigator li.horizontal-4.disabled {
   text-align: right;
 }
 
-/* line 1513, ../../../../../sass/components/_issue.scss */
+/* line 1514, ../../../../../sass/components/_issue.scss */
 .code-diff {
   overflow: auto;
   padding: 0;
   border-top: 0;
 }
-/* line 1517, ../../../../../sass/components/_issue.scss */
+/* line 1518, ../../../../../sass/components/_issue.scss */
 .code-diff table.diff {
   margin-bottom: 0;
 }
 
-/* line 1523, ../../../../../sass/components/_issue.scss */
+/* line 1524, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body, #modal-issue-created .modal-body {
   padding: 0;
   -moz-border-radius: 6px;
@@ -3350,7 +3385,7 @@ table.commits-list td .comments-count {
   border-radius: 6px;
   background: #f0f0f0;
 }
-/* line 1528, ../../../../../sass/components/_issue.scss */
+/* line 1529, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .header-stuck .issue-nav, #modal-issue-created .modal-body .header-stuck .issue-nav {
   right: -moz-calc(50% - 260px);
   right: -o-calc(50% - 260px);
@@ -3361,66 +3396,66 @@ table.commits-list td .comments-count {
   top: -webkit-calc(10% + 9px);
   top: calc(10% + 9px);
 }
-/* line 1533, ../../../../../sass/components/_issue.scss */
+/* line 1534, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .header-stuck.with-repository .issue-nav, #modal-issue-created .modal-body .header-stuck.with-repository .issue-nav {
   top: -moz-calc(10% + 39px);
   top: -o-calc(10% + 39px);
   top: -webkit-calc(10% + 39px);
   top: calc(10% + 39px);
 }
-/* line 1538, ../../../../../sass/components/_issue.scss */
+/* line 1539, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .stuck, #modal-issue-created .modal-body .stuck {
   width: 547px;
   right: auto;
   top: 10%;
 }
-/* line 1543, ../../../../../sass/components/_issue.scss */
+/* line 1544, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .issue-content > .area-top header h3, #modal-issue-created .modal-body .issue-content > .area-top header h3 {
   margin-right: 40px;
 }
-/* line 1546, ../../../../../sass/components/_issue.scss */
+/* line 1547, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body > .issue-container.big-issue, #modal-issue-created .modal-body > .issue-container.big-issue {
   top: 0 !important;
 }
-/* line 1549, ../../../../../sass/components/_issue.scss */
+/* line 1550, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .issue-content > .area-top header.stuck, #modal-issue-created .modal-body .issue-content > .area-top header.stuck {
   margin-left: -15px;
   -moz-border-radius: 6px 6px 0 0;
   -webkit-border-radius: 6px;
   border-radius: 6px 6px 0 0;
 }
-/* line 1553, ../../../../../sass/components/_issue.scss */
+/* line 1554, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .issue-tabs.stuck, #modal-issue-created .modal-body .issue-tabs.stuck {
   margin-top: 47px;
 }
-/* line 1557, ../../../../../sass/components/_issue.scss */
+/* line 1558, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .with-repository .issue-tabs.stuck, #modal-issue-created .modal-body .with-repository .issue-tabs.stuck {
   margin-top: 77px;
 }
-/* line 1562, ../../../../../sass/components/_issue.scss */
+/* line 1563, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .code-files-list-container.stuck, #modal-issue-view .modal-body .review-header.stuck, #modal-issue-created .modal-body .code-files-list-container.stuck, #modal-issue-created .modal-body .review-header.stuck {
   margin-top: 84px;
 }
-/* line 1568, ../../../../../sass/components/_issue.scss */
+/* line 1569, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .with-repository .code-files-list-container.stuck, #modal-issue-view .modal-body .with-repository .review-header.stuck, #modal-issue-created .modal-body .with-repository .code-files-list-container.stuck, #modal-issue-created .modal-body .with-repository .review-header.stuck {
   margin-top: 114px;
 }
-/* line 1573, ../../../../../sass/components/_issue.scss */
+/* line 1574, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .sticky-wrapper > *, #modal-issue-created .modal-body .sticky-wrapper > * {
   top: 10%;
 }
-/* line 1576, ../../../../../sass/components/_issue.scss */
+/* line 1577, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .modal-body .stuck, #modal-issue-created .modal-body .stuck {
   -moz-transition: top 0.35s;
   -o-transition: top 0.35s;
   -webkit-transition: top 0.35s;
   transition: top 0.35s;
 }
-/* line 1581, ../../../../../sass/components/_issue.scss */
+/* line 1582, ../../../../../sass/components/_issue.scss */
 #modal-issue-view.full-screen .modal-body, #modal-issue-created.full-screen .modal-body {
   height: 100%;
 }
-/* line 1584, ../../../../../sass/components/_issue.scss */
+/* line 1585, ../../../../../sass/components/_issue.scss */
 #modal-issue-view.full-screen .modal-body .header-stuck .issue-nav, #modal-issue-created.full-screen .modal-body .header-stuck .issue-nav {
   right: -moz-calc(5% + 20px);
   right: -o-calc(5% + 20px);
@@ -3431,26 +3466,26 @@ table.commits-list td .comments-count {
   top: -webkit-calc(5% + 9px);
   top: calc(5% + 9px);
 }
-/* line 1589, ../../../../../sass/components/_issue.scss */
+/* line 1590, ../../../../../sass/components/_issue.scss */
 #modal-issue-view.full-screen .modal-body .header-stuck.with-repository .issue-nav, #modal-issue-created.full-screen .modal-body .header-stuck.with-repository .issue-nav {
   top: -moz-calc(5% + 39px);
   top: -o-calc(5% + 39px);
   top: -webkit-calc(5% + 39px);
   top: calc(5% + 39px);
 }
-/* line 1594, ../../../../../sass/components/_issue.scss */
+/* line 1595, ../../../../../sass/components/_issue.scss */
 #modal-issue-view.full-screen .modal-body .stuck, #modal-issue-created.full-screen .modal-body .stuck {
   width: 90% !important;
   top: 5% !important;
 }
 @media (min-width: 1023px) {
-  /* line 1599, ../../../../../sass/components/_issue.scss */
+  /* line 1600, ../../../../../sass/components/_issue.scss */
   #modal-issue-view.full-screen .modal-body .code-files .code-files-list-container, #modal-issue-created.full-screen .modal-body .code-files .code-files-list-container {
     position: absolute;
     width: 400px !important;
     top: 0 !important;
   }
-  /* line 1603, ../../../../../sass/components/_issue.scss */
+  /* line 1604, ../../../../../sass/components/_issue.scss */
   #modal-issue-view.full-screen .modal-body .code-files .code-files-list-container.stuck, #modal-issue-created.full-screen .modal-body .code-files .code-files-list-container.stuck {
     position: fixed;
     top: 5% !important;
@@ -3466,13 +3501,13 @@ table.commits-list td .comments-count {
     bottom: calc(5% - 1px) !important;
   }
 }
-/* line 1615, ../../../../../sass/components/_issue.scss */
+/* line 1616, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .empty-area, #modal-issue-created .empty-area {
   position: static;
   height: 200px;
   margin-top: 100px;
 }
-/* line 1619, ../../../../../sass/components/_issue.scss */
+/* line 1620, ../../../../../sass/components/_issue.scss */
 #modal-issue-view .empty-area i, #modal-issue-created .empty-area i {
   font-size: inherit;
 }
@@ -3711,39 +3746,55 @@ body#repository_board #main-inner {
 /* line 166, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder {
   position: absolute;
-  left: 0;
+  left: -12px;
   right: 0;
+  margin-top: -1px;
   z-index: 32;
   -moz-transition: none;
   -o-transition: none;
   -webkit-transition: none;
   transition: none;
 }
-/* line 172, ../../../../../sass/pages/repository/board.scss */
+/* line 173, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div {
   background: #f5f5f5;
   -moz-box-shadow: 0 4px 5px 0 #888;
   -webkit-box-shadow: 0 4px 5px 0 #888;
   box-shadow: 0 4px 5px 0 #888;
-  -moz-border-radius: 2px;
-  -webkit-border-radius: 2px;
-  border-radius: 2px;
+  -moz-border-radius: 0 2px 2px 2px;
+  -webkit-border-radius: 0;
+  border-radius: 0 2px 2px 2px;
   border: 1px solid #d4d4d4;
+  margin: 0 12px 12px;
   padding: 5px;
   overflow: auto;
 }
-/* line 179, ../../../../../sass/pages/repository/board.scss */
+/* line 181, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > p {
   margin: 0;
   line-height: 22px;
 }
-/* line 183, ../../../../../sass/pages/repository/board.scss */
+/* line 185, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > div {
   float: right;
   margin-bottom: 5px;
 }
-/* line 186, ../../../../../sass/pages/repository/board.scss */
+/* line 188, ../../../../../sass/pages/repository/board.scss */
 #board-columns-arranger-holder > div > div button {
   font-weight: normal;
   margin-left: 5px;
+}
+
+/* line 196, ../../../../../sass/pages/repository/board.scss */
+.issues-group.empty-sortable {
+  visibility: hidden;
+}
+/* line 198, ../../../../../sass/pages/repository/board.scss */
+.issues-group.empty-sortable.visible {
+  visibility: visible;
+}
+
+/* line 202, ../../../../../sass/pages/repository/board.scss */
+#board-columns.dragging .issues-group-issues {
+  min-height: 31px;
 }

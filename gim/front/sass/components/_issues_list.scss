@@ -1,4 +1,5 @@
 @import "compass/css3/animation";
+@import "compass/css3/box-shadow";
 @import "compass/css3/_hyphenation.scss";
 @import "compass/css3/transition";
 @import "compass/css3/transform";
@@ -89,6 +90,7 @@ $issues-quicksearch-height: 29px;
 
 
 .issues-list {
+    background: $box-background;
     .box {
         margin-bottom: 0;
         @include border-radius(0);
@@ -97,7 +99,7 @@ $issues-quicksearch-height: 29px;
         border-right-width: 0;
     }
     .box-content {
-        margin-bottom: -1px;
+        margin-bottom: 0;
     }
     a.js-filter-trigger {
         cursor: default;
@@ -123,6 +125,7 @@ $issues-quicksearch-height: 29px;
         }
     }
     .issues-group {
+        @include box-shadow(0 2px 2px #ccc);
         &:first-child .box-header {
             border-top: 0;
         }
@@ -138,53 +141,62 @@ $issues-quicksearch-height: 29px;
             }
         }
     }
-    &.without-details .issue-item:not(.details-toggled), &:not(.without-details) .issue-item.details-toggled {
-        padding: 5px;
-        padding-left: 8px;
-        min-height: 20px;
-        .issue-item-header, .avatar, .issue-item-footer {
-            display: none;
-        }
-        .news-content {
-            margin-left: 0;
-            margin-right: 0;
-        }
-        .news-title {
-            margin-bottom: 0;
-            min-height: 0;
-        }
-        .issue-item-repository {
-            margin-top: -6px;
-            margin-bottom: 6px;
-            margin-left: -8px;
-            &:not(.is-private) {
-                padding-left: 9px;
-            }
-        }
-        &.active {
-            padding-left: 3px;
-            .issue-item-repository {
-                margin-left: -3px;
-                padding-left: 4px;
-            }
-        }
-        &.recent {
-            &:after {
-                border-left: solid transparent 3px;
-                @include animation(breathing-recent-issue-without-details 5s infinite normal);
-            }
-            &.active {
-                &:after {
-                    @include animation(breathing-recent-issue-without-details-active 5s infinite normal);
-                }
-            }
-        }
-    } // &.without-details
 
     .loading-mask {
         margin-top: -5px;
     }
+
+    .no-issues, .too-many-issues {
+        text-align: center;
+    }
 } // .issues-list
+
+.issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {
+    padding: 5px;
+    padding-left: 8px;
+    min-height: 20px;
+    .issue-item-header, .avatar, .issue-item-footer {
+        display: none;
+    }
+    .news-content {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    .news-title {
+        margin-bottom: 0;
+        min-height: 0;
+    }
+    .issue-item-repository {
+        margin-top: -6px;
+        margin-bottom: 6px;
+        margin-left: -8px;
+        &:not(.is-private) {
+            padding-left: 9px;
+        }
+    }
+    &.active {
+        padding-left: 3px;
+        .issue-item-repository {
+            margin-left: -3px;
+            padding-left: 4px;
+        }
+    }
+    &:after {
+        width: 3px;
+    }
+    &.recent {
+        &:after {
+            border-left: solid transparent 6px;
+            @include animation(breathing-recent-issue-without-details 5s infinite normal);
+        }
+        &.active {
+            &:after {
+                @include animation(breathing-recent-issue-without-details-active 5s infinite normal);
+            }
+        }
+    }
+} // &.without-details
+
 
 @include keyframes(breathing-recent-issue-item-times) {
     0% {
@@ -400,12 +412,27 @@ $issues-quicksearch-height: 29px;
             @include animation(breathing-recent-issue-item-times 5s infinite normal);
         }
     }
+
+    &.ui-sortable-helper {
+        @include box-shadow(0 4px 5px 0 #888);
+    }
+
+    &.ui-sortable-placeholder {
+        border-top-color: #aaa;
+        .mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.5);
+        }
+    }
 }
-.issues-list.without-details .issue-item:after {
-    width: 3px;
-}
-.box-section.issue-item {
+
+.issue-item {
     @extend %active-background;
+    background: $box-background;
     padding-left: 13px;
     &.active {
         padding-left: 8px;

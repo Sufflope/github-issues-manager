@@ -1,15 +1,20 @@
 from collections import OrderedDict
 
+from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
+from django.shortcuts import render
 from django.http import Http404
+from django.http.response import HttpResponse
 from django.utils.functional import cached_property
 
-from gim.front.mixins.views import WithAjaxRestrictionViewMixin
-from gim.front.repository.dashboard.views import LabelsEditor
-from gim.front.utils import make_querystring
-from gim.front.repository.views import BaseRepositoryView
-from gim.front.repository.issues.views import IssuesView
+from gim.subscriptions.models import SUBSCRIPTION_STATES
 
+from gim.front.mixins.views import WithAjaxRestrictionViewMixin, WithIssueViewMixin
+from gim.front.repository.dashboard.views import LabelsEditor
+from gim.front.utils import make_querystring, forge_request
+from gim.front.repository.views import BaseRepositoryView
+from gim.front.repository.issues.views import IssuesView, IssueEditAssignee, IssueEditLabels, \
+    IssueEditMilestone, IssueEditState
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -143,6 +148,7 @@ class BoardMixin(object):
                             board_mode=board['mode'],
                             board_key=board['key'])
             )
+            board['base_url'] = board['board_url']
             if self.default_qs:
                 board['board_url'] += '?' + self.default_qs
             board['visible_count'] = len(list(c for c in board['columns'].values() if not c.get('hidden', False)))
@@ -198,14 +204,7 @@ class BoardView(BoardMixin, BaseRepositoryView):
         return context
 
 
-class BoardColumnView(WithAjaxRestrictionViewMixin, BoardMixin, IssuesView):
-    url_name = 'board-column'
-
-    display_in_menu = False
-    ajax_only = True
-
-    filters_and_list_template_name = 'front/repository/board/include_filters_and_list.html'
-    template_name = filters_and_list_template_name
+class BoardColumnMixin(BoardMixin):
 
     def get_base_url(self):
         return reverse_lazy('front:repository:%s' % self.url_name, kwargs=dict(
@@ -215,29 +214,187 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardMixin, IssuesView):
             column_key=self.kwargs['column_key']
         ))
 
-    def get_pre_context_data(self, **kwargs):
-        context = self.get_boards_context()
-        context.update(super(BoardColumnView, self).get_pre_context_data(**kwargs))
-        return context
+    def get_column_key_from_kwarg(self, name):
+        column_key = self.kwargs[name]
+        if column_key not in self.current_board['columns']:
+            raise Http404
+        return column_key, self.current_board['columns'][column_key]
 
     def get_boards_context(self):
-        context = super(BoardColumnView, self).get_boards_context()
+        context = super(BoardColumnMixin, self).get_boards_context()
 
         if not context.get('current_board', None):
             raise Http404
 
-        current_column_key = self.kwargs['column_key']
-        if current_column_key not in context['current_board']['columns']:
-            raise Http404
+        current_column_key, current_column = self.get_column_key_from_kwarg('column_key')
 
         context.update({
             'current_column_key': current_column_key,
-            'current_column': context['current_board']['columns'][current_column_key]
+            'current_column': current_column
         })
-        self.current_column = context['current_column']
+        self.current_column = current_column
 
         context['current_column']['url'] = self.get_base_url()
 
+        return context
+
+
+class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, BaseRepositoryView):
+    allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
+    display_in_menu = False
+    ajax_only = True
+
+    def get_post_view_info(self):
+        board = self.current_board
+        view, url = None, None
+
+        if board['mode'] == 'auto':
+            if board['key'] == 'state':
+                view = IssueEditState
+                url = self.issue.edit_field_url('state')
+
+            elif board['key'] == 'assigned':
+                view = IssueEditAssignee
+                url = self.issue.edit_field_url('assignee')
+
+            elif board['key'] == 'milestone':
+                view = IssueEditMilestone
+                url = self.issue.edit_field_url('milestone')
+
+        elif board['mode'] == 'labels':
+            view = IssueEditLabels
+            url = self.issue.edit_field_url('labels')
+
+        if not view:
+            raise Http404
+
+        return view, url
+
+    def render_messages(self, **kwargs):
+        return render(self.request, 'front/messages.html', **kwargs)
+
+
+class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardMixin):
+    url_name = 'board-can-move'
+
+    def post(self, request, *args, **kwargs):
+        self.get_boards_context()
+
+        view,  url = self.get_post_view_info()
+
+        current_job, who = view.get_job_for_issue(self.issue)
+
+        if current_job:
+            if who == self.request.user.username:
+                who = 'yourself'
+            messages.warning(request, view.get_not_editable_user_message(self.issue, who))
+            return self.render_messages(status=409)
+
+        return self.render_messages()
+
+
+class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
+    url_name = 'board-move'
+
+
+    def get_post_view_info(self):
+        view, url = super(BoardMoveIssueView, self).get_post_view_info()
+
+        data = {}
+        skip_reset_front_uuid = False
+
+        if view == IssueEditState:
+            skip_reset_front_uuid = True
+            data = {'state': self.new_column['key']}
+
+        elif view == IssueEditAssignee:
+            skip_reset_front_uuid = False
+            data = {'assignee': '' if self.new_column['key'] == '__none__' else self.new_column['object'].pk}
+
+        elif view == IssueEditMilestone:
+            skip_reset_front_uuid = True
+            data = {'milestone': '' if self.new_column['key'] == '__none__' else  self.new_column['object'].pk}
+
+        elif view == IssueEditLabels:
+            skip_reset_front_uuid = False
+            labels = self.issue.labels.all()
+
+            if self.new_column['key'] != self.current_column['key']:
+
+                if self.new_column['key'] == '__none__':
+                    labels = labels.exclude(label_type_id=self.current_column['object'].label_type_id)
+
+                labels = list(labels.values_list('pk', flat=True))
+
+                if self.new_column['key'] != '__none__':
+                    try:
+                        if self.current_column['key'] == '__none__':
+                            raise ValueError
+                        existing_index = labels.index(self.current_column['object'].pk)
+                        labels[existing_index] = self.new_column['object'].pk
+                    except ValueError:
+                        labels.append(self.new_column['object'].pk)
+
+            data = {'labels': labels}
+
+        else:
+            raise Http404
+
+        data['front_uuid'] = self.request.POST['front_uuid']
+
+        class InternalBoardMoveView(view):
+            def form_valid(self, form):
+                form.instance.skip_reset_front_uuid = skip_reset_front_uuid
+                self.object = form.save()
+                self.after_form_valid(form)
+                return HttpResponse('OK')
+
+        return InternalBoardMoveView, data, url
+
+    def get_boards_context(self):
+        context =  super(BoardMoveIssueView, self).get_boards_context()
+
+        new_column_key, new_column = self.get_column_key_from_kwarg('to_column_key')
+
+        context.update({
+            'current_column_key': new_column_key,
+            'current_column': new_column
+        })
+
+        self.new_column = new_column
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.get_boards_context()
+
+        view, data, url = self.get_post_view_info()
+
+        new_request = forge_request(path=url, method='POST', post_data=data,
+                                    source_request=self.request, headers={
+                                        'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'
+                                    }, pass_user=True)
+
+        response = view.as_view()(new_request, **self.issue.get_reverse_kwargs())
+
+        if response.status_code == 200:
+            return self.render_messages()
+
+        return response
+
+
+class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView):
+    url_name = 'board-column'
+
+    display_in_menu = False
+    ajax_only = True
+
+    filters_and_list_template_name = 'front/repository/board/include_filters_and_list.html'
+    template_name = filters_and_list_template_name
+
+    def get_pre_context_data(self, **kwargs):
+        context = self.get_boards_context()
+        context.update(super(BoardColumnView, self).get_pre_context_data(**kwargs))
         return context
 
     def get_context_data(self, **kwargs):

@@ -606,7 +606,7 @@ class LabelType(models.Model):
 
     repository = models.ForeignKey('Repository', related_name='label_types')
     regex = models.TextField(
-        help_text='Must contain at least this part: (?P<label>visible-part-of-the-label)", and can include "(?P<order>\d+)" for ordering',
+        help_text='Must contain at least this part: <strong>(?P&lt;label&gt;visible-part-of-the-label)</strong>, and can include <strong>(?P&lt;order&gt;\d+)</strong> for ordering',
         validators=[
             validators.RegexValidator(re.compile('\(\?\P<label>.+\)'), 'Must contain a "label" part: "(?P<label>visible-part-of-the-label)"', 'no-label'),
             validators.RegexValidator(re.compile('^(?!.*\(\?P<order>(?!\\\d\+\))).*$'), 'If an order is present, it must math a number: the exact part must be: "(?P<order>\d+)"', 'invalid-order'),

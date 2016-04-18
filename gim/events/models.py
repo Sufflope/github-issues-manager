@@ -19,20 +19,31 @@ class EventManager(models.Manager):
 
     def clean_duplicates(self, repository, days=3):
 
-        duplicates = repository.event_set\
-            .filter(created_at__gt=datetime.utcnow()-timedelta(days=days))\
-            .values(*self.unique_fields)\
-            .order_by()\
-            .annotate(count_id=models.Count('id'))\
-            .filter(count_id__gt=1)
+        duplicates = repository.event_set
+        if days:
+            duplicates = duplicates.filter(created_at__gt=datetime.utcnow()-timedelta(days=days))
 
-        to_delete = []
+        duplicates = duplicates.values(*self.unique_fields).order_by().annotate(
+            count_id=models.Count('id')).filter(count_id__gt=1)
 
         for duplicate in duplicates:
-            entries = repository.event_set.filter(**{f: duplicate[f] for f in self.unique_fields})
-            to_delete += [e for e in entries[1:] if e.render_as_text() == entries[0].render_as_text()]
-
-        for entry in to_delete: entry.delete()
+            events = repository.event_set.filter(**{f: duplicate[f] for f in self.unique_fields})
+            if len(events) < 2:
+                continue
+            main_event = events[0]
+            unique_parts = set()
+            for event in events:
+                for part in event.parts.all():
+                    text = part.render_as_text()
+                    if text in unique_parts:
+                        part.delete()
+                    else:
+                        unique_parts.add(text)
+                        if part.event_id != main_event.pk:
+                            part.event = main_event
+                            part.save()
+                if event.pk != main_event.pk:
+                    event.delete()
 
 
 class Event(models.Model):

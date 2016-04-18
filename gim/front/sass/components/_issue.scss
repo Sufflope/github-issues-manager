@@ -427,6 +427,7 @@ $repo-name-height: 20px;
 
 
 .issue-container {
+    border-top: solid #FAFAFA 5px;
     .stuck {
         position: fixed;
         @include calc(width, $stuck-width);

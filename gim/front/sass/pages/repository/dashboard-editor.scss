@@ -98,6 +98,11 @@
             width: 182px;
         }
     }
+    &:not(.show-note) {
+        .note {
+            display: none;
+        }
+    }
     input[name=color] {
         width: 46px;
         padding-left: 3px;
