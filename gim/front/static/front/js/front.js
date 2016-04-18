@@ -54,6 +54,35 @@ $().ready(function() {
         on_page: (body_id == 'github_notifications')
     };
 
+    var Favicon = {
+        obj: null,
+        init: function () {
+            if (!Favicon.obj && window.Favico) {
+                Favicon.obj = new window.Favico({
+                    animation: 'slide',
+                    position: 'down',
+                    type: 'circle',
+                    bgColor: '#a24037',
+                    textColor: '#fff',
+                    fontStyle: 'bold',
+                    fontFamily: 'sans-serif'
+                });
+            }
+            return !!Favicon.obj;
+        }, // init
+
+        set_val: function(val) {
+            if (Favicon.init()) {
+                if (!val) {
+                    Favicon.obj.reset();
+                } else {
+                    Favicon.obj.badge(val);
+                }
+            }
+        } // set
+
+    }; // Favicon
+    window.Favicon = Favicon;
 
     var Ev = {
         stop_event_decorate: (function stop_event_decorate(callback) {
@@ -353,6 +382,7 @@ $().ready(function() {
             WS.end_reconcile();
 
             WS.alert('Connected!<p>Real-time capabilities are enabled.</p>', 'ok', 1500, true);
+            GithubNotifications.update_favicon(true);
         }), // after_reconcile
 
         end_reconcile: (function WS__end_reconcile () {
@@ -366,6 +396,7 @@ $().ready(function() {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
             WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
+            Favicon.set_val('×');
             WS.connection.close();
             WS.end_reconcile();
         }), // error_reconcile
@@ -579,6 +610,7 @@ $().ready(function() {
 
         alert_bad_version: (function WS__alert_bad_version () {
             WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            Favicon.set_val('↻');
         }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
@@ -590,6 +622,7 @@ $().ready(function() {
         onopen: (function WS__onopen (session) {
             if (WS.session) {
                 WS.alert('Reconnecting for real-time capabilities...', 'waiting');
+                Favicon.set_val('···');
             }
             WS.session = session;
 
@@ -635,6 +668,7 @@ $().ready(function() {
                     message = 'Connection lost!<p>Real-time capabilities are disabled until reconnect.</p>';
             }
 
+            Favicon.set_val('×');
             if (timeout) {
                 WS.alert_timer = setTimeout(function() { WS.alert(message, 'ko', null, true); }, timeout);
             } else {
@@ -693,6 +727,7 @@ $().ready(function() {
             WS.$alert.close = WS.$alert.container.children('.close');
             WS.$alert.close.on('click', WS.alert_close);
             WS.alert('Connecting for real-time capabilities...', 'waiting');
+            Favicon.set_val('···');
 
             WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.WS_uri;
             WS.connection = new autobahn.Connection({
@@ -5674,6 +5709,8 @@ $().ready(function() {
         $count_node: $('#github-notifications-count'),
         $menu_node: $('#github-notifications-menu'),
         $menu_node_counter: null,
+        current_count: 0,
+        previous_count: 0,
         orig_count: null,
         orig_last: null,
         orig_date: null,
@@ -5839,13 +5876,15 @@ $().ready(function() {
 
         on_notifications_ping: function (topic, args, kwargs) {
             var $node = GithubNotifications.$count_node,
-                old_count = parseInt($node.data('count') || 0, 10),
+                old_count = GithubNotifications.current_count,
                 old_last = $node.data('last'),
                 old_date = null,
                 new_count = kwargs.count || 0,
                 new_last = kwargs.last,
                 new_date = null;
                 to_notify = false;
+
+            GithubNotifications.current_count = new_count;
 
             if (new_count > old_count) {
                 to_notify = true;
@@ -5879,12 +5918,21 @@ $().ready(function() {
             GithubNotifications.orig_count = new_count;
             GithubNotifications.orig_date = new_date;
 
+            GithubNotifications.update_favicon();
+
         }, // on_notifications_ping
+        update_favicon: function (force) {
+            var count = GithubNotifications.current_count;
+            if (!force && count == GithubNotifications.previous_count) { return; }
+            GithubNotifications.previous_count = count;
+            Favicon.set_val(count > 99 ? '99+' : count);
+        }, // update_favicon
 
         init: function () {
             if (GithubNotifications.$count_node.length) {
+                GithubNotifications.current_count = parseInt(GithubNotifications.$count_node.data('count') || 0, 10);
                 GithubNotifications.$menu_node_counter = GithubNotifications.$menu_node.find('span.label');
-                GithubNotifications.orig_count = parseInt(GithubNotifications.$count_node.data('count') || 0, 10);
+                GithubNotifications.orig_count = GithubNotifications.current_count;
                 GithubNotifications.orig_last = GithubNotifications.$count_node.data('last');
                 if (GithubNotifications.orig_last) {
                     GithubNotifications.orig_date = new Date(GithubNotifications.orig_last);
