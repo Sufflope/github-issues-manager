@@ -26,7 +26,7 @@ class InjectNotificationForm(Node):
                         <input type="checkbox" name="read" id="notif-read-{{ uuid }}" value="1"{% if not notification.unread %} checked=checked{% endif %} autocomplete="off" />
                         <label for="notif-read-{{ uuid }}">Read</label>
                     </span>
-                    <span title="A deactivated notification will be reactivated if you comment on it or are mentionned." data-filter="active:{{ notification.subscribed|yesno }}">
+                    <span title="A deactivated notification will be reactivated if you comment on it or are mentioned." data-filter="active:{{ notification.subscribed|yesno }}">
                         <input type="checkbox" name="active" id="notif-active-{{ uuid }}" value="1"{% if notification.subscribed %} checked=checked{% endif %} autocomplete="off" />
                         <label for="notif-active-{{ uuid }}">Active</label>
                     </span>

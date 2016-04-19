@@ -170,6 +170,15 @@ class IssuesFilterClosers(UserFilterPart):
     title = 'Closed by'
 
 
+class IssuesFilterMentioned(UserFilterPart):
+    relation = 'issues_mentioned'
+    url_name = 'issues.filter.mentioned'
+    template_name = 'front/repository/issues/filters/include_mentioned.html'
+    deferred_template_name = template_name
+    list_template_name = 'front/repository/issues/filters/include_mentioned_list.html'
+    title = 'Mentioned'
+
+
 GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
     ('created_by', {
         'field': 'user',
@@ -215,7 +224,12 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         'pr',
     ])
 
-    user_filter_types_matching = {'created_by': 'user', 'assigned': 'assignee', 'closed_by': 'closed_by'}
+    user_filter_types_matching = {
+        'created_by': 'user',
+        'assigned': 'assignee',
+        'closed_by': 'closed_by',
+        'mentioned': 'user_mentions',
+    }
 
     def get_base_queryset(self):
         return self.repository.issues.ready()
@@ -354,6 +368,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                     qs_filters[filter_type] = user.username
                     query_filters[filter_field] = user.id
 
+        # filter by mentioned
+
         # now filter by labels
         label_types_to_ignore, labels = self._get_labels(qs_parts)
         if label_types_to_ignore or labels:
@@ -405,7 +421,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             'milestones': self.milestones,
         })
 
-        for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers):
+        for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
+                                 IssuesFilterClosers, IssuesFilterMentioned):
             view = user_filter_view()
             view.inherit_from_view(self)
             count = view.count_usernames()

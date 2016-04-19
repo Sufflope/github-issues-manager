@@ -235,7 +235,7 @@ class ActivityManagerIEV(ActivityManager):
     def get_data_queryset(cls, issue):
         """
         Exclude the event about referenced commits without sha, and ones about
-        mentionning/subscribing
+        mentioning/subscribing
         """
         qs = super(ActivityManagerIEV, cls).get_data_queryset(issue)
         return qs.exclude(Q(issue__number__isnull=True)
