@@ -90,6 +90,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     commits = models.ManyToManyField('Commit', related_name='issues', through='IssueCommits')
     files_fetched_at = models.DateTimeField(blank=True, null=True)
     files_etag = models.CharField(max_length=64, blank=True, null=True)
+    user_mentions = models.ManyToManyField('GithubUser', related_name='issues_mentioned',
+                                           through='Mention')
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
@@ -475,6 +477,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if update_fields is None or 'body_html' in update_fields or 'title' in update_fields:
             IssueEvent.objects.check_references(self, ['body_html', 'title'])
+            from gim.core.models import Mention
+            Mention.objects.set_for_issue(self)
+
 
     def update_last_head_commit(self, commit=models.NOT_PROVIDED, save=True):
         if commit is models.NOT_PROVIDED:

@@ -1,13 +1,17 @@
 
 import logging
 import re
+from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
 from django.db import models, IntegrityError
+from django.db.models import Q
 from django.contrib.auth.models import UserManager
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import FieldDoesNotExist
 
+from gim.core.utils import queryset_iterator
 from .ghpool import Connection, ApiError
 
 MODE_CREATE = {'create'}
@@ -1373,3 +1377,181 @@ class GithubNotificationManager(WithRepositoryManager):
         for notification in queryset.filter(manual_unread=False):
             notification.unread = False
             notification.save(update_fields=['unread'])
+
+
+class MentionManager(models.Manager):
+
+    content_types = {}
+
+    @classmethod
+    def get_content_type(cls, instance):
+        model = instance.__class__
+        if model not in cls.content_types:
+            cls.content_types[model] = ContentType.objects.get_for_model(model)
+        return cls.content_types[model]
+
+    def add_users(self, issues, users, position, obj, users_cache=None):
+        from gim.core.models import GithubUser
+
+        if not users:
+            self.remove_users(issues, position, obj)
+            return
+
+        users = OrderedDict((user, None) for user in users)
+
+        for username in users:
+            username_lower = username.lower()
+
+            if users_cache is not None and username_lower in users_cache:
+                users[username] = users_cache[username_lower]
+            else:
+                try:
+                    users[username] = GithubUser.objects.get(username__iexact=username)
+                except GithubUser.DoesNotExist:
+                    pass
+                finally:
+                    if users_cache is not None:
+                        users_cache[username_lower] = users[username]
+
+        for issue in issues:
+            for username, user in users.items():
+                self.get_or_create(
+                    issue=issue,
+                    username=username,
+                    position=position,
+                    content_type=self.get_content_type(obj),
+                    object_id=obj.pk,
+                    defaults={
+                        'user': user
+                    }
+                )
+
+    def remove_users(self, issues, position, obj):
+        self.filter(
+            issue_id__in=[i.id for i in issues],
+            position=position,
+            content_type=self.get_content_type(obj),
+            object_id=obj.pk
+        ).delete()
+
+    def _set_for_body(self, issues, position, obj, users_cache=None):
+        if obj.body_html:
+            self.add_users(
+                issues,
+                self.model.RE_HTML.findall(obj.body_html),
+                position,
+                obj,
+                users_cache
+            )
+        elif obj.body:
+            self.add_users(
+                issues,
+                self.model.RE_TEXT.findall(obj.body),
+                position,
+                obj,
+                users_cache
+            )
+
+    def set_for_issue(self, issue, users_cache=None):
+        if issue.title:
+            self.add_users(
+                [issue],
+                self.model.RE_TEXT.findall(issue.title),
+                self.model.MENTION_POSITIONS.ISSUE_TITLE,
+                issue,
+                users_cache
+            )
+        self._set_for_body([issue], self.model.MENTION_POSITIONS.ISSUE_BODY, issue, users_cache)
+
+    def set_for_issue_comment(self, issue_comment, users_cache=None):
+        self._set_for_body([issue_comment.issue], self.model.MENTION_POSITIONS.ISSUE_COMMENT,
+                            issue_comment, users_cache)
+
+    def set_for_pr_comment(self, pr_comment, users_cache=None):
+        self._set_for_body([pr_comment.issue], self.model.MENTION_POSITIONS.PR_CODE_COMMENT,
+                            pr_comment, users_cache)
+
+    def set_for_commit(self, commit, users_cache=None):
+        issues = list(commit.issues.all())
+        if not issues:
+            return
+
+        if commit.message:
+            self.add_users(
+                issues,
+                self.model.RE_TEXT.findall(commit.message),
+                self.model.MENTION_POSITIONS.COMMIT_BODY,
+                commit,
+                users_cache
+            )
+
+    def set_for_commit_comment(self, commit_comment, users_cache=None):
+        issues = list(commit_comment.commit.issues.all())
+        if not issues:
+            return
+
+        if not commit_comment.entry_point_id or commit_comment.entry_point.position is None:
+            position = self.model.MENTION_POSITIONS.COMMIT_COMMENT
+        else:
+            position = self.model.MENTION_POSITIONS.COMMIT_CODE_COMMENT
+
+        self._set_for_body(issues, position, commit_comment, users_cache)
+
+    def _set_for_many(self, qs, filters, method, users_cache=None):
+        if users_cache is None:
+            users_cache = {}
+
+        qs = queryset_iterator(qs.filter(filters))
+
+        for obj in qs:
+            method(obj, users_cache)
+
+    def set_for_issues(self, qs=None, users_cache=None):
+        from gim.core.models import Issue
+
+        self._set_for_many(
+            qs or Issue.objects,
+            Q(body_html__contains='class="user-mention"') | Q(title__iregex='(^|[^\w])@\w+'),
+            self.set_for_issue,
+            users_cache
+        )
+
+    def set_for_commits(self, qs=None, users_cache=None):
+        from gim.core.models import Commit
+
+        self._set_for_many(
+            qs or Commit.objects,
+            Q(message__iregex='(^|[^\w])@\w+'),
+            self.set_for_commit,
+            users_cache
+        )
+
+    def set_for_issue_comments(self, qs=None, users_cache=None):
+        from gim.core.models import IssueComment
+
+        self._set_for_many(
+            (qs or IssueComment.objects).select_related('issue'),
+            Q(body_html__contains='class="user-mention"'),
+            self.set_for_issue_comment,
+            users_cache
+        )
+
+    def set_for_pr_comments(self, qs=None, users_cache=None):
+        from gim.core.models import PullRequestComment
+
+        self._set_for_many(
+            (qs or PullRequestComment.objects).select_related('issue'),
+            Q(body_html__contains='class="user-mention"'),
+            self.set_for_pr_comment,
+            users_cache
+        )
+
+    def set_for_commit_comments(self, qs=None, users_cache=None):
+        from gim.core.models import CommitComment
+
+        self._set_for_many(
+            (qs or CommitComment.objects).select_related('commit'),
+            Q(body_html__contains='class="user-mention"'),
+            self.set_for_commit_comment,
+            users_cache
+        )
