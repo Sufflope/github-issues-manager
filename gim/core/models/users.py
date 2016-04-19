@@ -770,4 +770,6 @@ class Mention(models.Model):
         )
 
     def __unicode__(self):
-        return u'`%s` mentioned in `%s`' % (self.user if self.user_id else self.username, self.issue)
+        return u'`%s` mentioned in `%s` (in %s %d)' % (
+            self.user if self.user_id else self.username,
+            self.issue, self.get_position_display(), self.object_id)
