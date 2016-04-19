@@ -3,9 +3,14 @@ __all__ = [
     'AvailableRepository',
     'GithubUser',
     'GithubNotification',
+    'Mention',
     'Team',
 ]
 
+import re
+
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.generic import GenericForeignKey
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.dateformat import format
@@ -27,6 +32,7 @@ from ..managers import (
     GithubNotificationManager,
     GithubObjectManager,
     GithubUserManager,
+    MentionManager,
 )
 
 from .base import (
@@ -723,3 +729,45 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
             active=self.subscribed,
         )
 
+
+MENTION_POSITIONS = Choices(
+    ('ISSUE_TITLE', 'issue_title', 'Issue title'),
+    ('ISSUE_BODY', 'issue_body', 'Issue body'),
+    ('ISSUE_COMMENT', 'issue_comment', 'Issue comment'),
+    ('PR_CODE_COMMENT', 'pr_code_comment', 'PR code comment'),
+    ('COMMIT_BODY', 'commit', 'Commit text'),
+    ('COMMIT_COMMENT', 'commit_comment', 'Commit comment'),
+    ('COMMIT_CODE_COMMENT', 'commit_code_comment', 'Commit code comment'),
+)
+MENTION_POSITIONS.add_subset('ISSUE_MAIN', ('ISSUE_TITLE', 'ISSUE_BODY'))
+MENTION_POSITIONS.add_subset('ISSUE', ('ISSUE_TITLE', 'ISSUE_BODY', 'ISSUE_COMMENT'))
+MENTION_POSITIONS.add_subset('CODE_COMMENT', ('PR_CODE_COMMENT', 'COMMIT_CODE_COMMENT'))
+MENTION_POSITIONS.add_subset('COMMENT', ('ISSUE_COMMENT', 'PR_CODE_COMMENT', 'COMMIT_CODE_COMMENT'))
+MENTION_POSITIONS.add_subset('COMMIT', ('COMMIT_BODY', 'COMMIT_COMMENT', 'COMMIT_CODE_COMMENT'))
+MENTION_POSITIONS.add_subset('CONTENT', ('ISSUE_BODY', 'ISSUE_COMMENT', 'PR_CODE_COMMENT', 'COMMIT_CODE_COMMENT'))
+
+
+class Mention(models.Model):
+    issue = models.ForeignKey('Issue', related_name='mentions')
+    user = models.ForeignKey('GithubUser', related_name='mentions', null=True)
+    username = models.CharField(max_length=255)
+    position = models.CharField(max_length=20, choices=MENTION_POSITIONS.CHOICES)
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    MENTION_POSITIONS = MENTION_POSITIONS
+
+    RE_HTML = re.compile(r'<a[^>]*class="user-mention"[^>]*>@([\w\-]+)</a>')
+    RE_TEXT = re.compile(r'(?<!\w)@\b([\w\-]+)\b(?!(?:\.\w|/))')
+
+    objects = MentionManager()
+
+    class Meta:
+        app_label = 'core'
+        unique_together = (
+            ('issue', 'username', 'position', 'content_type', 'object_id' ),
+        )
+
+    def __unicode__(self):
+        return u'`%s` mentioned in `%s`' % (self.user if self.user_id else self.username, self.issue)

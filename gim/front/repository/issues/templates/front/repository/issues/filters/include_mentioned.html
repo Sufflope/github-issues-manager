@@ -1,0 +1,19 @@
+{% load querystring frontutils issues_tags %}{% spaceless %}
+<li class="accordion-group dark-nav">
+    <span class="glow"></span>
+    <a class="accordion-toggle collapsed{% if issues_filter.objects.mentioned %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ view.relation }}-{{ list_uuid }}">
+        Mentioned
+        <i class="fa fa-caret-right"></i>
+        {% if issues_filter.objects.mentioned %}
+                <span class="selection">{{ issues_filter.parts.mentioned }}</span>
+            </a>
+            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "mentioned" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+        {% endif %}
+    </a>
+    {% if deferred %}
+        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="mentioned" username=issues_filter.parts.mentioned %}
+    {% else %}
+        {% include "front/repository/issues/filters/include_mentioned_list.html" %}
+    {% endif %}
+</li>
+{% endspaceless %}

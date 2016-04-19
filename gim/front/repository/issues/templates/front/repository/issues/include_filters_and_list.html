@@ -71,6 +71,11 @@
                         <a href="{{ default_filter_url }}" title="Open created by you">Open created by you</a>
                     </li>
                 {% endwith %}
+                {% with default_filter_url=current_issues_url|concat:'?state=open&amp;mentioned='|concat:user.username %}
+                    <li{% if current_url == default_filter_url %} class="active"{% endif %}>
+                        <a href="{{ default_filter_url }}" title="Open created by you">Open mentioning you</a>
+                    </li>
+                {% endwith %}
                 {% with default_filter_url=current_issues_url|concat:'?state=open&amp;pr=yes;created_by='|concat:user.username %}
                     <li{% if current_url == default_filter_url %} class="active"{% endif %}>
                         <a href="{{ default_filter_url }}" title="Your open pull requests">Your open pull requests</a>
@@ -117,6 +122,14 @@
         {{ issues_closers.part|safe }}
     {% endif %}
     {% endblock filter-closers %}
+
+    {% block filter-mentioned %}
+    {# List of issues mentioned #}
+    {% if issues_mentioned.count %}
+        {{ issues_mentioned.part|safe }}
+    {% endif %}
+    {% endblock filter-mentioned %}
+
 {% endblock before_common_filters %}
 
 {% block after_common_filters %}
