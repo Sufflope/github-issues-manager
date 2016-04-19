@@ -1409,6 +1409,8 @@ class MentionManager(models.Manager):
                     users[username] = GithubUser.objects.get(username__iexact=username)
                 except GithubUser.DoesNotExist:
                     pass
+                except GithubUser.MultipleObjectsReturned:
+                    users[username] = GithubUser.objects.filter(username__iexact=username)[0]
                 finally:
                     if users_cache is not None:
                         users_cache[username_lower] = users[username]
