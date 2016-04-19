@@ -726,7 +726,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         if order_by:
             queryset = queryset.order_by(*order_by)
 
-        return queryset
+        return queryset.distinct()
 
     def get_issues_for_context(self, context):
         """

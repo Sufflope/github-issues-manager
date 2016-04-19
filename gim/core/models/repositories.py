@@ -135,6 +135,13 @@ class Repository(GithubObjectWithId):
         return self._distinct_users('closed_issues')
 
     @property
+    def issues_mentioned(self):
+        """
+        Shortcut to return a queryset for users who are mentioned in issues on this repository
+        """
+        return self._distinct_users('mentions__issue')
+
+    @property
     def github_callable_identifiers(self):
         return [
             'repos',

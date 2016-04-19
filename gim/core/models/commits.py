@@ -148,6 +148,10 @@ class Commit(WithRepositoryMixin, GithubObject):
         self.update_pull_requests_head(pull_requests=head_pull_requests)
         self.update_pull_requests_last_status(pull_requests=head_pull_requests)
 
+        if update_fields is None or 'message' in update_fields:
+            from gim.core.models import Mention
+            Mention.objects.set_for_commit(self)
+
     def update_pull_requests_head(self, pull_requests=None):
         if pull_requests is None:
             pull_requests = self.get_head_pull_requests()

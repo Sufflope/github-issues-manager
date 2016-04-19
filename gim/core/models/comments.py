@@ -37,6 +37,8 @@ class CommentMixin(models.Model):
 
     linked_commits = models.ManyToManyField('Commit')
 
+    mention_method = None
+
     class Meta:
         abstract = True
 
@@ -52,16 +54,20 @@ class CommentMixin(models.Model):
         from .issues import IssueEvent
         from .users import GithubUser
 
+        update_fields = kwargs.get('update_fields')
+
         if self.user_id is None:
             self.user = GithubUser.objects.get_deleted_user()
-            if kwargs.get('update_fields'):
-                kwargs['update_fields'].append('user')
+            if update_fields is not None:
+                update_fields.append('user')
 
         super(CommentMixin, self).save(*args, **kwargs)
 
-        if not kwargs.get('updated_field') or 'body_html' in kwargs['updated_field']:
+        if update_fields is None or 'body_html' in update_fields:
             IssueEvent.objects.check_references(self, ['body_html'])
             self.find_commits()
+            from gim.core.models import Mention
+            getattr(Mention.objects, self.mention_method)(self)
 
     def find_commits(self, jobs_priority=0):
         """
@@ -158,6 +164,8 @@ class IssueComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         'update': ('body', )
     }
     github_date_field = ('updated_at', 'updated', 'desc')
+
+    mention_method = 'set_for_issue_comment'
 
     class Meta:
         app_label = 'core'
@@ -286,6 +294,8 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         ),
     }
     github_date_field = ('updated_at', 'updated', 'desc')
+
+    mention_method = 'set_for_pr_comment'
 
     class Meta:
         app_label = 'core'
@@ -418,6 +428,8 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
     }
     github_date_field = ('created_at', 'created', 'asc')
     github_reverse_order = True
+
+    mention_method = 'set_for_commit_comment'
 
     class Meta:
         app_label = 'core'
