@@ -69,6 +69,11 @@ class CommentMixin(models.Model):
             from gim.core.models import Mention
             getattr(Mention.objects, self.mention_method)(self)
 
+    def delete(self, using=None):
+        from gim.core.models import Mention
+        getattr(Mention.objects, self.mention_method)(self, forced_users=[])
+        super(CommentMixin, self).delete(using)
+
     def find_commits(self, jobs_priority=0):
         """
         Check all references to commits in the comment, and link them via the

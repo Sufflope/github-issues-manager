@@ -152,6 +152,11 @@ class Commit(WithRepositoryMixin, GithubObject):
             from gim.core.models import Mention
             Mention.objects.set_for_commit(self)
 
+    def delete(self, using=None):
+        from gim.core.models import Mention
+        Mention.objects.set_for_commit(self, forced_users=[])
+        super(Commit, self).delete(using)
+
     def update_pull_requests_head(self, pull_requests=None):
         if pull_requests is None:
             pull_requests = self.get_head_pull_requests()

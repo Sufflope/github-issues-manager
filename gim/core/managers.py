@@ -1397,13 +1397,11 @@ class MentionManager(models.Manager):
             self.remove_users(issues, position, obj)
             return
 
-        users = OrderedDict((user, None) for user in users)
+        users = OrderedDict((user.lower(), None) for user in users)
 
         for username in users:
-            username_lower = username.lower()
-
-            if users_cache is not None and username_lower in users_cache:
-                users[username] = users_cache[username_lower]
+            if users_cache is not None and username in users_cache:
+                users[username] = users_cache[username]
             else:
                 try:
                     users[username] = GithubUser.objects.get(username__iexact=username)
@@ -1413,34 +1411,58 @@ class MentionManager(models.Manager):
                     users[username] = GithubUser.objects.filter(username__iexact=username)[0]
                 finally:
                     if users_cache is not None:
-                        users_cache[username_lower] = users[username]
+                        users_cache[username] = users[username]
+
+        content_type = self.get_content_type(obj)
 
         for issue in issues:
+
+            existing_users = set(username.lower() for username in self.filter(
+                issue=issue,
+                position=position,
+                content_type=content_type,
+                object_id=obj.pk
+            ).values_list('username', flat=True))
+
+            if existing_users:
+                usernames_to_remove = existing_users.difference(users.keys())
+                if usernames_to_remove:
+                    self.remove_users([issue], position, obj, usernames_to_remove)
+
+                if len(existing_users - usernames_to_remove) == len(users):
+                    # We already have all the users
+                    return
+
             for username, user in users.items():
                 self.get_or_create(
                     issue=issue,
                     username=username,
                     position=position,
-                    content_type=self.get_content_type(obj),
+                    content_type=content_type,
                     object_id=obj.pk,
                     defaults={
                         'user': user
                     }
                 )
 
-    def remove_users(self, issues, position, obj):
-        self.filter(
+    def remove_users(self, issues, position, obj, usernames=None):
+        filters = dict(
             issue_id__in=[i.id for i in issues],
             position=position,
             content_type=self.get_content_type(obj),
             object_id=obj.pk
-        ).delete()
+        )
 
-    def _set_for_body(self, issues, position, obj, users_cache=None):
+        if usernames:
+            filters['username__in'] = list(usernames)
+
+        self.filter(**filters).delete()
+
+    def _set_for_body(self, issues, position, obj, users_cache=None, forced_users=None):
         if obj.body_html:
             self.add_users(
                 issues,
-                self.model.RE_HTML.findall(obj.body_html),
+                self.model.RE_HTML.findall(obj.body_html) if forced_users is None else forced_users,
                 position,
                 obj,
                 users_cache
@@ -1448,32 +1470,33 @@ class MentionManager(models.Manager):
         elif obj.body:
             self.add_users(
                 issues,
-                self.model.RE_TEXT.findall(obj.body),
+                self.model.RE_TEXT.findall(obj.body) if forced_users is None else forced_users,
                 position,
                 obj,
                 users_cache
             )
 
-    def set_for_issue(self, issue, users_cache=None):
+    def set_for_issue(self, issue, users_cache=None, forced_users=None):
         if issue.title:
             self.add_users(
                 [issue],
-                self.model.RE_TEXT.findall(issue.title),
+                self.model.RE_TEXT.findall(issue.title) if forced_users is None else forced_users,
                 self.model.MENTION_POSITIONS.ISSUE_TITLE,
                 issue,
                 users_cache
             )
-        self._set_for_body([issue], self.model.MENTION_POSITIONS.ISSUE_BODY, issue, users_cache)
+        self._set_for_body([issue], self.model.MENTION_POSITIONS.ISSUE_BODY, issue, users_cache,
+                           forced_users)
 
-    def set_for_issue_comment(self, issue_comment, users_cache=None):
+    def set_for_issue_comment(self, issue_comment, users_cache=None, forced_users=None):
         self._set_for_body([issue_comment.issue], self.model.MENTION_POSITIONS.ISSUE_COMMENT,
-                            issue_comment, users_cache)
+                            issue_comment, users_cache, forced_users)
 
-    def set_for_pr_comment(self, pr_comment, users_cache=None):
+    def set_for_pr_comment(self, pr_comment, users_cache=None, forced_users=None):
         self._set_for_body([pr_comment.issue], self.model.MENTION_POSITIONS.PR_CODE_COMMENT,
-                            pr_comment, users_cache)
+                            pr_comment, users_cache, forced_users)
 
-    def set_for_commit(self, commit, users_cache=None):
+    def set_for_commit(self, commit, users_cache=None, forced_users=None):
         issues = list(commit.issues.all())
         if not issues:
             return
@@ -1481,13 +1504,13 @@ class MentionManager(models.Manager):
         if commit.message:
             self.add_users(
                 issues,
-                self.model.RE_TEXT.findall(commit.message),
+                self.model.RE_TEXT.findall(commit.message) if forced_users is None else forced_users,
                 self.model.MENTION_POSITIONS.COMMIT_BODY,
                 commit,
                 users_cache
             )
 
-    def set_for_commit_comment(self, commit_comment, users_cache=None):
+    def set_for_commit_comment(self, commit_comment, users_cache=None, forced_users=None):
         issues = list(commit_comment.commit.issues.all())
         if not issues:
             return
@@ -1497,7 +1520,7 @@ class MentionManager(models.Manager):
         else:
             position = self.model.MENTION_POSITIONS.COMMIT_CODE_COMMENT
 
-        self._set_for_body(issues, position, commit_comment, users_cache)
+        self._set_for_body(issues, position, commit_comment, users_cache, forced_users)
 
     def _set_for_many(self, qs, filters, method, users_cache=None):
         if users_cache is None:

@@ -480,6 +480,10 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             from gim.core.models import Mention
             Mention.objects.set_for_issue(self)
 
+    def delete(self, using=None):
+        from gim.core.models import Mention
+        Mention.objects.set_for_issue(self, forced_users=[])
+        super(Issue, self).delete(using)
 
     def update_last_head_commit(self, commit=models.NOT_PROVIDED, save=True):
         if commit is models.NOT_PROVIDED:
