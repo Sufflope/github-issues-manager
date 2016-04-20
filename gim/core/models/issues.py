@@ -615,10 +615,22 @@ class LabelType(models.Model):
 
     repository = models.ForeignKey('Repository', related_name='label_types')
     regex = models.TextField(
-        help_text='Must contain at least this part: <strong>(?P&lt;label&gt;visible-part-of-the-label)</strong>, and can include <strong>(?P&lt;order&gt;\d+)</strong> for ordering',
+        help_text=u'Must contain at least this part: <strong>(?P&lt;label&gt;visible-part-of-the'
+                  u'-label)</strong>, and can include <strong>(?P&lt;order&gt;\d+)</strong> for '
+                  u'ordering<br/>If you want the order to be the label, simply do: <strong>'
+                  u'(?P&lt;label&gt;(?P&lt;order&gt;\d+))</strong>',
         validators=[
-            validators.RegexValidator(re.compile('\(\?\P<label>.+\)'), 'Must contain a "label" part: "(?P<label>visible-part-of-the-label)"', 'no-label'),
-            validators.RegexValidator(re.compile('^(?!.*\(\?P<order>(?!\\\d\+\))).*$'), 'If an order is present, it must math a number: the exact part must be: "(?P<order>\d+)"', 'invalid-order'),
+            validators.RegexValidator(
+                re.compile('\(\?\P<label>.+\)'),
+                u'Must contain a "label" part: "(?P<label>visible-part-of-the-label)"',
+                'no-label'
+            ),
+            validators.RegexValidator(
+                re.compile('^(?!.*\(\?P<order>(?!\\\d\+\))).*$'),
+                u'If an order is present, it must math a number: the exact part must be: '
+                u'"(?P<order>\d+)"',
+                'invalid-order'
+            ),
         ]
     )
     name = models.CharField(max_length=250)
@@ -666,18 +678,24 @@ class LabelType(models.Model):
 
         result = self.edit_details['format_string']
 
-        if order and '{order}' not in result:
+        if order is not None and '{ordered-label}' in result:
             raise ValidationError('The order is not expected for this group')
-        elif not order and '{order}' in result:
+
+        if order is not None and '{order}' not in result:
+            raise ValidationError('The order is not expected for this group')
+        elif order is None and '{order}' in result:
             raise ValidationError('An order is expected for this group')
 
         typed_name = typed_name.strip()
         if not typed_name:
             raise ValidationError('A label name is expected for this group')
 
-        result = result.replace('{label}', typed_name)
-        if order:
-            result = result.replace('{order}', str(order))
+        if '{label}' in result:
+            result = result.replace('{label}', typed_name)
+            if order:
+                result = result.replace('{order}', str(order))
+        elif '{ordered-label}' in result:
+            result = result.replace('{ordered-label}', typed_name)
 
         if not self.match(result):
             raise ValidationError('Impossible to create a label for this group with these values')
@@ -715,7 +733,8 @@ class LabelType(models.Model):
     def regex_from_format(format_string):
         return '^%s$' % re.escape(format_string)\
                           .replace('\\{label\\}', '(?P<label>.+)', 1) \
-                          .replace('\\{order\\}', '(?P<order>\d+)', 1)
+                          .replace('\\{order\\}', '(?P<order>\d+)', 1) \
+                          .replace('\\{ordered\\-label\\}', '(?P<label>(?P<order>\d+))', 1)
 
     @staticmethod
     def regex_from_list(labels_list):

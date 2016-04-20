@@ -2,11 +2,13 @@ import os
 from urlparse import unquote
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.handlers.wsgi import WSGIRequest
+from django.core.validators import RegexValidator
 from django.template.defaultfilters import urlencode
 from django.test.client import FakePayload, MULTIPART_CONTENT, encode_multipart, BOUNDARY, \
     CONTENT_TYPE_RE
-from django.utils.encoding import force_str, force_bytes
+from django.utils.encoding import force_str, force_bytes, force_text
 
 
 def make_querystring(qs_parts):
@@ -74,3 +76,9 @@ def forge_request(path, querystring='', method='GET', post_data=None, source_req
             setattr(request, key, value)
 
         return request
+
+class FailRegexValidator(RegexValidator):
+    """Reverse of RegexValidator: it's ok if the regex does not validate"""
+    def __call__(self, value):
+        if self.regex.search(force_text(value)):
+            raise ValidationError(self.message, code=self.code)

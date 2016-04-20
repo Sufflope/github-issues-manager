@@ -7,8 +7,9 @@ from django.core import validators
 from gim.core.models import (LabelType, LABELTYPE_EDITMODE, Label,
                              GITHUB_STATUS_CHOICES, Milestone, Repository)
 
-from gim.front.widgets import EnclosedInput
 from gim.front.mixins.forms import LinkedToRepositoryFormMixin, LinkedToUserFormMixin
+from gim.front.utils import FailRegexValidator
+from gim.front.widgets import EnclosedInput
 
 
 class LabelTypeEditForm(LinkedToRepositoryFormMixin):
@@ -16,13 +17,30 @@ class LabelTypeEditForm(LinkedToRepositoryFormMixin):
     format_string = forms.CharField(
                         required=False,
                         label=u'Format',
-                        help_text=u'Write the format for labels to match this group, inserting the strings <strong>{label}</strong> for the part to display, and optionnally <strong>{order}</strong> if your labels include a number to order them',
+                        help_text=u'Write the format for labels to match this group, inserting the '
+                                  u'strings <strong>{label}</strong> for the part to display, and '
+                                  u'optionnally <strong>{order}</strong> if your labels include a '
+                                  u'number to order them<br />If you want the label to be an number'
+                                  u'that serves as the order too, use <strong>{ordered-label}'
+                                  u'</strong>',
                     )
     format_string_validators = [
         validators.RegexValidator(
-            re.compile('\{label\}'),
-            'Must contain a "{label}" part',
+            re.compile('\{(?:ordered\-)?label\}'),
+            'Must contain a "{label}" or "{ordered-label}" part',
             'no-label'
+        ),
+        # TODO: check many label or order
+
+        FailRegexValidator(
+            re.compile('(?:\{label\}.*\{ordered-label\})|(?:\{ordered-label\}.*\{label\})'),
+            'If "{ordered-label}" is present, must not contain "{label"}',
+            'ordered-label-and-label'
+        ),
+        FailRegexValidator(
+            re.compile('(?:\{order\}.*\{ordered-label\})|(?:\{ordered-label\}.*\{order\})'),
+            'If "{ordered-label}" is present, must not contain "{order"}',
+            'ordered-label-and-order'
         ),
     ]
 
