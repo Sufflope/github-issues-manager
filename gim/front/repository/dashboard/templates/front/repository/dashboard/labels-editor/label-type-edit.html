@@ -94,6 +94,15 @@
         </div>
     </div>
 
+    <div class="for-mode1 for-mode2">
+        {{ form.is_metric.label_tag }}
+        {{ form.is_metric }}
+        {{ form.is_metric.errors }}
+        <div class="note">
+            {{ form.is_metric.help_text|safe }}
+        </div>
+    </div>
+
     <div class="for-mode2">
         You can pick an example below:
         <div class="box label-type-samples" data-target="#id_format_string">

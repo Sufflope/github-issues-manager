@@ -7,7 +7,7 @@ from .views import (DashboardView, MilestonesPart, CountersPart, LabelsPart,
                     LabelTypePreview, LabelTypeDelete, LabelCreate,
                     LabelEdit, LabelDelete, ActivityPart,
                     MilestoneCreate, MilestoneEdit, MilestoneDelete,
-                    HookPart, HookToggle)
+                    HookPart, HookToggle, MainMetricView)
 
 
 urlpatterns = patterns('',
@@ -32,4 +32,5 @@ urlpatterns = patterns('',
     url(r'milestone/(?P<milestone_id>\d+)/delete/$', MilestoneDelete.as_view(), name=MilestoneDelete.url_name),
 
     url(r'hook/toggle/$', HookToggle.as_view(), name=HookToggle.url_name),
+    url(r'main_metric/set/$', MainMetricView.as_view(), name=MainMetricView.url_name),
 )

@@ -20,9 +20,9 @@ class LabelTypeEditForm(LinkedToRepositoryFormMixin):
                         help_text=u'Write the format for labels to match this group, inserting the '
                                   u'strings <strong>{label}</strong> for the part to display, and '
                                   u'optionnally <strong>{order}</strong> if your labels include a '
-                                  u'number to order them<br />If you want the label to be an number'
-                                  u'that serves as the order too, use <strong>{ordered-label}'
-                                  u'</strong>',
+                                  u'number to order them<br />If you want the label to be an '
+                                  u'number that serves as the order too, use '
+                                  u'<strong>{ordered-label}</strong>',
                     )
     format_string_validators = [
         validators.RegexValidator(
@@ -52,7 +52,7 @@ class LabelTypeEditForm(LinkedToRepositoryFormMixin):
 
     class Meta:
         model = LabelType
-        fields = ('name', 'edit_mode', 'regex', 'format_string', 'labels_list', )
+        fields = ('name', 'edit_mode', 'regex', 'format_string', 'labels_list', 'is_metric')
         widgets = {
             'regex': forms.TextInput,
         }
@@ -121,6 +121,29 @@ class LabelTypeEditForm(LinkedToRepositoryFormMixin):
         """
         data = super(LabelTypeEditForm, self).clean()
 
+        if data['is_metric']:
+            metric_error = False
+
+            if self.edit_mode_value == LABELTYPE_EDITMODE.LIST:
+                data['is_metric'] = False
+
+            elif self.edit_mode_value == LABELTYPE_EDITMODE.FORMAT:
+                format_string = data.get('format_string')
+                metric_error = bool(format_string) and not('{order}' in format_string or
+                                                        '{ordered-label}' in format_string)
+
+            elif self.edit_mode_value == LABELTYPE_EDITMODE.REGEX:
+                regex = data.get('regex')
+                metric_error = bool(regex) and '(?P<order>\d+)' not in regex
+
+            if metric_error:
+                if not self._errors:
+                    self._errors = {}
+                self._errors['is_metric'] = self.error_class([
+                    u'You can only set a group as metric if it has an order'
+                ])
+                return data
+
         if self.edit_mode_value == LABELTYPE_EDITMODE.FORMAT and data.get('format_string'):
             data['regex'] = LabelType.regex_from_format(data['format_string'])
 
@@ -171,7 +194,6 @@ class LabelEditForm(LinkedToRepositoryFormMixin):
 
     def __init__(self, *args, **kwargs):
         super(LabelEditForm, self).__init__(*args, **kwargs)
-
         if 'name' in self.fields:
             self.fields['name'].validators = [self.label_name_validator]
         self.fields['color'].validators = [self.color_validator]
@@ -334,3 +356,26 @@ class MilestoneCreateForm(LinkedToUserFormMixin, MilestoneEditForm):
 
 class HookToggleForm(forms.Form):
     hook_set = forms.BooleanField(required=False, widget=forms.HiddenInput)
+
+
+class MainMetricForm(forms.ModelForm):
+
+    class Meta:
+        model = Repository
+        fields = ['main_metric']
+
+    def __init__(self, *args, **kwargs):
+        super(MainMetricForm, self).__init__(*args, **kwargs)
+        self.fields['main_metric'].queryset = self.instance.label_types.filter(
+            is_metric=True, edit_mode__in=LABELTYPE_EDITMODE.MAYBE_METRIC.values.keys())
+        self.fields['main_metric'].empty_label = '--- No main metric---'
+
+    def save(self, commit=True):
+        self.instance.save(update_fields=['main_metric'])
+
+    def clean_main_metric(self):
+        label_type = self.cleaned_data.get('main_metric')
+        if label_type:
+            if not label_type.can_be_metric():
+                raise forms.ValidationError('The group "%s" cannot be used as a metric' % label_type)
+        return label_type

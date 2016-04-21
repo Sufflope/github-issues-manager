@@ -608,6 +608,7 @@ LABELTYPE_EDITMODE = Choices(
     ('FORMAT', 2, u'Simple format'),
     ('REGEX', 1, u'Regular expression'),
 )
+LABELTYPE_EDITMODE.add_subset('MAYBE_METRIC', ('FORMAT', 'REGEX'))
 
 
 class LabelType(models.Model):
@@ -637,6 +638,11 @@ class LabelType(models.Model):
     lower_name = models.CharField(max_length=250, db_index=True)
     edit_mode = models.PositiveSmallIntegerField(choices=LABELTYPE_EDITMODE.CHOICES, default=LABELTYPE_EDITMODE.REGEX)
     edit_details = JSONField(blank=True, null=True)
+    is_metric = models.BooleanField(default=False,
+        help_text=u'Only valid for "Simple format" or "Regular expression" groups with an "order". '
+                  u'The order will be used as a value to do different kind of computations.<br />'
+                  u'It can be used for example if the values are estimates, to get the '
+                  u'total/mean/median for a list of issues')
 
     objects = LabelTypeManager()
 
@@ -741,6 +747,17 @@ class LabelType(models.Model):
         if isinstance(labels_list, basestring):
             labels_list = labels_list.split(u',')
         return '^(?P<label>%s)$' % u'|'.join(map(re.escape, labels_list))
+
+    def can_be_metric(self):
+        if self.edit_mode == LABELTYPE_EDITMODE.LIST:
+            return False
+
+        if self.edit_mode == LABELTYPE_EDITMODE.FORMAT:
+            format_string = self.edit_details['format_string']
+            return bool(format_string) and ('{order}' in format_string or
+                                            '{ordered-label}' in format_string)
+
+        return bool(self.regex) and '(?P<order>\d+)' in self.regex
 
 
 class Label(WithRepositoryMixin, GithubObject):

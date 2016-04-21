@@ -16,9 +16,19 @@
     }
 }
 
-.label-type .box-header .title .label {
-    margin-left: 1em;
-    line-height: 13px;
+.label-type .box-header .title {
+    .label {
+        margin-left: 1em;
+        line-height: 13px;
+    }
+    .is-metric {
+        font-weight: normal;
+        color: #666;
+        margin-left: 1em;
+        &.is-main-metric {
+            font-weight: bold;
+        }
+    }
 }
 
 #label-type-edit-form {
@@ -41,6 +51,17 @@
 .mode2 .for-mode2,
 .mode3 .for-mode3 {
     display: block;
+}
+
+label[for=id_is_metric] {
+    width: auto;
+    display: inline-block;
+    margin-bottom: 0;
+}
+input#id_is_metric {
+    width: auto;
+    position: relative;
+    top: -2px;
 }
 
 .edit-mode-dropdown {
@@ -203,5 +224,12 @@
         .select2-search-choice-close {
             top: 5px;
         }
+    }
+}
+
+#main_metric_form {
+    margin-bottom: 0;
+    select {
+        margin-bottom: 0;
     }
 }

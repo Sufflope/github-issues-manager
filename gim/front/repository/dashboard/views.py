@@ -5,6 +5,7 @@ from operator import attrgetter, itemgetter
 
 from django.db.models import Count
 from django.core.urlresolvers import reverse_lazy, reverse
+from django.shortcuts import redirect
 from django.views.generic import UpdateView, CreateView, DeleteView, DetailView, FormView
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib import messages
@@ -27,7 +28,7 @@ from gim.front.repository.views import BaseRepositoryView
 
 from .forms import (LabelTypeEditForm, LabelTypePreviewForm, LabelEditForm,
                     TypedLabelEditForm, MilestoneEditForm, MilestoneCreateForm,
-                    HookToggleForm)
+                    HookToggleForm, MainMetricForm)
 
 
 class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMixin, DetailView):
@@ -270,6 +271,9 @@ class LabelsEditor(BaseRepositoryView):
         context['label_create_url'] = reverse_lazy(
                 'front:repository:%s' % LabelCreate.url_name, kwargs=reverse_kwargs)
 
+        context['main_metric_form'] = MainMetricForm(instance=self.repository)
+        context['main_metric_set_url'] = reverse_lazy(
+                'front:repository:%s' % MainMetricView.url_name, kwargs=reverse_kwargs)
         return context
 
     def get_template_names(self):
@@ -622,3 +626,34 @@ class HookToggle(SubscribedRepositoryViewMixin, WithAjaxRestrictionViewMixin, Fo
         reverse_kwargs = self.repository.get_reverse_kwargs()
         return HttpResponseRedirect(reverse_lazy('front:repository:%s' % HookPart.url_name,
                                                  kwargs=reverse_kwargs))
+
+
+class MainMetricView(BaseRepositoryView, UpdateView):
+    url_name = 'main_metric.set'
+    allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
+    http_method_names = [u'post']
+
+    form_class = MainMetricForm
+
+    def get_object(self, queryset=None):
+        return self.repository
+
+    def form_invalid(self, form):
+        messages.error(
+            self.request,
+            form.errors.get('main_metric', form.errors.get('__all__', ['Unexpected error']))[0]
+        )
+        return redirect(self.get_success_url())
+
+    def form_valid(self, form):
+        main_metric = form.cleaned_data.get('main_metric')
+        if not main_metric:
+            messages.success(self.request, u'The main metric was unset')
+        else:
+            messages.success(self.request, u'The main metric was set to "%s"' % main_metric)
+
+        return super(MainMetricView, self).form_valid(form)
+
+    def get_success_url(self):
+        reverse_kwargs = self.repository.get_reverse_kwargs()
+        return reverse('front:repository:%s' % LabelsEditor.url_name, kwargs=reverse_kwargs)
