@@ -70,6 +70,7 @@ $counters-small-height: 154px;
             bottom: 0;
         }
         & > .date,
+        & > .metrics,
         & > .issues-link,
         & > .edit-link {
             float: right;
@@ -77,6 +78,10 @@ $counters-small-height: 154px;
             opacity: 0;
             @include transition(opacity 0.35s);
             margin-top: -10px;
+        }
+        & > .metrics {
+            margin-left: 10px;
+            font-style: normal;
         }
         & > .issues-link {
             margin-right: 1em;
@@ -120,6 +125,7 @@ $counters-small-height: 154px;
             &:not(.collapsed) {
                 & ~ .date,
                 & ~ .issues-link,
+                & ~ .metrics,
                 & ~ .edit-link {
                     opacity: 1;
                     margin-bottom: 10px;

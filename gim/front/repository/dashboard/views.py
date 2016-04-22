@@ -25,6 +25,7 @@ from gim.front.mixins.views import (DeferrableViewPart, SubscribedRepositoryView
 from gim.front.activity.views import ActivityViewMixin
 
 from gim.front.repository.views import BaseRepositoryView
+from gim.front.utils import get_metric_stats
 
 from .forms import (LabelTypeEditForm, LabelTypePreviewForm, LabelEditForm,
                     TypedLabelEditForm, MilestoneEditForm, MilestoneCreateForm,
@@ -81,6 +82,13 @@ class MilestonesPart(RepositoryDashboardPartView):
 
                 if milestone.closed_issues_count:
                     milestone.closed_issues_percent = 100.0 * milestone.closed_issues_count / milestone.issues_count
+
+                if self.repository.main_metric_id:
+                    milestone.metrics = get_metric_stats(
+                        issues.filter(state='open'),
+                        self.repository.main_metric,
+                        milestone.open_issues_count
+                    )
 
             else:
                 milestone.non_assigned_issues_count = milestone.assigned_issues_count = \
