@@ -16,7 +16,7 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 
 from limpyd_jobs import STATUSES
 
-from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
+from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              IssueComment, PullRequestComment, CommitComment,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
@@ -273,24 +273,33 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 label_names = [label_names]
             label_names = [l for l in label_names if l]
         if not label_names:
-            return (None, None)
+            return (None, None, None)
 
         canceled_types = set()
+        full_types = set()
         real_label_names = set()
 
         for label_name in label_names:
             if label_name.endswith(':__none__'):
                 canceled_types.add(label_name[:-9])
+            elif label_name.endswith(':__any__'):
+                full_types.add(label_name[:-8])
             else:
                 real_label_names.add(label_name)
 
         qs = self.repository.labels.ready().filter(name__in=real_label_names)
+
+        if full_types:
+            full_types = list(self.repository.label_types.filter(name__in=full_types)
+                                                             .values_list('id', 'name'))
+            qs = qs.exclude(label_type_id__in=([t[0] for t in full_types]))
+
         if canceled_types:
             canceled_types = list(self.repository.label_types.filter(name__in=canceled_types)
                                                              .values_list('id', 'name'))
             qs = qs.exclude(label_type_id__in=([t[0] for t in canceled_types]))
 
-        return canceled_types, list(qs.prefetch_related('label_type'))
+        return canceled_types, full_types, list(qs.prefetch_related('label_type'))
 
     def _get_group_by(self, qs_parts):
         """
@@ -375,21 +384,26 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         # filter by mentioned
 
         # now filter by labels
-        label_types_to_ignore, labels = self._get_labels(qs_parts)
-        if label_types_to_ignore or labels:
+        label_types_to_ignore, full_label_types, labels = self._get_labels(qs_parts)
+        if label_types_to_ignore or full_label_types or labels:
             qs_filters['labels'] = []
             filter_objects['current_label_types'] = {}
+            if full_label_types or labels:
+                query_filters['labels'] = []
+
+        if full_label_types:
+            qs_filters['labels'].extend('%s:__any__' % t[1] for t in full_label_types)
+            query_filters['labels__label_type_id'] = [t[0] for t in full_label_types]
+            filter_objects['current_label_types'].update((t[0], '__any__') for t in full_label_types)
 
         if label_types_to_ignore:
             query_filters['-labels__label_type_id__in'] = [t[0] for t in label_types_to_ignore]
-            # we can set, and not update, as we are first to touch this
-            qs_filters['labels'] = ['%s:__none__' % t[1] for t in label_types_to_ignore]
-            filter_objects['current_label_types'] = {t[0]: '__none__' for t in label_types_to_ignore}
+            qs_filters['labels'].extend('%s:__none__' % t[1] for t in label_types_to_ignore)
+            filter_objects['current_label_types'].update((t[0], '__none__') for t in label_types_to_ignore)
 
         if labels:
             filter_objects['labels'] = labels
             filter_objects['current_labels'] = []
-            query_filters['labels'] = []
             for label in labels:
                 qs_filters['labels'].append(label.name)
                 if label.label_type_id and label.label_type_id not in filter_objects['current_label_types']:
