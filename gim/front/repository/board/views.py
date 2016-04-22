@@ -406,7 +406,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
             'list_description': self.current_column['description'],
         })
 
-        return super(BoardColumnView, self).get_context_data(**context)
+        return context
 
     def get_querystring_context(self, querystring=None):
         qs_context = super(BoardColumnView, self).get_querystring_context(querystring)

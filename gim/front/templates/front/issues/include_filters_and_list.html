@@ -211,6 +211,61 @@
                 No issues to display.
             </div>
         {% endif %}
+        {% if current_metric and metrics %}
+            <div class="alert alert-info metrics">
+                <h4 title="Click for more information" data-toggle="collapse" data-target="#metrics-{{ list_uuid }}">{{ current_metric.name }}: {{ metrics.sum|default:0 }}</h4>
+                <div id="metrics-{{ list_uuid }}" class="collapse">
+                    {% if metrics.count_without or metrics.count_too_many %}
+                        <div class="metrics-ignore">(Ignoring
+                        {% if metrics.count_without and metrics.count_too_many %}
+                            {% with total_ignore=metrics.count_without|add:metrics.count_too_many %}
+                                <strong>{{ total_ignore }}</strong> issue{{ total_ignore|pluralize }}:
+                                <strong>{{ metrics.count_without }}</strong> without "{{ current_metric.name }}" and
+                                <strong>{{ metrics.count_too_many }}</strong> with more than one
+                            {% endwith %}
+                        {% elif metrics.count_without%}
+                            <strong>{{ metrics.count_without }}</strong> issue{{ metrics.count_without|pluralize }} without "{{ current_metric.name }}"
+                        {% else %}
+                            <strong>{{ metrics.count_too_many }}</strong> issue{{ metrics.count_too_many|pluralize }} with more than one "{{ current_metric.name }}"
+                        {% endif %}
+                        )</div>
+                    {% endif %}
+                    {% if metrics.count_valid %}
+                        <div class="metrics-details">
+                            For {{ metrics.count_valid }} issue{{ metrics.count_valid|pluralize }}:
+                            <ul>
+                                <li>Sum: <strong>{{ metrics.sum }}</strong></li>
+                                <li>Mean: <strong>{{ metrics.mean|format_int_or_float }}</strong></li>
+                                <li>Median: <strong>{{ metrics.median|format_int_or_float }}</strong></li>
+                                {% if metrics.count_valid > 1%}
+                                    <li>Standard deviation: <strong>{{ metrics.stdev|format_int_or_float }}</strong></li>
+                                {% endif %}
+                                <li>Main one{% if '&' in metrics.mode %}s{% endif %}: <strong>{{ metrics.mode }}</strong></li>
+                            </ul>
+                            Distribution:
+                            <table class="table table-condensed">
+                                <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th>Count</th>
+                                    <th>Percent</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in metrics.distribution %}
+                                        <tr>
+                                            <td>{{ entry.value }}</td>
+                                            <td>{{ entry.count }}</td>
+                                            <td>{{ entry.percent|format_int_or_float }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
         {% if limit_reached %}
             <div class="alert alert-warning too-many-issues">
                 {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.

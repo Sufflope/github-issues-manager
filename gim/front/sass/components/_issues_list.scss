@@ -149,6 +149,33 @@ $issues-quicksearch-height: 29px;
     .no-issues, .too-many-issues {
         text-align: center;
     }
+
+    .metrics {
+        h4 {
+            font-size: 14px;
+            line-height: 14px;
+        }
+        .metrics-ignore {
+            padding-top: 10px;
+            font-style: italic;
+        }
+        ul {
+            margin-top: 3px;
+        }
+        table {
+            margin-bottom: 0;
+            th {
+                color: inherit;
+            }
+            td, th {
+                text-align: center;
+                border-top-color: $infoBorder;
+            }
+        }
+        .metrics-details {
+            padding-top: 10px;
+        }
+    }
 } // .issues-list
 
 .issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {

@@ -398,3 +398,8 @@ def filter_falsy(list, attribute):
 @register.filter
 def split(string, separator):
     return string.split(separator)
+
+
+@register.filter
+def format_int_or_float(value):
+    return (u'%.2f' % value).rstrip('0').rstrip('.')

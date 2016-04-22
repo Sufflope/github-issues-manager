@@ -1,5 +1,8 @@
 import os
+from collections import defaultdict
 from urlparse import unquote
+
+from statistics import _counts, mean, median, mode, stdev
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -77,8 +80,85 @@ def forge_request(path, querystring='', method='GET', post_data=None, source_req
 
         return request
 
+
 class FailRegexValidator(RegexValidator):
     """Reverse of RegexValidator: it's ok if the regex does not validate"""
     def __call__(self, value):
         if self.regex.search(force_text(value)):
             raise ValidationError(self.message, code=self.code)
+
+
+def get_metric_stats(issues, metric, issues_count=None):
+
+    # Get issues count and stop if zero
+    if issues_count is None:
+        issues_count = len(issues)
+
+    if not issues_count:
+        return None
+
+    # Get all couple issue/metric
+    from gim.core.models import Issue
+    data = Issue.labels.through.objects.filter(
+        issue__in=issues,
+        label__label_type_id=metric.pk,
+    ).values_list('label__order', 'issue_id')
+
+    # Extract values and all issues with more than one
+    valid_values = []
+    distribution_dict = defaultdict(int)
+    issues_done = {}
+    invalid_issues = set()
+    for value, issue_id in data:
+        if issue_id in issues_done:
+            # We already have one value for this issue, we mark it as invalid
+            invalid_issues.add(issue_id)
+            # And we remove the previous value for this issue
+            previous_value = issues_done[issue_id]
+            valid_values.remove(previous_value)
+            # And for the total distribution
+            distribution_dict[previous_value] -= 1
+        else:
+            # First value for this issue, we can add the value
+            valid_values.append(value)
+            distribution_dict[value] += 1
+
+        # Set the value as last value seen for this issue
+        issues_done[issue_id] = value
+
+    # Clean up some memory
+    count_invalid_issues = len(invalid_issues)
+    del issues_done
+    del invalid_issues
+
+    # Computation!
+    count_valid_issues = len(valid_values)
+    count_issues_having_data = count_valid_issues + count_invalid_issues
+    distribution = [
+        {
+            'value': value,
+            'count': distribution_dict[value],
+            'percent': distribution_dict[value] * 100.0 /  count_valid_issues,
+        }
+        for value in sorted(distribution_dict.keys())
+        if distribution_dict[value] > 0
+    ]
+
+    def multi_mode(data):
+        # mode allows only one data, here we accept many in a formatted string if t
+        values = map(str, [entry[0] for entry in _counts(data)])
+        return ', '.join(values[:-1]) + (' & 'if len(values) > 1 else '') + values[-1]
+
+
+    return {
+        'count_with': count_issues_having_data,
+        'count_too_many': count_invalid_issues,
+        'count_without': issues_count - count_issues_having_data,
+        'count_valid': count_valid_issues,
+        'distribution': distribution,
+        'sum': sum(valid_values) if count_valid_issues else None,
+        'mean': mean(valid_values) if count_valid_issues else None,
+        'median': median(valid_values) if count_valid_issues else None,
+        'mode': multi_mode(valid_values) if count_valid_issues else None,
+        'stdev': stdev(valid_values) if count_valid_issues > 1 else None,
+    }

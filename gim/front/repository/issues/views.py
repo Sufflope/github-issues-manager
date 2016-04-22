@@ -47,7 +47,7 @@ from gim.front.models import GroupedCommits, GroupedCommitComments, GroupedPullR
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.mixins.views import BaseIssuesView
 
-from gim.front.utils import make_querystring, forge_request
+from gim.front.utils import make_querystring, forge_request, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueMilestoneForm, IssueAssigneeForm, IssueLabelsForm,
@@ -230,6 +230,10 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         'closed_by': 'closed_by',
         'mentioned': 'user_mentions',
     }
+
+    def __init__(self, **kwargs):
+        super(IssuesView, self).__init__(**kwargs)
+        self.metrics = None
 
     def get_base_queryset(self):
         return self.repository.issues.ready()
@@ -419,6 +423,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         context.update({
             'label_types': self.label_types,
             'milestones': self.milestones,
+            'current_metric': self.repository.main_metric,
+            'metrics': self.metrics,
         })
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
@@ -469,7 +475,12 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         Actually simply order ("group") by a label_type if asked
         """
 
-        issues, total_count, limit_reached = super(IssuesView, self).finalize_issues(issues, context)
+        issues, total_count, limit_reached, original_queryset = \
+            super(IssuesView, self).finalize_issues(issues, context)
+
+        if total_count and self.repository.main_metric_id:
+            self.metrics = get_metric_stats(original_queryset.all(), self.repository.main_metric,
+                                            total_count)
 
         label_type = context['issues_filter']['objects'].get('group_by', None)
         attribute = context['issues_filter']['objects'].get('group_by_field', None)
@@ -502,7 +513,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 if label_id in issues_dict:
                     issues += issues_dict[label_id]
 
-        return issues, total_count, limit_reached
+        return issues, total_count, limit_reached, original_queryset
 
 
 class IssueView(WithIssueViewMixin, TemplateView):
