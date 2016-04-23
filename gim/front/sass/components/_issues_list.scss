@@ -175,6 +175,10 @@ $issues-quicksearch-height: 29px;
         .metric-stats-details {
             padding-top: 10px;
         }
+        a {
+            color: inherit;
+            text-decoration: underline;
+        }
     }
 } // .issues-list
 

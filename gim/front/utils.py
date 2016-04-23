@@ -134,11 +134,18 @@ def get_metric_stats(issues, metric, issues_count=None):
     # Computation!
     count_valid_issues = len(valid_values)
     count_issues_having_data = count_valid_issues + count_invalid_issues
+    total = sum(valid_values) if count_valid_issues else None
+
+    # Distribution
+    labels = {v[0]: v[1] for v in metric.labels.values_list('order', 'name')}
     distribution = [
         {
             'value': value,
+            'label_name': labels[value],
             'count': distribution_dict[value],
-            'percent': distribution_dict[value] * 100.0 /  count_valid_issues,
+            'count_percent': distribution_dict[value] * 100.0 / count_valid_issues,
+            'total': distribution_dict[value] * value,
+            'metric_percent': (distribution_dict[value] * value) * 100.0 / total,
         }
         for value in sorted(distribution_dict.keys())
         if distribution_dict[value] > 0
@@ -157,7 +164,7 @@ def get_metric_stats(issues, metric, issues_count=None):
         'count_without': issues_count - count_issues_having_data,
         'count_valid': count_valid_issues,
         'distribution': distribution,
-        'sum': sum(valid_values) if count_valid_issues else None,
+        'sum': total,
         'mean': mean(valid_values) if count_valid_issues else None,
         'median': median(valid_values) if count_valid_issues else None,
         'mode': multi_mode(valid_values) if count_valid_issues else None,

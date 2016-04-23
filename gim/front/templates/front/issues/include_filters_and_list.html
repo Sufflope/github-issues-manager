@@ -223,111 +223,58 @@
             <div class="alert alert-info no-issues">
                 No issues to display.
             </div>
-        {% endif %}
-        {% if current_metric and metric_stats %}
-            <div class="alert alert-info metric-stats">
-                <h4 title="Click for more information" data-toggle="collapse" data-target="#metric-stats-{{ list_uuid }}">{{ current_metric.name }}: {{ metric_stats.sum|default:0 }}</h4>
-                <div id="metric-stats-{{ list_uuid }}" class="collapse">
-                    {% if metric_stats.count_without or metric_stats.count_too_many %}
-                        <div class="metric-stats-ignore">(Ignoring
-                        {% if metric_stats.count_without and metric_stats.count_too_many %}
-                            {% with total_ignore=metric_stats.count_without|add:metric_stats.count_too_many %}
-                                <strong>{{ total_ignore }}</strong> issue{{ total_ignore|pluralize }}:
-                                <strong>{{ metric_stats.count_without }}</strong> without "{{ current_metric.name }}" and
-                                <strong>{{ metric_stats.count_too_many }}</strong> with more than one
-                            {% endwith %}
-                        {% elif metric_stats.count_without%}
-                            <strong>{{ metric_stats.count_without }}</strong> issue{{ metric_stats.count_without|pluralize }} without "{{ current_metric.name }}"
-                        {% else %}
-                            <strong>{{ metric_stats.count_too_many }}</strong> issue{{ metric_stats.count_too_many|pluralize }} with more than one "{{ current_metric.name }}"
-                        {% endif %}
-                        )</div>
-                    {% endif %}
-                    {% if metric_stats.count_valid %}
-                        <div class="metric-stats-details">
-                            For {{ metric_stats.count_valid }} issue{{ metric_stats.count_valid|pluralize }}:
-                            <ul>
-                                <li>Sum: <strong>{{ metric_stats.sum }}</strong></li>
-                                <li>Mean: <strong>{{ metric_stats.mean|format_int_or_float }}</strong></li>
-                                <li>Median: <strong>{{ metric_stats.median|format_int_or_float }}</strong></li>
-                                {% if metric_stats.count_valid > 1%}
-                                    <li>Standard deviation: <strong>{{ metric_stats.stdev|format_int_or_float }}</strong></li>
-                                {% endif %}
-                                <li>Main one{% if '&' in metric_stats.mode %}s{% endif %}: <strong>{{ metric_stats.mode }}</strong></li>
-                            </ul>
-                            Distribution:
-                            <table class="table table-condensed">
-                                <thead>
-                                <tr>
-                                    <th>Value</th>
-                                    <th>Count</th>
-                                    <th>Percent</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                    {% for entry in metric_stats.distribution %}
-                                        <tr>
-                                            <td>{{ entry.value }}</td>
-                                            <td>{{ entry.count }}</td>
-                                            <td>{{ entry.percent|format_int_or_float }}%</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% endif %}
+        {% else %}
+            {% block issues-list-top %}{% endblock %}
+            {% if limit_reached %}
+                <div class="alert alert-warning too-many-issues">
+                    {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
+                    <br />
+                    <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
                 </div>
-            </div>
-        {% endif %}
-        {% if limit_reached %}
-            <div class="alert alert-warning too-many-issues">
-                {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
-                <br />
-                <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
-            </div>
-        {% endif %}
-        {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}
-        {% for group in issues_groups %}
-            {% if issues_filter.objects.group_by_field %}
-                {% with group_by_value=group.grouper|group_by_filter_value:issues_filter.objects.group_by_field group_uuid=new_uuid %}
-                    <div class='box issues-group' data-group_by-value="{{ group_by_value }}">
-                        <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-{{ group_uuid }}">
-                            <span class="title">
-                                {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
-                                    {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
-                                {% else %}
-                                    {% block group_by_name %}
-                                        {% if group.grouper %}
-                                            {{ group.grouper }}
-                                        {% else  %}
-                                            No {% usemacro empty_group_by_name %}
-                                        {% endif %}
-                                    {% endblock %}
-                                {% endif %}
-                            </span>
+            {% endif %}
+            {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}
+            {% for group in issues_groups %}
+                {% if issues_filter.objects.group_by_field %}
+                    {% with group_by_value=group.grouper|group_by_filter_value:issues_filter.objects.group_by_field group_uuid=new_uuid %}
+                        <div class='box issues-group' data-group_by-value="{{ group_by_value }}">
+                            <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-{{ group_uuid }}">
+                                <span class="title">
+                                    {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
+                                        {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
+                                    {% else %}
+                                        {% block group_by_name %}
+                                            {% if group.grouper %}
+                                                {{ group.grouper }}
+                                            {% else  %}
+                                                No {% usemacro empty_group_by_name %}
+                                            {% endif %}
+                                        {% endblock %}
+                                    {% endif %}
+                                </span>
+                                <ul class="unstyled box-toolbar">
+                                    <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
+                                </ul>
+                            </a>
+                            <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
+                                {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
+                            </ul>
+                        </div>
+                    {% endwith %}
+                {% else %}
+                    <div class='box issues-group'>
+                        <a class="box-header" href='#'>
+                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
                             <ul class="unstyled box-toolbar">
                                 <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                             </ul>
                         </a>
-                        <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
+                        <ul class="unstyled box-content issues-group-issues">
                             {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
                         </ul>
                     </div>
-                {% endwith %}
-            {% else %}
-                <div class='box issues-group'>
-                    <a class="box-header" href='#'>
-                        <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
-                        <ul class="unstyled box-toolbar">
-                            <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
-                        </ul>
-                    </a>
-                    <ul class="unstyled box-content issues-group-issues">
-                        {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-        {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
         <div class='box issues-group template' style="display:none">
             <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
                 <span class="title">

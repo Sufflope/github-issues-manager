@@ -2268,7 +2268,8 @@ $().ready(function() {
                 active = true;
             }
             if (IssuesList.all.length) {
-                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
+                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, .metric-stats a, a.no-limit-btn',
+                    Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
             }
             if (active) {
