@@ -51,6 +51,7 @@ class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMi
 
 class MilestonesPart(RepositoryDashboardPartView):
     template_name = 'front/repository/dashboard/include_milestones.html'
+    deferred_template_name = 'front/repository/dashboard/include_milestones_deferred.html'
     url_name = 'dashboard.milestones'
 
     def get_milestones(self):
@@ -243,7 +244,7 @@ class DashboardView(BaseRepositoryView):
         context = super(DashboardView, self).get_context_data(**kwargs)
 
         context['parts'] = {
-            'milestones': MilestonesPart().get_as_part(self),
+            'milestones': MilestonesPart().get_as_deferred(self),
             'counters': CountersPart().get_as_part(self),
             'labels': LabelsPart().get_as_part(self),
             'hook': HookPart().get_as_part(self),
