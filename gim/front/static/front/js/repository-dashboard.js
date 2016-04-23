@@ -26,6 +26,8 @@ $().ready(function() {
         }, // prepare_content
 
         reload: function() {
+            var $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
+            this.$node.append($mask);
             $(this.selector).trigger('reload');
         }, // reload
 
