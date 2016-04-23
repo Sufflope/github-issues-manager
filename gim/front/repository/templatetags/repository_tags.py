@@ -15,9 +15,10 @@ def can_user_write(repository, user):
     """
     Return True if the given user has write rights on the given repository
     """
-    try:
-        subscription = repository.subscriptions.get(user=user)
-    except Subscription.DoesNotExist:
-        return False
-    else:
+
+    subscription = repository.get_subscription_for_user(user)
+
+    if subscription:
         return subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS
+
+    return False

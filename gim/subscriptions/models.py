@@ -119,18 +119,30 @@ class _Repository(models.Model):
         """
         return self.subscriptions.filter(state__in=states).exists()
 
+    def get_subscription_for_user(self, user):
+        if not hasattr(self, 'subscription_for_user'):
+            self.subscription_for_user = {}
+
+        if user.pk not in self.subscription_for_user:
+            try:
+                self.subscription_for_user[user.pk] = user.subscriptions.get(repository=self)
+            except Subscription.DoesNotExist:
+                self.subscription_for_user[user.pk] = None
+
+        return self.subscription_for_user[user.pk]
+
     def get_subscription_state_for_user(self, user):
         from gim.core.models import AvailableRepository
 
         # Assume no rights by defaults
         state = SUBSCRIPTION_STATES.NORIGHTS
 
-        subscription = None
+        subscription = self.get_subscription_for_user(user)
         available_repository = None
 
-        try:
-            subscription = user.subscriptions.get(repository=self)
-        except Subscription.DoesNotExist:
+        if subscription:
+            state = subscription.state
+        else:
             try:
                 available_repository = user.available_repositories_set.get(repository=self)
             except AvailableRepository.DoesNotExist:
@@ -141,8 +153,6 @@ class _Repository(models.Model):
                     state = AVAILABLE_PERMISSIONS_CONVERT[available_repository.permission]
                 except KeyError:
                     pass
-        else:
-            state = subscription.state
 
         result = SUBSCRIPTION_STATES.for_value(state)
 

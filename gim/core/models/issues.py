@@ -148,6 +148,13 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         unique_together = (
             ('repository', 'number'),
         )
+        index_together = [
+            ('repository', 'state'),
+            ('repository', 'assignee'),
+            ('repository', 'milestone'),
+            ('repository', 'milestone', 'state'),
+            ('repository', 'milestone', 'state', 'assignee'),
+        ]
 
     @property
     def github_url(self):

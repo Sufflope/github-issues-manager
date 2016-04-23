@@ -137,11 +137,12 @@ def get_metric_stats(issues, metric, issues_count=None):
     total = sum(valid_values) if count_valid_issues else None
 
     # Distribution
-    labels = {v[0]: v[1] for v in metric.labels.values_list('order', 'name')}
+    if not hasattr(metric, 'labels_orders_and_names'):
+        metric.labels_orders_and_names = {v[0]: v[1] for v in metric.labels.values_list('order', 'name')}
     distribution = [
         {
             'value': value,
-            'label_name': labels[value],
+            'label_name': metric.labels_orders_and_names[value],
             'count': distribution_dict[value],
             'count_percent': distribution_dict[value] * 100.0 / count_valid_issues,
             'total': distribution_dict[value] * value,
@@ -155,7 +156,6 @@ def get_metric_stats(issues, metric, issues_count=None):
         # mode allows only one data, here we accept many in a formatted string if t
         values = map(str, [entry[0] for entry in _counts(data)])
         return ', '.join(values[:-1]) + (' & 'if len(values) > 1 else '') + values[-1]
-
 
     return {
         'metric': metric,

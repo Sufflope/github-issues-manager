@@ -40,8 +40,8 @@ class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMi
 
     def inherit_from_view(self, view):
         super(RepositoryDashboardPartView, self).inherit_from_view(view)
-        self.object = self._repository = view.repository
-        self._subscription = view.subscription
+        self.object = self.repository = view.repository
+        self.subscription = view.subscription
 
     def get_object(self, queryset=None):
         if getattr(self, 'object', None):
@@ -54,24 +54,30 @@ class MilestonesPart(RepositoryDashboardPartView):
     url_name = 'dashboard.milestones'
 
     def get_milestones(self):
-        queryset = self.repository.milestones.annotate(issues_count=Count('issues'))
+        queryset = self.repository.milestones.all()
 
-        if not self.request.GET.get('show-closed-milestones', False):
+        show_closed = self.request.GET.get('show-closed-milestones', False)
+        show_empty = self.request.GET.get('show-empty-milestones', False)
+
+        if not show_closed:
             queryset = queryset.filter(state='open')
 
-        if not self.request.GET.get('show-empty-milestones', False):
-            queryset = queryset.exclude(issues_count=0)
+        all_milestones = list(reversed(queryset))
 
-        milestones = list(reversed(queryset))
+        main_metric = self.repository.main_metric
 
-        for milestone in milestones:
+        milestones = []
+        for milestone in all_milestones:
 
-            issues = milestone.issues.ready()
+            issues = milestone.issues
+            milestone.issues_count = issues.count()
 
             if milestone.issues_count:
+                milestones.append(milestone)
+
                 milestone.non_assigned_issues_count = issues.filter(state='open', assignee_id__isnull=True).count()
-                milestone.assigned_issues_count = issues.filter(state='open', assignee_id__isnull=False).count()
-                milestone.open_issues_count = milestone.non_assigned_issues_count + milestone.assigned_issues_count
+                milestone.open_issues_count = issues.filter(state='open').count()
+                milestone.assigned_issues_count = milestone.open_issues_count - milestone.non_assigned_issues_count
                 milestone.closed_issues_count = milestone.issues_count - milestone.open_issues_count
 
                 if milestone.non_assigned_issues_count:
@@ -83,14 +89,16 @@ class MilestonesPart(RepositoryDashboardPartView):
                 if milestone.closed_issues_count:
                     milestone.closed_issues_percent = 100.0 * milestone.closed_issues_count / milestone.issues_count
 
-                if self.repository.main_metric_id:
+                if main_metric:
                     milestone.main_metric_stats = get_metric_stats(
                         issues.filter(state='open'),
-                        self.repository.main_metric,
+                        main_metric,
                         milestone.open_issues_count
                     )
 
-            else:
+            elif show_empty:
+                milestones.append(milestone)
+
                 milestone.non_assigned_issues_count = milestone.assigned_issues_count = \
                     milestone.open_issues_count = milestone.closed_issues_count = 0
 
@@ -179,7 +187,7 @@ class LabelsPart(RepositoryDashboardPartView):
         count_without_labels = counts.pop(None, 0)
 
         labels_with_count = []
-        for label in self.repository.labels.ready():
+        for label in self.repository.labels.ready().select_related('label_type'):
             if label.id in counts:
                 label.issues_count = counts[label.id]
                 labels_with_count.append(label)
