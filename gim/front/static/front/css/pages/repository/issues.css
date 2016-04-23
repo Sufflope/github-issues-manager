@@ -517,34 +517,34 @@ p.state-closed {
   text-align: center;
 }
 /* line 154, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics h4 {
+.issues-list .metric-stats h4 {
   font-size: 14px;
   line-height: 14px;
 }
 /* line 158, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics .metrics-ignore {
+.issues-list .metric-stats .metric-stats-ignore {
   padding-top: 10px;
   font-style: italic;
 }
 /* line 162, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics ul {
+.issues-list .metric-stats ul {
   margin-top: 3px;
 }
 /* line 165, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics table {
+.issues-list .metric-stats table {
   margin-bottom: 0;
 }
 /* line 167, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics table th {
+.issues-list .metric-stats table th {
   color: inherit;
 }
 /* line 170, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics table td, .issues-list .metrics table th {
+.issues-list .metric-stats table td, .issues-list .metric-stats table th {
   text-align: center;
   border-top-color: #bce8f1;
 }
 /* line 175, ../../../../../sass/components/_issues_list.scss */
-.issues-list .metrics .metrics-details {
+.issues-list .metric-stats .metric-stats-details {
   padding-top: 10px;
 }
 

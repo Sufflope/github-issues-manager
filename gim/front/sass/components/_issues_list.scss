@@ -150,12 +150,12 @@ $issues-quicksearch-height: 29px;
         text-align: center;
     }
 
-    .metrics {
+    .metric-stats {
         h4 {
             font-size: 14px;
             line-height: 14px;
         }
-        .metrics-ignore {
+        .metric-stats-ignore {
             padding-top: 10px;
             font-style: italic;
         }
@@ -172,7 +172,7 @@ $issues-quicksearch-height: 29px;
                 border-top-color: $infoBorder;
             }
         }
-        .metrics-details {
+        .metric-stats-details {
             padding-top: 10px;
         }
     }

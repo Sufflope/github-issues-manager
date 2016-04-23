@@ -84,7 +84,7 @@ class MilestonesPart(RepositoryDashboardPartView):
                     milestone.closed_issues_percent = 100.0 * milestone.closed_issues_count / milestone.issues_count
 
                 if self.repository.main_metric_id:
-                    milestone.metrics = get_metric_stats(
+                    milestone.main_metric_stats = get_metric_stats(
                         issues.filter(state='open'),
                         self.repository.main_metric,
                         milestone.open_issues_count

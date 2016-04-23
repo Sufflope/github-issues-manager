@@ -129,7 +129,6 @@ class WithQueryStringViewMixin(WithPreContextData):
         return context
 
 
-
 class DependsOnSubscribedViewMixin(object):
     """
     A simple mixin with a "get_allowed_repositories" method which returns a

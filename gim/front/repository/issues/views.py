@@ -233,7 +233,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
     def __init__(self, **kwargs):
         super(IssuesView, self).__init__(**kwargs)
-        self.metrics = None
+        self.metric_stats = None
 
     def get_base_queryset(self):
         return self.repository.issues.ready()
@@ -437,8 +437,9 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         context.update({
             'label_types': self.label_types,
             'milestones': self.milestones,
-            'current_metric': self.repository.main_metric,
-            'metrics': self.metrics,
+            'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
+            'metric_stats': self.metric_stats,
+            'all_metrics': list(self.repository.label_types.filter(is_metric=True))
         })
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
@@ -472,16 +473,23 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         filter is used)
         """
 
-        context = super(IssuesView, self).prepare_issues_filter_context(filter_context)
+        metric_label_type_name = self.request.GET.get('metric', None)
+        if metric_label_type_name:
+            try:
+                metric_label_type = self.repository.label_types.get(name=metric_label_type_name,
+                                                                    is_metric=True)
+            except LabelType.DoesNotExist:
+                pass
+            else:
+                if self.repository.main_metric_id \
+                        and self.repository.main_metric !=  metric_label_type:
+                    filter_context['qs_filters']['metric'] = metric_label_type_name
+                filter_context['filter_objects']['metric'] = metric_label_type
 
-        # we need a querystring without the created/assigned parts
-        querystring = dict(filter_context['qs_filters'])  # make a copy!
-        querystring.pop('user_filter_type', None)
-        querystring.pop('username', None)
+        if not filter_context['filter_objects'].get('metric') and self.repository.main_metric_id:
+            filter_context['filter_objects']['metric'] = self.repository.main_metric
 
-        context['querystring'] = make_querystring(querystring)
-
-        return context
+        return super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
     def finalize_issues(self, issues, context):
         """
@@ -492,13 +500,16 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         issues, total_count, limit_reached, original_queryset = \
             super(IssuesView, self).finalize_issues(issues, context)
 
-        if total_count and self.repository.main_metric_id:
-            self.metrics = get_metric_stats(original_queryset.all(), self.repository.main_metric,
-                                            total_count)
+        if total_count and context['issues_filter']['objects'].get('metric'):
+            self.metric_stats = get_metric_stats(
+                original_queryset.all(),
+                context['issues_filter']['objects']['metric'],
+                total_count
+            )
 
-        label_type = context['issues_filter']['objects'].get('group_by', None)
-        attribute = context['issues_filter']['objects'].get('group_by_field', None)
-        if label_type and isinstance(label_type, LabelType) and attribute:
+        group_by_label_type = context['issues_filter']['objects'].get('group_by', None)
+        group_by_attribute = context['issues_filter']['objects'].get('group_by_field', None)
+        if group_by_label_type and isinstance(group_by_label_type, LabelType) and group_by_attribute:
 
             # regroup issues by label from the lab
             issues_dict = {}
@@ -506,11 +517,11 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 add_to = None
 
                 for label in issue.labels.ready():  # thanks prefetch_related
-                    if label.label_type_id == label_type.id:
+                    if label.label_type_id == group_by_label_type.id:
                         # found a label for the wanted type, mark it and stop
                         # checking labels for this issue
                         add_to = label.id
-                        setattr(issue, attribute, label)
+                        setattr(issue, group_by_attribute, label)
                         break
 
                 # add in a dict, with one entry for each label of the type (and one for None)
@@ -519,7 +530,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             # for each label of the type, append matching issues to the final
             # list
             issues = []
-            label_type_labels = [None] + list(label_type.labels.ready())
+            label_type_labels = [None] + list(group_by_label_type.labels.ready())
             if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
                 label_type_labels.reverse()
             for label in label_type_labels:
