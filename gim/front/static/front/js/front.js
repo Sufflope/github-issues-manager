@@ -2237,7 +2237,7 @@ $().ready(function() {
                 list = IssuesList.all[state.list_index];
             } catch(e) {}
             if (!list) { return false; }
-            $issues_list_node = list.$node.$container_node;
+            $issues_list_node = list.$container_node;
             $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             IssuesFilters.reload_filters_and_list(state.filters_url, $filters_node, $issues_list_node, true);
             return true;
