@@ -12,6 +12,7 @@
 @import "components/issues_mixins";
 @import "components/issue";
 @import "components/dashboard-2cols";
+@import "components/metric_stats";
 
 @import "widgets/activity";
 @import "widgets/datepicker";
@@ -322,4 +323,74 @@ body > main > .row-header .area-top {
 }
 .datepicker-due_on {
     margin-left: 30px;
+}
+
+#milestone-graph-container {
+    .modal-body {
+        background: white;
+        position: absolute;
+        top: 47px;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        padding: 0;
+    }
+    .modal-header {
+        select {
+            margin: 0 1ex 0 1ex;
+        }
+        .select2-container {
+            margin: 0 1ex 0 1ex;
+            width: auto !important;
+        }
+    }
+    .js-plotly-plot .plotly .cursor-pointer {
+        cursor: default !important;
+    }
+    .hovertext path {
+        stroke: #8CC079 !important;
+        stroke-width: 2px !important;
+        fill: #fff !important;
+    }
+    .hovertext text {
+        fill: #5a844a !important;
+    }
+    #milestone-graph {
+        position: absolute;
+        top: 31px;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        padding: 0 5px;
+        border-top: solid 1px $infoBorder;
+        background: white;
+    }
+}
+.select2-milestone {
+    min-width: 300px;
+}
+
+#milestone-metric-stats {
+    @include border-radius(0);
+    border-bottom: 0;
+    text-align: center;
+    & > div {
+        display: inline-block;
+        vertical-align: top;
+        & > div {
+            text-align: left;
+            background: $infoBackground;
+            border: solid 1px $infoBorder;
+            border-top: none;
+            margin-top: 8px;
+            .metric-stats-ignore, .metric-stats-details {
+                padding-left: 5px;
+                padding-right: 5px;
+                padding-bottom: 10px;
+            }
+            .metric-stats-details {
+                padding-top: 0;
+            }
+        }
+    }
 }

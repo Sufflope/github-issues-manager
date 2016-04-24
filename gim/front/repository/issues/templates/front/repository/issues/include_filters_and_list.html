@@ -268,65 +268,8 @@
 
 {% block issues-list-top %}
     {% if current_metric and metric_stats %}
-        {% attributes_for_list current_metric.labels.all "name" as label_names %}
-        {% with unset=current_metric.name|concat:":__none__" set=current_metric.name|concat:":__any__" %}{% with label_names=label_names|append:unset %}
-            <div class="alert alert-info metric-stats">
-                <h4 title="Click for more information" data-toggle="collapse" data-target="#metric-stats-{{ list_uuid }}">{{ current_metric.name }}: {{ metric_stats.sum|default:0 }}</h4>
-                <div id="metric-stats-{{ list_uuid }}" class="collapse">
-                    {% if metric_stats.count_without or metric_stats.count_too_many %}
-                        <div class="metric-stats-ignore">(Ignoring
-                        {% if metric_stats.count_without and metric_stats.count_too_many %}
-                            {% with total_ignore=metric_stats.count_without|add:metric_stats.count_too_many %}
-                                <strong>{{ total_ignore }}</strong> issue{{ total_ignore|pluralize }}:
-                                <a title="Click to only show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" title="{{ label.name }}"><strong>{{ metric_stats.count_without }}</strong></a> without "{{ current_metric.name }}" and
-                                <strong>{{ metric_stats.count_too_many }}</strong> with more than one
-                            {% endwith %}
-                        {% elif metric_stats.count_without%}
-                            <a title="Click to only show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" title="{{ label.name }}"><strong>{{ metric_stats.count_without }}</strong> issue{{ metric_stats.count_without|pluralize }}</a> without "{{ current_metric.name }}"
-                        {% else %}
-                            <strong>{{ metric_stats.count_too_many }}</strong> issue{{ metric_stats.count_too_many|pluralize }} with more than one "{{ current_metric.name }}"
-                        {% endif %}
-                        )</div>
-                    {% endif %}
-                    {% if metric_stats.count_valid %}
-                        <div class="metric-stats-details">
-                            For <a title="Click to only show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" title="{{ label.name }}">{{ metric_stats.count_valid }} issue{{ metric_stats.count_valid|pluralize }}</a>:
-                            <ul>
-                                <li>Total: <strong>{{ metric_stats.sum }}</strong></li>
-                                <li>Mean: <strong>{{ metric_stats.mean|format_int_or_float }}</strong></li>
-                                <li>Median: <strong>{{ metric_stats.median|format_int_or_float }}</strong></li>
-                                {% if metric_stats.count_valid > 1%}
-                                    <li>Standard deviation: <strong>{{ metric_stats.stdev|format_int_or_float }}</strong></li>
-                                {% endif %}
-                                <li>Most used value{% if '&' in metric_stats.mode %}s{% endif %}: <strong>{{ metric_stats.mode }}</strong></li>
-                            </ul>
-                            Distribution:
-                            <table class="table table-condensed">
-                                <thead>
-                                <tr>
-                                    <th>Value</th>
-                                    <th>Issues</th>
-                                    <th>Issues %</th>
-                                    <th>{{ current_metric.name }}</th>
-                                    <th>{{ current_metric.name }} %</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                    {% for entry in metric_stats.distribution %}
-                                        <tr>
-                                            <td><strong>{{ entry.value }}</strong></td>
-                                            <td><a title="Click to only show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" entry.label_name remove_values=label_names %}"><strong>{{ entry.count }}</strong></a></td>
-                                            <td><strong>{{ entry.count_percent|format_int_or_float }}</strong> %</td>
-                                            <td><strong>{{ entry.total }}</strong></td>
-                                            <td><strong>{{ entry.metric_percent|format_int_or_float }}</strong> %</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        {% endwith %}{% endwith %}
+        <div class="alert alert-info metric-stats">
+            {% include "front/repository/dashboard/include-metrics-stats.html" with header_tag='h4' %}
+        </div>
     {% endif %}
 {% endblock %}

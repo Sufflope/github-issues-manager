@@ -1,11 +1,20 @@
+# coding: utf-8
 
-from collections import Counter
+import json
+import time
+from collections import Counter, OrderedDict
+from datetime import datetime, timedelta
 from itertools import groupby
 from operator import attrgetter, itemgetter
 
-from django.db.models import Count
+from django.conf import settings
 from django.core.urlresolvers import reverse_lazy, reverse
+from django.http.response import Http404
 from django.shortcuts import redirect
+from django.template import Context, Template
+from django.template.defaultfilters import date as convert_date
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from django.views.generic import UpdateView, CreateView, DeleteView, DetailView, FormView
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib import messages
@@ -14,18 +23,19 @@ from django.utils.functional import cached_property
 from gim.subscriptions.models import Subscription, SUBSCRIPTION_STATES
 
 from gim.core.models import (LabelType, LABELTYPE_EDITMODE, Label,
-                             GITHUB_STATUS_CHOICES, Milestone)
+                             GITHUB_STATUS_CHOICES, Milestone, Issue)
 from gim.core.tasks.label import LabelEditJob
 from gim.core.tasks.milestone import MilestoneEditJob
 
 from gim.front.mixins.views import (DeferrableViewPart, SubscribedRepositoryViewMixin,
                                     LinkedToSubscribedRepositoryFormViewMixin,
-                                    LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin)
+                                    LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin,
+                                    WithRepositoryViewMixin, get_querystring_context)
 
 from gim.front.activity.views import ActivityViewMixin
 
 from gim.front.repository.views import BaseRepositoryView
-from gim.front.utils import get_metric_stats
+from gim.front.utils import get_metric, get_metric_stats
 
 from .forms import (LabelTypeEditForm, LabelTypePreviewForm, LabelEditForm,
                     TypedLabelEditForm, MilestoneEditForm, MilestoneCreateForm,
@@ -63,7 +73,7 @@ class MilestonesPart(RepositoryDashboardPartView):
         if not show_closed:
             queryset = queryset.filter(state='open')
 
-        all_milestones = list(reversed(queryset))
+        all_milestones = list(queryset)
 
         main_metric = self.repository.main_metric
 
@@ -111,10 +121,12 @@ class MilestonesPart(RepositoryDashboardPartView):
             'milestones': self.get_milestones(),
             'show_closed_milestones': self.request.GET.get('show-closed-milestones', False),
             'show_empty_milestones': self.request.GET.get('show-empty-milestones', False),
+            'all_metrics': list(self.repository.label_types.filter(is_metric=True))
         })
         reverse_kwargs = self.repository.get_reverse_kwargs()
         context['milestone_create_url'] = reverse_lazy(
                 'front:repository:%s' % MilestoneCreate.url_name, kwargs=reverse_kwargs)
+
         return context
 
 
@@ -250,6 +262,27 @@ class DashboardView(BaseRepositoryView):
             'hook': HookPart().get_as_part(self),
             'activity': ActivityPart().get_as_deferred(self),
         }
+
+        all_milestones = self.repository.milestones.all()
+        all_milestones_data = {m.number: {
+                'id': m.id,
+                'number': m.number,
+                'due_on': convert_date(m.due_on, settings.DATE_FORMAT) if m.due_on else None,
+                'title': escape(m.title),
+                'state': m.state,
+                'graph_url': str(m.get_graph_url()),
+              }
+            for m in self.repository.milestones.all()
+        }
+
+        grouped_milestones = {}
+        for milestone in all_milestones:
+            grouped_milestones.setdefault(milestone.state, []).append(milestone)
+
+        context['all_milestones'] = grouped_milestones
+        context['all_milestones_json'] = json.dumps(all_milestones_data)
+        context['all_metrics'] = list(self.repository.label_types.filter(is_metric=True))
+        context['default_graph_metric'] = get_metric(self.repository, None, first_if_none=True)
 
         context['can_add_issues'] = True
 
@@ -674,3 +707,238 @@ class MainMetricView(BaseRepositoryView, UpdateView):
     def get_success_url(self):
         reverse_kwargs = self.repository.get_reverse_kwargs()
         return reverse('front:repository:%s' % LabelsEditor.url_name, kwargs=reverse_kwargs)
+
+
+class MilestoneGraph(WithRepositoryViewMixin, DetailView):
+    model = Milestone
+    slug_url_kwarg = 'milestone_number'
+    slug_field = 'number'
+    allowed_rights = SUBSCRIPTION_STATES.READ_RIGHTS
+    template_name = 'front/repository/dashboard/milestone-graph.html'
+    url_name = 'dashboard.milestone.graph'
+
+    point_template = Template(u"""Date: <b>{{ date|date:'F j (l)' }}</b>
+{{ metric.name }} closed: <b>{{ point.total }}</b>
+{{ metric.name }} remaining: <b>{{ point.remaining }}</b>
+{{ point.issues|length }} issue{{ point.issues|length|pluralize }} closed: {% for issue in point.issues %}
+  • <b>#{{ issue.number }}</b> "<i>{{ issue.title }}</i>"{% if issue.closed_by_id %} closed by <b>{{ issue.closed_by }}</b>{% endif %} ({% if issue.graph_value %}{{ metric.name }}: <b>{{ issue.graph_value }}</b>{% else %}<b>No {{ metric.name }}</b>{% endif %}){% endfor %}""")
+
+    one_day = timedelta(days=1)
+
+    def get_queryset(self):
+        return self.repository.milestones
+
+    def get_graph(self):
+
+        metric_label_type_name = self.request.GET.get('metric', None)
+        metric = get_metric(self.repository, metric_label_type_name, first_if_none=True)
+
+        if not metric:
+            raise Http404
+
+        milestone = self.object
+
+        # Get issues
+        all_issues = milestone.issues.all()
+        closed_issues = sorted(
+            [i for i in all_issues if i.state == 'closed'],
+            key=attrgetter('closed_at')
+        )
+
+        # Get metric stats for all the issues
+        stats = get_metric_stats(all_issues, metric)
+        total = stats.get('sum') or 0
+
+        # Get the metric value for each closed issue
+        for issue in closed_issues:
+            issue.graph_value = stats['issues_with_metric'].get(issue.pk, 0)
+
+        # Regroup closed issues by closing day
+        closed_by_day = OrderedDict()
+        remaining = total
+        for issue in closed_issues:
+            if not issue.closed_at:
+                continue
+            day = issue.closed_at.date()
+            if day not in closed_by_day:
+                closed_by_day[day] = {'total': 0, 'issues': [], 'remaining': 0}
+            closed_by_day[day]['issues'].append(issue)
+            closed_by_day[day]['total'] += issue.graph_value
+            remaining -= issue.graph_value
+            closed_by_day[day]['remaining'] = remaining
+
+        start_date = milestone.created_at.date()
+
+        today = datetime.utcnow().date()
+        if milestone.due_on and milestone.due_on.date() > start_date:
+            end_date = milestone.due_on.date()
+        else:
+            end_date = today
+
+        nb_days = (end_date - start_date).days
+
+        all_days = [start_date + timedelta(days=i) for i in range(0, nb_days + 1)]
+
+        data = []
+        data_axis = []
+        current = total
+        for index, day in enumerate(all_days):
+            if day > today:
+                break
+            if day not in closed_by_day:
+                continue
+
+            current -= closed_by_day[day]['total']
+            data.append(current)
+            data_axis.append(all_days[index])
+
+        def convert_date(d):
+            return time.mktime(d.timetuple()) * 1000
+
+        graphs = []
+
+        green = '140, 192, 121'  # 8CC079
+        red = '179, 93, 93'   # b35d5d
+
+        if closed_issues:
+            if data_axis[0] > start_date:
+                # Line from start of the graph to first closed issue
+                graphs.append({
+                    "x": [convert_date(day) for day in [start_date, data_axis[0]]],
+                    "y": [data[0], data[0]],
+                    "name": "Sart",
+                    "mode": "lines",
+                    "fillcolor": "rgba(%s, 0.1)" % green,
+                    "hoverinfo": "none",
+                    "line": {
+                        "color": "rgb(%s)" % green,
+                        "width": 2,
+                    },
+                    "type": "scatter",
+                    "fill": "tozeroy"
+                })
+
+            today_or_end_date = min(today, end_date)
+            if data_axis[-1] < today_or_end_date:
+                # Line from the last closed issue to today
+                graphs.append({
+                    "x": [convert_date(day) for day in [data_axis[-1], today_or_end_date]],
+                    "y": [data[-1], data[-1]],
+                    "name": "Today",
+                    "mode": "lines",
+                    "fillcolor": "rgba(%s, 0.1)" % green,
+                    "hoverinfo": "none",
+                    "line": {
+                        "color": "rgb(%s)" % green,
+                        "width": 2,
+                    },
+                    "type": "scatter",
+                    "fill": "tozeroy"
+                })
+
+            # Graph for remaining, for each closed issue
+            graphs.append({
+                "x": [convert_date(day) for day in data_axis],
+                "y": data,
+                "text": [self.point_template.render(Context({
+                    'metric': metric,
+                    'date': date,
+                    'point': point,
+                })) for date, point in closed_by_day.iteritems()],
+                "name": "Remaining",
+                "marker": {
+                    "line": {
+                        "color": "#fff",
+                        "width": 2
+                    },
+                    "symbol": "circle",
+                    "size": 12,
+                },
+                "hoverinfo": "text",
+                "hovermode": "closest",
+                "fillcolor": "rgba(%s, 0.1)" % green,
+                "line": {
+                    "color": "rgb(%s)" % green,
+                    "shape": "hv",
+                    "width": 2,
+                },
+                "fill": "tozeroy",
+                "type": "scatter",
+                "mode": "lines+markers"
+            })
+
+            if today < end_date:
+                # Dotted line from today until 0, the end of the graph
+                graphs.append({
+                    "x": [convert_date(day) for day in [today, end_date]],
+                    "y": [data[-1], 0],
+                    "name": "Future",
+                    "mode": "lines",
+                    "hoverinfo": "none",
+                    "line": {
+                        "color": "rgba(%s, 0.5)" % red,
+                        "dash": "dot",
+                        "width": 1
+                    },
+                    "type": "scatter"
+                })
+
+        graphs.append({
+            # Ideal line: dotted line from the top, start of the graph, to 0, its end
+            "x": [convert_date(day) for day in [all_days[0], all_days[-1]]],
+            "y": [total, 0],
+            "name": "Ideal",
+            "mode": "lines",
+            "hoverinfo": "none",
+            "line": {
+                "color": "rgb(%s)" % green,
+                "dash": "dot",
+                "width": 1
+            },
+            "type": "scatter"
+        })
+
+        layout = {
+            "showlegend": False,
+            "xaxis": {
+                "hoverformat": "%B %-d (%A)",
+                "type": "date",
+                "fixedrange": True,
+                "zeroline": True,
+                "zerolinewidth": 2,
+            },
+            "yaxis": {
+                "fixedrange": True,
+                "showline": True,
+                "linewidth": 1,
+                "range": [-1, max(20, 10*(total/10+1))]
+            },
+        }
+
+        return {
+            'metric': metric,
+            'graphs': mark_safe(json.dumps(graphs)),
+            'layout': mark_safe(json.dumps(layout)),
+            'points': closed_by_day,
+            'all_stats': stats,
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super(MilestoneGraph, self).get_context_data(**kwargs)
+
+        milestone = self.object
+        graph = self.get_graph()
+
+        context.update({
+            'graph': graph,
+            'current_metric': graph['metric'],
+            'current_issues_url': self.repository.get_view_url('issues'),
+            'all_stats': graph['all_stats'],
+            'open_stats': get_metric_stats(milestone.issues.filter(state='open'), graph['metric']),
+            'all_querystring_parts': get_querystring_context('milestone=%d' % milestone.number)['querystring_parts'],
+            'open_querystring_parts': get_querystring_context('state=open&milestone=%d' % milestone.number)['querystring_parts'],
+        })
+
+        return context
+
+

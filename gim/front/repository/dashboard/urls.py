@@ -6,7 +6,7 @@ from .views import (DashboardView, MilestonesPart, CountersPart, LabelsPart,
                     LabelsEditor, LabelTypeCreate, LabelTypeEdit,
                     LabelTypePreview, LabelTypeDelete, LabelCreate,
                     LabelEdit, LabelDelete, ActivityPart,
-                    MilestoneCreate, MilestoneEdit, MilestoneDelete,
+                    MilestoneCreate, MilestoneEdit, MilestoneDelete, MilestoneGraph,
                     HookPart, HookToggle, MainMetricView)
 
 
@@ -30,6 +30,7 @@ urlpatterns = patterns('',
     url(r'milestone/create/$', MilestoneCreate.as_view(), name=MilestoneCreate.url_name),
     url(r'milestone/(?P<milestone_id>\d+)/edit/$', MilestoneEdit.as_view(), name=MilestoneEdit.url_name),
     url(r'milestone/(?P<milestone_id>\d+)/delete/$', MilestoneDelete.as_view(), name=MilestoneDelete.url_name),
+    url(r'milestone/(?P<milestone_number>\d+)/graph/$', MilestoneGraph.as_view(), name=MilestoneGraph.url_name),
 
     url(r'hook/toggle/$', HookToggle.as_view(), name=HookToggle.url_name),
     url(r'main_metric/set/$', MainMetricView.as_view(), name=MainMetricView.url_name),

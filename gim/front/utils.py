@@ -88,6 +88,24 @@ class FailRegexValidator(RegexValidator):
             raise ValidationError(self.message, code=self.code)
 
 
+def get_metric(repository, metric_name, first_if_none=False):
+    from gim.core.models import LabelType
+    if metric_name:
+        try:
+            return repository.label_types.get(name=metric_name, is_metric=True)
+        except LabelType.DoesNotExist:
+            pass
+
+    if repository.main_metric_id:
+        return repository.main_metric
+
+    if first_if_none:
+        # Returns None if no first one
+        return repository.label_types.filter(is_metric=True).first()
+
+    return None
+
+
 def get_metric_stats(issues, metric, issues_count=None):
 
     # Get issues count and stop if zero
@@ -126,9 +144,11 @@ def get_metric_stats(issues, metric, issues_count=None):
         # Set the value as last value seen for this issue
         issues_done[issue_id] = value
 
-    # Clean up some memory
+    # Keep only valid ones
+    for issue_id in invalid_issues:
+        del issues_done[issue_id]
+
     count_invalid_issues = len(invalid_issues)
-    del issues_done
     del invalid_issues
 
     # Computation!
@@ -169,4 +189,5 @@ def get_metric_stats(issues, metric, issues_count=None):
         'median': median(valid_values) if count_valid_issues else None,
         'mode': multi_mode(valid_values) if count_valid_issues else None,
         'stdev': stdev(valid_values) if count_valid_issues > 1 else None,
+        'issues_with_metric': issues_done,
     }

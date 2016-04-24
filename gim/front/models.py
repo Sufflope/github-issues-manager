@@ -305,18 +305,18 @@ class _Milestone(Hashable, FrontEditable):
             result = self.title
         return escape(result)
 
-    def get_reverse_kwargs(self):
+    def get_reverse_kwargs(self, key="id"):
         """
         Return the kwargs to use for "reverse"
         """
         return {
             'owner_username': self.repository.owner.username,
             'repository_name': self.repository.name,
-            'milestone_id': self.id
+            'milestone_%s' % key: getattr(self, key),
         }
 
-    def get_view_url(self, url_name):
-        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+    def get_view_url(self, url_name, key="id"):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs(key=key))
 
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import MilestoneEdit
@@ -325,6 +325,10 @@ class _Milestone(Hashable, FrontEditable):
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import MilestoneDelete
         return self.get_view_url(MilestoneDelete.url_name)
+
+    def get_graph_url(self):
+        from gim.front.repository.dashboard.views import MilestoneGraph
+        return self.get_view_url(MilestoneGraph.url_name, key='number')
 
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 

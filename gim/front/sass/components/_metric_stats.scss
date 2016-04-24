@@ -1,0 +1,30 @@
+.metric-stats {
+    h4 {
+        font-size: 14px;
+        line-height: 14px;
+    }
+    .metric-stats-ignore {
+        padding-top: 10px;
+        font-style: italic;
+    }
+    ul {
+        margin-top: 3px;
+    }
+    table {
+        margin-bottom: 0;
+        th {
+            color: inherit;
+        }
+        td, th {
+            text-align: center;
+            border-top-color: $infoBorder;
+        }
+    }
+    .metric-stats-details {
+        padding-top: 10px;
+    }
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
+}

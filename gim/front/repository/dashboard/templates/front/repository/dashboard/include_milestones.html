@@ -25,10 +25,18 @@
         {% if milestones|length %}
             {% with issues_url=current_repository|repository_view_url:'issues' %}
                 {% for milestone in milestones %}
-                    <div class="box-section">
+                    <div class="box-section" data-number="{{ milestone.number }}">
                         <a href="#" title="[{{ milestone.state|capfirst }}] Click to view details" data-toggle="collapse" data-target="#milestone-{{ milestone.id}}-details" data-parent="#milestones" class="collapsed"><h3><i class="fa fa-tasks text-{{ milestone.state }}" title="{{ milestone.state|capfirst }} milestone"> </i> <span class="milestone-title">{{ milestone.title }}</span></h3></a>
                         <a href="{{ milestone.github_url }}" class="github-link" title="View on github" target='_blank'><i class="fa fa-external-link"> </i></a>
-                        {% if milestone.main_metric_stats %}<span class="metric-stats label label-info">{{ milestone.main_metric_stats.metric.name }}: {{ milestone.main_metric_stats.sum|default:0 }}</span>{% endif %}
+                        {% if all_metrics %}
+                            <a href="#" data-url="{{ milestone.get_graph_url }}" class="metric-stats" title="Click to see chart"><span class="label label-info">
+                            {% if milestone.main_metric_stats %}
+                                {{ milestone.main_metric_stats.metric.name }}: {{ milestone.main_metric_stats.sum|default:0 }}
+                            {% elif all_metrics %}
+                                <em>No default metric</em>
+                            {% endif %}
+                            &nbsp;<i class="fa fa-area-chart"> </i></span></a>
+                        {% endif %}
                         <span class="date">{% if milestone.due_on %}Due on {{ milestone.due_on|date }}{% else %}No due date{% endif %}</span>
                         <div class="progress"{% if not milestone.issues_count %} title="No issues"{% endif %}>
                             {% if milestone.issues_count %}

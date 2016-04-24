@@ -47,7 +47,7 @@ from gim.front.models import GroupedCommits, GroupedCommitComments, GroupedPullR
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.mixins.views import BaseIssuesView
 
-from gim.front.utils import make_querystring, forge_request, get_metric_stats
+from gim.front.utils import make_querystring, forge_request, get_metric, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueMilestoneForm, IssueAssigneeForm, IssueLabelsForm,
@@ -474,20 +474,13 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         """
 
         metric_label_type_name = self.request.GET.get('metric', None)
-        if metric_label_type_name:
-            try:
-                metric_label_type = self.repository.label_types.get(name=metric_label_type_name,
-                                                                    is_metric=True)
-            except LabelType.DoesNotExist:
-                pass
-            else:
-                if self.repository.main_metric_id \
-                        and self.repository.main_metric !=  metric_label_type:
-                    filter_context['qs_filters']['metric'] = metric_label_type_name
-                filter_context['filter_objects']['metric'] = metric_label_type
 
-        if not filter_context['filter_objects'].get('metric') and self.repository.main_metric_id:
-            filter_context['filter_objects']['metric'] = self.repository.main_metric
+        metric = get_metric(self.repository, metric_label_type_name)
+
+        if metric:
+            filter_context['filter_objects']['metric'] = metric
+            if metric.name != metric_label_type_name:
+                filter_context['qs_filters']['metric'] = metric_label_type_name
 
         return super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
