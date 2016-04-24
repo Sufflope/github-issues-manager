@@ -657,6 +657,7 @@ class LabelType(models.Model):
         app_label = 'core'
         verbose_name = u'Group'
         ordering = ('lower_name', )
+        index_together = [('repository', 'is_metric')]
 
     @cached_property
     def model_name(self):
