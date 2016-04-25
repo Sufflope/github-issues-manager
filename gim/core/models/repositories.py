@@ -62,7 +62,8 @@ class Repository(GithubObjectWithId):
     # this list is not ordered, we must memorize the last page
     commit_comments_last_page = models.PositiveIntegerField(blank=True, null=True)
     has_commit_statuses = models.BooleanField(default=False)
-    main_metric = models.OneToOneField('LabelType', blank=True, null=True, related_name='+')
+    main_metric = models.OneToOneField('LabelType', blank=True, null=True, related_name='+',
+                                        on_delete=models.SET_NULL)
 
     objects = RepositoryManager()
 
