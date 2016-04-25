@@ -1,7 +1,7 @@
 {% load querystring frontutils issues_tags %}
 {% attributes_for_list current_metric.labels.all "name" as label_names %}
 {% with metric_uuid=new_uuid unset=current_metric.name|concat:":__none__" set=current_metric.name|concat:":__any__" %}{% with label_names=label_names|append:unset %}
-    <{{ header_tag }} title="Click for more information" data-toggle="collapse" data-target="#metric-stats-{{ metric_uuid }}">{{ current_metric.name }}{{ metric_title_addon }}: <strong>{{ metric_stats.sum|default:0 }}</strong></{{ header_tag }}>
+    <h4 title="Click for more information" class="collapsed" data-toggle="collapse" data-target="#metric-stats-{{ metric_uuid }}">{{ current_metric.name }}{{ metric_title_addon }}: <strong>{{ metric_stats.sum|default:0 }}</strong> <i class="fa fa-caret-right"></i></h4>
     <div id="metric-stats-{{ metric_uuid }}" class="collapse">
         {% if metric_stats.count_without or metric_stats.count_too_many %}
             <div class="metric-stats-ignore">(Ignoring
@@ -20,8 +20,8 @@
         {% endif %}
         {% if metric_stats.count_valid %}
             <div class="metric-stats-details">
-                For <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" >{{ metric_stats.count_valid }} issue{{ metric_stats.count_valid|pluralize }}</a>:
-                <ul>
+                <span title="Click to show detailed statistics" class="collapsed" data-toggle="collapse" data-target="#metric-detailed-stats-{{ metric_uuid }}">Statistics for <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" >{{ metric_stats.count_valid }} issue{{ metric_stats.count_valid|pluralize }}</a>: <i class="fa fa-caret-right"></i></span>
+                <ul id="metric-detailed-stats-{{ metric_uuid }}" class="collapse">
                     <li>Total: <strong>{{ metric_stats.sum }}</strong></li>
                     <li>Mean: <strong>{{ metric_stats.mean|format_int_or_float }}</strong></li>
                     <li>Median: <strong>{{ metric_stats.median|format_int_or_float }}</strong></li>

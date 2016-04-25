@@ -5,11 +5,11 @@
 
 <div id="milestone-metric-stats" class="alert alert-info">
     <div id="milestone-metric-stats-all" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with header_tag='h4' metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (all issues)" %}
+        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (all issues)" %}
     </div>
 
     <div id="milestone-metric-stats-open" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with header_tag='h4' metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (open issues)" %}
+        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (open issues)" %}
     </div>
 </div>
 

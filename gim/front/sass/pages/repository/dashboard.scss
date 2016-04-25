@@ -374,6 +374,9 @@ body > main > .row-header .area-top {
     @include border-radius(0);
     border-bottom: 0;
     text-align: center;
+    h4 {
+        height: 15px;
+    }
     & > div {
         display: inline-block;
         vertical-align: top;
@@ -382,7 +385,7 @@ body > main > .row-header .area-top {
             background: $infoBackground;
             border: solid 1px $infoBorder;
             border-top: none;
-            margin-top: 8px;
+            margin-top: 7px;
             .metric-stats-ignore, .metric-stats-details {
                 padding-left: 5px;
                 padding-right: 5px;

@@ -269,7 +269,7 @@
 {% block issues-list-top %}
     {% if current_metric and metric_stats %}
         <div class="alert alert-info metric-stats">
-            {% include "front/repository/dashboard/include-metrics-stats.html" with header_tag='h4' %}
+            {% include "front/repository/dashboard/include-metrics-stats.html" %}
         </div>
     {% endif %}
 {% endblock %}

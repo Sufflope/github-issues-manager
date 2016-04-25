@@ -340,38 +340,81 @@ p.state-closed {
   padding-right: 23px;
 }
 
-/* line 2, ../../../../../sass/components/_metric_stats.scss */
+/* line 5, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats h4 {
   font-size: 14px;
   line-height: 14px;
 }
-/* line 6, ../../../../../sass/components/_metric_stats.scss */
+/* line 8, ../../../../../sass/components/_metric_stats.scss */
+.metric-stats h4 i {
+  margin-left: 0.5em;
+  -moz-transform: rotate(90deg);
+  -ms-transform: rotate(90deg);
+  -webkit-transform: rotate(90deg);
+  transform: rotate(90deg);
+  -moz-transition: -moz-transform 0.1s;
+  -o-transition: -o-transform 0.1s;
+  -webkit-transition: -webkit-transform 0.1s;
+  transition: transform 0.1s;
+}
+/* line 14, ../../../../../sass/components/_metric_stats.scss */
+.metric-stats h4.collapsed i {
+  -moz-transform: rotate(0deg);
+  -ms-transform: rotate(0deg);
+  -webkit-transform: rotate(0deg);
+  transform: rotate(0deg);
+}
+/* line 19, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats .metric-stats-ignore {
   padding-top: 10px;
   font-style: italic;
 }
-/* line 10, ../../../../../sass/components/_metric_stats.scss */
+/* line 23, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats ul {
   margin-top: 3px;
+  margin-bottom: 3px;
 }
-/* line 13, ../../../../../sass/components/_metric_stats.scss */
+/* line 26, ../../../../../sass/components/_metric_stats.scss */
+.metric-stats ul.in {
+  margin-bottom: 10px;
+}
+/* line 30, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats table {
   margin-bottom: 0;
 }
-/* line 15, ../../../../../sass/components/_metric_stats.scss */
+/* line 32, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats table th {
   color: inherit;
 }
-/* line 18, ../../../../../sass/components/_metric_stats.scss */
+/* line 35, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats table td, .metric-stats table th {
   text-align: center;
   border-top-color: #bce8f1;
 }
-/* line 23, ../../../../../sass/components/_metric_stats.scss */
+/* line 40, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats .metric-stats-details {
   padding-top: 10px;
 }
-/* line 26, ../../../../../sass/components/_metric_stats.scss */
+/* line 43, ../../../../../sass/components/_metric_stats.scss */
+.metric-stats .metric-stats-details > span i {
+  margin-left: 0.5em;
+  -moz-transform: rotate(90deg);
+  -ms-transform: rotate(90deg);
+  -webkit-transform: rotate(90deg);
+  transform: rotate(90deg);
+  -moz-transition: -moz-transform 0.1s;
+  -o-transition: -o-transform 0.1s;
+  -webkit-transition: -webkit-transform 0.1s;
+  transition: transform 0.1s;
+}
+/* line 49, ../../../../../sass/components/_metric_stats.scss */
+.metric-stats .metric-stats-details > span.collapsed i {
+  -moz-transform: rotate(0deg);
+  -ms-transform: rotate(0deg);
+  -webkit-transform: rotate(0deg);
+  transform: rotate(0deg);
+}
+/* line 55, ../../../../../sass/components/_metric_stats.scss */
 .metric-stats a {
   color: inherit;
   text-decoration: underline;
