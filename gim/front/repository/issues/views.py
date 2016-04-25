@@ -439,8 +439,9 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             'milestones': self.milestones,
             'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
             'metric_stats': self.metric_stats,
-            'all_metrics': list(self.repository.label_types.filter(is_metric=True))
+            'all_metrics': list(self.repository.all_metrics())
         })
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
                                  IssuesFilterClosers, IssuesFilterMentioned):

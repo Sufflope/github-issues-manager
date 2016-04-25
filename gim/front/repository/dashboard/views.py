@@ -12,8 +12,6 @@ from django.core.urlresolvers import reverse_lazy, reverse
 from django.http.response import Http404
 from django.shortcuts import redirect
 from django.template import Context, Template
-from django.template.defaultfilters import date as convert_date
-from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.generic import UpdateView, CreateView, DeleteView, DetailView, FormView
 from django.http import HttpResponseRedirect, HttpResponse
@@ -35,7 +33,7 @@ from gim.front.mixins.views import (DeferrableViewPart, SubscribedRepositoryView
 from gim.front.activity.views import ActivityViewMixin
 
 from gim.front.repository.views import BaseRepositoryView
-from gim.front.utils import get_metric, get_metric_stats
+from gim.front.utils import get_metric, get_metric_stats, make_querystring
 
 from .forms import (LabelTypeEditForm, LabelTypePreviewForm, LabelEditForm,
                     TypedLabelEditForm, MilestoneEditForm, MilestoneCreateForm,
@@ -121,7 +119,7 @@ class MilestonesPart(RepositoryDashboardPartView):
             'milestones': self.get_milestones(),
             'show_closed_milestones': self.request.GET.get('show-closed-milestones', False),
             'show_empty_milestones': self.request.GET.get('show-empty-milestones', False),
-            'all_metrics': list(self.repository.label_types.filter(is_metric=True))
+            'all_metrics': list(self.repository.all_metrics())
         })
         reverse_kwargs = self.repository.get_reverse_kwargs()
         context['milestone_create_url'] = reverse_lazy(
@@ -263,25 +261,9 @@ class DashboardView(BaseRepositoryView):
             'activity': ActivityPart().get_as_deferred(self),
         }
 
-        all_milestones = self.repository.milestones.all()
-        all_milestones_data = {m.number: {
-                'id': m.id,
-                'number': m.number,
-                'due_on': convert_date(m.due_on, settings.DATE_FORMAT) if m.due_on else None,
-                'title': escape(m.title),
-                'state': m.state,
-                'graph_url': str(m.get_graph_url()),
-              }
-            for m in self.repository.milestones.all()
-        }
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
-        grouped_milestones = {}
-        for milestone in all_milestones:
-            grouped_milestones.setdefault(milestone.state, []).append(milestone)
-
-        context['all_milestones'] = grouped_milestones
-        context['all_milestones_json'] = json.dumps(all_milestones_data)
-        context['all_metrics'] = list(self.repository.label_types.filter(is_metric=True))
+        context['all_metrics'] = list(self.repository.all_metrics())
         context['default_graph_metric'] = get_metric(self.repository, None, first_if_none=True)
 
         context['can_add_issues'] = True
@@ -929,14 +911,22 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
         milestone = self.object
         graph = self.get_graph()
 
+        qs = {
+            'milestone': milestone.number,
+            'metric': graph['metric'].name,
+        }
+        all_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
+        qs['state'] = 'open'
+        open_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
+
         context.update({
             'graph': graph,
             'current_metric': graph['metric'],
             'current_issues_url': self.repository.get_view_url('issues'),
             'all_stats': graph['all_stats'],
             'open_stats': get_metric_stats(milestone.issues.filter(state='open'), graph['metric']),
-            'all_querystring_parts': get_querystring_context('milestone=%d' % milestone.number)['querystring_parts'],
-            'open_querystring_parts': get_querystring_context('state=open&milestone=%d' % milestone.number)['querystring_parts'],
+            'all_querystring_parts': all_qs_parts,
+            'open_querystring_parts': open_qs_parts,
         })
 
         return context

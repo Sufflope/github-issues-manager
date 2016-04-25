@@ -31,9 +31,10 @@
     <script src="{% static "front/js/jquery.ibutton.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/bootstrap-datepicker.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/select.2.js" %}" type="text/javascript"></script>
+    <script src="{% static "front/js/chart_modal.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/repository-dashboard.js" %}" type="text/javascript"></script>
     <script type="text/javascript">
-        var all_milestones = {{ all_milestones_json|safe }};
+        var all_milestones = {{ milestones_json|safe }};
         $().ready(function() {
             MilestoneForm.init();
             HookToggleForm.init();
@@ -69,31 +70,6 @@
         </div>
     </div>{# #milestone-edit-form #}
 
-    <div id="milestone-graph-container" class="modal fancy full-screen hide">
-        <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
-            <h6>
-                Chart for metric
-                <select id="milestone-graph-metric-selector" autocomplete="off">
-                    {% for metric in all_metrics %}
-                        <option value="{{ metric.name }}"{% if metric.name == default_graph_metric.name %} selected="selected"{% endif %}>{{ metric.name }}</option>
-                    {% endfor %}
-                </select>
-                for milestone
-                <select id="milestone-graph-selector" autocomplete="off">
-                    {% for state in states %}
-                        {% if state in all_milestones %}
-                            <optgroup label="{{ state }}">
-                            {% for milestone in all_milestones|dict_item:state %}
-                                <option value="{{ milestone.number }}">{{ milestone.title }}</option>
-                            {% endfor %}
-                            </optgroup>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-            </h6>
-        </div>
-        <div class="modal-body">
-        </div>
-    </div>
+    {% include "front/repository/dashboard/chart_window.html" %}
+
 {% endblock modal-windows %}

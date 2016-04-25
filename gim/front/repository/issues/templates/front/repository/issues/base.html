@@ -6,8 +6,22 @@
 
 {% block extra_css %}
     {{ block.super }}
+    <link href="{% static "front/css/select.2.css" %}" rel="stylesheet">
     <link href="{% static "front/css/pages/repository/issues.css" %}" rel="stylesheet">
 {% endblock extra_css %}
+
+{% block js_pre_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/select.2.js" %}" type="text/javascript"></script>
+{% endblock js_pre_footer %}
+
+{% block js_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/chart_modal.js" %}" type="text/javascript"></script>
+    <script type="text/javascript">
+        var all_milestones = {{ milestones_json|safe }};
+    </script>
+{% endblock js_footer %}
 
 {% block main %}
     {% include "front/issues/base.html" %}
@@ -16,4 +30,5 @@
 {% block modal-windows %}
     {{ block.super }}
     {% include "front/issues/shortcuts_window.html" %}
+    {% include "front/repository/dashboard/chart_window.html" %}
 {% endblock modal-windows %}

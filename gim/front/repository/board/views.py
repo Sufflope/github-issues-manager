@@ -200,6 +200,8 @@ class BoardView(BoardMixin, BaseRepositoryView):
                 )
 
         context['can_add_issues'] = True
+        context['all_metrics'] = list(self.repository.all_metrics())
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
         return context
 

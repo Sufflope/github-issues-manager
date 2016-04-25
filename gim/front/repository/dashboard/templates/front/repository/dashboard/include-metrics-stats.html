@@ -1,7 +1,17 @@
 {% load querystring frontutils issues_tags %}
 {% attributes_for_list current_metric.labels.all "name" as label_names %}
 {% with metric_uuid=new_uuid unset=current_metric.name|concat:":__none__" set=current_metric.name|concat:":__any__" %}{% with label_names=label_names|append:unset %}
-    <h4 title="Click for more information" class="collapsed" data-toggle="collapse" data-target="#metric-stats-{{ metric_uuid }}">{{ current_metric.name }}{{ metric_title_addon }}: <strong>{{ metric_stats.sum|default:0 }}</strong> <i class="fa fa-caret-right"></i></h4>
+    <h4 title="Click for more information"{% if issues_filter.objects.milestone.pk %} class="with-milestone"{% endif %}>
+        <span class="collapsed" data-toggle="collapse" data-target="#metric-stats-{{ metric_uuid }}">
+            {{ current_metric.name }}{{ metric_title_addon }}: <strong>{{ metric_stats.sum|default:0 }}</strong>
+            <i class="fa fa-caret-right"></i>
+        </span>
+        {% if issues_filter.objects.milestone.pk %}
+            <span>
+                <a class="milestone-graph-link" href="#" data-url="{{ issues_filter.objects.milestone.get_graph_url }}{% if current_metric %}?metric={{ current_metric }}{% endif %}" data-number="{{ issues_filter.objects.milestone.number }}"{% if current_metric %} data-metric="{{ current_metric }}"{% endif %} title="Click to see the chart for filtered milestone"><i class="fa fa-area-chart"></i> <i class="fa fa-tasks text-{{ issues_filter.objects.milestone.state }}"></i> {{ issues_filter.objects.milestone.title }}</a>
+            </span>
+        {% endif %}
+    </h4>
     <div id="metric-stats-{{ metric_uuid }}" class="collapse">
         {% if metric_stats.count_without or metric_stats.count_too_many %}
             <div class="metric-stats-ignore">(Ignoring

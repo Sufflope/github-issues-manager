@@ -76,7 +76,7 @@ class LinkedToUserFormViewMixin(object):
 
 def get_querystring_context(querystring):
     # put querystring parts in a dict
-    qs_dict = parse_qs(querystring)
+    qs_dict = parse_qs(querystring.lstrip('?'))
     qs_parts = {}
     for key, values in qs_dict.items():
         if not len(values):

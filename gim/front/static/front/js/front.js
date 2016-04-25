@@ -50,6 +50,17 @@ $().ready(function() {
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
+    var UrlParser = { // http://stackoverflow.com/a/6944772
+        node: null,
+        parse: function(url) {
+            if (!UrlParser.node) {
+                UrlParser.node = document.createElement('a');
+            }
+            UrlParser.node.href = url;
+            return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
+        }
+    };
+
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
     };
@@ -1577,6 +1588,7 @@ $().ready(function() {
         this.node.IssuesList = this;
         this.$node = $node;
         this.$container_node = this.$node.closest(IssuesList.container_selector);
+        this.$container_node[0].IssuesList = this;
         this.$empty_node = this.$node.children('.no-issues');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
@@ -1666,6 +1678,10 @@ $().ready(function() {
         $document.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
         $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
+
+        if (window.ChartManager) {
+            $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
+        }
     }); // IssuesList_init_event
 
     IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
@@ -2144,8 +2160,25 @@ $().ready(function() {
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
         on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
-            var $issues_list_node = $(this).closest(IssuesList.container_selector),
-                $filters_node = $issues_list_node.prev(IssuesFilters.selector);
+            var $issues_list_node = $(this).closest(IssuesList.container_selector), url, $filters_node;
+            if (!$issues_list_node.length && IssuesList.current) {
+                $issues_list_node = IssuesList.current.$container_node;
+            }
+            if (!$issues_list_node.length) {
+                // no list for this link, let the click load the issues page
+                return true;
+            }
+
+            if (UrlParser.parse(this.href).pathname != $issues_list_node[0].IssuesList.base_url) {
+                // the base url of the list is different, let the click load the issues page
+                return true;
+            }
+
+            if (window.ChartManager) {
+                window.ChartManager.close_chart();
+            }
+
+            $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
         }), // on_list_filter_click
         reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
@@ -2268,7 +2301,7 @@ $().ready(function() {
                 active = true;
             }
             if (IssuesList.all.length) {
-                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, .metric-stats a, a.no-limit-btn',
+                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, .metric-stats a:not(.milestone-graph-link), a.no-limit-btn',
                     Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
             }

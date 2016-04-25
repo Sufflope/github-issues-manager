@@ -115,10 +115,15 @@
 
 {% block js_footer %}
     {{ block.super }}
+    <script src="{% static "front/js/chart_modal.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/repository-boards.js" %}" type="text/javascript"></script>
+    <script type="text/javascript">
+        var all_milestones = {{ milestones_json|safe }};
+    </script>
 {% endblock js_footer %}
 
 {% block modal-windows %}
     {{ block.super }}
     {% include "front/repository/board/shortcuts_window.html" %}
+    {% include "front/repository/dashboard/chart_window.html" %}
 {% endblock modal-windows %}

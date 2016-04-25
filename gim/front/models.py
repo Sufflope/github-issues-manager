@@ -3,6 +3,7 @@
 from collections import defaultdict, Counter, OrderedDict
 from operator import attrgetter, itemgetter
 from threading import local
+import json
 import re
 
 from django.conf import settings
@@ -13,7 +14,7 @@ from django.db.models import ForeignKey, FieldDoesNotExist
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
-from django.template.defaultfilters import escape
+from django.template.defaultfilters import date as convert_date, escape
 from django.utils.dateformat import format
 from django.utils.functional import cached_property
 
@@ -207,6 +208,40 @@ class _Repository(models.Model):
             thread_data.skip_publish = False
 
         publisher.remove_repository(pk)
+
+    def get_milestones_for_select(self, key='id', with_graph_url=False, include_grouped=True,
+                                  milestones=None):
+
+        if milestones is None:
+            milestones = self.milestones.all()
+
+        data = {getattr(m, key): {
+                'id': m.id,
+                'number': m.number,
+                'due_on': convert_date(m.due_on, settings.DATE_FORMAT) if m.due_on else None,
+                'title': escape(m.title),
+                'state': m.state,
+                'graph_url': str(m.get_graph_url()) if with_graph_url else None,
+              }
+            for m in milestones
+        }
+
+        result = {
+            'milestones_json': json.dumps(data),
+        }
+
+        if include_grouped:
+
+            grouped_milestones = {}
+            for milestone in milestones:
+                grouped_milestones.setdefault(milestone.state, []).append(milestone)
+
+            result['grouped_milestones'] = grouped_milestones
+
+        return result
+
+    def all_metrics(self):
+        return self.label_types.filter(is_metric=True)
 
 contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 

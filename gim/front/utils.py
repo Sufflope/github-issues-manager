@@ -101,7 +101,7 @@ def get_metric(repository, metric_name, first_if_none=False):
 
     if first_if_none:
         # Returns None if no first one
-        return repository.label_types.filter(is_metric=True).first()
+        return repository.all_metrics().first()
 
     return None
 

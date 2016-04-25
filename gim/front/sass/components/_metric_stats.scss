@@ -1,18 +1,36 @@
 @import "compass/css3/transform";
 @import "compass/css3/transition";
+@import "compass/typography/text/ellipsis";
 
 .metric-stats {
     h4 {
         font-size: 14px;
         line-height: 14px;
-        i {
-            margin-left: 0.5em;
-            @include transform(rotate(90deg));
-            @include transition(transform 0.1s);
+        > span:first-child {
+            > i {
+                margin-left: 0.5em;
+                @include transform(rotate(90deg));
+                @include transition(transform 0.1s);
+            }
+            &.collapsed {
+                > i {
+                    @include transform(rotate(0deg));
+                }
+            }
         }
-        &.collapsed {
-            i {
-                @include transform(rotate(0deg));
+        &.with-milestone {
+            > span:first-child {
+                float: left;
+                margin-right: 3em;
+            }
+        }
+        > span:nth-child(2) {
+            display: block;
+            text-align: right;
+            overflow: hidden;
+            @include ellipsis();
+            a.milestone-graph-link {
+                text-decoration: none;
             }
         }
     }
