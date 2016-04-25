@@ -479,8 +479,8 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         if metric:
             filter_context['filter_objects']['metric'] = metric
-            if metric.name != metric_label_type_name:
-                filter_context['qs_filters']['metric'] = metric_label_type_name
+            if metric.pk != self.repository.main_metric_id:
+                filter_context['qs_filters']['metric'] = metric.name
 
         return super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
