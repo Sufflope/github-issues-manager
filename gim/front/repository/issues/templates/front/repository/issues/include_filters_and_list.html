@@ -179,7 +179,7 @@
         {% with label_type.labels.ready as label_type_labels %}
             {% if label_type_labels|length %}
                 {% attributes_for_list label_type_labels "name" as label_names %}
-                {% with unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}{% with label_names=label_names|append:unset current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
+                {% with unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}{% with label_names=label_names|append:unset|append:set current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
                 <li class="accordion-group dark-nav">
                     <span class="glow"></span>
                     <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
