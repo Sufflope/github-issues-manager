@@ -199,7 +199,7 @@
                         {% if can_add_issues %}
                             <li><a href="#" id="go-to-issue" data-toggle="modal" data-target="#go-to-issue-window">Open issue...</a></li>
                         {% endif %}
-                        {% if issues_count and all_metrics %}
+                        {% if issues_count and all_metrics %}{% if all_metrics|length > 1 or not current_metric %}
                             <li class="divider"></li>
                             <li class="dropdown-submenu">
                                 <a href="#">Metric to display</a>
@@ -211,7 +211,7 @@
                                     {% endfor %}
                                 </ul>
                             </li>
-                        {% endif %}
+                        {% endif %}{% endif %}
                     </ul>
                 </li>
             </ul>
