@@ -725,6 +725,7 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
             url=str(self.issue.get_websocket_data_url()),
             is_pr=self.issue.is_pull_request,
             number=self.issue.number,
+            front_uuid=self.issue.front_uuid,
             read=not self.unread,
             active=self.subscribed,
         )
