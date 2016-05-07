@@ -1102,7 +1102,7 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(display_repository + $issue_node.find('.issue-link').text()));
                 }
 
-                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+                MessagesManager.add_messages([MessagesManager.make_message($message, 'info')]);
             }
 
         } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -4094,7 +4094,7 @@ $().ready(function() {
 
         selector: '#messages',
         $node: null,
-        template: '<li class="alert"><button type="button" class="close" title="Close" data-dismiss="alert">&times;</button></li>',
+        template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
         extract: (function MessagesManager__extract (html) {
             // Will extract message from ajax requests to put them
@@ -4104,7 +4104,7 @@ $().ready(function() {
             var $new_messages = $fake_node.find(MessagesManager.selector);
             if ($new_messages.length) {
                 $new_messages.remove();
-                MessagesManager.add_messages($new_messages.children())
+                MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
                 return $fake_node.html();
             } else {
                 return html;
@@ -4112,17 +4112,32 @@ $().ready(function() {
         }), // extract
 
         make_message: (function MessagesManager__make_message (content, type) {
-            var $node = $(MessagesManager.template);
-            if (type) {
-                $node.addClass('alert-' + type);
+            if (typeof content != 'string') {
+                content = (content.jquery ? content[0] : content).outerHTML;
             }
-            $node.append(content);
-            return $node;
+            var classes = 'alert' + (type ? ' alert-' + type : '');
+            return MessagesManager.template.replace('%(classes)s', classes).replace('%(content)s', content);
         }), // make_messages
 
         add_messages: (function MessagesManager__add_messages (messages) {
-            MessagesManager.$node.append(messages);
-            MessagesManager.init_auto_hide();
+            var html = MessagesManager.$node.html().trim(),
+                uniq_messages = $.grep(messages, function(message, index) {
+                    if (!message) { return false; }
+                    if (html && html.indexOf(message) !== -1) {
+                        // The message is already displayed, so we skip it
+                        return false;
+                    }
+                    if (messages.indexOf(message, index+1) !== -1) {
+                        // the message is available at least one more time in the list, we skip it
+                        return false;
+                    }
+                    // uniq message, we keep it
+                    return true;
+                });
+            if (uniq_messages.length) {
+                MessagesManager.$node.append(uniq_messages);
+                MessagesManager.init_auto_hide();
+            }
         }), // add_messages
 
         get_messages: (function MessagesManager__get_alerts () {
@@ -4130,9 +4145,9 @@ $().ready(function() {
         }), // get_alerts
 
         hide_delays: {
-            1: 10000,
-            2: 5000,
-            3: 2500,
+            1: 4000,
+            2: 2000,
+            3: 1500,
             4: 1250,
             'others': 1000
         },
@@ -5838,7 +5853,7 @@ $().ready(function() {
         on_post_submit_failed: function (xhr, data) {
             var $form=this,
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
-            MessagesManager.add_messages(MessagesManager.make_message(error_msg, 'error'));
+            MessagesManager.add_messages([MessagesManager.make_message(error_msg, 'error')]);
             GithubNotifications.apply_values($form, data.values);
             if (data.values) {
                 GithubNotifications.on_notifications_ping(null, null, {

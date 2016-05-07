@@ -589,7 +589,7 @@ $().ready(function() {
                     $message = $('<span/>').text("We couldn't update the issue ");
                 $message.append($('<span style="font-weight: bold"/>').text(this.issue.$node.find('.issue-link').text()));
                 $message.append($('<br/>'), $('<span/>').text('The related lists will be auto-reloaded in 5 seconds'));
-                MessagesManager.add_messages(MessagesManager.make_message($message, 'error'));
+                MessagesManager.add_messages([MessagesManager.make_message($message, 'error')]);
                 setTimeout(function() {
                     context.old_list.refresh();
                     context.new_list.refresh();
@@ -704,7 +704,7 @@ $().ready(function() {
                 Board.dragger.update_dimensions();
                 Board.dragger.activated = true;
                 setTimeout(function() {
-                    MessagesManager.add_messages(MessagesManager.make_message("Vertical position in a column won't be saved.", 'warning'));
+                    MessagesManager.add_messages([MessagesManager.make_message("Vertical position in a column won't be saved.", 'warning')]);
                 }, 2000);
             }
         }, // Board.dragger
@@ -730,7 +730,7 @@ $().ready(function() {
                 if (Board.$container.data('editable')) {
                     Board.dragger.init();
                 } else {
-                    MessagesManager.add_messages(MessagesManager.make_message("You are only allowed to see this board.", 'info'));
+                    MessagesManager.add_messages([MessagesManager.make_message("You are only allowed to see this board.", 'info')]);
                 }
             }
         } // init
