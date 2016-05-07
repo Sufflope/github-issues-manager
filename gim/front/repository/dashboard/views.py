@@ -846,11 +846,11 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
                     "fill": "tozeroy"
                 })
 
-            today_or_end_date = min(today, end_date)
-            if data_axis[-1] < today_or_end_date:
+            if data_axis[-1] < min(today, end_date):
                 # Line from the last closed issue to today
                 graphs.append({
-                    "x": [convert_date(day) for day in [data_axis[-1], today_or_end_date]],
+                    "x": [convert_date(day) for day in
+                          [data_axis[-1], datetime.utcnow() if today < end_date else end_date]],
                     "y": [data[-1], data[-1]],
                     "name": "Today",
                     "mode": "lines",
