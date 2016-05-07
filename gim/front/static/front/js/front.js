@@ -1152,8 +1152,8 @@ $().ready(function() {
             }
 
             if (refresh_quicksearch) { list.reinit_quicksearch_results(); }
-            if (is_issue_active) { issue.set_current(null, null, null, true); }
             if (is_group_current) { group.set_current(is_group_active); }
+            if (is_issue_active) { issue.set_current(null, null, null, true); }
 
             FilterManager.convert_links(list);
             IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'updated', message_conf);
