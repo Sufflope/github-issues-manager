@@ -752,9 +752,14 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
         start_date = milestone.created_at.date()
 
         today = datetime.utcnow().date()
-        if milestone.due_on and milestone.due_on.date() > start_date:
+        end_date = None
+        if milestone.due_on:
             end_date = milestone.due_on.date()
-        else:
+            if milestone.due_on.hour > 12 or milestone.due_on.hour == 12 and milestone.due_on.minute > 0:
+                end_date = end_date + timedelta(days=1)
+            if end_date <= start_date:
+                end_date = None
+        if not end_date:
             end_date = today
 
         nb_days = (end_date - start_date).days
@@ -764,7 +769,7 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
         data = []
         data_axis = []
         current = total
-        for index, day in enumerate(all_days):
+        for day in all_days:
             if day > today:
                 break
             if day not in closed_by_day:
@@ -772,7 +777,7 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
             current -= closed_by_day[day]['total']
             data.append(current)
-            data_axis.append(all_days[index])
+            data_axis.append(day)
 
         def convert_date(d):
             return time.mktime(d.timetuple()) * 1000
@@ -781,6 +786,47 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         green = '140, 192, 121'  # 8CC079
         red = '179, 93, 93'   # b35d5d
+
+        def prepare_line_with_days_off(total, days):
+            days_off = [d for d in days if d.weekday() >= 5]
+            days_on = [d for d in days if d not in days_off]
+            count_days = len(days_on)
+            if days[-1] in days_on:  # don't count the last day, work should be finished on that day
+                count_days -= 1
+
+            if not count_days:
+                return None, None, None
+
+            per_day = 1.0 * total / count_days
+
+            # Compute the different periods
+            periods = []
+            current_period = None
+            for day in days:
+                is_off = day in days_off
+                if current_period and current_period['off'] is is_off:
+                    current_period['days'].append(day)
+                else:
+                    current_period = {'off': is_off, 'days': [day]}
+                    periods.append(current_period)
+
+            # Coordinates for the line
+            x, y = [], []
+            elapsed_on = 0
+            for period in periods:
+                x.append(period['days'][0])
+                y.append(total - elapsed_on * per_day)
+                if not period['off']:
+                    elapsed_on += len(period['days'])
+
+                if period == periods[-1] and len(period['days']) > 1:
+                    x.append(period['days'][-1])
+                    if period['off']:
+                        y.append(total - elapsed_on * per_day)
+                    else:
+                        y.append(total - (elapsed_on - 1) * per_day)
+
+            return periods, [convert_date(day) for day in x], y
 
         if closed_issues:
             if data_axis[0] > start_date:
@@ -851,34 +897,63 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
             if today < end_date:
                 # Dotted line from today until 0, the end of the graph
+                future_days = [today + timedelta(days=i) for i in range(0, (end_date - today).days + 1)]
+                periods, x, y = prepare_line_with_days_off(data[-1], future_days)
+
+                if periods:
+                    graphs.append({
+                        "x": x,
+                        "y": y,
+                        "name": "Future",
+                        "mode": "lines",
+                        "hoverinfo": "none",
+                        "line": {
+                            "color": "rgba(%s, 0.5)" % red,
+                            "dash": "dot",
+                            "width": 1
+                        },
+                        "type": "scatter"
+                    })
+
+        # Ideal line: dotted line from the top, start of the graph, to 0, its end
+        # We make an horizontal line for days off
+
+        periods, x, y = prepare_line_with_days_off(total, all_days)
+
+        if periods:
+            graphs.append({
+                "x": x,
+                "y": y,
+                "name": "Ideal",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "rgb(%s)" % green,
+                    "dash": "dot",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
+            # Then one graph for each off period
+            for index, period in enumerate(periods):
+                if not period['off']:
+                    continue
+                last_day = period['days'][-1] if index == len(periods) - 1 else periods[index+1]['days'][0]
                 graphs.append({
-                    "x": [convert_date(day) for day in [today, end_date]],
-                    "y": [data[-1], 0],
-                    "name": "Future",
+                    "x": [convert_date(day) for day in [period['days'][0], last_day]],
+                    "y": [total, total],
+                    "name": "'Off'",
                     "mode": "lines",
                     "hoverinfo": "none",
                     "line": {
-                        "color": "rgba(%s, 0.5)" % red,
-                        "dash": "dot",
-                        "width": 1
+                        "color": "rgba(128, 128, 128, 0.1)",
+                        "width": 0
                     },
+                    "fillcolor": "rgba(128, 128, 128, 0.1)",
+                    "fill": "tozeroy",
                     "type": "scatter"
                 })
-
-        graphs.append({
-            # Ideal line: dotted line from the top, start of the graph, to 0, its end
-            "x": [convert_date(day) for day in [all_days[0], all_days[-1]]],
-            "y": [total, 0],
-            "name": "Ideal",
-            "mode": "lines",
-            "hoverinfo": "none",
-            "line": {
-                "color": "rgb(%s)" % green,
-                "dash": "dot",
-                "width": 1
-            },
-            "type": "scatter"
-        })
 
         layout = {
             "showlegend": False,
