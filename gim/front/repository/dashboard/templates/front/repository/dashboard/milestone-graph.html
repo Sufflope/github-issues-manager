@@ -1,16 +1,53 @@
-{% load staticfiles %}
+{% load frontutils staticfiles %}
 
 
 <div id="milestone-graph"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>
 
+{% if open_stats %}
+<div id="milestone-graph-simulation">
+    <h4>Simulation details</h4>
+    <div>
+        {% if all_stats.median  %}
+            The average (<em>median</em>) "{{ graph.metric.name }}" for issues where it's set is <strong>{{ graph.simulate.default_metric_value|format_int_or_float }}</strong>.
+        {% else %}
+            No issues have "{{ graph.metric.name }}" set, so for the simulation we use <strong>{{ graph.simulate.default_metric_value|format_int_or_float }}</strong>.
+        {% endif %}
+        <br />
+        By applying this value to {% if all_stats.median  %}issues where it's not set ({{ all_stats.count_invalid }}){% else %}all ({{ all_stats.count_total }}) issues{% endif %}, the total "{{ graph.metric.name }}" is <strong>{{ graph.simulate.total }}</strong>{% if all_stats.sum %} (instead of {{ all_stats.sum }}){% endif %}.
+        <br />
+        In average, the "{{ graph.metric.name }}" of issues closed by day is <strong>{{ graph.simulate.avg_per_day|format_int_or_float }}</strong>.
+        <br />
+        <strong>{{ open_stats.count_total }}</strong> issue{{ open_stats.count_total|pluralize }} {% if open_stats.count_total > 1 %}are{% else %}is{%  endif %} still open, for a total "{{ graph.metric.name }}" of
+        <strong>{{ graph.simulate.left|format_int_or_float }}</strong> (including real data + estimated).
+        <br />
+        It will take <strong>{{ graph.simulate.days_left }}</strong> day{{ graph.simulate.days_left|pluralize }} to close {% if open_stats.count_total > 1 %}them{% else %}it{%  endif %}.
+        <br />
+        So the simulated end of the milestone will be <strong>{{ graph.simulate.end_date }}</strong>.
+    </div>
+</div>
+{% endif %}
+
+<div id="milestone-graph-legend">
+    <h4>Legend</h4>
+    <span class="legend-today">Today</span>
+    <span class="legend-milestone-dueon">Milestone due date</span>
+    <span class="legend-real-close">Closed issue</span>
+    {% if open_stats %}<span class="legend-simulated-close">Simulated closed issue</span>{% endif %}
+    <span class="legend-real-ideal">Ideal chart</span>
+    {% if open_stats %}<span class="legend-simulated-ideal">Simulated ideal chart</span>{% endif %}
+    <span class="legend-days-off">Days off</span>
+</div>
+
 <div id="milestone-metric-stats" class="alert alert-info">
     <div id="milestone-metric-stats-all" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (all issues)" %}
+        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (for "|concat:all_stats.count_total|concat:" open+closed issues)" %}
     </div>
 
+    {% if open_stats %}
     <div id="milestone-metric-stats-open" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (open issues)" %}
+        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (for "|concat:open_stats.count_total|concat:" open issues)" %}
     </div>
+    {% endif %}
 </div>
 
 <script src="{% static "front/js/plotly.min.js" %}" type="text/javascript" charset="utf-8"></script>

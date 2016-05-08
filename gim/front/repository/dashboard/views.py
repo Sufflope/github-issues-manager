@@ -720,55 +720,93 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         milestone = self.object
 
+        # Get dates
+        start_date = milestone.created_at.date()
+
+        now = datetime.utcnow()
+        today = now.date()
+        end_date = None
+        if milestone.due_on:
+            end_date = milestone.due_on.date()
+            if milestone.due_on.hour > 12 or milestone.due_on.hour == 12 and milestone.due_on.minute > 0:
+                end_date = end_date + self.one_day
+            if end_date <= start_date:
+                end_date = None
+        if not end_date:
+            end_date = today
+
+        all_days = [start_date + timedelta(days=i) for i in range(0, (end_date - start_date).days + 1)]
+
+        def count_days(days):
+            days_off = [d for d in days if d.weekday() >= 5]
+            days_on = [d for d in days if d not in days_off]
+            days_count = len(days_on)
+            if days[-1] in days_on:  # don't count the last day, work should be finished on that day
+                days_count -= 1
+            return days_off, days_on, days_count
+
+        all_counted_days = count_days(all_days)
+
         # Get issues
         all_issues = milestone.issues.all()
         closed_issues = sorted(
             [i for i in all_issues if i.state == 'closed'],
             key=attrgetter('closed_at')
         )
+        count_open_issues = len(all_issues) - len(closed_issues)
 
         # Get metric stats for all the issues
         stats = get_metric_stats(all_issues, metric)
+        default_metric_value = stats['median'] or 1
         total = stats.get('sum') or 0
+        if not total:
+            simulated_total = stats['count_with'] + stats['count_without']
+        else:
+            simulated_total = total + int(round(stats['count_without'] * default_metric_value))
 
         # Get the metric value for each closed issue
+        simulated_total_closed = 0
         for issue in closed_issues:
             issue.graph_value = stats['issues_with_metric'].get(issue.pk, 0)
+            issue.simulated_graph_value = stats['issues_with_metric'].get(issue.pk,
+                                                                          default_metric_value)
+            simulated_total_closed += issue.simulated_graph_value
+
+        simulated_avg_day = 1.0 * (simulated_total_closed or simulated_total) / all_counted_days[2]
+        simulated_left = simulated_total - simulated_total_closed
+        simulated_days_left = simulated_left / (simulated_avg_day or 1)
+
+        simulated_days_on = 0
+        simulated_end_date = today
+        while simulated_days_on < simulated_days_left:
+            simulated_end_date += self.one_day
+            if simulated_end_date.weekday() < 5:
+                simulated_days_on += 1
 
         # Regroup closed issues by closing day
         closed_by_day = OrderedDict()
         remaining = total
+        simulated_remaining = simulated_total
         for issue in closed_issues:
             if not issue.closed_at:
                 continue
             day = issue.closed_at.date()
             if day not in closed_by_day:
-                closed_by_day[day] = {'total': 0, 'issues': [], 'remaining': 0}
+                closed_by_day[day] = {'total': 0, 'issues': [], 'remaining': 0,
+                                      'simulated_total': 0, 'simulated_remaining': 0,}
             closed_by_day[day]['issues'].append(issue)
             closed_by_day[day]['total'] += issue.graph_value
+            closed_by_day[day]['simulated_total'] += issue.simulated_graph_value
             remaining -= issue.graph_value
+            simulated_remaining -= issue.simulated_graph_value
             closed_by_day[day]['remaining'] = remaining
-
-        start_date = milestone.created_at.date()
-
-        today = datetime.utcnow().date()
-        end_date = None
-        if milestone.due_on:
-            end_date = milestone.due_on.date()
-            if milestone.due_on.hour > 12 or milestone.due_on.hour == 12 and milestone.due_on.minute > 0:
-                end_date = end_date + timedelta(days=1)
-            if end_date <= start_date:
-                end_date = None
-        if not end_date:
-            end_date = today
-
-        nb_days = (end_date - start_date).days
-
-        all_days = [start_date + timedelta(days=i) for i in range(0, nb_days + 1)]
+            closed_by_day[day]['simulated_remaining'] = simulated_remaining
 
         data = []
+        simulated_data = []
         data_axis = []
         current = total
+        simulated_current = simulated_total
         for day in all_days:
             if day > today:
                 break
@@ -776,28 +814,31 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
                 continue
 
             current -= closed_by_day[day]['total']
+            simulated_current -= closed_by_day[day]['simulated_total']
             data.append(current)
+            simulated_data.append(simulated_current)
             data_axis.append(day)
 
         def convert_date(d):
             return time.mktime(d.timetuple()) * 1000
 
         graphs = []
+        all_periods = None
 
         green = '140, 192, 121'  # 8CC079
         red = '179, 93, 93'   # b35d5d
+        blue = '57, 133, 172'  # 3a87ad
 
-        def prepare_line_with_days_off(total, days):
-            days_off = [d for d in days if d.weekday() >= 5]
-            days_on = [d for d in days if d not in days_off]
-            count_days = len(days_on)
-            if days[-1] in days_on:  # don't count the last day, work should be finished on that day
-                count_days -= 1
+        def prepare_line_with_days_off(total, days, counted_days=None):
+            if counted_days is None:
+                counted_days = count_days(days)
 
-            if not count_days:
+            days_off, days_on, days_count = counted_days
+
+            if not days_count:
                 return None, None, None
 
-            per_day = 1.0 * total / count_days
+            per_day = 1.0 * total / days_count
 
             # Compute the different periods
             periods = []
@@ -828,87 +869,81 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
             return periods, [convert_date(day) for day in x], y
 
-        if closed_issues:
-            if data_axis[0] > start_date:
-                # Line from start of the graph to first closed issue
+        for index, graph_data in enumerate([data, simulated_data]):
+            is_simulated = bool(index)
+            if is_simulated and not count_open_issues:
+                continue
+
+            if closed_issues:
+
+                if data_axis[-1] < min(today, end_date):
+                    # Line from the last closed issue to today
+                    graphs.append({
+                        "x": [convert_date(day) for day in
+                              [data_axis[-1], now if today <= end_date else end_date]],
+                        "y": [graph_data[-1], graph_data[-1]],
+                        "name": "Today (simulated)" if is_simulated else "Today",
+                        "mode": "lines",
+                        "fillcolor": "rgba(%s, 0.1)" % (blue if is_simulated else green),
+                        "hoverinfo": "none",
+                        "line": {
+                            "color": "rgb(%s)" % (blue if is_simulated else green),
+                            "width": 1 if is_simulated else 2,
+                        },
+                        "type": "scatter",
+                        "fill": "none" if is_simulated else "tozeroy",
+                    })
+
+                # Graph for remaining, for each closed issue, starting at ``start_date``
+                texts = None
+                if not is_simulated:
+                    texts = [self.point_template.render(Context({
+                        'metric': metric,
+                        'date': date,
+                        'point': point,
+                    })) for date, point in closed_by_day.iteritems()]
+                    texts.insert(0, texts[0] if data_axis[0] == start_date else 'Milestone creation')
+
                 graphs.append({
-                    "x": [convert_date(day) for day in [start_date, data_axis[0]]],
-                    "y": [data[0], data[0]],
-                    "name": "Sart",
-                    "mode": "lines",
-                    "fillcolor": "rgba(%s, 0.1)" % green,
-                    "hoverinfo": "none",
-                    "line": {
-                        "color": "rgb(%s)" % green,
-                        "width": 2,
+                    "x": [convert_date(day) for day in [start_date] + data_axis],
+                    "y": [simulated_total if is_simulated else total] + graph_data,
+                    "text": texts,
+                    "name": "Remaining (simulated)" if is_simulated else "Remaining",
+                    "marker": {
+                        "line": {
+                            "color": "#fff",
+                            "width": 2
+                        },
+                        "symbol": "circle",
+                        "size": 12,
                     },
+                    "hoverinfo": "none" if is_simulated else "text",
+                    "hovermode": "closest",
+                    "fillcolor": "rgba(%s, 0.1)" % (blue if is_simulated else green),
+                    "line": {
+                        "color": "rgb(%s)" % (blue if is_simulated else green),
+                        "shape": "hv",
+                        "width": 1 if is_simulated else 2,
+                    },
+                    "fill": "none" if is_simulated else "tozeroy",
                     "type": "scatter",
-                    "fill": "tozeroy"
+                    "mode": "lines" if is_simulated else "lines+markers"
                 })
 
-            if data_axis[-1] < min(today, end_date):
-                # Line from the last closed issue to today
-                graphs.append({
-                    "x": [convert_date(day) for day in
-                          [data_axis[-1], datetime.utcnow() if today < end_date else end_date]],
-                    "y": [data[-1], data[-1]],
-                    "name": "Today",
-                    "mode": "lines",
-                    "fillcolor": "rgba(%s, 0.1)" % green,
-                    "hoverinfo": "none",
-                    "line": {
-                        "color": "rgb(%s)" % green,
-                        "width": 2,
-                    },
-                    "type": "scatter",
-                    "fill": "tozeroy"
-                })
+            if is_simulated:
+                # Dotted line from the start to the end of the simulated graph
+                all_simulated_days = [start_date + timedelta(days=i) for i in range(0, (simulated_end_date - start_date).days + 1)]
+                all_periods, x, y = prepare_line_with_days_off(simulated_total, all_simulated_days)
 
-            # Graph for remaining, for each closed issue
-            graphs.append({
-                "x": [convert_date(day) for day in data_axis],
-                "y": data,
-                "text": [self.point_template.render(Context({
-                    'metric': metric,
-                    'date': date,
-                    'point': point,
-                })) for date, point in closed_by_day.iteritems()],
-                "name": "Remaining",
-                "marker": {
-                    "line": {
-                        "color": "#fff",
-                        "width": 2
-                    },
-                    "symbol": "circle",
-                    "size": 12,
-                },
-                "hoverinfo": "text",
-                "hovermode": "closest",
-                "fillcolor": "rgba(%s, 0.1)" % green,
-                "line": {
-                    "color": "rgb(%s)" % green,
-                    "shape": "hv",
-                    "width": 2,
-                },
-                "fill": "tozeroy",
-                "type": "scatter",
-                "mode": "lines+markers"
-            })
-
-            if today < end_date:
-                # Dotted line from today until 0, the end of the graph
-                future_days = [today + timedelta(days=i) for i in range(0, (end_date - today).days + 1)]
-                periods, x, y = prepare_line_with_days_off(data[-1], future_days)
-
-                if periods:
+                if all_periods:
                     graphs.append({
                         "x": x,
                         "y": y,
-                        "name": "Future",
+                        "name": "Future (simulated)",
                         "mode": "lines",
                         "hoverinfo": "none",
                         "line": {
-                            "color": "rgba(%s, 0.5)" % red,
+                            "color": "rgba(%s, 0.5)" % blue,
                             "dash": "dot",
                             "width": 1
                         },
@@ -918,7 +953,9 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
         # Ideal line: dotted line from the top, start of the graph, to 0, its end
         # We make an horizontal line for days off
 
-        periods, x, y = prepare_line_with_days_off(total, all_days)
+        periods, x, y = prepare_line_with_days_off(total, all_days, all_counted_days)
+        if not all_periods:
+            all_periods = periods
 
         if periods:
             graphs.append({
@@ -936,14 +973,14 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
             })
 
             # Then one graph for each off period
-            for index, period in enumerate(periods):
+            for index, period in enumerate(all_periods):
                 if not period['off']:
                     continue
-                last_day = period['days'][-1] if index == len(periods) - 1 else periods[index+1]['days'][0]
+                last_day = period['days'][-1] if index == len(all_periods) - 1 else all_periods[index+1]['days'][0]
                 graphs.append({
                     "x": [convert_date(day) for day in [period['days'][0], last_day]],
-                    "y": [total, total],
-                    "name": "'Off'",
+                    "y": [max(20, 10*(simulated_total/10+1))] * 2,
+                    "name": "Off",
                     "mode": "lines",
                     "hoverinfo": "none",
                     "line": {
@@ -954,6 +991,39 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
                     "fill": "tozeroy",
                     "type": "scatter"
                 })
+
+        # We draw "today" if needed
+        if today < simulated_end_date or today < end_date:
+            graphs.append({
+                "x": [convert_date(n) for n in [now, now+timedelta(seconds=1)]],
+                "y": [0, max(20, 10*(simulated_total/10+1))],
+                "name": "Today",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "#ad31ba",
+                    "dash": "dash",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
+        # And the official milestone due date if set
+        if milestone.due_on:
+            graphs.append({
+                "x": [convert_date(n) for n in [milestone.due_on, milestone.due_on+timedelta(seconds=1)]],
+                "y": [0, max(20, 10*(simulated_total/10+1))],
+                "name": "Milestone end",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "rgb(%s)" % green,
+                    "dash": "dash",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
 
         layout = {
             "showlegend": False,
@@ -968,7 +1038,7 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
                 "fixedrange": True,
                 "showline": True,
                 "linewidth": 1,
-                "range": [-1, max(20, 10*(total/10+1))]
+                "range": [-1, max(20, 10*(simulated_total/10+1))]
             },
         }
 
@@ -978,6 +1048,14 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
             'layout': mark_safe(json.dumps(layout)),
             'points': closed_by_day,
             'all_stats': stats,
+            'simulate': {
+                'default_metric_value': default_metric_value,
+                'avg_per_day': simulated_avg_day,
+                'total': simulated_total,
+                'end_date': simulated_end_date,
+                'left': simulated_left,
+                'days_left': int(simulated_days_left + 0.99),
+            },
         }
 
     def get_context_data(self, **kwargs):

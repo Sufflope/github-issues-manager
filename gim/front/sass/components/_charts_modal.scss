@@ -79,3 +79,95 @@
         }
     }
 }
+
+#milestone-graph-simulation {
+    position: absolute;
+    right: 30px;
+    top: 61px;
+    padding: 11px;
+    line-height: 1.8em;
+    cursor: default;
+    h4 {
+        text-align: right;
+        color: #ccc;
+        margin: 5px;
+        margin-left: 0;
+        &:after {
+            content: "…"
+        }
+    }
+    > div {
+        display: none;
+    }
+    &:hover {
+        background: rgba(255, 255, 255, 0.95);
+        border: solid 1px #3a87ad;
+        padding: 10px;
+        h4 {
+            color: #3a87ad;
+            &:after {
+                opacity: 0;
+            }
+        }
+        > div {
+            display: block;
+        }
+    }
+}
+
+#milestone-graph-legend {
+    position: absolute;
+    left: 30px;
+    top: 61px;
+    padding: 11px;
+    line-height: 1.8em;
+    cursor: default;
+    h4 {
+        color: #ccc;
+        margin: 5px;
+        margin-left: 0;
+        &:after {
+            content: "…"
+        }
+    }
+    > span {
+        display: none;
+        margin: 0 5px 5px 5px;
+        padding: 2px;
+    }
+    .legend-today {
+        border-bottom: dashed #ad31ba 1px;
+    }
+    .legend-milestone-dueon {
+        border-bottom: dashed #8CC079 1px;
+    }
+    .legend-real-close {
+        border-bottom: solid #8CC079 2px;
+    }
+    .legend-simulated-close {
+        border-bottom: solid #3a87ad 1px;
+    }
+    .legend-real-ideal {
+        border-bottom: dotted #8CC079 1px;
+    }
+    .legend-simulated-ideal {
+        border-bottom: dotted #3a87ad 1px;
+    }
+    .legend-days-off {
+        background: rgba(128, 128, 128, 0.1);
+    }
+    &:hover {
+        background: rgba(255, 255, 255, 0.95);
+        border: solid 1px #666;
+        padding: 10px;
+        h4 {
+            color: #666;
+            &:after {
+                display: none;
+            }
+        }
+        > span {
+            display: inline-block;
+        }
+    }
+}

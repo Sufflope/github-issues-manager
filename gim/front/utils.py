@@ -179,9 +179,11 @@ def get_metric_stats(issues, metric, issues_count=None):
 
     return {
         'metric': metric,
+        'count_total': issues_count,
         'count_with': count_issues_having_data,
         'count_too_many': count_invalid_issues,
         'count_without': issues_count - count_issues_having_data,
+        'count_invalid': issues_count - count_valid_issues,
         'count_valid': count_valid_issues,
         'distribution': distribution,
         'sum': total,

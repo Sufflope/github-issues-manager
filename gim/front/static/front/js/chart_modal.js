@@ -40,7 +40,7 @@ var ChartManager = {
     }, // on_chart_load_success
 
     on_chart_load_failure: function(xhr, data) {
-        ChartManager.$modal_body.find('.empty-area').text('Something sent wrong :(');
+        ChartManager.$modal_body.find('.empty-area').text('Not enough data to generate this chart');
     }, // on_chart_load_failure
 
     change_metric: function(metric) {

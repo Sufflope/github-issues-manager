@@ -16,11 +16,9 @@
         {% if metric_stats.count_without or metric_stats.count_too_many %}
             <div class="metric-stats-ignore">(Ignoring
             {% if metric_stats.count_without and metric_stats.count_too_many %}
-                {% with total_ignore=metric_stats.count_without|add:metric_stats.count_too_many %}
-                    <strong>{{ total_ignore }}</strong> issue{{ total_ignore|pluralize }}:
-                    <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" ><strong>{{ metric_stats.count_without }}</strong></a> without "{{ current_metric.name }}" and
-                    <strong>{{ metric_stats.count_too_many }}</strong> with more than one
-                {% endwith %}
+                <strong>{{ metric_stats.count_invalid }}</strong> issue{{ metric_stats.count_invalid|pluralize }}:
+                <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" ><strong>{{ metric_stats.count_without }}</strong></a> without "{{ current_metric.name }}" and
+                <strong>{{ metric_stats.count_too_many }}</strong> with more than one
             {% elif metric_stats.count_without%}
                 <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" ><strong>{{ metric_stats.count_without }}</strong> issue{{ metric_stats.count_without|pluralize }}</a> without "{{ current_metric.name }}"
             {% else %}
