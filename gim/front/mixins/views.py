@@ -76,7 +76,7 @@ class LinkedToUserFormViewMixin(object):
 
 def get_querystring_context(querystring):
     # put querystring parts in a dict
-    qs_dict = parse_qs(querystring)
+    qs_dict = parse_qs(querystring.lstrip('?'))
     qs_parts = {}
     for key, values in qs_dict.items():
         if not len(values):
@@ -127,7 +127,6 @@ class WithQueryStringViewMixin(WithPreContextData):
         context = super(WithQueryStringViewMixin, self).get_pre_context_data(**kwargs)
         context.update(self.get_querystring_context())
         return context
-
 
 
 class DependsOnSubscribedViewMixin(object):
@@ -787,7 +786,8 @@ class BaseIssuesView(WithQueryStringViewMixin):
             'can_show_shortcuts': True,
         })
 
-        context['issues'], context['issues_count'], context['limit_reached'] = self.finalize_issues(issues, context)
+        context['issues'], context['issues_count'], context['limit_reached'], __ =\
+            self.finalize_issues(issues, context)
 
         return context
 
@@ -807,10 +807,12 @@ class BaseIssuesView(WithQueryStringViewMixin):
         """
         Return a final list of issues usable in the view.
         """
+
+        original_queryset = issues
         total_count = issues_count = issues.count()
 
         if not issues_count:
-            return [], 0, False
+            return [], 0, False, original_queryset
 
         if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES + 5:  # tolerance
             issues_count = self.LIMIT_ISSUES
@@ -836,7 +838,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
             for iteration in range(0, iterations):
                 issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
 
-        return issues, total_count, limit_reached
+        return issues, total_count, limit_reached, original_queryset
 
     def get_template_names(self):
         """

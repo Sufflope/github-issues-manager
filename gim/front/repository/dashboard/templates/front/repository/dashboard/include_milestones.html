@@ -3,6 +3,11 @@
     <div class="box-header">
         <span class="title">Milestones</span>
         <ul class="box-toolbar">
+            {% if milestones|length > 1 %}
+                <li>
+                    {% include "front/include_quicksearch.html" with target="#milestones .box-section" content="a > h3 > span" class="small" only %}
+                </li>
+            {% endif %}
             <li class="toolbar-link">
                 <a href="#" class="dropdown" data-toggle="dropdown"><i class="fa fa-bars"></i></a>
                 <ul class="dropdown-menu" role="menu" aria-label="Options">
@@ -21,8 +26,17 @@
             {% with issues_url=current_repository|repository_view_url:'issues' %}
                 {% for milestone in milestones %}
                     <div class="box-section">
-                        <a href="#" title="[{{ milestone.state|capfirst }}] Click to view details" data-toggle="collapse" data-target="#milestone-{{ milestone.id}}-details" data-parent="#milestones" class="collapsed"><h3><i class="fa fa-tasks text-{{ milestone.state }}" title="{{ milestone.state|capfirst }} milestone"> </i> {{ milestone.title }}</h3></a>
+                        <a href="#" title="[{{ milestone.state|capfirst }}] Click to view details" data-toggle="collapse" data-target="#milestone-{{ milestone.id}}-details" data-parent="#milestones" class="collapsed"><h3><i class="fa fa-tasks text-{{ milestone.state }}" title="{{ milestone.state|capfirst }} milestone"> </i> <span class="milestone-title">{{ milestone.title }}</span></h3></a>
                         <a href="{{ milestone.github_url }}" class="github-link" title="View on github" target='_blank'><i class="fa fa-external-link"> </i></a>
+                        {% if all_metrics %}
+                            <a href="#" data-url="{{ milestone.get_graph_url }}" data-number="{{ milestone.number }}" class="metric-stats" title="Click to see chart"><span class="label label-info">
+                            {% if milestone.main_metric_stats %}
+                                {{ milestone.main_metric_stats.metric.name }}: {{ milestone.main_metric_stats.sum|default:0 }}
+                            {% elif all_metrics %}
+                                <em>No default metric</em>
+                            {% endif %}
+                            &nbsp;<i class="fa fa-area-chart"> </i></span></a>
+                        {% endif %}
                         <span class="date">{% if milestone.due_on %}Due on {{ milestone.due_on|date }}{% else %}No due date{% endif %}</span>
                         <div class="progress"{% if not milestone.issues_count %} title="No issues"{% endif %}>
                             {% if milestone.issues_count %}
@@ -60,4 +74,9 @@
             <div class="empty-area">No milestones for this repository</div>
         {% endif %}
     </div>{# .box-content #}
+    {% if view.request.is_ajax and milestones|length > 1 %}
+        <script data-cfasync="false" type="text/javascript">
+            setTimeout(function() { window.activate_quicksearches($('#milestones input.quicksearch')); }, 250);
+        </script>
+    {% endif %}
 </div>{# .box#milestones #}

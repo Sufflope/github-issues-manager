@@ -1,0 +1,13 @@
+{% extends "front/base_deferred_block.html" %}
+
+{% block deferred-classes %}box col-part{% endblock %}
+{% block deferred-id %}milestones{% endblock %}
+
+{% block deferred-placeholder %}
+    <div class="box-header">
+        <span class="title">Milestones</span>
+    </div>
+    <div class="box-content">
+        {{ block.super }}
+    </div>
+{% endblock %}

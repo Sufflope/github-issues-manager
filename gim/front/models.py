@@ -3,6 +3,7 @@
 from collections import defaultdict, Counter, OrderedDict
 from operator import attrgetter, itemgetter
 from threading import local
+import json
 import re
 
 from django.conf import settings
@@ -13,7 +14,7 @@ from django.db.models import ForeignKey, FieldDoesNotExist
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.template import loader, Context
-from django.template.defaultfilters import escape
+from django.template.defaultfilters import date as convert_date, escape
 from django.utils.dateformat import format
 from django.utils.functional import cached_property
 
@@ -208,6 +209,40 @@ class _Repository(models.Model):
 
         publisher.remove_repository(pk)
 
+    def get_milestones_for_select(self, key='id', with_graph_url=False, include_grouped=True,
+                                  milestones=None):
+
+        if milestones is None:
+            milestones = self.milestones.all()
+
+        data = {getattr(m, key): {
+                'id': m.id,
+                'number': m.number,
+                'due_on': convert_date(m.due_on, settings.DATE_FORMAT) if m.due_on else None,
+                'title': escape(m.title),
+                'state': m.state,
+                'graph_url': str(m.get_graph_url()) if with_graph_url else None,
+              }
+            for m in milestones
+        }
+
+        result = {
+            'milestones_json': json.dumps(data),
+        }
+
+        if include_grouped:
+
+            grouped_milestones = {}
+            for milestone in milestones:
+                grouped_milestones.setdefault(milestone.state, []).append(milestone)
+
+            result['grouped_milestones'] = grouped_milestones
+
+        return result
+
+    def all_metrics(self):
+        return self.label_types.filter(is_metric=True)
+
 contribute_to_model(_Repository, core_models.Repository, {'delete'}, {'delete'})
 
 
@@ -305,18 +340,18 @@ class _Milestone(Hashable, FrontEditable):
             result = self.title
         return escape(result)
 
-    def get_reverse_kwargs(self):
+    def get_reverse_kwargs(self, key="id"):
         """
         Return the kwargs to use for "reverse"
         """
         return {
             'owner_username': self.repository.owner.username,
             'repository_name': self.repository.name,
-            'milestone_id': self.id
+            'milestone_%s' % key: getattr(self, key),
         }
 
-    def get_view_url(self, url_name):
-        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+    def get_view_url(self, url_name, key="id"):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs(key=key))
 
     def get_edit_url(self):
         from gim.front.repository.dashboard.views import MilestoneEdit
@@ -325,6 +360,10 @@ class _Milestone(Hashable, FrontEditable):
     def get_delete_url(self):
         from gim.front.repository.dashboard.views import MilestoneDelete
         return self.get_view_url(MilestoneDelete.url_name)
+
+    def get_graph_url(self):
+        from gim.front.repository.dashboard.views import MilestoneGraph
+        return self.get_view_url(MilestoneGraph.url_name, key='number')
 
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 

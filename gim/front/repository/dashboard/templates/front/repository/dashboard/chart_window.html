@@ -1,0 +1,34 @@
+{% load frontutils staticfiles %}
+<div id="milestone-graph-container" class="modal fancy full-screen hide">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
+        <h6>
+            Chart for metric
+            <select id="milestone-graph-metric-selector" autocomplete="off">
+                {% for metric in all_metrics %}
+                    <option value="{{ metric.name }}"{% if metric.name == default_graph_metric.name %} selected="selected"{% endif %}>{{ metric.name }}</option>
+                {% endfor %}
+            </select>
+            for milestone
+            <select id="milestone-graph-selector" autocomplete="off">
+                {% for state in states %}
+                    {% if state in grouped_milestones %}
+                        <optgroup label="{{ state }}">
+                        {% for milestone in grouped_milestones|dict_item:state %}
+                            <option value="{{ milestone.number }}">{{ milestone.title }}</option>
+                        {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            with
+            <select id="milestone-issues-type-selector" autocomplete="off">
+                <option value="nopr">Normal issues only</option>
+                <option value="pr">Pull requests only</option>
+                <option value="all">Normal issues and pull requests</option>
+            </select>
+        </h6>
+    </div>
+    <div class="modal-body">
+    </div>
+</div>

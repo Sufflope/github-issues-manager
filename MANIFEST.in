@@ -7,3 +7,4 @@ recursive-include gim/front/static/front/fonts *
 recursive-include gim/static *
 exclude gim/settings/local_settings.py
 recursive-exclude * *.py[co]
+recursive-exclude gim/front/static/front/js/plotly-dev/node_modules *

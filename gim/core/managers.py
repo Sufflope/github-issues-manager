@@ -834,6 +834,11 @@ class LabelTypeManager(models.Manager):
             '%(sep1)s%(type_name)s%(sep2)s%(sep3)s{order}%(sep4)s{label}'
         ),
         (
+            # Estimate: 2
+            re.compile('^(?P<type_name>.+?)(?P<sep1>\s*[:#_\-]\s*)(?P<label>(?P<order>\d+))$'),
+            '%(type_name)s%(sep1)s{ordered-label}'
+        ),
+        (
             # Workflow - Assigned
             re.compile('^(?P<type_name>.+?)(?P<sep1>\s*[:#_\-]\s*)(?P<label>.+)$'),
             '%(type_name)s%(sep1)s{label}'

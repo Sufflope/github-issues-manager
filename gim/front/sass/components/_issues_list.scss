@@ -3,6 +3,9 @@
 @import "compass/css3/_hyphenation.scss";
 @import "compass/css3/transition";
 @import "compass/css3/transform";
+@import "metric_stats";
+@import "charts_modal";
+
 
 $issues-list-options-height: 47px;
 $issues-quicksearch-height: 29px;
@@ -149,6 +152,7 @@ $issues-quicksearch-height: 29px;
     .no-issues, .too-many-issues {
         text-align: center;
     }
+
 } // .issues-list
 
 .issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {

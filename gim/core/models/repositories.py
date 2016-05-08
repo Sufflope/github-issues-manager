@@ -62,6 +62,8 @@ class Repository(GithubObjectWithId):
     # this list is not ordered, we must memorize the last page
     commit_comments_last_page = models.PositiveIntegerField(blank=True, null=True)
     has_commit_statuses = models.BooleanField(default=False)
+    main_metric = models.OneToOneField('LabelType', blank=True, null=True, related_name='+',
+                                        on_delete=models.SET_NULL)
 
     objects = RepositoryManager()
 
@@ -80,7 +82,7 @@ class Repository(GithubObjectWithId):
         'git_url', 'forks_count', 'merges_url', 'ssh_url', 'blobs_url', 'master_branch', 'forks',
         'permissions', 'open_issues_count', 'languages_url', 'language', 'collaborators_url', 'url',
         'created_at', 'archive_url', 'pushed_at', 'teams_url', 'trees_url',
-        'branches_url', 'subscribers_url', 'stargazers_url', )
+        'branches_url', 'subscribers_url', 'stargazers_url', 'main_metric')
 
     class Meta:
         app_label = 'core'

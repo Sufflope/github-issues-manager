@@ -81,6 +81,7 @@ docs/_build/
 
 # Front-end assets
 .sass-cache/
+node_modules/
 
 # TextMate 2
 .tm_properties

@@ -16,7 +16,7 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 
 from limpyd_jobs import STATUSES
 
-from gim.core.models import (Issue, GithubUser, LabelType, Milestone,
+from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              IssueComment, PullRequestComment, CommitComment,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
@@ -47,7 +47,7 @@ from gim.front.models import GroupedCommits, GroupedCommitComments, GroupedPullR
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.mixins.views import BaseIssuesView
 
-from gim.front.utils import make_querystring, forge_request
+from gim.front.utils import make_querystring, forge_request, get_metric, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueMilestoneForm, IssueAssigneeForm, IssueLabelsForm,
@@ -231,6 +231,10 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         'mentioned': 'user_mentions',
     }
 
+    def __init__(self, **kwargs):
+        super(IssuesView, self).__init__(**kwargs)
+        self.metric_stats = None
+
     def get_base_queryset(self):
         return self.repository.issues.ready()
 
@@ -269,24 +273,33 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 label_names = [label_names]
             label_names = [l for l in label_names if l]
         if not label_names:
-            return (None, None)
+            return (None, None, None)
 
         canceled_types = set()
+        full_types = set()
         real_label_names = set()
 
         for label_name in label_names:
             if label_name.endswith(':__none__'):
                 canceled_types.add(label_name[:-9])
+            elif label_name.endswith(':__any__'):
+                full_types.add(label_name[:-8])
             else:
                 real_label_names.add(label_name)
 
         qs = self.repository.labels.ready().filter(name__in=real_label_names)
+
+        if full_types:
+            full_types = list(self.repository.label_types.filter(name__in=full_types)
+                                                             .values_list('id', 'name'))
+            qs = qs.exclude(label_type_id__in=([t[0] for t in full_types]))
+
         if canceled_types:
             canceled_types = list(self.repository.label_types.filter(name__in=canceled_types)
                                                              .values_list('id', 'name'))
             qs = qs.exclude(label_type_id__in=([t[0] for t in canceled_types]))
 
-        return canceled_types, list(qs.prefetch_related('label_type'))
+        return canceled_types, full_types, list(qs.prefetch_related('label_type'))
 
     def _get_group_by(self, qs_parts):
         """
@@ -371,21 +384,26 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         # filter by mentioned
 
         # now filter by labels
-        label_types_to_ignore, labels = self._get_labels(qs_parts)
-        if label_types_to_ignore or labels:
+        label_types_to_ignore, full_label_types, labels = self._get_labels(qs_parts)
+        if label_types_to_ignore or full_label_types or labels:
             qs_filters['labels'] = []
             filter_objects['current_label_types'] = {}
+            if full_label_types or labels:
+                query_filters['labels'] = []
+
+        if full_label_types:
+            qs_filters['labels'].extend('%s:__any__' % t[1] for t in full_label_types)
+            query_filters['labels__label_type_id'] = [t[0] for t in full_label_types]
+            filter_objects['current_label_types'].update((t[0], '__any__') for t in full_label_types)
 
         if label_types_to_ignore:
             query_filters['-labels__label_type_id__in'] = [t[0] for t in label_types_to_ignore]
-            # we can set, and not update, as we are first to touch this
-            qs_filters['labels'] = ['%s:__none__' % t[1] for t in label_types_to_ignore]
-            filter_objects['current_label_types'] = {t[0]: '__none__' for t in label_types_to_ignore}
+            qs_filters['labels'].extend('%s:__none__' % t[1] for t in label_types_to_ignore)
+            filter_objects['current_label_types'].update((t[0], '__none__') for t in label_types_to_ignore)
 
         if labels:
             filter_objects['labels'] = labels
             filter_objects['current_labels'] = []
-            query_filters['labels'] = []
             for label in labels:
                 qs_filters['labels'].append(label.name)
                 if label.label_type_id and label.label_type_id not in filter_objects['current_label_types']:
@@ -419,7 +437,11 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         context.update({
             'label_types': self.label_types,
             'milestones': self.milestones,
+            'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
+            'metric_stats': self.metric_stats,
+            'all_metrics': list(self.repository.all_metrics())
         })
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
                                  IssuesFilterClosers, IssuesFilterMentioned):
@@ -452,16 +474,16 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         filter is used)
         """
 
-        context = super(IssuesView, self).prepare_issues_filter_context(filter_context)
+        metric_label_type_name = self.request.GET.get('metric', None)
 
-        # we need a querystring without the created/assigned parts
-        querystring = dict(filter_context['qs_filters'])  # make a copy!
-        querystring.pop('user_filter_type', None)
-        querystring.pop('username', None)
+        metric = get_metric(self.repository, metric_label_type_name)
 
-        context['querystring'] = make_querystring(querystring)
+        if metric:
+            filter_context['filter_objects']['metric'] = metric
+            if metric.pk != self.repository.main_metric_id:
+                filter_context['qs_filters']['metric'] = metric.name
 
-        return context
+        return super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
     def finalize_issues(self, issues, context):
         """
@@ -469,11 +491,19 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         Actually simply order ("group") by a label_type if asked
         """
 
-        issues, total_count, limit_reached = super(IssuesView, self).finalize_issues(issues, context)
+        issues, total_count, limit_reached, original_queryset = \
+            super(IssuesView, self).finalize_issues(issues, context)
 
-        label_type = context['issues_filter']['objects'].get('group_by', None)
-        attribute = context['issues_filter']['objects'].get('group_by_field', None)
-        if label_type and isinstance(label_type, LabelType) and attribute:
+        if total_count and context['issues_filter']['objects'].get('metric'):
+            self.metric_stats = get_metric_stats(
+                original_queryset.all(),
+                context['issues_filter']['objects']['metric'],
+                total_count
+            )
+
+        group_by_label_type = context['issues_filter']['objects'].get('group_by', None)
+        group_by_attribute = context['issues_filter']['objects'].get('group_by_field', None)
+        if group_by_label_type and isinstance(group_by_label_type, LabelType) and group_by_attribute:
 
             # regroup issues by label from the lab
             issues_dict = {}
@@ -481,11 +511,11 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 add_to = None
 
                 for label in issue.labels.ready():  # thanks prefetch_related
-                    if label.label_type_id == label_type.id:
+                    if label.label_type_id == group_by_label_type.id:
                         # found a label for the wanted type, mark it and stop
                         # checking labels for this issue
                         add_to = label.id
-                        setattr(issue, attribute, label)
+                        setattr(issue, group_by_attribute, label)
                         break
 
                 # add in a dict, with one entry for each label of the type (and one for None)
@@ -494,7 +524,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             # for each label of the type, append matching issues to the final
             # list
             issues = []
-            label_type_labels = [None] + list(label_type.labels.ready())
+            label_type_labels = [None] + list(group_by_label_type.labels.ready())
             if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
                 label_type_labels.reverse()
             for label in label_type_labels:
@@ -502,7 +532,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 if label_id in issues_dict:
                     issues += issues_dict[label_id]
 
-        return issues, total_count, limit_reached
+        return issues, total_count, limit_reached, original_queryset
 
 
 class IssueView(WithIssueViewMixin, TemplateView):

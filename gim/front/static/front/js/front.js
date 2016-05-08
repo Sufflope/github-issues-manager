@@ -50,6 +50,17 @@ $().ready(function() {
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
+    var UrlParser = { // http://stackoverflow.com/a/6944772
+        node: null,
+        parse: function(url) {
+            if (!UrlParser.node) {
+                UrlParser.node = document.createElement('a');
+            }
+            UrlParser.node.href = url;
+            return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
+        }
+    };
+
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
     };
@@ -1091,7 +1102,7 @@ $().ready(function() {
                     $message.append($('<span style="font-weight: bold"/>').text(display_repository + $issue_node.find('.issue-link').text()));
                 }
 
-                MessagesManager.add_messages(MessagesManager.make_message($message, 'info'));
+                MessagesManager.add_messages([MessagesManager.make_message($message, 'info')]);
             }
 
         } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
@@ -1141,8 +1152,8 @@ $().ready(function() {
             }
 
             if (refresh_quicksearch) { list.reinit_quicksearch_results(); }
-            if (is_issue_active) { issue.set_current(null, null, null, true); }
             if (is_group_current) { group.set_current(is_group_active); }
+            if (is_issue_active) { issue.set_current(null, null, null, true); }
 
             FilterManager.convert_links(list);
             IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'updated', message_conf);
@@ -1577,6 +1588,7 @@ $().ready(function() {
         this.node.IssuesList = this;
         this.$node = $node;
         this.$container_node = this.$node.closest(IssuesList.container_selector);
+        this.$container_node[0].IssuesList = this;
         this.$empty_node = this.$node.children('.no-issues');
         this.$search_input = this.$node.find('.quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
@@ -1666,6 +1678,10 @@ $().ready(function() {
         $document.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
         $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
+
+        if (window.ChartManager) {
+            $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
+        }
     }); // IssuesList_init_event
 
     IssuesList.subscribe_updates = (function IssuesList_subscribe_updates  () {
@@ -2144,8 +2160,25 @@ $().ready(function() {
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
         on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
-            var $issues_list_node = $(this).closest(IssuesList.container_selector),
-                $filters_node = $issues_list_node.prev(IssuesFilters.selector);
+            var $issues_list_node = $(this).closest(IssuesList.container_selector), url, $filters_node;
+            if (!$issues_list_node.length && IssuesList.current) {
+                $issues_list_node = IssuesList.current.$container_node;
+            }
+            if (!$issues_list_node.length) {
+                // no list for this link, let the click load the issues page
+                return true;
+            }
+
+            if (UrlParser.parse(this.href).pathname != $issues_list_node[0].IssuesList.base_url) {
+                // the base url of the list is different, let the click load the issues page
+                return true;
+            }
+
+            if (window.ChartManager) {
+                window.ChartManager.close_chart();
+            }
+
+            $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node);
         }), // on_list_filter_click
         reload_filters_and_list: (function IssuesFilters__reload_filters_and_list (url, $filters_node, $issues_list_node, no_history) {
@@ -2237,7 +2270,7 @@ $().ready(function() {
                 list = IssuesList.all[state.list_index];
             } catch(e) {}
             if (!list) { return false; }
-            $issues_list_node = list.$node.$container_node;
+            $issues_list_node = list.$container_node;
             $filters_node = $issues_list_node.prev(IssuesFilters.selector);
             IssuesFilters.reload_filters_and_list(state.filters_url, $filters_node, $issues_list_node, true);
             return true;
@@ -2268,7 +2301,8 @@ $().ready(function() {
                 active = true;
             }
             if (IssuesList.all.length) {
-                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, a.no-limit-btn', Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
+                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, .metric-stats a:not(.milestone-graph-link), a.no-limit-btn',
+                    Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
             }
             if (active) {
@@ -4060,7 +4094,7 @@ $().ready(function() {
 
         selector: '#messages',
         $node: null,
-        template: '<li class="alert"><button type="button" class="close" title="Close" data-dismiss="alert">&times;</button></li>',
+        template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
         extract: (function MessagesManager__extract (html) {
             // Will extract message from ajax requests to put them
@@ -4070,7 +4104,7 @@ $().ready(function() {
             var $new_messages = $fake_node.find(MessagesManager.selector);
             if ($new_messages.length) {
                 $new_messages.remove();
-                MessagesManager.add_messages($new_messages.children())
+                MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
                 return $fake_node.html();
             } else {
                 return html;
@@ -4078,17 +4112,32 @@ $().ready(function() {
         }), // extract
 
         make_message: (function MessagesManager__make_message (content, type) {
-            var $node = $(MessagesManager.template);
-            if (type) {
-                $node.addClass('alert-' + type);
+            if (typeof content != 'string') {
+                content = (content.jquery ? content[0] : content).outerHTML;
             }
-            $node.append(content);
-            return $node;
+            var classes = 'alert' + (type ? ' alert-' + type : '');
+            return MessagesManager.template.replace('%(classes)s', classes).replace('%(content)s', content);
         }), // make_messages
 
         add_messages: (function MessagesManager__add_messages (messages) {
-            MessagesManager.$node.append(messages);
-            MessagesManager.init_auto_hide();
+            var html = MessagesManager.$node.html().trim(),
+                uniq_messages = $.grep(messages, function(message, index) {
+                    if (!message) { return false; }
+                    if (html && html.indexOf(message) !== -1) {
+                        // The message is already displayed, so we skip it
+                        return false;
+                    }
+                    if (messages.indexOf(message, index+1) !== -1) {
+                        // the message is available at least one more time in the list, we skip it
+                        return false;
+                    }
+                    // uniq message, we keep it
+                    return true;
+                });
+            if (uniq_messages.length) {
+                MessagesManager.$node.append(uniq_messages);
+                MessagesManager.init_auto_hide();
+            }
         }), // add_messages
 
         get_messages: (function MessagesManager__get_alerts () {
@@ -4096,9 +4145,9 @@ $().ready(function() {
         }), // get_alerts
 
         hide_delays: {
-            1: 10000,
-            2: 5000,
-            3: 2500,
+            1: 4000,
+            2: 2000,
+            3: 1500,
             4: 1250,
             'others': 1000
         },
@@ -5804,7 +5853,7 @@ $().ready(function() {
         on_post_submit_failed: function (xhr, data) {
             var $form=this,
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
-            MessagesManager.add_messages(MessagesManager.make_message(error_msg, 'error'));
+            MessagesManager.add_messages([MessagesManager.make_message(error_msg, 'error')]);
             GithubNotifications.apply_values($form, data.values);
             if (data.values) {
                 GithubNotifications.on_notifications_ping(null, null, {

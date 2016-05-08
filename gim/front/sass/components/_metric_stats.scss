@@ -1,0 +1,77 @@
+@import "compass/css3/transform";
+@import "compass/css3/transition";
+@import "compass/typography/text/ellipsis";
+
+.metric-stats {
+    h4 {
+        font-size: 14px;
+        line-height: 14px;
+        > span:first-child {
+            > i {
+                margin-left: 0.5em;
+                @include transform(rotate(90deg));
+                @include transition(transform 0.1s);
+            }
+            &.collapsed {
+                > i {
+                    @include transform(rotate(0deg));
+                }
+            }
+        }
+        &.with-milestone {
+            > span:first-child {
+                float: left;
+                margin-right: 3em;
+            }
+        }
+        > span:nth-child(2) {
+            display: block;
+            text-align: right;
+            overflow: hidden;
+            @include ellipsis();
+            a.milestone-graph-link {
+                text-decoration: none;
+            }
+        }
+    }
+    .metric-stats-ignore {
+        padding-top: 10px;
+        font-style: italic;
+    }
+    ul {
+        margin-top: 3px;
+        margin-bottom: 3px;
+        &.in {
+            margin-bottom: 10px;
+        }
+    }
+    table {
+        margin-bottom: 0;
+        th {
+            color: inherit;
+        }
+        td, th {
+            text-align: center;
+            border-top-color: $infoBorder;
+        }
+    }
+    .metric-stats-details {
+        padding-top: 10px;
+        > span {
+            i {
+                margin-left: 0.5em;
+                @include transform(rotate(90deg));
+                @include transition(transform 0.1s);
+            }
+            &.collapsed {
+                i {
+                    @include transform(rotate(0deg));
+                }
+            }
+        }
+    }
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
+}

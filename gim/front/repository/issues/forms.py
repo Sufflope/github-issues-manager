@@ -119,32 +119,25 @@ class IssueMilestoneFormPart(object):
 
     def __init__(self, *args, **kwargs):
         super(IssueMilestoneFormPart, self).__init__(*args, **kwargs)
-        milestones = self.repository.milestones.all().order_by('-state', '-number')
+
+        milestones = self.repository.milestones.all()
         self.fields['milestone'].queryset = milestones
-        self.fields['milestone'].widget.choices = self.get_milestones_choices(milestones)
+
+        milestones_data = self.repository.get_milestones_for_select(milestones=milestones)
+
+        self.fields['milestone'].widget.choices = [('', 'No milestone')] + [
+            (
+                state,
+                [(milestone.id, milestone.title) for milestone in state_milestones]
+            )
+            for state, state_milestones
+            in milestones_data['grouped_milestones'].items()
+        ]
+
         self.fields['milestone'].widget.attrs.update({
-            'data-milestones': self.get_milestones_json(milestones),
+            'data-milestones': milestones_data['milestones_json'],
             'placeholder': 'Choose a milestone',
         })
-
-    def get_milestones_json(self, milestones):
-        data = {m.id: {
-                        'id': m.id,
-                        'number': m.number,
-                        'due_on': convert_date(m.due_on, settings.DATE_FORMAT) if m.due_on else None,
-                        'title': escape(m.title),
-                        'state': m.state,
-                      }
-                for m in milestones}
-        return json.dumps(data)
-
-    def get_milestones_choices(self, milestones):
-        data = OrderedDict()
-        for milestone in milestones:
-            data.setdefault(milestone.state, []).append(
-                (milestone.id, milestone.title)
-            )
-        return [('', 'No milestone')] + list(data.items())
 
 
 class IssueAssigneeFormPart(object):

@@ -199,6 +199,19 @@
                         {% if can_add_issues %}
                             <li><a href="#" id="go-to-issue" data-toggle="modal" data-target="#go-to-issue-window">Open issue...</a></li>
                         {% endif %}
+                        {% if issues_count and all_metrics %}{% if all_metrics|length > 1 or not current_metric %}
+                            <li class="divider"></li>
+                            <li class="dropdown-submenu">
+                                <a href="#">Metric to display</a>
+                                <ul class="dropdown-menu dropdown-metric">
+                                    {% for metric in all_metrics %}
+                                        <li{% if metric == current_metric %} class="active"{% endif %}>
+                                            <a href="{{ current_issues_url }}{% replace_in_querystring "metric" metric.name %}">{{ metric.name }}</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                        {% endif %}{% endif %}
                     </ul>
                 </li>
             </ul>
@@ -210,56 +223,58 @@
             <div class="alert alert-info no-issues">
                 No issues to display.
             </div>
-        {% endif %}
-        {% if limit_reached %}
-            <div class="alert alert-warning too-many-issues">
-                {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
-                <br />
-                <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
-            </div>
-        {% endif %}
-        {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}
-        {% for group in issues_groups %}
-            {% if issues_filter.objects.group_by_field %}
-                {% with group_by_value=group.grouper|group_by_filter_value:issues_filter.objects.group_by_field group_uuid=new_uuid %}
-                    <div class='box issues-group' data-group_by-value="{{ group_by_value }}">
-                        <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-{{ group_uuid }}">
-                            <span class="title">
-                                {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
-                                    {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
-                                {% else %}
-                                    {% block group_by_name %}
-                                        {% if group.grouper %}
-                                            {{ group.grouper }}
-                                        {% else  %}
-                                            No {% usemacro empty_group_by_name %}
-                                        {% endif %}
-                                    {% endblock %}
-                                {% endif %}
-                            </span>
+        {% else %}
+            {% block issues-list-top %}{% endblock %}
+            {% if limit_reached %}
+                <div class="alert alert-warning too-many-issues">
+                    {{ issues_count }} issues were returned but we only retrieved {{ view.LIMIT_ISSUES }} to avoid a slow rendering.
+                    <br />
+                    <a class="btn btn-mini btn-default no-limit-btn" href="{{ current_issues_url }}{% replace_in_querystring "limit" "no" %}">Display the whole list</a>
+                </div>
+            {% endif %}
+            {% dynamic_regroup issues by issues_filter.objects.group_by_field as issues_groups %}
+            {% for group in issues_groups %}
+                {% if issues_filter.objects.group_by_field %}
+                    {% with group_by_value=group.grouper|group_by_filter_value:issues_filter.objects.group_by_field group_uuid=new_uuid %}
+                        <div class='box issues-group' data-group_by-value="{{ group_by_value }}">
+                            <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-{{ group_uuid }}">
+                                <span class="title">
+                                    {% if issues_filter.objects.group_by_field == 'is_pull_request' %}
+                                        {% if group.grouper %}Pull-requests{% else %}Issues{% endif %}
+                                    {% else %}
+                                        {% block group_by_name %}
+                                            {% if group.grouper %}
+                                                {{ group.grouper }}
+                                            {% else  %}
+                                                No {% usemacro empty_group_by_name %}
+                                            {% endif %}
+                                        {% endblock %}
+                                    {% endif %}
+                                </span>
+                                <ul class="unstyled box-toolbar">
+                                    <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
+                                </ul>
+                            </a>
+                            <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
+                                {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
+                            </ul>
+                        </div>
+                    {% endwith %}
+                {% else %}
+                    <div class='box issues-group'>
+                        <a class="box-header" href='#'>
+                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
                             <ul class="unstyled box-toolbar">
                                 <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                             </ul>
                         </a>
-                        <ul class="unstyled box-content issues-group-issues collapse{% if issues_groups|length == 1 %} in{% endif %}" id="group_by-list-{{ group_uuid }}">
+                        <ul class="unstyled box-content issues-group-issues">
                             {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
                         </ul>
                     </div>
-                {% endwith %}
-            {% else %}
-                <div class='box issues-group'>
-                    <a class="box-header" href='#'>
-                        <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
-                        <ul class="unstyled box-toolbar">
-                            <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
-                        </ul>
-                    </a>
-                    <ul class="unstyled box-content issues-group-issues">
-                        {% for issue in group.list %}{% usemacro issue_item %}{% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-        {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
         <div class='box issues-group template' style="display:none">
             <a class="box-header" href='#' data-toggle="collapse" data-target="#group_by-list-template">
                 <span class="title">

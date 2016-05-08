@@ -72,6 +72,14 @@
                             </div>
                         </a>
                     </li>
+                    <li>
+                        <a href="">
+                            <strong>^Estimate:(?P&lt;label&gt;(?P&lt;order&gt;\d+))$</strong>
+                            <div class="note">
+                                Ex: "Estimate:<b>1</b>", "Estimate:<b>2</b>"
+                            </div>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -83,6 +91,15 @@
         {{ form.format_string }}
         <div class="note">
             {{ form.format_string.help_text|safe }}
+        </div>
+    </div>
+
+    <div class="for-mode1 for-mode2">
+        {{ form.is_metric.label_tag }}
+        {{ form.is_metric }}
+        {{ form.is_metric.errors }}
+        <div class="note">
+            {{ form.is_metric.help_text|safe }}
         </div>
     </div>
 
@@ -128,6 +145,14 @@
                             <strong>{order} - {label}</strong>
                             <div class="note">
                                 Ex: "0 - <b>Backlog</b>", "1- <b>Assigned</b>"
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="">
+                            <strong>Estimate:{ordered-label}</strong>
+                            <div class="note">
+                                Ex: "Estimate:<b>1</b>", "Estimate:<b>2</b>"
                             </div>
                         </a>
                     </li>

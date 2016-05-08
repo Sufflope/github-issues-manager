@@ -1,0 +1,17 @@
+{
+  "name": "gim-plotly.js",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "browserify -t cwise -t glslify index.js | uglifyjs -mc >  ../plotly.min.js",
+    "bundle": "browserify -t cwise -t glslify index.js >  ../plotly.js"
+  },
+  "dependencies": {
+    "browserify": "^13.0.0",
+    "plotly.js": "^1.9.0"
+  },
+  "devDependencies": {
+    "cwise": "^1.0.9",
+    "glslify": "^5.0.2",
+    "uglifyjs": "^2.4.10"
+  }
+}

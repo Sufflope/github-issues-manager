@@ -1,0 +1,67 @@
+{% load querystring frontutils issues_tags %}
+{% attributes_for_list current_metric.labels.all "name" as label_names %}
+{% with metric_uuid=new_uuid unset=current_metric.name|concat:":__none__" set=current_metric.name|concat:":__any__" %}{% with label_names=label_names|append:unset %}
+    <h4 title="Click for more information"{% if issues_filter.objects.milestone.pk %} class="with-milestone"{% endif %}>
+        <span class="collapsed" data-toggle="collapse" data-target="#metric-stats-{{ metric_uuid }}">
+            {{ current_metric.name }}{{ metric_title_addon }}: <strong>{{ metric_stats.sum|default:0 }}</strong>
+            <i class="fa fa-caret-right"></i>
+        </span>
+        {% if issues_filter.objects.milestone.pk %}
+            <span>
+                <a class="milestone-graph-link" href="#" data-url="{{ issues_filter.objects.milestone.get_graph_url }}{% if current_metric %}?metric={{ current_metric }}{% endif %}" data-number="{{ issues_filter.objects.milestone.number }}"{% if current_metric %} data-metric="{{ current_metric }}"{% endif %} title="Click to see the chart for filtered milestone"><i class="fa fa-area-chart"></i> <i class="fa fa-tasks text-{{ issues_filter.objects.milestone.state }}"></i> {{ issues_filter.objects.milestone.title }}</a>
+            </span>
+        {% endif %}
+    </h4>
+    <div id="metric-stats-{{ metric_uuid }}" class="collapse">
+        {% if metric_stats.count_without or metric_stats.count_too_many %}
+            <div class="metric-stats-ignore">(Ignoring
+            {% if metric_stats.count_without and metric_stats.count_too_many %}
+                <strong>{{ metric_stats.count_invalid }}</strong> issue{{ metric_stats.count_invalid|pluralize }}:
+                <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" ><strong>{{ metric_stats.count_without }}</strong></a> without "{{ current_metric.name }}" and
+                <strong>{{ metric_stats.count_too_many }}</strong> with more than one
+            {% elif metric_stats.count_without%}
+                <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" ><strong>{{ metric_stats.count_without }}</strong> issue{{ metric_stats.count_without|pluralize }}</a> without "{{ current_metric.name }}"
+            {% else %}
+                <strong>{{ metric_stats.count_too_many }}</strong> issue{{ metric_stats.count_too_many|pluralize }} with more than one "{{ current_metric.name }}"
+            {% endif %}
+            )</div>
+        {% endif %}
+        {% if metric_stats.count_valid %}
+            <div class="metric-stats-details">
+                <span title="Click to show detailed statistics" class="collapsed" data-toggle="collapse" data-target="#metric-detailed-stats-{{ metric_uuid }}">Statistics for <a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" >{{ metric_stats.count_valid }} issue{{ metric_stats.count_valid|pluralize }}</a>: <i class="fa fa-caret-right"></i></span>
+                <ul id="metric-detailed-stats-{{ metric_uuid }}" class="collapse">
+                    <li>Total: <strong>{{ metric_stats.sum }}</strong></li>
+                    <li>Mean: <strong>{{ metric_stats.mean|format_int_or_float }}</strong></li>
+                    <li>Median: <strong>{{ metric_stats.median|format_int_or_float }}</strong></li>
+                    {% if metric_stats.count_valid > 1%}
+                        <li>Standard deviation: <strong>{{ metric_stats.stdev|format_int_or_float }}</strong></li>
+                    {% endif %}
+                    <li>Most used value{% if '&' in metric_stats.mode %}s{% endif %}: <strong>{{ metric_stats.mode }}</strong></li>
+                </ul>
+                Distribution:
+                <table class="table table-condensed">
+                    <thead>
+                    <tr>
+                        <th>Value</th>
+                        <th>Issues</th>
+                        <th>Issues %</th>
+                        <th>{{ current_metric.name }}</th>
+                        <th>{{ current_metric.name }} %</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in metric_stats.distribution %}
+                            <tr>
+                                <td><strong>{{ entry.value }}</strong></td>
+                                <td><a title="Click to show these issues" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" entry.label_name remove_values=label_names %}"><strong>{{ entry.count }}</strong></a></td>
+                                <td><strong>{{ entry.count_percent|format_int_or_float }}</strong> %</td>
+                                <td><strong>{{ entry.total }}</strong></td>
+                                <td><strong>{{ entry.metric_percent|format_int_or_float }}</strong> %</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+{% endwith %}{% endwith %}

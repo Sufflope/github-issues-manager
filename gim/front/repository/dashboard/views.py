@@ -1,10 +1,18 @@
+# coding: utf-8
 
-from collections import Counter
+import json
+import time
+from collections import Counter, OrderedDict
+from datetime import datetime, timedelta
 from itertools import groupby
 from operator import attrgetter, itemgetter
 
-from django.db.models import Count
+from django.conf import settings
 from django.core.urlresolvers import reverse_lazy, reverse
+from django.http.response import Http404
+from django.shortcuts import redirect
+from django.template import Context, Template
+from django.utils.safestring import mark_safe
 from django.views.generic import UpdateView, CreateView, DeleteView, DetailView, FormView
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib import messages
@@ -13,21 +21,23 @@ from django.utils.functional import cached_property
 from gim.subscriptions.models import Subscription, SUBSCRIPTION_STATES
 
 from gim.core.models import (LabelType, LABELTYPE_EDITMODE, Label,
-                             GITHUB_STATUS_CHOICES, Milestone)
+                             GITHUB_STATUS_CHOICES, Milestone, Issue)
 from gim.core.tasks.label import LabelEditJob
 from gim.core.tasks.milestone import MilestoneEditJob
 
 from gim.front.mixins.views import (DeferrableViewPart, SubscribedRepositoryViewMixin,
                                     LinkedToSubscribedRepositoryFormViewMixin,
-                                    LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin)
+                                    LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin,
+                                    WithRepositoryViewMixin, get_querystring_context)
 
 from gim.front.activity.views import ActivityViewMixin
 
 from gim.front.repository.views import BaseRepositoryView
+from gim.front.utils import get_metric, get_metric_stats, make_querystring
 
 from .forms import (LabelTypeEditForm, LabelTypePreviewForm, LabelEditForm,
                     TypedLabelEditForm, MilestoneEditForm, MilestoneCreateForm,
-                    HookToggleForm)
+                    HookToggleForm, MainMetricForm)
 
 
 class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMixin, DetailView):
@@ -38,8 +48,8 @@ class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMi
 
     def inherit_from_view(self, view):
         super(RepositoryDashboardPartView, self).inherit_from_view(view)
-        self.object = self._repository = view.repository
-        self._subscription = view.subscription
+        self.object = self.repository = view.repository
+        self.subscription = view.subscription
 
     def get_object(self, queryset=None):
         if getattr(self, 'object', None):
@@ -49,27 +59,34 @@ class RepositoryDashboardPartView(DeferrableViewPart, SubscribedRepositoryViewMi
 
 class MilestonesPart(RepositoryDashboardPartView):
     template_name = 'front/repository/dashboard/include_milestones.html'
+    deferred_template_name = 'front/repository/dashboard/include_milestones_deferred.html'
     url_name = 'dashboard.milestones'
 
     def get_milestones(self):
-        queryset = self.repository.milestones.annotate(issues_count=Count('issues'))
+        queryset = self.repository.milestones.all()
 
-        if not self.request.GET.get('show-closed-milestones', False):
+        show_closed = self.request.GET.get('show-closed-milestones', False)
+        show_empty = self.request.GET.get('show-empty-milestones', False)
+
+        if not show_closed:
             queryset = queryset.filter(state='open')
 
-        if not self.request.GET.get('show-empty-milestones', False):
-            queryset = queryset.exclude(issues_count=0)
+        all_milestones = list(queryset)
 
-        milestones = list(reversed(queryset))
+        main_metric = self.repository.main_metric
 
-        for milestone in milestones:
+        milestones = []
+        for milestone in all_milestones:
 
-            issues = milestone.issues.ready()
+            issues = milestone.issues
+            milestone.issues_count = issues.count()
 
             if milestone.issues_count:
+                milestones.append(milestone)
+
                 milestone.non_assigned_issues_count = issues.filter(state='open', assignee_id__isnull=True).count()
-                milestone.assigned_issues_count = issues.filter(state='open', assignee_id__isnull=False).count()
-                milestone.open_issues_count = milestone.non_assigned_issues_count + milestone.assigned_issues_count
+                milestone.open_issues_count = issues.filter(state='open').count()
+                milestone.assigned_issues_count = milestone.open_issues_count - milestone.non_assigned_issues_count
                 milestone.closed_issues_count = milestone.issues_count - milestone.open_issues_count
 
                 if milestone.non_assigned_issues_count:
@@ -81,7 +98,16 @@ class MilestonesPart(RepositoryDashboardPartView):
                 if milestone.closed_issues_count:
                     milestone.closed_issues_percent = 100.0 * milestone.closed_issues_count / milestone.issues_count
 
-            else:
+                if main_metric:
+                    milestone.main_metric_stats = get_metric_stats(
+                        issues.filter(state='open'),
+                        main_metric,
+                        milestone.open_issues_count
+                    )
+
+            elif show_empty:
+                milestones.append(milestone)
+
                 milestone.non_assigned_issues_count = milestone.assigned_issues_count = \
                     milestone.open_issues_count = milestone.closed_issues_count = 0
 
@@ -93,10 +119,12 @@ class MilestonesPart(RepositoryDashboardPartView):
             'milestones': self.get_milestones(),
             'show_closed_milestones': self.request.GET.get('show-closed-milestones', False),
             'show_empty_milestones': self.request.GET.get('show-empty-milestones', False),
+            'all_metrics': list(self.repository.all_metrics())
         })
         reverse_kwargs = self.repository.get_reverse_kwargs()
         context['milestone_create_url'] = reverse_lazy(
                 'front:repository:%s' % MilestoneCreate.url_name, kwargs=reverse_kwargs)
+
         return context
 
 
@@ -170,7 +198,7 @@ class LabelsPart(RepositoryDashboardPartView):
         count_without_labels = counts.pop(None, 0)
 
         labels_with_count = []
-        for label in self.repository.labels.ready():
+        for label in self.repository.labels.ready().select_related('label_type'):
             if label.id in counts:
                 label.issues_count = counts[label.id]
                 labels_with_count.append(label)
@@ -226,12 +254,17 @@ class DashboardView(BaseRepositoryView):
         context = super(DashboardView, self).get_context_data(**kwargs)
 
         context['parts'] = {
-            'milestones': MilestonesPart().get_as_part(self),
+            'milestones': MilestonesPart().get_as_deferred(self),
             'counters': CountersPart().get_as_part(self),
             'labels': LabelsPart().get_as_part(self),
             'hook': HookPart().get_as_part(self),
             'activity': ActivityPart().get_as_deferred(self),
         }
+
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+
+        context['all_metrics'] = list(self.repository.all_metrics())
+        context['default_graph_metric'] = get_metric(self.repository, None, first_if_none=True)
 
         context['can_add_issues'] = True
 
@@ -270,6 +303,9 @@ class LabelsEditor(BaseRepositoryView):
         context['label_create_url'] = reverse_lazy(
                 'front:repository:%s' % LabelCreate.url_name, kwargs=reverse_kwargs)
 
+        context['main_metric_form'] = MainMetricForm(instance=self.repository)
+        context['main_metric_set_url'] = reverse_lazy(
+                'front:repository:%s' % MainMetricView.url_name, kwargs=reverse_kwargs)
         return context
 
     def get_template_names(self):
@@ -622,3 +658,451 @@ class HookToggle(SubscribedRepositoryViewMixin, WithAjaxRestrictionViewMixin, Fo
         reverse_kwargs = self.repository.get_reverse_kwargs()
         return HttpResponseRedirect(reverse_lazy('front:repository:%s' % HookPart.url_name,
                                                  kwargs=reverse_kwargs))
+
+
+class MainMetricView(BaseRepositoryView, UpdateView):
+    url_name = 'main_metric.set'
+    allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
+    http_method_names = [u'post']
+
+    form_class = MainMetricForm
+
+    def get_object(self, queryset=None):
+        return self.repository
+
+    def form_invalid(self, form):
+        messages.error(
+            self.request,
+            form.errors.get('main_metric', form.errors.get('__all__', ['Unexpected error']))[0]
+        )
+        return redirect(self.get_success_url())
+
+    def form_valid(self, form):
+        main_metric = form.cleaned_data.get('main_metric')
+        if not main_metric:
+            messages.success(self.request, u'The main metric was unset')
+        else:
+            messages.success(self.request, u'The main metric was set to "%s"' % main_metric)
+
+        return super(MainMetricView, self).form_valid(form)
+
+    def get_success_url(self):
+        reverse_kwargs = self.repository.get_reverse_kwargs()
+        return reverse('front:repository:%s' % LabelsEditor.url_name, kwargs=reverse_kwargs)
+
+
+class MilestoneGraph(WithRepositoryViewMixin, DetailView):
+    model = Milestone
+    slug_url_kwarg = 'milestone_number'
+    slug_field = 'number'
+    allowed_rights = SUBSCRIPTION_STATES.READ_RIGHTS
+    template_name = 'front/repository/dashboard/milestone-graph.html'
+    url_name = 'dashboard.milestone.graph'
+
+    point_template = Template(u"""Date: <b>{{ date|date:'F j (l)' }}</b>
+{{ metric.name }} closed: <b>{{ point.total }}</b>
+{{ metric.name }} remaining: <b>{{ point.remaining }}</b>
+{{ point.issues|length }} issue{{ point.issues|length|pluralize }} closed: {% for issue in point.issues %}
+  • <b>#{{ issue.number }}</b> "<i>{{ issue.title }}</i>"{% if issue.closed_by_id %} closed by <b>{{ issue.closed_by }}</b>{% endif %} ({% if issue.graph_value %}{{ metric.name }}: <b>{{ issue.graph_value }}</b>{% else %}<b>No {{ metric.name }}</b>{% endif %}){% endfor %}""")
+
+    one_day = timedelta(days=1)
+
+    def get_queryset(self):
+        return self.repository.milestones
+
+    def get_graph(self):
+
+        metric_label_type_name = self.request.GET.get('metric', None)
+        metric = get_metric(self.repository, metric_label_type_name, first_if_none=True)
+        issues_type = self.request.GET.get('issues', None)
+        if issues_type not in {'all', 'nopr', 'pr'}:
+            issues_type = 'nopr'
+
+        if not metric:
+            raise Http404
+
+        milestone = self.object
+
+        # Get dates
+        start_date = milestone.created_at.date()
+
+        now = datetime.utcnow()
+        today = now.date()
+        end_date = None
+        if milestone.due_on:
+            end_date = milestone.due_on.date()
+            if milestone.due_on.hour > 12 or milestone.due_on.hour == 12 and milestone.due_on.minute > 0:
+                end_date = end_date + self.one_day
+            if end_date <= start_date:
+                end_date = None
+        if not end_date:
+            end_date = today
+
+        all_days = [start_date + timedelta(days=i) for i in range(0, (end_date - start_date).days + 1)]
+
+        def count_days(days):
+            days_off = [d for d in days if d.weekday() >= 5]
+            days_on = [d for d in days if d not in days_off]
+            days_count = len(days_on)
+            if days[-1] in days_on:  # don't count the last day, work should be finished on that day
+                days_count -= 1
+            return days_off, days_on, days_count
+
+        all_counted_days = count_days(all_days)
+
+        # Get issues
+        all_issues = milestone.issues.all()
+        if issues_type == 'pr':
+            all_issues = all_issues.filter(is_pull_request=True)
+        elif issues_type == 'nopr':
+            all_issues = all_issues.filter(is_pull_request=False)
+
+        closed_issues = sorted(
+            [i for i in all_issues if i.state == 'closed'],
+            key=attrgetter('closed_at')
+        )
+        count_open_issues = len(all_issues) - len(closed_issues)
+
+        # Get metric stats for all the issues
+        stats = get_metric_stats(all_issues, metric)
+        default_metric_value = stats['median'] or 1
+        total = stats.get('sum') or 0
+        if not total:
+            simulated_total = stats['count_with'] + stats['count_without']
+        else:
+            simulated_total = total + int(round(stats['count_without'] * default_metric_value))
+
+        # Get the metric value for each closed issue
+        simulated_total_closed = 0
+        for issue in closed_issues:
+            issue.graph_value = stats['issues_with_metric'].get(issue.pk, 0)
+            issue.simulated_graph_value = stats['issues_with_metric'].get(issue.pk,
+                                                                          default_metric_value)
+            simulated_total_closed += issue.simulated_graph_value
+
+        simulated_avg_day = 1.0 * (simulated_total_closed or simulated_total) / all_counted_days[2]
+        simulated_left = simulated_total - simulated_total_closed
+        simulated_days_left = simulated_left / (simulated_avg_day or 1)
+
+        simulated_days_on = 0
+        simulated_end_date = today
+        while simulated_days_on < simulated_days_left:
+            simulated_end_date += self.one_day
+            if simulated_end_date.weekday() < 5:
+                simulated_days_on += 1
+
+        # Regroup closed issues by closing day
+        closed_by_day = OrderedDict()
+        remaining = total
+        simulated_remaining = simulated_total
+        for issue in closed_issues:
+            if not issue.closed_at:
+                continue
+            day = issue.closed_at.date()
+            if day not in closed_by_day:
+                closed_by_day[day] = {'total': 0, 'issues': [], 'remaining': 0,
+                                      'simulated_total': 0, 'simulated_remaining': 0,}
+            closed_by_day[day]['issues'].append(issue)
+            closed_by_day[day]['total'] += issue.graph_value
+            closed_by_day[day]['simulated_total'] += issue.simulated_graph_value
+            remaining -= issue.graph_value
+            simulated_remaining -= issue.simulated_graph_value
+            closed_by_day[day]['remaining'] = remaining
+            closed_by_day[day]['simulated_remaining'] = simulated_remaining
+
+        data = []
+        simulated_data = []
+        data_axis = []
+        current = total
+        simulated_current = simulated_total
+        for day in all_days:
+            if day > today:
+                break
+            if day not in closed_by_day:
+                continue
+
+            current -= closed_by_day[day]['total']
+            simulated_current -= closed_by_day[day]['simulated_total']
+            data.append(current)
+            simulated_data.append(simulated_current)
+            data_axis.append(day)
+
+        def convert_date(d):
+            return time.mktime(d.timetuple()) * 1000
+
+        graphs = []
+        all_periods = None
+
+        green = '140, 192, 121'  # 8CC079
+        red = '179, 93, 93'   # b35d5d
+        blue = '57, 133, 172'  # 3a87ad
+
+        def prepare_line_with_days_off(total, days, counted_days=None):
+            if counted_days is None:
+                counted_days = count_days(days)
+
+            days_off, days_on, days_count = counted_days
+
+            if not days_count:
+                return None, None, None
+
+            per_day = 1.0 * total / days_count
+
+            # Compute the different periods
+            periods = []
+            current_period = None
+            for day in days:
+                is_off = day in days_off
+                if current_period and current_period['off'] is is_off:
+                    current_period['days'].append(day)
+                else:
+                    current_period = {'off': is_off, 'days': [day]}
+                    periods.append(current_period)
+
+            # Coordinates for the line
+            x, y = [], []
+            elapsed_on = 0
+            for period in periods:
+                x.append(period['days'][0])
+                y.append(total - elapsed_on * per_day)
+                if not period['off']:
+                    elapsed_on += len(period['days'])
+
+                if period == periods[-1] and len(period['days']) > 1:
+                    x.append(period['days'][-1])
+                    if period['off']:
+                        y.append(total - elapsed_on * per_day)
+                    else:
+                        y.append(total - (elapsed_on - 1) * per_day)
+
+            return periods, [convert_date(day) for day in x], y
+
+        for index, graph_data in enumerate([data, simulated_data]):
+            is_simulated = bool(index)
+            if is_simulated and not count_open_issues:
+                continue
+
+            if closed_issues:
+
+                if data_axis[-1] < min(today, end_date):
+                    # Line from the last closed issue to today
+                    graphs.append({
+                        "x": [convert_date(day) for day in
+                              [data_axis[-1], now if today <= end_date else end_date]],
+                        "y": [graph_data[-1], graph_data[-1]],
+                        "name": "Today (simulated)" if is_simulated else "Today",
+                        "mode": "lines",
+                        "fillcolor": "rgba(%s, 0.1)" % (blue if is_simulated else green),
+                        "hoverinfo": "none",
+                        "line": {
+                            "color": "rgb(%s)" % (blue if is_simulated else green),
+                            "width": 1 if is_simulated else 2,
+                        },
+                        "type": "scatter",
+                        "fill": "none" if is_simulated else "tozeroy",
+                    })
+
+                # Graph for remaining, for each closed issue, starting at ``start_date``
+                texts = None
+                if not is_simulated:
+                    texts = [self.point_template.render(Context({
+                        'metric': metric,
+                        'date': date,
+                        'point': point,
+                    })) for date, point in closed_by_day.iteritems()]
+                    texts.insert(0, texts[0] if data_axis[0] == start_date else 'Milestone creation')
+
+                graphs.append({
+                    "x": [convert_date(day) for day in [start_date] + data_axis],
+                    "y": [simulated_total if is_simulated else total] + graph_data,
+                    "text": texts,
+                    "name": "Remaining (simulated)" if is_simulated else "Remaining",
+                    "marker": {
+                        "line": {
+                            "color": "#fff",
+                            "width": 2
+                        },
+                        "symbol": "circle",
+                        "size": 12,
+                    },
+                    "hoverinfo": "none" if is_simulated else "text",
+                    "hovermode": "closest",
+                    "fillcolor": "rgba(%s, 0.1)" % (blue if is_simulated else green),
+                    "line": {
+                        "color": "rgb(%s)" % (blue if is_simulated else green),
+                        "shape": "hv",
+                        "width": 1 if is_simulated else 2,
+                    },
+                    "fill": "none" if is_simulated else "tozeroy",
+                    "type": "scatter",
+                    "mode": "lines" if is_simulated else "lines+markers"
+                })
+
+            if is_simulated:
+                # Dotted line from the start to the end of the simulated graph
+                all_simulated_days = [start_date + timedelta(days=i) for i in range(0, (simulated_end_date - start_date).days + 1)]
+                all_periods, x, y = prepare_line_with_days_off(simulated_total, all_simulated_days)
+
+                if all_periods:
+                    graphs.append({
+                        "x": x,
+                        "y": y,
+                        "name": "Future (simulated)",
+                        "mode": "lines",
+                        "hoverinfo": "none",
+                        "line": {
+                            "color": "rgba(%s, 0.5)" % blue,
+                            "dash": "dot",
+                            "width": 1
+                        },
+                        "type": "scatter"
+                    })
+
+        # Ideal line: dotted line from the top, start of the graph, to 0, its end
+        # We make an horizontal line for days off
+
+        periods, x, y = prepare_line_with_days_off(total, all_days, all_counted_days)
+        if not all_periods:
+            all_periods = periods
+
+        if periods:
+            graphs.append({
+                "x": x,
+                "y": y,
+                "name": "Ideal",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "rgb(%s)" % green,
+                    "dash": "dot",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
+            # Then one graph for each off period
+            for index, period in enumerate(all_periods):
+                if not period['off']:
+                    continue
+                last_day = period['days'][-1] if index == len(all_periods) - 1 else all_periods[index+1]['days'][0]
+                graphs.append({
+                    "x": [convert_date(day) for day in [period['days'][0], last_day]],
+                    "y": [max(20, 10*(simulated_total/10+1))] * 2,
+                    "name": "Off",
+                    "mode": "lines",
+                    "hoverinfo": "none",
+                    "line": {
+                        "color": "rgba(128, 128, 128, 0.1)",
+                        "width": 0
+                    },
+                    "fillcolor": "rgba(128, 128, 128, 0.1)",
+                    "fill": "tozeroy",
+                    "type": "scatter"
+                })
+
+        # We draw "today" if needed
+        if today < simulated_end_date or today < end_date:
+            graphs.append({
+                "x": [convert_date(n) for n in [now, now+timedelta(seconds=1)]],
+                "y": [0, max(20, 10*(simulated_total/10+1))],
+                "name": "Today",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "#ad31ba",
+                    "dash": "dash",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
+        # And the official milestone due date if set
+        if milestone.due_on:
+            graphs.append({
+                "x": [convert_date(n) for n in [milestone.due_on, milestone.due_on+timedelta(seconds=1)]],
+                "y": [0, max(20, 10*(simulated_total/10+1))],
+                "name": "Milestone end",
+                "mode": "lines",
+                "hoverinfo": "none",
+                "line": {
+                    "color": "rgb(%s)" % green,
+                    "dash": "dash",
+                    "width": 1
+                },
+                "type": "scatter"
+            })
+
+
+        layout = {
+            "showlegend": False,
+            "xaxis": {
+                "hoverformat": "%B %-d (%A)",
+                "type": "date",
+                "fixedrange": True,
+                "zeroline": True,
+                "zerolinewidth": 2,
+            },
+            "yaxis": {
+                "fixedrange": True,
+                "showline": True,
+                "linewidth": 1,
+                "range": [-1, max(20, 10*(simulated_total/10+1))]
+            },
+        }
+
+        return {
+            'metric': metric,
+            'issues_type': issues_type,
+            'graphs': mark_safe(json.dumps(graphs)),
+            'layout': mark_safe(json.dumps(layout)),
+            'points': closed_by_day,
+            'all_stats': stats,
+            'simulate': {
+                'default_metric_value': default_metric_value,
+                'avg_per_day': simulated_avg_day,
+                'total': simulated_total,
+                'end_date': simulated_end_date,
+                'left': simulated_left,
+                'days_left': int(simulated_days_left + 0.99),
+            },
+        }
+
+    def get_context_data(self, **kwargs):
+        context = super(MilestoneGraph, self).get_context_data(**kwargs)
+
+        milestone = self.object
+        graph = self.get_graph()
+        issues_type = graph['issues_type']
+
+        qs = {
+            'milestone': milestone.number,
+            'metric': graph['metric'].name,
+        }
+        if issues_type == 'pr':
+            qs['pr'] = 'yes'
+        elif issues_type == 'nopr':
+            qs['pr'] = 'no'
+
+        all_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
+        qs['state'] = 'open'
+        open_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
+
+        issues_filter = {'state': 'open'}
+        if issues_type == 'pr':
+            issues_filter['is_pull_request'] = True
+        elif issues_type == 'nopr':
+            issues_filter['is_pull_request'] = False
+
+        context.update({
+            'graph': graph,
+            'current_metric': graph['metric'],
+            'current_issues_url': self.repository.get_view_url('issues'),
+            'all_stats': graph['all_stats'],
+            'open_stats': get_metric_stats(milestone.issues.filter(**issues_filter), graph['metric']),
+            'all_querystring_parts': all_qs_parts,
+            'open_querystring_parts': open_qs_parts,
+        })
+
+        return context
+
+
