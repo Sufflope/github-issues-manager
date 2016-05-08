@@ -62,17 +62,17 @@
         {% endif %}
     </section>
     <footer>
-        {% with labels=current_issue.labels.ready %}
+        {% with labels=current_issue.labels.all %}
             {% if labels|length or current_issue_edit_level == 'full' %}
                 <div class="issue-labels edit-place" data-field="labels">
                     <ul class="unstyled">
                         {% if labels|length %}
-                            {% for label in current_issue.labels.ready %}
+                            {% for label in labels %}
                                 {% if label.label_type_id %}
                                     <li style="border-bottom-color: #{{ label.color }}"><strong>{{ label.label_type.name }}:</strong> {{ label.typed_name }}</li>
                                 {% endif %}
                             {% endfor %}
-                            {% for label in current_issue.labels.ready %}
+                            {% for label in labels %}
                                 {% if not label.label_type_id %}
                                     <li style="border-bottom-color: #{{ label.color }}">{{ label.name }}</li>
                                 {% endif %}

@@ -12,8 +12,11 @@
                             <span class="label label-success">Just created !</span>
                         {% endif %}
                     {% endif %}
+                    {% if label_type.is_metric %}
+                        <span class="is-metric{% if current_repository.main_metric_id == label_type.id %} is-main-metric{% endif %}"><i class="fa fa-toggle-on"></i> Is {% if current_repository.main_metric_id == label_type.id %}main {% endif %}metric</span>
+                    {% endif %}
                 {% else %}
-                    Others
+                    Labels not in groups
                 {% endif %}
             </span>
             <ul class="box-toolbar">

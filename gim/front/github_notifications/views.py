@@ -135,7 +135,8 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         and the group field if any
         """
 
-        issues, total_count, limit_reached = super(GithubNotifications, self).finalize_issues(issues, context)
+        issues, total_count, limit_reached, original_queryset = \
+            super(GithubNotifications, self).finalize_issues(issues, context)
 
         notifications = {n.issue_id: n for n in self.github_notifications}
         subscriptions = {s.repository_id: s for s in self.subscriptions}
@@ -149,7 +150,7 @@ class GithubNotifications(BaseIssuesView, TemplateView):
             for issue in issues:
                 setattr(issue, group_by_field, getattr(issue.github_notification, field))
 
-        return issues, total_count, limit_reached
+        return issues, total_count, limit_reached, original_queryset
 
     def _get_read(self, qs_parts):
         """

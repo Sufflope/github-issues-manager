@@ -26,6 +26,8 @@ $().ready(function() {
         }, // prepare_content
 
         reload: function() {
+            var $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
+            this.$node.append($mask);
             $(this.selector).trigger('reload');
         }, // reload
 
@@ -250,6 +252,8 @@ $().ready(function() {
             $document.on('click', '.hook-block a.btn-loading', HookToggleForm.on_button_click);
         }
     }; // HookToggleForm
+    
+    $document.on('click', '#milestones a.metric-stats', window.ChartManager.open_from_link);
 
     var $body = $('body');
     IssuesByDayGraph.fetch_and_make_graph($body.data('repository-id'), 40, $body.find('main > .row-header .area-top'));

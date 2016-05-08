@@ -200,6 +200,8 @@ class BoardView(BoardMixin, BaseRepositoryView):
                 )
 
         context['can_add_issues'] = True
+        context['all_metrics'] = list(self.repository.all_metrics())
+        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
         return context
 
@@ -406,7 +408,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
             'list_description': self.current_column['description'],
         })
 
-        return super(BoardColumnView, self).get_context_data(**context)
+        return context
 
     def get_querystring_context(self, querystring=None):
         qs_context = super(BoardColumnView, self).get_querystring_context(querystring)

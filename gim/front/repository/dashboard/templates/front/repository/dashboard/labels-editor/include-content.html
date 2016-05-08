@@ -2,3 +2,24 @@
     {% include label_type_include_template with label_type=label_type labels=label_type.visible_labels %}
 {% endfor %}
 {% include label_type_include_template with label_type=None labels=labels_without_type %}
+
+<div class="row-fluid">
+    <div class="box span12">
+        <div class="box-header"><span class="title">Main metric</span></div>
+        <div class="box-content padded">
+            <p>
+                If you have at least one group with <strong>Is metric</strong> checked, you can
+                choose which metric to display by default for this repository.
+                <br />
+                Leave empty if you don't want any metric to be displayed by default.
+            </p>
+            <form id="main_metric_form" method="post" action="{{ main_metric_set_url }}">{% csrf_token %}
+                {{ main_metric_form.main_metric.errors }}
+                <div>
+                    {{ main_metric_form.main_metric }}
+                    <button class="btn btn-blue btn-small" type="submit">Set</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

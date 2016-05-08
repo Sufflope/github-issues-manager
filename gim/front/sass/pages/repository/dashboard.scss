@@ -12,6 +12,8 @@
 @import "components/issues_mixins";
 @import "components/issue";
 @import "components/dashboard-2cols";
+@import "components/metric_stats";
+@import "components/charts_modal";
 
 @import "widgets/activity";
 @import "widgets/datepicker";
@@ -70,6 +72,7 @@ $counters-small-height: 154px;
             bottom: 0;
         }
         & > .date,
+        & > .metric-stats,
         & > .issues-link,
         & > .edit-link {
             float: right;
@@ -77,6 +80,10 @@ $counters-small-height: 154px;
             opacity: 0;
             @include transition(opacity 0.35s);
             margin-top: -10px;
+        }
+        & > .metric-stats {
+            margin-left: 10px;
+            font-style: normal;
         }
         & > .issues-link {
             margin-right: 1em;
@@ -120,6 +127,7 @@ $counters-small-height: 154px;
             &:not(.collapsed) {
                 & ~ .date,
                 & ~ .issues-link,
+                & ~ .metric-stats,
                 & ~ .edit-link {
                     opacity: 1;
                     margin-bottom: 10px;
@@ -242,6 +250,9 @@ ul.labels {
 
 #milestones {
     bottom: 0;
+    .box-toolbar .quicksearch-widget {
+        margin-right: 8px;
+    }
 }
 
 

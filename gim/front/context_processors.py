@@ -42,7 +42,8 @@ def default_context_data(request):
         },
         'new_uuid': uuid4,
         'AVATARS_PREFIX': settings.AVATARS_PREFIX,
-        'default_avatar': GithubUser.get_default_avatar()
+        'default_avatar': GithubUser.get_default_avatar(),
+        'states': ('open', 'closed'),
     }
 
 
