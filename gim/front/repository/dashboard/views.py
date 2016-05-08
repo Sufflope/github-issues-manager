@@ -714,6 +714,9 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         metric_label_type_name = self.request.GET.get('metric', None)
         metric = get_metric(self.repository, metric_label_type_name, first_if_none=True)
+        issues_type = self.request.GET.get('issues', None)
+        if issues_type not in {'all', 'nopr', 'pr'}:
+            issues_type = 'nopr'
 
         if not metric:
             raise Http404
@@ -749,6 +752,11 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         # Get issues
         all_issues = milestone.issues.all()
+        if issues_type == 'pr':
+            all_issues = all_issues.filter(is_pull_request=True)
+        elif issues_type == 'nopr':
+            all_issues = all_issues.filter(is_pull_request=False)
+
         closed_issues = sorted(
             [i for i in all_issues if i.state == 'closed'],
             key=attrgetter('closed_at')
@@ -1044,6 +1052,7 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         return {
             'metric': metric,
+            'issues_type': issues_type,
             'graphs': mark_safe(json.dumps(graphs)),
             'layout': mark_safe(json.dumps(layout)),
             'points': closed_by_day,
@@ -1063,21 +1072,33 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
 
         milestone = self.object
         graph = self.get_graph()
+        issues_type = graph['issues_type']
 
         qs = {
             'milestone': milestone.number,
             'metric': graph['metric'].name,
         }
+        if issues_type == 'pr':
+            qs['pr'] = 'yes'
+        elif issues_type == 'nopr':
+            qs['pr'] = 'no'
+
         all_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
         qs['state'] = 'open'
         open_qs_parts = get_querystring_context(make_querystring(qs))['querystring_parts']
+
+        issues_filter = {'state': 'open'}
+        if issues_type == 'pr':
+            issues_filter['is_pull_request'] = True
+        elif issues_type == 'nopr':
+            issues_filter['is_pull_request'] = False
 
         context.update({
             'graph': graph,
             'current_metric': graph['metric'],
             'current_issues_url': self.repository.get_view_url('issues'),
             'all_stats': graph['all_stats'],
-            'open_stats': get_metric_stats(milestone.issues.filter(state='open'), graph['metric']),
+            'open_stats': get_metric_stats(milestone.issues.filter(**issues_filter), graph['metric']),
             'all_querystring_parts': all_qs_parts,
             'open_querystring_parts': open_qs_parts,
         })

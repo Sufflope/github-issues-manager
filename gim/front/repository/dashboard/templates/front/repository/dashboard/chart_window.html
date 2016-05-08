@@ -21,6 +21,12 @@
                     {% endif %}
                 {% endfor %}
             </select>
+            with
+            <select id="milestone-issues-type-selector" autocomplete="off">
+                <option value="nopr">Normal issues only</option>
+                <option value="pr">Pull requests only</option>
+                <option value="all">Normal issues and pull requests</option>
+            </select>
         </h6>
     </div>
     <div class="modal-body">

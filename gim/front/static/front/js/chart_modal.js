@@ -2,9 +2,11 @@ var ChartManager = {
     $modal: $('#milestone-graph-container'),
     $modal_milestone_select: $('#milestone-graph-selector'),
     $modal_metric_select: $('#milestone-graph-metric-selector'),
+    $modal_issues_type_select: $('#milestone-issues-type-selector'),
     $modal_body: null,
     current_number: null,
     current_metric: null,
+    current_issues_type: null,
 
     open_from_link: function(ev) {
         ev.preventDefault();
@@ -23,7 +25,7 @@ var ChartManager = {
         $.ajaxSetup({cache: true});
         $.ajax({
             type: 'GET',
-            url: graph_url + '?metric=' + ChartManager.current_metric,
+            url: graph_url + '?metric=' + ChartManager.current_metric + '&issues=' + ChartManager.current_issues_type,
             cache: true
         }).done($.proxy(ChartManager.on_chart_load_success, {number: ChartManager.current_number}))
             .fail(ChartManager.on_chart_load_failure)
@@ -47,6 +49,11 @@ var ChartManager = {
         ChartManager.current_metric = metric;
         ChartManager.$modal_metric_select.select2("val", metric);
     }, // change_metric
+
+    change_issues_type: function(issues_type) {
+        ChartManager.current_issues_type = issues_type;
+        ChartManager.$modal_issues_type_select.select2("val", issues_type);
+    }, // change_issues_type
 
     prepare_selectors: function () {
         var format = function(state, include_title) {
@@ -88,7 +95,9 @@ var ChartManager = {
         });
 
         ChartManager.current_metric = ChartManager.$modal_metric_select.val();
+        ChartManager.current_issues_type = ChartManager.$modal_issues_type_select.val();
         ChartManager.$modal_metric_select.select2();
+        ChartManager.$modal_issues_type_select.select2();
     }, // prepare_selectors
 
     on_milestone_selector_change: function(ev) {
@@ -103,11 +112,17 @@ var ChartManager = {
         ChartManager.on_milestone_selector_change(ev);
     }, // on_metric_selector_change
 
+    on_issues_type_selector_change: function(ev) {
+        ChartManager.current_issues_type = ChartManager.$modal_issues_type_select.val();
+        ChartManager.on_milestone_selector_change(ev);
+    }, // on_metric_selector_change
+
     init: function() {
         ChartManager.$modal_body = ChartManager.$modal.find('.modal-body');
         ChartManager.prepare_selectors();
         ChartManager.$modal_milestone_select.on('change', ChartManager.on_milestone_selector_change);
         ChartManager.$modal_metric_select.on('change', ChartManager.on_metric_selector_change);
+        ChartManager.$modal_issues_type_select.on('change', ChartManager.on_issues_type_selector_change);
     } // init
 }; // ChartManager
 
