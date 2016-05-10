@@ -158,9 +158,8 @@ class _GithubUser(Hashable, models.Model):
 
         return core_models.Repository.objects.filter(id__in=ids).extra(select={
                     'lower_name': 'lower(name)',
-                    'lower_owner': 'lower(username)',
                 }
-            ).select_related('owner').order_by('lower_owner', 'lower_name')
+            ).select_related('owner').order_by('owner__username_lower', 'lower_name')
 
     @cached_property
     def unread_notifications_count(self):

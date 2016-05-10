@@ -143,7 +143,7 @@ class IssueMilestoneFormPart(object):
 class IssueAssigneeFormPart(object):
     def __init__(self, *args, **kwargs):
         super(IssueAssigneeFormPart, self).__init__(*args, **kwargs)
-        collaborators = self.repository.collaborators.all()
+        collaborators = self.repository.collaborators.all().order_by('username_lower')
         self.fields['assignee'].queryset = collaborators
         self.fields['assignee'].widget.choices = self.get_collaborators_choices(collaborators)
         self.fields['assignee'].widget.attrs.update({
@@ -160,10 +160,7 @@ class IssueAssigneeFormPart(object):
                 for u in collaborators}
         return json.dumps(data)
 
-        collaborators = sorted(self.repository.collaborators.all(), key=lambda u: u.username.lower())
-
     def get_collaborators_choices(self, collaborators):
-        collaborators = sorted(collaborators, key=lambda u: u.username.lower())
         return [('', 'No one assigned')] + [(u.id, u.username) for u in collaborators]
 
 

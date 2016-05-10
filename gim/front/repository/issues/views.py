@@ -65,8 +65,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
     relation = None
 
     def get_usernames(self):
-        qs = getattr(self.repository, self.relation).order_by()
-        return sorted(qs.values_list('username', flat=True), key=unicode.lower)
+        return getattr(self.repository, self.relation).order_by('username_lower').values_list('username', flat=True)
 
     def count_usernames(self):
         if not hasattr(self, '_count'):

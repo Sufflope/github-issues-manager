@@ -189,9 +189,8 @@ class WithSubscribedRepositoriesViewMixin(DependsOnSubscribedViewMixin):
                 rights=self.subscriptions_list_rights
            ).extra(select={
                     'lower_name': 'lower(name)',
-                    'lower_owner': 'lower(username)',
                 }
-            ).select_related('owner').order_by('lower_owner', 'lower_name')
+            ).select_related('owner').order_by('owner__username_lower', 'lower_name')
 
         return context
 

@@ -54,6 +54,7 @@ AVAILABLE_PERMISSIONS = Choices(
 
 class GithubUser(GithubObjectWithId, AbstractUser):
     # username will hold the github "login"
+    username_lower = models.CharField(max_length=255, null=True)
     token = models.TextField(blank=True, null=True)
     full_name = models.TextField(blank=True, null=True)
     avatar_url = models.TextField(blank=True, null=True)
@@ -459,6 +460,11 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         """
         if self.email is None:
             self.email = ''
+        username_lower = self.username.lower()
+        if username_lower != self.username_lower:
+            self.username_lower = username_lower
+            if 'update_fields' in kwargs:
+                kwargs['update_fields'] = list(kwargs['update_fields']) + ['username_lower']
         super(GithubUser, self).save(*args, **kwargs)
 
     @property
