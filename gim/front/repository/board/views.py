@@ -198,6 +198,7 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
 
     template_name = 'front/repository/board/board.html'
     filters_template_name = 'front/repository/board/include_filters.html'
+    options_template_name = 'front/repository/board/include_options.html'
 
     default_qs = 'state=open'
     display_in_menu = False
@@ -246,6 +247,8 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
             'list_uuid': self.list_uuid,
             'current_issues_url': self.base_url,
             'filters_title': 'Filters for all columns',
+            'can_show_shortcuts': True,
+            'force_display_groups_options': True,
         })
 
         return context
@@ -256,7 +259,7 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
         """
 
         if self.request.is_ajax():
-            return self.filters_template_name
+            return 'front/repository/board/board_ajax.html'
 
         return super(BoardView, self).get_template_names()
 
@@ -469,6 +472,8 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
             'list_title': self.current_column['name'],
             'list_description': self.current_column['description'],
             'filters_title': 'Filters for this column',
+            'can_show_shortcuts': False,
+            'can_add_issues': False,
         })
 
         return context

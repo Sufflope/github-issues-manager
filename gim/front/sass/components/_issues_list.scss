@@ -71,6 +71,8 @@ $issues-quicksearch-height: 29px;
     }
     i {
         font-size: smaller;
+        position: relative;
+        top: -1px;
     }
 } // .issues-list-options span.selection
 .issues-list-options .navbar-inner {

@@ -1,6 +1,6 @@
 {% load querystring frontutils %}
-<nav class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
-    <div class="navbar-inner">
+<nav id="issues-list-options-{{ list_uuid }}" class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
+    <div class="navbar-inner {% block issues-list-options-navbar-inner-classes %}{% endblock %}">
         <ul class="nav">
             <li class="dropdown span4 dropdown-sort">
                 <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
@@ -90,9 +90,11 @@
                 </a>
                 <ul class="dropdown-menu pull-right" role="menu" aria-label="Options">
                     <li><a href="#" class="toggle-issues-details">Toggle details</a></li>
-                    <li><a href="#" class="refresh-list">Refresh list</a></li>
-                    <li><a href="#" class="close-all-groups">Close all groups</a></li>
-                    <li><a href="#" class="open-all-groups">Open all groups</a></li>
+                    <li><a href="#" class="refresh-list">{% block option-refresh-list-name %}Refresh list{% endblock %}</a></li>
+                    {% if force_display_groups_options or issues_filter.parts.group_by %}
+                        <li><a href="#" class="close-all-groups">Close all groups</a></li>
+                        <li><a href="#" class="open-all-groups">Open all groups</a></li>
+                    {% endif %}
                     {% if can_show_shortcuts %}
                         <li><a href="#" id="show-shortcuts" data-toggle="modal" data-target="#shortcuts-window">Show shortcuts</a></li>
                     {% endif %}

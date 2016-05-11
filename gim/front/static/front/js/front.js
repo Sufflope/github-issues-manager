@@ -1635,6 +1635,11 @@ $().ready(function() {
         }
     }); // IssuesList__replace_by_node
 
+    IssuesList.get_loaded_lists = (function IssuesList_get_loaded_lists () {
+        return $.grep(IssuesList.all, function(list) { return !list.$node.hasClass('not-loaded'); });
+    }); // IssuesList_get_loaded_lists
+
+
     IssuesList.update_time_ago = (function IssuesList_update_time_ago ($lists) {
         $lists = $lists || $(IssuesList.selector);
         for (var i = 0; i < $lists.length; i++) {
@@ -1675,10 +1680,10 @@ $().ready(function() {
         }
 
         // keyboard events
-        $document.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
-        $document.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
-        $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
-        $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
 
         if (window.ChartManager) {
             $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
@@ -1725,7 +1730,7 @@ $().ready(function() {
         }
         IssuesList.updating_ids[kwargs.id] = true;
 
-        var loaded_lists = $.grep(IssuesList.all, function(list) { return !list.$node.hasClass('not-loaded'); });
+        var loaded_lists = IssuesList.get_loaded_lists();
 
         var message_conf = {
             count: 0,
@@ -2015,6 +2020,15 @@ $().ready(function() {
         return false; // stop event propagation
     }); // IssuesList__toggle_details
 
+    IssuesList.refresh = (function IssuesList_refresh () {
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
+            list.refresh();
+        }
+        return false; // stop event propagation
+    }); // IssuesList_refresh
+
     IssuesList.prototype.refresh = (function IssuesList__refresh () {
         IssuesFilters.reload_filters_and_list(
             this.url,
@@ -2026,8 +2040,9 @@ $().ready(function() {
     }); // IssuesList__refresh
 
     IssuesList.close_all_groups = (function IssuesList_close_all_groups () {
-        for (var i = 0; i < IssuesList.all.length; i++) {
-            var list = IssuesList.all[i];
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
             list.close_all_groups();
         }
         return false; // stop event propagation
@@ -2042,8 +2057,9 @@ $().ready(function() {
     }); // IssuesList__close_all_groups
 
     IssuesList.open_all_groups = (function IssuesList_open_all_groups () {
-        for (var i = 0; i < IssuesList.all.length; i++) {
-            var list = IssuesList.all[i];
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
             list.open_all_groups();
         }
         return false; // stop event propagation

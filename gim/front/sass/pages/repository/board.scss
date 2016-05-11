@@ -18,99 +18,102 @@ $board-header-height: 51px;
 
 // enforce height to tell columns to scroll in this height
 html, body {
-  height: 100%;
-  overflow: hidden;
+    height: 100%;
+    overflow: hidden;
 }
 #main {
-  height: 100%;
-  overflow: hidden;
-  padding-right: 0;
-  padding-left: 0;
-  padding-top: 0;
+    height: 100%;
+    overflow: hidden;
+    padding-right: 0;
+    padding-left: 0;
+    padding-top: 0;
 }
 
 body#repository_board #main-inner {
-  padding: 0;
-  padding-top: $header-top;
-  height: 100%;
-  @include box-sizing(border-box);
-  position: relative;
+    padding: 0;
+    padding-top: $header-top;
+    height: 100%;
+    @include box-sizing(border-box);
+    position: relative;
 }
 
 
 .row-header {
-  height: ($board-header-height - 1px);
-  position: relative;
-  top: $header-top;
-  margin-bottom: 0;
-  .area-top {
+    height: ($board-header-height - 1px);
+    position: relative;
+    top: $header-top;
     margin-bottom: 0;
-    .row-fluid > div {
-      position: relative;
+    .area-top {
+        margin-bottom: 0;
+        .row-fluid > div {
+            position: relative;
+            &:last-child {
+                margin-left: 15px;
+            }
+        }
     }
-  }
-  select {
-    margin: 0;
-  }
+    select {
+        margin: 0;
+    }
 }
 
 #board-columns {
-  position: absolute;
-  top: $header-top + $board-header-height;
-  left: $sidebar-width;
-  bottom: 0;
-  right: 0;
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0;
+    position: absolute;
+    top: $header-top + $board-header-height;
+    left: $sidebar-width;
+    bottom: 0;
+    right: 0;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
 }
 .board-column {
-  position: relative;
-  min-width: 300px;
-  width: 500px;
-  overflow: hidden;
-  &.hidden {
-    order: -1;
-    display: none;
-  }
+    position: relative;
+    min-width: 300px;
+    width: 500px;
+    overflow: hidden;
+    &.hidden {
+        order: -1;
+        display: none;
+    }
 }
 
 .issues-list-container {
-  margin-left: 0;
-  margin-right: 0;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  border-right: solid 1px $dark-border-color;
-  @include box-sizing(border-box);
+    margin-left: 0;
+    margin-right: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    border-right: solid 1px $dark-border-color;
+    @include box-sizing(border-box);
 }
 
 .board-column-closer {
-  position: absolute;
-  top: 5px;
-  right: 5px;
+    position: absolute;
+    top: 5px;
+    right: 5px;
 }
 
 .issues-list-title {
-  &.type-label span {
-    border-bottom: solid 2px transparent;
-    position: relative;
-    top: -2px;
-  }
-  &.type-assigned img {
-    position: relative;
-    top: -1px;
-    margin-right: 2px;
-  }
-  &.value-none {
-    font-style: italic;
-  }
+    &.type-label span {
+        border-bottom: solid 2px transparent;
+        position: relative;
+        top: -2px;
+    }
+    &.type-assigned img {
+        position: relative;
+        top: -1px;
+        margin-right: 2px;
+    }
+    &.value-none {
+        font-style: italic;
+    }
 }
 
 .board-column .issues-filters {
@@ -148,47 +151,47 @@ body#repository_board #main-inner {
 }
 
 #issues-filters-board-main {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  top: $header-top + $board-header-height;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    top: $header-top + $board-header-height;
 }
 
 // hide filters sidebar in small width screens
 @media (max-width: 1023px) {
-  #board-columns {
-    left: ($sidebar-toggler-width - 1px);
-  }
-  #issues-filters-board-main {
-    .filters-toggler {
-      display: block;
-      z-index: 34;
-      padding-top: 5px;
+    #board-columns {
+        left: ($sidebar-toggler-width - 1px);
     }
-    left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
-    z-index: 32;
-    @include transition(transform 0.35s);
-    .primary-sidebar {
-      @include transition(opacity 0.35s);
-      opacity: 0;
+    #issues-filters-board-main {
+        .filters-toggler {
+            display: block;
+            z-index: 34;
+            padding-top: 5px;
+        }
+        left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+        z-index: 32;
+        @include transition(transform 0.35s);
+        .primary-sidebar {
+            @include transition(opacity 0.35s);
+            opacity: 0;
+        }
+        &.open, &:hover, &:focus {
+            @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+            .filters-toggler {
+                opacity: 0;
+                width: $sidebar-toggler-width;
+                @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+            }
+            .primary-sidebar {
+                opacity: 1;
+            }
+        }
     }
-    &.open, &:hover, &:focus {
-      @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
-      .filters-toggler {
-        opacity: 0;
-        width: $sidebar-toggler-width;
-        @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
-      }
-      .primary-sidebar {
-        opacity: 1;
-      }
-    }
-  }
 }
 
 
 #select2-drop.board-selector .select2-results {
-  max-height: 80%;
+    max-height: 80%;
 }
 .select2-results .select2-result-label.labels-editor-link {
     border-top: 1px solid #ddd;
@@ -199,46 +202,114 @@ body#repository_board #main-inner {
 }
 
 #board-columns-arranger-toggler {
-  font-size: 12px;
-  font-weight: normal;
+    font-size: 12px;
+    font-weight: normal;
+    display: inline-block;
+    width: 12em;
+    vertical-align: middle;
+    text-shadow: 0 1px 0 #fff;
 }
 
 #board-columns-arranger-holder {
-  position: absolute;
-  left: -12px;
-  right: 0;
-  margin-top: -1px;
-  z-index: 32;
-  @include transition(none);
-  > div {
-    background: #f5f5f5;
-    @include box-shadow(0 4px 5px 0 #888);
-    @include border-radius(0 2px 2px 2px);
-    border: 1px solid #d4d4d4;
-    margin: 0 12px 12px;
-    padding: 5px;
-    overflow: auto;
-    > p {
-      margin: 0;
-      line-height: 22px;
-    }
+    position: absolute;
+    left: -12px;
+    right: 0;
+    margin-top: -1px;
+    z-index: 32;
+    @include transition(none);
     > div {
-      float: right;
-      margin-bottom: 5px;
-      button {
-        font-weight: normal;
-        margin-left: 5px;
-      }
+        background: #f5f5f5;
+        @include box-shadow(0 4px 5px 0 #888);
+        @include border-radius(0 2px 2px 2px);
+        border: 1px solid #d4d4d4;
+        margin: 0 12px 12px;
+        padding: 5px;
+        overflow: auto;
+        > p {
+            margin: 0;
+            line-height: 22px;
+        }
+        > div {
+            float: right;
+            margin-bottom: 5px;
+            button {
+                font-weight: normal;
+                margin-left: 5px;
+            }
+        }
     }
-  }
 }
 
 .issues-group.empty-sortable {
     visibility: hidden;
     &.visible {
-      visibility: visible;
+        visibility: visible;
     }
 }
 #board-columns.dragging .issues-group-issues {
     min-height: 31px;
+}
+
+#issues-list-options-board-main {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 13px;
+    white-space: nowrap;
+    float: right;
+
+    .navbar-inner {
+        min-height: 30px;
+        height: 30px;
+        border: solid 1px #d4d4d4;
+        margin-top: 0;
+        padding: 0;
+    }
+
+    .nav > li[class*="span"] {
+        width: auto;
+        height: 30px;
+        line-height: 20px;
+    }
+
+    a.dropdown-toggle {
+        padding-top: 3px;
+        padding-bottom: 5px;
+        line-height: inherit;
+        font-size: 12px;
+        font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+        font-weight:normal;
+        color: #686868;
+        &:hover {
+            color: #505050;
+        }
+        > span {
+            display: inline-block;
+            vertical-align: middle;
+            &.caret {
+                margin-top: -4px !important;
+                border-top-color: #000;
+            }
+            &.selection {
+                padding-left: 8px;
+                font-size: 11px;
+                position: relative;
+                top: 1px;
+            }
+        }
+    }
+
+    .dropdown-menu {
+        text-align: left;
+    }
+
+    .divider-vertical {
+        height: 29px;
+        border-left-color: #d4d4d4;
+        border-right-color: #f2f2f2;
+    }
+
+    .empty-area {
+        font-size: 200%;
+    }
 }

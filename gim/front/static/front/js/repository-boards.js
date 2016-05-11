@@ -710,41 +710,35 @@ $().ready(function() {
         }, // Board.dragger
 
         filters: {
-            selector: '#issues-filters-board-main',
+            filters_selector: '#issues-filters-board-main',
+            options_selector: '#issues-list-options-board-main',
 
-            on_filter_click: function() {
-                var $filters_node = $(this).closest(Board.filters.selector);
-                return Board.filters.reload_filters_and_lists(this.href, $filters_node);
+            on_filter_or_option_click: function() {
+                return Board.filters.reload_filters_and_lists(this.href);
             }, // on_filter_click
 
-            reload_filters_and_lists: function(url, $filters_node) {
-                var fail_callback = function(xhr, data) { window.location.href = url; };
-
-                var context = {
-                    '$filters_node': $filters_node,
-                    url: url
-                };
-
+            reload_filters_and_lists: function(url) {
                 $.get(url)
-                    .done($.proxy(Board.filters.on_filters_loaded, context))
-                    .fail($.proxy(fail_callback, context));
+                    .done(Board.filters.on_filters_loaded)
+                    .fail(function() { window.location.href = url; });
 
-                IssuesFilters.add_waiting($filters_node);
-                
+                IssuesFilters.add_waiting($(Board.filters.filters_selector));
+                IssuesFilters.add_waiting($(Board.filters.options_selector));
+
                 var $columns = Board.$columns,
                     querystring = UrlParser.parse(url).search;
 
                 for (var i = 0; i < $columns.length; i++) {
                     var $column = $($columns[i]),
                         $issues_list_node = $column.children(Board.lists.lists_selector),
-                        $column_filters_node = $column.children(Board.lists.filters_selector),
+                        $filters_node = $column.children(Board.lists.filters_selector),
                         $issues_list = $issues_list_node.children('.issues-list'),
                         column_url = $issues_list.data('base-url') + querystring;
 
                     $issues_list.data('url', column_url);
 
                     if ($column.hasClass('loaded')) {
-                        IssuesFilters.reload_filters_and_list(column_url, $column_filters_node, $issues_list_node, true);
+                        IssuesFilters.reload_filters_and_list(column_url, $filters_node, $issues_list_node, true);
                     }
 
                 }
@@ -754,15 +748,28 @@ $().ready(function() {
 
             on_filters_loaded: function (data) {
                 var $data = $(data),
-                    $new_filters_node = $data.filter(Board.filters.selector);
+                    $new_filters_node = $data.filter(Board.filters.filters_selector),
+                    $new_options_node = $data.filter(Board.filters.options_selector);
 
                 $new_filters_node.find('.deferrable').deferrable();
-                this.$filters_node.replaceWith($new_filters_node);
+                $new_options_node.find('.deferrable').deferrable();
+                $(Board.filters.filters_selector).replaceWith($new_filters_node);
+                $(Board.filters.options_selector).replaceWith($new_options_node);
 
             }, // on_filters_loaded
 
             init: function() {
-                $document.on('click', Board.filters.selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(Board.filters.on_filter_click));
+                $document.on('click', Board.filters.filters_selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(Board.filters.on_filter_or_option_click));
+
+                $document.on('click', Board.filters.options_selector + ' .dropdown-sort a, ' +
+                                      Board.filters.options_selector + ' .dropdown-groupby a, ' +
+                                      Board.filters.options_selector + ' .dropdown-metric a'
+                    , Ev.stop_event_decorate_dropdown(Board.filters.on_filter_or_option_click));
+
+                $document.on('click', '#issues-list-options-board-main .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
+                $document.on('click', '#issues-list-options-board-main .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
+                $document.on('click', '#issues-list-options-board-main .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
+                $document.on('click', '#issues-list-options-board-main .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
             } // init
 
         }, // Board.filters
