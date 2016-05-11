@@ -254,6 +254,15 @@ p.state-closed {
   padding-left: 5px;
 }
 /* line 42, ../../../../../sass/components/_issues_filters.scss */
+.issues-filters .issues-filters-title {
+  display: block;
+  text-align: center;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.9);
+  min-height: 18px;
+  font-weight: 600;
+}
+/* line 50, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .selection {
   display: block;
   padding: 0;
@@ -261,7 +270,7 @@ p.state-closed {
   line-height: 10px;
   font-weight: normal;
 }
-/* line 51, ../../../../../sass/components/_issues_filters.scss */
+/* line 59, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters a.clear-filter {
   position: absolute;
   top: 22px;
@@ -269,19 +278,19 @@ p.state-closed {
   padding: 0 !important;
   margin: 0;
 }
-/* line 59, ../../../../../sass/components/_issues_filters.scss */
+/* line 67, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .filter-labels > li > a > span {
   border-bottom: solid 1px transparent;
 }
-/* line 64, ../../../../../sass/components/_issues_filters.scss */
+/* line 72, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .deferred li {
   padding: 0 5px 0 20px;
 }
-/* line 68, ../../../../../sass/components/_issues_filters.scss */
+/* line 76, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget {
   margin: 5px 10px;
 }
-/* line 71, ../../../../../sass/components/_issues_filters.scss */
+/* line 79, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget label {
   margin-bottom: 0;
   position: relative;
@@ -290,7 +299,7 @@ p.state-closed {
   -webkit-border-radius: 4px;
   border-radius: 4px;
 }
-/* line 77, ../../../../../sass/components/_issues_filters.scss */
+/* line 85, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget .add-on, .issues-filters .quicksearch-widget .btn {
   padding: 1px 0 1px 2px;
   position: absolute;
@@ -298,11 +307,11 @@ p.state-closed {
   bottom: 0;
   border: none;
 }
-/* line 82, ../../../../../sass/components/_issues_filters.scss */
+/* line 90, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget .add-on:after, .issues-filters .quicksearch-widget .add-on:before, .issues-filters .quicksearch-widget .btn:after, .issues-filters .quicksearch-widget .btn:before {
   display: none;
 }
-/* line 87, ../../../../../sass/components/_issues_filters.scss */
+/* line 95, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget .add-on {
   -moz-border-radius: 4px 0 0 4px;
   -webkit-border-radius: 4px;
@@ -310,7 +319,7 @@ p.state-closed {
   left: 0;
   z-index: 10;
 }
-/* line 92, ../../../../../sass/components/_issues_filters.scss */
+/* line 100, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget .btn {
   -moz-border-radius: 0 4px 4px 0;
   -webkit-border-radius: 0;
@@ -319,12 +328,12 @@ p.state-closed {
   z-index: 20;
   padding: 0;
 }
-/* line 97, ../../../../../sass/components/_issues_filters.scss */
+/* line 105, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget .btn i {
   height: 22px;
   line-height: 22px;
 }
-/* line 102, ../../../../../sass/components/_issues_filters.scss */
+/* line 110, ../../../../../sass/components/_issues_filters.scss */
 .issues-filters .quicksearch-widget input {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;

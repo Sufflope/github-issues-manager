@@ -60,6 +60,7 @@ $().ready(function() {
             return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
         }
     };
+    window.UrlParser = UrlParser;
 
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
@@ -2155,8 +2156,11 @@ $().ready(function() {
             return $mask;
         }),
         on_filter_click: (function IssuesFilters__on_filter_click () {
-            var $filters_node = $(this).closest(IssuesFilters.selector),
-                $issues_list_node = $filters_node.next(IssuesList.container_selector);
+            var $filters_node = $(this).closest(IssuesFilters.selector), $issues_list_node;
+            if ($filters_node.attr('id') == 'issues-filters-board-main') {
+                return;
+            }
+            $issues_list_node = $filters_node.next(IssuesList.container_selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
         on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
@@ -2230,7 +2234,7 @@ $().ready(function() {
             IssuesFilters.add_waiting($issues_list_node);
 
             return false;
-        }), // on_filter_click
+        }), // reload_filters_and_list
         on_filters_and_list_loaded: (function IssuesFilters_on_filters_and_list_loaded (data) {
             var $data = $(data),
                 $new_filters_node = $data.filter(IssuesFilters.selector),

@@ -3,6 +3,7 @@
     <a class="filters-toggler" href="#issues-filters-{{ list_uuid }}" title="Show filters"><i class="fa fa-bars"></i></a>
     <div class="primary-sidebar">
         {% spaceless %}
+        {% if filters_title %}<span class="issues-filters-title">{{ filters_title }}</span>{% endif %}
         <ul id="issues-filters-accordion-{{ list_uuid }}" class="nav nav-collapse collapse nav-collapse-primary">
 
             <li class='clear-all-filters'><a href="{{ current_issues_url }}{% if view.default_qs %}?{{ view.default_qs }}{% endif %}"><i class="fa fa-times"> </i> Clear filters</a></li>

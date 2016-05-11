@@ -44,6 +44,7 @@
 {% endblock board-header %}
 
 {% block board-main %}
+    {% include view.filters_template_name %}
     <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ current_repository|can_user_write:user|lower }}">
         {% for column_key, current_column in current_board.columns.items %}
             {% with list_uuid=new_uuid %}

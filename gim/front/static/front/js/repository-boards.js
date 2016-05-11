@@ -709,6 +709,64 @@ $().ready(function() {
             }
         }, // Board.dragger
 
+        filters: {
+            selector: '#issues-filters-board-main',
+
+            on_filter_click: function() {
+                var $filters_node = $(this).closest(Board.filters.selector);
+                return Board.filters.reload_filters_and_lists(this.href, $filters_node);
+            }, // on_filter_click
+
+            reload_filters_and_lists: function(url, $filters_node) {
+                var fail_callback = function(xhr, data) { window.location.href = url; };
+
+                var context = {
+                    '$filters_node': $filters_node,
+                    url: url
+                };
+
+                $.get(url)
+                    .done($.proxy(Board.filters.on_filters_loaded, context))
+                    .fail($.proxy(fail_callback, context));
+
+                IssuesFilters.add_waiting($filters_node);
+                
+                var $columns = Board.$columns,
+                    querystring = UrlParser.parse(url).search;
+
+                for (var i = 0; i < $columns.length; i++) {
+                    var $column = $($columns[i]),
+                        $issues_list_node = $column.children(Board.lists.lists_selector),
+                        $column_filters_node = $column.children(Board.lists.filters_selector),
+                        $issues_list = $issues_list_node.children('.issues-list'),
+                        column_url = $issues_list.data('base-url') + querystring;
+
+                    $issues_list.data('url', column_url);
+
+                    if ($column.hasClass('loaded')) {
+                        IssuesFilters.reload_filters_and_list(column_url, $column_filters_node, $issues_list_node, true);
+                    }
+
+                }
+
+                return false;
+            }, // reload_filters_and_lists
+
+            on_filters_loaded: function (data) {
+                var $data = $(data),
+                    $new_filters_node = $data.filter(Board.filters.selector);
+
+                $new_filters_node.find('.deferrable').deferrable();
+                this.$filters_node.replaceWith($new_filters_node);
+
+            }, // on_filters_loaded
+
+            init: function() {
+                $document.on('click', Board.filters.selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(Board.filters.on_filter_click));
+            } // init
+
+        }, // Board.filters
+
         on_scroll: function(ev) {
             Board.lists.load_visible(500);
         }, //scroll
@@ -720,6 +778,7 @@ $().ready(function() {
                 Board.container = Board.$container[0];
             }
 
+            Board.filters.init();
             Board.lists.init();
             Board.selector.init();
             Board.arranger.init();

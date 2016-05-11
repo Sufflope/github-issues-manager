@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from uuid import uuid4
 
 from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
@@ -14,7 +15,7 @@ from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignee, IssueEditLabels, \
-    IssueEditMilestone, IssueEditState
+    IssueEditMilestone, IssueEditState, IssuesFilters
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -189,43 +190,78 @@ class BoardSelectorView(BoardMixin, BaseRepositoryView):
         return context
 
 
-class BoardView(BoardMixin, BaseRepositoryView):
+class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
     name = 'Board'
+
     url_name = 'board'
-    template_name = 'front/repository/board/board.html'
     main_url_name = 'board-selector'  # to mark the link in the main menu as current
+
+    template_name = 'front/repository/board/board.html'
+    filters_template_name = 'front/repository/board/include_filters.html'
 
     default_qs = 'state=open'
     display_in_menu = False
 
+    def __init__(self):
+        self.list_uuid = 'board-main'  # used for the filters
+        super(BoardView, self).__init__()
+
+    @cached_property
+    def base_url(self):
+        # used for the filters
+        return self.current_board['base_url']
+
+    def get_pre_context_data(self, **kwargs):
+        context = super(BoardView, self).get_pre_context_data(**kwargs)
+        context.update(self.get_boards_context())
+        return context
+
     def get_context_data(self, **kwargs):
         context = super(BoardView, self).get_context_data(**kwargs)
 
-        context.update(self.get_boards_context())
-
-        if not context.get('current_board', None):
+        if not self.current_board:
             # Will be redirected in ``render_to_response`` so no need for more context
             return context
 
-        for column_key, column in context['current_board']['columns'].items():
-            column['url'] = reverse_lazy(
-                'front:repository:%s' % BoardColumnView.url_name,
-                kwargs=dict(
-                    self.repository.get_reverse_kwargs(),
-                    board_mode=context['current_board']['mode'],
-                    board_key=context['current_board']['key'],
-                    column_key=column_key,
+        if not self.request.is_ajax():
+            for column_key, column in self.current_board['columns'].items():
+                column['url'] = reverse_lazy(
+                    'front:repository:%s' % BoardColumnView.url_name,
+                    kwargs=dict(
+                        self.repository.get_reverse_kwargs(),
+                        board_mode=self.current_board['mode'],
+                        board_key=self.current_board['key'],
+                        column_key=column_key,
+                    )
                 )
-            )
 
-        context['can_add_issues'] = True
-        context['all_metrics'] = list(self.repository.all_metrics())
-        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+            context.update({
+                'can_add_issues': True,
+                'all_metrics': list(self.repository.all_metrics()),
+            })
+
+            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+
+        context.update({
+            'list_uuid': self.list_uuid,
+            'current_issues_url': self.base_url,
+            'filters_title': 'Filters for all columns',
+        })
 
         return context
 
+    def get_template_names(self):
+        """
+        Use a specific template if the request is an ajax one
+        """
+
+        if self.request.is_ajax():
+            return self.filters_template_name
+
+        return super(BoardView, self).get_template_names()
+
     def render_to_response(self, context, **response_kwargs):
-        if not context.get('current_board', None):
+        if not self.current_board:
             return HttpResponseRedirect(self.repository.get_view_url('board-selector'))
         return super(BoardView, self).render_to_response(context, **response_kwargs)
 
@@ -432,6 +468,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
             'list_key': self.current_column['key'],
             'list_title': self.current_column['name'],
             'list_description': self.current_column['description'],
+            'filters_title': 'Filters for this column',
         })
 
         return context

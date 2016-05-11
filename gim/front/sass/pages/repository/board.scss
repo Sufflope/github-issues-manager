@@ -57,7 +57,7 @@ body#repository_board #main-inner {
 #board-columns {
   position: absolute;
   top: $header-top + $board-header-height;
-  left: 0;
+  left: $sidebar-width;
   bottom: 0;
   right: 0;
   display: flex;
@@ -113,7 +113,7 @@ body#repository_board #main-inner {
   }
 }
 
-.issues-filters {
+.board-column .issues-filters {
     position: absolute;
     top: 0;
     bottom: 0;
@@ -146,6 +146,46 @@ body#repository_board #main-inner {
         }
     }
 }
+
+#issues-filters-board-main {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  top: $header-top + $board-header-height;
+}
+
+// hide filters sidebar in small width screens
+@media (max-width: 1023px) {
+  #board-columns {
+    left: ($sidebar-toggler-width - 1px);
+  }
+  #issues-filters-board-main {
+    .filters-toggler {
+      display: block;
+      z-index: 34;
+      padding-top: 5px;
+    }
+    left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+    z-index: 32;
+    @include transition(transform 0.35s);
+    .primary-sidebar {
+      @include transition(opacity 0.35s);
+      opacity: 0;
+    }
+    &.open, &:hover, &:focus {
+      @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+      .filters-toggler {
+        opacity: 0;
+        width: $sidebar-toggler-width;
+        @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+      }
+      .primary-sidebar {
+        opacity: 1;
+      }
+    }
+  }
+}
+
 
 #select2-drop.board-selector .select2-results {
   max-height: 80%;
