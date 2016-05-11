@@ -36,7 +36,8 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         Store views to display as main views
         """
         if view_class not in BaseRepositoryView.main_views:
-            view_class.main_url_name = view_class.url_name
+            if not getattr(view_class, 'main_url_name', None):
+                view_class.main_url_name = view_class.url_name
             BaseRepositoryView.main_views.append(view_class)
 
     def get_context_data(self, **kwargs):
@@ -56,7 +57,7 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
                 'display_in_menu': view_class.display_in_menu,
                 'url': reverse_lazy('front:repository:%s' % view_class.url_name, kwargs=reverse_kwargs),
                 'qs': view_class.default_qs,
-                'is_current': self.display_in_menu and self.main_url_name == view_class.url_name,
+                'is_current': (self.display_in_menu or self.main_url_name != self.url_name) and self.main_url_name == view_class.url_name,
                 'title': view_class.name
             }
             repo_main_views.append(main_view)

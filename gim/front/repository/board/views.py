@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.shortcuts import render
 from django.http import Http404
-from django.http.response import HttpResponse
+from django.http.response import HttpResponse, HttpResponseRedirect
 from django.utils.functional import cached_property
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES
@@ -174,36 +174,60 @@ class BoardMixin(object):
         return context
 
 
-class BoardView(BoardMixin, BaseRepositoryView):
+class BoardSelectorView(BoardMixin, BaseRepositoryView):
     name = 'Board'
-    url_name = 'board'
+    url_name = 'board-selector'
     template_name = 'front/repository/board/base.html'
 
     default_qs = 'state=open'
+
     display_in_menu = True
+
+    def get_context_data(self, **kwargs):
+        context = super(BoardSelectorView, self).get_context_data(**kwargs)
+        context.update(self.get_boards_context())
+        return context
+
+
+class BoardView(BoardMixin, BaseRepositoryView):
+    name = 'Board'
+    url_name = 'board'
+    template_name = 'front/repository/board/board.html'
+    main_url_name = 'board-selector'  # to mark the link in the main menu as current
+
+    default_qs = 'state=open'
+    display_in_menu = False
 
     def get_context_data(self, **kwargs):
         context = super(BoardView, self).get_context_data(**kwargs)
 
         context.update(self.get_boards_context())
 
-        if context.get('current_board', None):
-            for column_key, column in context['current_board']['columns'].items():
-                column['url'] = reverse_lazy(
-                    'front:repository:%s' % BoardColumnView.url_name,
-                    kwargs=dict(
-                        self.repository.get_reverse_kwargs(),
-                        board_mode=context['current_board']['mode'],
-                        board_key=context['current_board']['key'],
-                        column_key=column_key,
-                    )
+        if not context.get('current_board', None):
+            # Will be redirected in ``render_to_response`` so no need for more context
+            return context
+
+        for column_key, column in context['current_board']['columns'].items():
+            column['url'] = reverse_lazy(
+                'front:repository:%s' % BoardColumnView.url_name,
+                kwargs=dict(
+                    self.repository.get_reverse_kwargs(),
+                    board_mode=context['current_board']['mode'],
+                    board_key=context['current_board']['key'],
+                    column_key=column_key,
                 )
+            )
 
         context['can_add_issues'] = True
         context['all_metrics'] = list(self.repository.all_metrics())
         context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
         return context
+
+    def render_to_response(self, context, **response_kwargs):
+        if not context.get('current_board', None):
+            return HttpResponseRedirect(self.repository.get_view_url('board-selector'))
+        return super(BoardView, self).render_to_response(context, **response_kwargs)
 
 
 class BoardColumnMixin(BoardMixin):
