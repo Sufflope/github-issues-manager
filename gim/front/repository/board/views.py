@@ -208,7 +208,8 @@ class BoardView(BoardMixin, BaseRepositoryView):
 
 class BoardColumnMixin(BoardMixin):
 
-    def get_base_url(self):
+    @cached_property
+    def base_url(self):
         return reverse_lazy('front:repository:%s' % self.url_name, kwargs=dict(
             self.repository.get_reverse_kwargs(),
             board_mode=self.kwargs['board_mode'],
@@ -236,7 +237,7 @@ class BoardColumnMixin(BoardMixin):
         })
         self.current_column = current_column
 
-        context['current_column']['url'] = self.get_base_url()
+        context['current_column']['url'] = self.base_url
 
         return context
 
@@ -391,6 +392,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
     display_in_menu = False
     ajax_only = True
 
+    filters_template_name = 'front/repository/board/include_filters.html'
     filters_and_list_template_name = 'front/repository/board/include_filters_and_list.html'
     template_name = filters_and_list_template_name
 

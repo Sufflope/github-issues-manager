@@ -1,0 +1,119 @@
+{% load querystring frontutils %}
+<nav class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
+    <div class="navbar-inner">
+        <ul class="nav">
+            <li class="dropdown span4 dropdown-sort">
+                <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                    <span>
+                        Sort
+                        <b class="caret"></b>
+                    </span>
+                    {% if issues_filter.parts.sort %}
+                        <span class="selection">
+                            {% with sort_info=view.allowed_sort|dict_item:issues_filter.parts.sort %}
+                                <span title="{{ sort_info.description|capfirst }}">{{ sort_info.name|capfirst }}</span>
+                            {% endwith %}
+                            <i class="fa fa-chevron-{% if issues_filter.parts.direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
+                        </span>
+                    {% endif %}
+                </a>
+                <ul class="dropdown-menu" role="menu" aria-label="Sort options">
+                    {% for sort_field, sort_info in view.allowed_sort.items %}
+                        <li{% if issues_filter.parts.sort == sort_field %} class="active"{% endif %}>
+                            <a href="{{ current_issues_url }}{% replace_many_in_querystring "sort" sort_field "direction" issues_filter.parts.direction|default:"desc" %}" title="{{ sort_info.description|capfirst }}">{{ sort_info.name|capfirst }}</a>
+                        </li>
+                    {% endfor %}
+                    {% if issues_filter.parts.sort %}
+                        <li class="divider"></li>
+                        <li class="horizontal-6{% if issues_filter.parts.direction == "asc" %} active{% endif %}">
+                            <a href="{{ current_issues_url }}{% replace_in_querystring "direction" "asc" %}"><i class="fa fa-chevron-down" title="Ascending order"> </i></a>
+                        </li>
+                        <li class="horizontal-6{% if issues_filter.parts.direction == "desc" %} active{% endif %}">
+                            <a href="{{ current_issues_url }}{% replace_in_querystring "direction" "desc" %}"><i class="fa fa-chevron-up" title="Descending order"> </i></a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+            <li class="divider-vertical"></li>
+            <li class="dropdown span4 dropdown-groupby">
+                <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                    <span>
+                        Group by
+                        <span class="caret"></span>
+                    </span>
+                    <span class="selection">
+                        {% if issues_filter.parts.group_by %}
+                            {% block group_by_selection %}
+                                {% with group_by_info=view.allowed_group_by|dict_item:issues_filter.objects.group_by %}
+                                <span {% if group_by_info.description %} title="{{ group_by_info.description|capfirst }}"{% endif %}>
+                                    {{ group_by_info.name|capfirst }}
+                                </span>
+                                {% endwith %}
+                            {% endblock group_by_selection %}
+                            <i class="fa fa-chevron-{% if issues_filter.parts.group_by_direction == "asc" %}down{% else %}up{% endif %}" title="{% if issues_filter.parts.group_by_direction == "asc" %}Ascending order{% else %}Descending order{% endif %}"> </i>
+                        {% else %}
+                            No group by
+                        {% endif %}
+                    </span>
+                </a>
+                <ul class="dropdown-menu" role="menu" aria-label="Group options">
+                    {% block group_by_choices %}
+                        {% for group_by_filter, group_by_info in view.allowed_group_by.items %}
+                            <li{% if issues_filter.parts.group_by == group_by_filter %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_filter %}"{% if group_by_info.description %} title="{{ group_by_info.description|capfirst }}"{% endif %}>
+                                    {{ group_by_info.name|capfirst }}
+                                    {% if issues_filter.parts.group_by == group_by_filter %}
+                                        <i class="fa fa-times"> </i>
+                                    {% endif %}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    {% endblock %}
+                    {% if issues_filter.parts.group_by %}
+                        <li class="divider"></li>
+                        <li class="horizontal-6{% if issues_filter.parts.group_by_direction == "asc" %} active{% endif %}">
+                            <a href="{{ current_issues_url }}{% replace_in_querystring "group_by_direction" "asc" %}"><i class="fa fa-chevron-down" title="Ascending order"> </i></a>
+                        </li>
+                        <li class="horizontal-6{% if issues_filter.parts.group_by_direction == "desc" %} active{% endif %}">
+                            <a href="{{ current_issues_url }}{% replace_in_querystring "group_by_direction" "desc" %}"><i class="fa fa-chevron-up" title="Descending order"> </i></a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+            <li class="divider-vertical"></li>
+            <li class="dropdown span4">
+                <a href="#" role="button" class="dropdown-toggle no-selection" data-toggle="dropdown">
+                    <span>
+                        Options
+                        <span class="caret"></span>
+                    </span>
+                </a>
+                <ul class="dropdown-menu pull-right" role="menu" aria-label="Options">
+                    <li><a href="#" class="toggle-issues-details">Toggle details</a></li>
+                    <li><a href="#" class="refresh-list">Refresh list</a></li>
+                    <li><a href="#" class="close-all-groups">Close all groups</a></li>
+                    <li><a href="#" class="open-all-groups">Open all groups</a></li>
+                    {% if can_show_shortcuts %}
+                        <li><a href="#" id="show-shortcuts" data-toggle="modal" data-target="#shortcuts-window">Show shortcuts</a></li>
+                    {% endif %}
+                    {% if can_add_issues %}
+                        <li><a href="#" id="go-to-issue" data-toggle="modal" data-target="#go-to-issue-window">Open issue...</a></li>
+                    {% endif %}
+                    {% if issues_count and all_metrics %}{% if all_metrics|length > 1 or not current_metric %}
+                        <li class="divider"></li>
+                        <li class="dropdown-submenu">
+                            <a href="#">Metric to display</a>
+                            <ul class="dropdown-menu dropdown-metric">
+                                {% for metric in all_metrics %}
+                                    <li{% if metric == current_metric %} class="active"{% endif %}>
+                                        <a href="{{ current_issues_url }}{% replace_in_querystring "metric" metric.name %}">{{ metric.name }}</a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                    {% endif %}{% endif %}
+                </ul>
+            </li>
+        </ul>
+    </div>
+{% endspaceless %}</nav>

@@ -1,0 +1,87 @@
+{% load querystring frontutils %}
+<nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
+    <a class="filters-toggler" href="#issues-filters-{{ list_uuid }}" title="Show filters"><i class="fa fa-bars"></i></a>
+    <div class="primary-sidebar">
+        {% spaceless %}
+        <ul id="issues-filters-accordion-{{ list_uuid }}" class="nav nav-collapse collapse nav-collapse-primary">
+
+            <li class='clear-all-filters'><a href="{{ current_issues_url }}{% if view.default_qs %}?{{ view.default_qs }}{% endif %}"><i class="fa fa-times"> </i> Clear filters</a></li>
+
+            {% block before_common_filters %}{% endblock %}
+
+            {% block filter-state %}
+            {# The open/close states #}
+            <li class="accordion-group dark-nav">
+                <span class="glow"></span>
+                <a class="accordion-toggle collapsed{% if issues_filter.objects.state %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-state-{{ list_uuid }}">
+                    Issue state
+                    <i class="fa fa-caret-right"></i>
+                    {% if issues_filter.objects.state %}
+                            <span class="selection">{{ issues_filter.objects.state }}</span>
+                        </a>
+                        <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "state" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                    {% endif %}
+                </a>
+                <ul id="filter-state-{{ list_uuid }}" class="collapse">
+                    {% for state in view.allowed_states %}
+                        <li{% if issues_filter.parts.state == state %} class="active"{% endif %}>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "state" state %}">{{ state|capfirst }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endblock filter-state %}
+
+            {% block filter-pr %}
+            {# The two pull-requests states #}
+            <li class="accordion-group dark-nav">
+                <span class="glow"></span>
+                <a class="accordion-toggle collapsed{% if issues_filter.parts.pr %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-pr-{{ list_uuid }}">
+                    Pull-request
+                    <i class="fa fa-caret-right"></i>
+                    {% if issues_filter.parts.pr %}
+                            <span class="selection">{{ issues_filter.parts.pr }}</span>
+                        </a>
+                        <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "pr" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                    {% endif %}
+                </a>
+                <ul id="filter-pr-{{ list_uuid }}" class="collapse">
+                    {% for pr in view.allowed_prs %}
+                        <li{% if issues_filter.parts.pr == pr %} class="active"{% endif %}>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "pr" pr %}">{{ pr|capfirst }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endblock filter-pr %}
+
+            {% block filter-mergeable %}
+            {# The two mergeable states, only if filter on pull requests #}
+            {% if issues_filter.parts.pr == 'yes' %}
+                <li class="accordion-group dark-nav">
+                    <span class="glow"></span>
+                    <a class="accordion-toggle collapsed{% if issues_filter.parts.mergeable %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-mergeable-{{ list_uuid }}">
+                        Mergeable
+                        <i class="fa fa-caret-right"></i>
+                        {% if issues_filter.parts.mergeable %}
+                                <span class="selection">{{ issues_filter.parts.mergeable }}</span>
+                            </a>
+                            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "mergeable" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                        {% endif %}
+                    </a>
+                    <ul id="filter-mergeable-{{ list_uuid }}" class="collapse">
+                        {% for mergeable in view.allowed_mergeables %}
+                            <li{% if issues_filter.parts.mergeable == mergeable %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring "mergeable" mergeable %}">{{ mergeable|capfirst }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endif %}
+            {% endblock filter-mergeable %}
+
+            {% block after_common_filters %}{% endblock %}
+
+        </ul>{% endspaceless %}
+    </div>
+</nav>

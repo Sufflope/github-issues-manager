@@ -41,7 +41,7 @@ from gim.front.mixins.views import (LinkedToRepositoryFormViewMixin,
                                     CacheControlMixin,
                                     WithIssueViewMixin,
                                     get_querystring_context,
-                                    )
+                                    BaseIssuesFilters)
 
 from gim.front.models import GroupedCommits, GroupedCommitComments, GroupedPullRequestComments
 from gim.front.repository.views import BaseRepositoryView
@@ -178,19 +178,22 @@ class IssuesFilterMentioned(UserFilterPart):
     title = 'Mentioned'
 
 
-GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
+GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
     ('created_by', {
         'field': 'user',
+        'db_field': 'user__username_lower',
         'name': 'creator',
         'description': u'author of the issue',
     }),
     ('assigned', {
         'field': 'assignee',
+        'db_field': 'assignee__username_lower',
         'name': 'assigned',
         'description': u'user assigned to the issue',
     }),
     ('closed_by', {
         'field': 'closed_by',
+        'db_field': 'closed_by__username_lower',
         'name': 'closed by',
         'description': u'user who closed the issue',
     }),
@@ -202,15 +205,9 @@ GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_b
 ]})
 
 
-class IssuesView(BaseIssuesView, BaseRepositoryView):
-    name = 'Issues'
-    url_name = 'issues'
-    template_name = 'front/repository/issues/base.html'
-    default_qs = 'state=open'
-    display_in_menu = True
+class IssuesFilters(BaseIssuesFilters):
 
-    filters_and_list_template_name = 'front/repository/issues/include_filters_and_list.html'
-
+    filters_template_name = 'front/repository/issues/include_filters.html'
 
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
 
@@ -229,16 +226,6 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
         'closed_by': 'closed_by',
         'mentioned': 'user_mentions',
     }
-
-    def __init__(self, **kwargs):
-        super(IssuesView, self).__init__(**kwargs)
-        self.metric_stats = None
-
-    def get_base_queryset(self):
-        return self.repository.issues.ready()
-
-    def get_base_url(self):
-        return self.repository.get_view_url(self.url_name)
 
     def _get_milestone(self, qs_parts):
         """
@@ -315,11 +302,11 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
             try:
                 label_type = self.repository.label_types.get(name=label_type_name)
             except LabelType.DoesNotExist:
-                return None, None
+                return None, None, None
             else:
-                return label_type, self._get_group_by_direction(qs_parts)
+                return label_type, self._get_group_by_direction(qs_parts), None
 
-        return super(IssuesView, self)._get_group_by(qs_parts)
+        return super(IssuesFilters, self)._get_group_by(qs_parts)
 
     def _get_user_filter(self, qs_parts, filter_type):
         if filter_type not in self.user_filter_types_matching:
@@ -341,19 +328,20 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         return None
 
-    def _prepare_group_by(self, group_by, group_by_direction,
-                          qs_parts, qs_filters, filter_objects, order_by):
-        if isinstance(group_by, LabelType):
-            qs_filters['group_by'] = 'type:%s' % group_by.name
-            filter_objects['group_by'] = group_by
+    def _prepare_group_by(self, group_by_info, qs_parts, qs_filters, filter_objects, order_by):
+        field, direction, db_field = group_by_info
+        if isinstance(field, LabelType):
+            filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = direction
+            qs_filters['group_by'] = 'type:%s' % field.name
+            filter_objects['group_by'] = field
             filter_objects['group_by_field'] = 'label_type_grouper'
         else:
-            super(IssuesView, self)._prepare_group_by(group_by, group_by_direction, qs_parts,
+            super(IssuesFilters, self)._prepare_group_by(group_by_info, qs_parts,
                                                       qs_filters, filter_objects, order_by)
 
     def get_filter_parts(self, qs_parts):
-        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction =  \
-            super(IssuesView, self).get_filter_parts(qs_parts)
+        query_filters, order_by, group_by, filter_objects, qs_filters =  \
+            super(IssuesFilters, self).get_filter_parts(qs_parts)
 
         # filter by milestone
         milestone = self._get_milestone(qs_parts)
@@ -411,7 +399,66 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                     filter_objects['current_labels'].append(label)
                 query_filters['labels'].append(label.id)
 
-        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
+        metric_label_type_name = self.request.GET.get('metric', None)
+        metric = get_metric(self.repository, metric_label_type_name)
+        if metric:
+            filter_objects['metric'] = metric
+            if metric.pk != self.repository.main_metric_id:
+                qs_filters['metric'] = metric.name
+
+        return query_filters, order_by, group_by, filter_objects, qs_filters
+
+    def get_context_data(self, **kwargs):
+        context = super(IssuesFilters, self).get_context_data(**kwargs)
+
+        context.update({
+            'label_types': self.label_types,
+            'milestones': self.milestones,
+        })
+
+        for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
+                                 IssuesFilterClosers, IssuesFilterMentioned):
+            view = user_filter_view()
+            view.inherit_from_view(self)
+            count = view.count_usernames()
+            context[view.relation] = {
+                'count': count
+            }
+            if count:
+                part_kwargs = {
+                    'issues_filter': context['issues_filter'],
+                    'current_issues_url': self.base_url,
+                    'list_uuid': self.list_uuid,
+                }
+                context[view.relation]['view'] = view
+                if count > LIMIT_USERS:
+                    context[view.relation]['part'] = view.render_deferred(**part_kwargs)
+                else:
+                    context[view.relation]['part'] = view.render_part(**part_kwargs)
+
+        return context
+
+
+class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
+    name = 'Issues'
+    url_name = 'issues'
+    template_name = 'front/repository/issues/base.html'
+    default_qs = 'state=open'
+    display_in_menu = True
+
+    filters_and_list_template_name = 'front/repository/issues/include_filters_and_list.html'
+    options_template_name = 'front/repository/issues/include_options.html'
+
+    def __init__(self, **kwargs):
+        self.metric_stats = None
+        super(IssuesView, self).__init__(**kwargs)
+
+    def get_base_queryset(self):
+        return self.repository.issues.ready()
+
+    @cached_property
+    def base_url(self):
+        return self.repository.get_view_url(self.url_name)
 
     def select_and_prefetch_related(self, queryset, group_by):
         if not group_by:
@@ -434,55 +481,15 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
 
         # final context
         context.update({
-            'label_types': self.label_types,
-            'milestones': self.milestones,
             'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
             'metric_stats': self.metric_stats,
             'all_metrics': list(self.repository.all_metrics())
         })
         context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
-        for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
-                                 IssuesFilterClosers, IssuesFilterMentioned):
-            view = user_filter_view()
-            view.inherit_from_view(self)
-            count = view.count_usernames()
-            context[view.relation] = {
-                'count': count
-            }
-            if count:
-                part_kwargs = {
-                    'issues_filter': context['issues_filter'],
-                    'current_issues_url': context['current_issues_url'],
-                    'list_uuid': context['list_uuid'],
-                }
-                context[view.relation]['view'] = view
-                if count > LIMIT_USERS:
-                    context[view.relation]['part'] = view.render_deferred(**part_kwargs)
-                else:
-                    context[view.relation]['part'] = view.render_part(**part_kwargs)
-
         context['can_add_issues'] = True
 
         return context
-
-    def prepare_issues_filter_context(self, filter_context):
-        """
-        Update from the parent call to include the base querystring (without user information
-        ), and the full querystring (with user information if a assigned/created
-        filter is used)
-        """
-
-        metric_label_type_name = self.request.GET.get('metric', None)
-
-        metric = get_metric(self.repository, metric_label_type_name)
-
-        if metric:
-            filter_context['filter_objects']['metric'] = metric
-            if metric.pk != self.repository.main_metric_id:
-                filter_context['qs_filters']['metric'] = metric.name
-
-        return super(IssuesView, self).prepare_issues_filter_context(filter_context)
 
     def finalize_issues(self, issues, context):
         """
@@ -520,8 +527,7 @@ class IssuesView(BaseIssuesView, BaseRepositoryView):
                 # add in a dict, with one entry for each label of the type (and one for None)
                 issues_dict.setdefault(add_to, []).append(issue)
 
-            # for each label of the type, append matching issues to the final
-            # list
+            # for each label of the type, append matching issues to the final list
             issues = []
             label_type_labels = [None] + list(group_by_label_type.labels.ready())
             if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
