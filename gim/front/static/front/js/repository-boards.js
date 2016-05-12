@@ -254,6 +254,7 @@ $().ready(function() {
             init: function() {
                 if (!Board.$columns.length) { return; }
                 $document.on('reloaded', IssuesList.container_selector, Board.dragger.on_column_loaded);
+                $document.on('reloaded', IssuesList.container_selector, Board.filters.on_column_loaded);
                 Board.lists.load_visible();
                 $('.board-column-closer').on('click', Ev.stop_event_decorate(Board.lists.on_closer_click));
                 jwerty.key('x', IssuesList.on_current_list_key_event('close'));
@@ -712,6 +713,9 @@ $().ready(function() {
         filters: {
             filters_selector: '#issues-filters-board-main',
             options_selector: '#issues-list-options-board-main',
+            quicksearch_selector: '#issues-list-search-board-main',
+            $search_input: null,
+            last_search: '',
 
             on_filter_or_option_click: function() {
                 return Board.filters.reload_filters_and_lists(this.href);
@@ -731,13 +735,14 @@ $().ready(function() {
                 for (var i = 0; i < $columns.length; i++) {
                     var $column = $($columns[i]),
                         $issues_list_node = $column.children(Board.lists.lists_selector),
-                        $filters_node = $column.children(Board.lists.filters_selector),
                         $issues_list = $issues_list_node.children('.issues-list'),
-                        column_url = $issues_list.data('base-url') + querystring;
+                        column_url = $issues_list.data('base-url') + querystring,
+                        $filters_node;
 
                     $issues_list.data('url', column_url);
 
                     if ($column.hasClass('loaded')) {
+                        $filters_node = $column.children(Board.lists.filters_selector);
                         IssuesFilters.reload_filters_and_list(column_url, $filters_node, $issues_list_node, true);
                     }
 
@@ -756,9 +761,42 @@ $().ready(function() {
                 $(Board.filters.filters_selector).replaceWith($new_filters_node);
                 $(Board.filters.options_selector).replaceWith($new_options_node);
 
+                Board.filters.$seach_input = $(Board.filters.quicksearch_selector + ' input');
+                Board.filters.$seach_input.val(Board.filters.last_search);
+                activate_quicksearches(Board.filters.$seach_input);
+
             }, // on_filters_loaded
 
+            on_search: function() {
+                var loaded_lists = IssuesList.get_loaded_lists();
+                Board.filters.last_search = Board.filters.$seach_input.val();
+                for (var i = 0; i < loaded_lists.length; i++) {
+                    Board.filters.update_list_search(loaded_lists[i]);
+                }
+            }, // on_search
+
+            update_list_search: function(list) {
+                list.skip_on_filter_done_once = true;
+                list.$search_input.one('quicksearch.refresh', $.proxy(Board.filters.on_list_filter_done, list));
+                list.$search_input.val(Board.filters.last_search);
+                list.$search_input.trigger('quicksearch.refresh');
+            }, // update_list_search
+
+            on_list_filter_done: function() {
+                // `this` is the list object
+                for (var i = 0; i < this.groups.length; i++) {
+                    var group = this.groups[i];
+                    group.update_filtered_issues();
+                }
+            }, // on_list_filter_done
+
+            on_column_loaded: function () {
+                Board.filters.update_list_search(this.IssuesList);
+            }, // on_column_loaded
+
             init: function() {
+                Board.filters.$seach_input = $(Board.filters.quicksearch_selector + ' input');
+
                 $document.on('click', Board.filters.filters_selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(Board.filters.on_filter_or_option_click));
 
                 $document.on('click', Board.filters.options_selector + ' .dropdown-sort a, ' +
@@ -766,10 +804,13 @@ $().ready(function() {
                                       Board.filters.options_selector + ' .dropdown-metric a'
                     , Ev.stop_event_decorate_dropdown(Board.filters.on_filter_or_option_click));
 
-                $document.on('click', '#issues-list-options-board-main .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
-                $document.on('click', '#issues-list-options-board-main .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
-                $document.on('click', '#issues-list-options-board-main .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
-                $document.on('click', '#issues-list-options-board-main .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
+                $document.on('click', Board.filters.options_selector + ' .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
+                $document.on('click', Board.filters.options_selector + ' .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
+                $document.on('click', Board.filters.options_selector + ' .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
+                $document.on('click', Board.filters.options_selector + ' .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
+                $document.on('click', Board.filters.quicksearch_selector, Ev.cancel);
+                $document.on('quicksearch.after', Board.filters.quicksearch_selector, Board.filters.on_search);
+                $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200))
             } // init
 
         }, // Board.filters

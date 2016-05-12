@@ -313,3 +313,26 @@ body#repository_board #main-inner {
         font-size: 200%;
     }
 }
+
+.issues-list-search-board-main-dropdown {
+    padding: 0;
+    @include box-shadow(0 4px 5px 0 #888);
+    > li {
+        position: relative;
+        height: 28px;
+        width: 300px;
+    }
+    .issues-quicksearch {
+        top: 0;
+        label {
+            @include border-radius(6px);
+        }
+        .add-on {
+            @include border-radius(6px 0 0 6px);
+        }
+        input + a {
+            bottom: 0;
+            @include border-radius(0 6px 6px 0);
+        }
+    }
+}

@@ -164,6 +164,7 @@ $().ready(function() {
             /* Event handler to set the focus on the given node.
             */
             return function() {
+                if (typeof $node == 'function') { $node = $node(); }
                 if (delay) {
                     setTimeout(Ev.set_focus($node), delay);
                 } else {
@@ -1883,6 +1884,10 @@ $().ready(function() {
     }); // IssuesList__on_issue_create_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
+        if (this.skip_on_filter_done_once) {
+            this.skip_on_filter_done_once = false;
+            return;
+        }
         var continue_issue_search = this.$search_input.val() !== '';
         for (var i = 0; i < this.groups.length; i++) {
             var group = this.groups[i];

@@ -4254,3 +4254,40 @@ body#repository_board #main-inner {
 #issues-list-options-board-main .empty-area {
   font-size: 200%;
 }
+
+/* line 317, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown {
+  padding: 0;
+  -moz-box-shadow: 0 4px 5px 0 #888;
+  -webkit-box-shadow: 0 4px 5px 0 #888;
+  box-shadow: 0 4px 5px 0 #888;
+}
+/* line 320, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown > li {
+  position: relative;
+  height: 28px;
+  width: 300px;
+}
+/* line 325, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown .issues-quicksearch {
+  top: 0;
+}
+/* line 327, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown .issues-quicksearch label {
+  -moz-border-radius: 6px;
+  -webkit-border-radius: 6px;
+  border-radius: 6px;
+}
+/* line 330, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown .issues-quicksearch .add-on {
+  -moz-border-radius: 6px 0 0 6px;
+  -webkit-border-radius: 6px;
+  border-radius: 6px 0 0 6px;
+}
+/* line 333, ../../../../../sass/pages/repository/board.scss */
+.issues-list-search-board-main-dropdown .issues-quicksearch input + a {
+  bottom: 0;
+  -moz-border-radius: 0 6px 6px 0;
+  -webkit-border-radius: 0;
+  border-radius: 0 6px 6px 0;
+}
