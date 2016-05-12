@@ -2,6 +2,8 @@ $().ready(function() {
 
     var $document = $(document),
         $body = $('body');
+        body_id = $body.attr('id'),
+        main_repository_id = $body.data('repository-id');
 
     var Board = {
         container_selector: '#board-columns',
@@ -723,9 +725,9 @@ $().ready(function() {
                 return Board.filters.reload_filters_and_lists(this.href);
             }, // on_filter_click
 
-            reload_filters_and_lists: function(url) {
+            reload_filters_and_lists: function(url, no_history) {
                 $.get(url)
-                    .done(Board.filters.on_filters_loaded)
+                    .done($.proxy(Board.filters.on_filters_loaded, {no_history: no_history, url: url}))
                     .fail(function() { window.location.href = url; });
 
                 IssuesFilters.add_waiting($(Board.filters.filters_selector));
@@ -767,7 +769,31 @@ $().ready(function() {
                 Board.filters.$options_node.find('li.dropdown-options').replaceWith($new_options_node.find('li.dropdown-options'));
                 IssuesFilters.remove_waiting(Board.filters. $options_node);
 
+                if (!this.no_history) {
+                    Board.filters.add_history(this.url);
+                }
+
             }, // on_filters_loaded
+
+            add_history: function(url, replace) {
+                if (window.history && window.history.pushState) {
+                    window.history[replace ? 'replaceState' : 'pushState']({
+                        type: 'BoardFilters',
+                        body_id: body_id,
+                        main_repository_id: main_repository_id,
+                        filters_url: url
+                    }, $document.attr('title'), url);
+                }
+            }, // add_history
+
+            on_history_pop_state: function  (state) {
+                var list, $filters_node, $issues_list_node;
+                if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
+                    return false;
+                }
+                Board.filters.reload_filters_and_lists(state.filters_url, true);
+                return true;
+            }, // on_history_pop_state
 
             on_search: function() {
                 var loaded_lists = IssuesList.get_loaded_lists();
@@ -797,6 +823,7 @@ $().ready(function() {
             }, // on_column_loaded
 
             init: function() {
+                if (!Board.$columns.length) { return; }
                 Board.filters.$seach_input = $(Board.filters.quicksearch_selector + ' input');
                 Board.filters.$options_node = $(Board.filters.options_selector);
 
@@ -812,7 +839,10 @@ $().ready(function() {
                 $document.on('click', Board.filters.quicksearch_selector, Ev.cancel);
                 $document.on('quicksearch.after', Board.filters.quicksearch_selector, Board.filters.on_search);
                 $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200))
-            } // init
+
+                Board.filters.add_history(window.location.href, true);
+                window.HistoryManager.callbacks['BoardFilters'] = Board.filters.on_history_pop_state;
+        } // init
 
         }, // Board.filters
 

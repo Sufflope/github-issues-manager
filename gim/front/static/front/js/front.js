@@ -6030,13 +6030,14 @@ $().ready(function() {
     GithubNotifications.init();
 
     var HistoryManager = {
+        callbacks: {
+            'IssuesFilters': IssuesFilters.on_history_pop_state
+        },
         on_pop_state: function(ev) {
             var done = true;
             if (ev.state && ev.state.type) {
-                switch(ev.state.type) {
-                    case 'IssuesFilters':
-                        done = IssuesFilters.on_history_pop_state(ev.state);
-                        break;
+                if (HistoryManager.callbacks[ev.state.type]) {
+                    done = HistoryManager.callbacks[ev.state.type](ev.state)
                 }
             }
             if (!done) {
@@ -6049,6 +6050,7 @@ $().ready(function() {
         }
     }; // HistoryManager
     HistoryManager.init();
+    window.HistoryManager = HistoryManager;
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {
