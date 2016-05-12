@@ -10,35 +10,10 @@
 
 {% block board-header %}
     <div class="row-fluid">
-        <div class="span6">
+        <div class="span4">
             {{ block.super }}
         </div>
-        <div class="span6">
-            <button id="board-columns-arranger-toggler" class="btn btn-default" data-toggle="collapse" data-target="#board-columns-arranger-holder">
-                <span>
-                    Arrange columns
-                    <span class="caret"></span>
-                </span>
-            </button>
-            <div class="collapse" id="board-columns-arranger-holder">
-                <div>
-                    <div>
-                        <button value="clear" class="btn btn-default btn-mini" title="Remove all columns">Empty</button>
-                        <button value="reset" class="btn btn-default btn-mini" title="Restore default columns set">Reset</button>
-                        <button value="close" class="btn btn-default btn-mini" title="Close the columns arranger"><i class="fa fa-times"> </i></button>
-                    </div>
-                    <p>
-                        You can hide columns and change their order by drag & drop:
-                    </p>
-                    {% with visible_columns_keys=current_board.columns.values|filter_falsy:"hidden"|map_dict_item:"key"|join:"," %}
-                    <input id="board-columns-arranger"
-                           type="hidden"
-                           autocomplete="off"
-                           value="{{ visible_columns_keys }}"
-                    />
-                    {% endwith %}
-                </div>
-            </div>
+        <div class="span8">
             {% include view.options_template_name %}
         </div>
     </div>

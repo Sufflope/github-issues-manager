@@ -59,6 +59,7 @@ $().ready(function() {
 
         arranger: {
             $input: $('#board-columns-arranger'),
+            $trigger: $('#board-columns-arranger-trigger'),
             $holder: $('#board-columns-arranger-holder'),
             init_done: false,
             data: [],
@@ -132,7 +133,7 @@ $().ready(function() {
 
             init: function() {
                 if (!Board.arranger.$input.length) { return; }
-                Board.arranger.$holder.one('shown.collapse', Board.arranger.init_select2);
+                Board.arranger.$trigger.one('focus', Board.arranger.init_select2);
             } // init
 
         }, // Board.arranger
@@ -713,6 +714,7 @@ $().ready(function() {
         filters: {
             filters_selector: '#issues-filters-board-main',
             options_selector: '#issues-list-options-board-main',
+            $options_node: null,
             quicksearch_selector: '#issues-list-search-board-main',
             $search_input: null,
             last_search: '',
@@ -727,7 +729,7 @@ $().ready(function() {
                     .fail(function() { window.location.href = url; });
 
                 IssuesFilters.add_waiting($(Board.filters.filters_selector));
-                IssuesFilters.add_waiting($(Board.filters.options_selector));
+                IssuesFilters.add_waiting(Board.filters. $options_node);
 
                 var $columns = Board.$columns,
                     querystring = UrlParser.parse(url).search;
@@ -759,11 +761,11 @@ $().ready(function() {
                 $new_filters_node.find('.deferrable').deferrable();
                 $new_options_node.find('.deferrable').deferrable();
                 $(Board.filters.filters_selector).replaceWith($new_filters_node);
-                $(Board.filters.options_selector).replaceWith($new_options_node);
 
-                Board.filters.$seach_input = $(Board.filters.quicksearch_selector + ' input');
-                Board.filters.$seach_input.val(Board.filters.last_search);
-                activate_quicksearches(Board.filters.$seach_input);
+                Board.filters.$options_node.find('li.dropdown-sort').replaceWith($new_options_node.find('li.dropdown-sort'));
+                Board.filters.$options_node.find('li.dropdown-groupby').replaceWith($new_options_node.find('li.dropdown-groupby'));
+                Board.filters.$options_node.find('li.dropdown-options').replaceWith($new_options_node.find('li.dropdown-options'));
+                IssuesFilters.remove_waiting(Board.filters. $options_node);
 
             }, // on_filters_loaded
 
@@ -796,18 +798,17 @@ $().ready(function() {
 
             init: function() {
                 Board.filters.$seach_input = $(Board.filters.quicksearch_selector + ' input');
+                Board.filters.$options_node = $(Board.filters.options_selector);
 
                 $document.on('click', Board.filters.filters_selector + ' a:not(.accordion-toggle):not(.filters-toggler)', Ev.stop_event_decorate(Board.filters.on_filter_or_option_click));
 
-                $document.on('click', Board.filters.options_selector + ' .dropdown-sort a, ' +
-                                      Board.filters.options_selector + ' .dropdown-groupby a, ' +
-                                      Board.filters.options_selector + ' .dropdown-metric a'
-                    , Ev.stop_event_decorate_dropdown(Board.filters.on_filter_or_option_click));
+                Board.filters.$options_node.on('click', '.dropdown-sort ul a, .dropdown-groupby ul a, .dropdown-metric ul a',  Ev.stop_event_decorate_dropdown(Board.filters.on_filter_or_option_click));
 
-                $document.on('click', Board.filters.options_selector + ' .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
-                $document.on('click', Board.filters.options_selector + ' .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
-                $document.on('click', Board.filters.options_selector + ' .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
-                $document.on('click', Board.filters.options_selector + ' .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
+                Board.filters.$options_node.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
+                Board.filters.$options_node.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
+                Board.filters.$options_node.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
+                Board.filters.$options_node.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
+
                 $document.on('click', Board.filters.quicksearch_selector, Ev.cancel);
                 $document.on('quicksearch.after', Board.filters.quicksearch_selector, Board.filters.on_search);
                 $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200))

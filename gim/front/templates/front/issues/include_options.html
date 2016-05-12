@@ -1,7 +1,8 @@
 {% load querystring frontutils %}
 <nav id="issues-list-options-{{ list_uuid }}" class="issues-list-options navbar navbar-no-rounded">{% spaceless %}
-    <div class="navbar-inner {% block issues-list-options-navbar-inner-classes %}{% endblock %}">
+    <div class="navbar-inner">
         <ul class="nav">
+            {% block before-options-menu %}{% endblock %}
             <li class="dropdown span4 dropdown-sort">
                 <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                     <span>
@@ -83,7 +84,7 @@
                 </ul>
             </li>
             <li class="divider-vertical"></li>
-            <li class="dropdown span4">
+            <li class="dropdown span4 dropdown-options">
                 <a href="#" role="button" class="dropdown-toggle no-selection" data-toggle="dropdown">
                     <span>
                         Options
@@ -118,7 +119,7 @@
                     {% endif %}{% endif %}
                 </ul>
             </li>
-            {% block more-options %}{% endblock %}
+            {% block after-options-menu %}{% endblock %}
         </ul>
     </div>
 {% endspaceless %}</nav>
