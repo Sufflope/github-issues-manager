@@ -32,13 +32,16 @@ $issues-quicksearch-height: 29px;
         }
     }
 }
+nav.issues-list-options .dropdown-toggle .caret {
+    margin-top: 9px;
+}
 .issues-list-options a.no-selection {
     // enforce positioning if there is no selection (all text on one line)
     line-height: 40px;
     span {
         vertical-align: middle;
         &.caret {
-            margin-top: -4px !important;
+            margin-top: -1px !important;
         }
     }
 }
@@ -71,6 +74,8 @@ $issues-quicksearch-height: 29px;
     }
     i {
         font-size: smaller;
+        position: relative;
+        top: -1px;
     }
 } // .issues-list-options span.selection
 .issues-list-options .navbar-inner {

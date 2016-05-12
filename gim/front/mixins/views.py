@@ -189,9 +189,8 @@ class WithSubscribedRepositoriesViewMixin(DependsOnSubscribedViewMixin):
                 rights=self.subscriptions_list_rights
            ).extra(select={
                     'lower_name': 'lower(name)',
-                    'lower_owner': 'lower(username)',
                 }
-            ).select_related('owner').order_by('lower_owner', 'lower_name')
+            ).select_related('owner').order_by('owner__username_lower', 'lower_name')
 
         return context
 
@@ -551,31 +550,42 @@ GROUP_BY_CHOICES = {group_by[0]: group_by for group_by in [
     }),
 ]}
 
+SORT_CHOICES = {sort[0]: sort for sort in [
+    ('created', {
+        'name': u'created',
+        'description': u'issue creation date',
+    }),
+    ('updated', {
+        'name': u'updated',
+        'description': u'issue last update date',
+    }),
+]}
 
-class BaseIssuesView(WithQueryStringViewMixin):
+
+class BaseIssuesFilters(WithQueryStringViewMixin):
+
+    filters_template_name = 'front/issues/include_filters.html'
+
     allowed_states = ['open', 'closed']
     allowed_prs = ['no', 'yes']
     allowed_mergeables = ['no', 'yes']
-    allowed_sort_fields = ['created', 'updated', ]
+    allowed_sort = OrderedDict(SORT_CHOICES[name] for name in [
+        'created',
+        'updated',
+    ])
     allowed_sort_orders = ['asc', 'desc']
 
     default_sort = ('updated', 'desc')
 
     default_qs = ''
 
-    LIMIT_ISSUES = 300
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
-
-    filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
-    issue_item_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+    SORT_CHOICES = SORT_CHOICES
 
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
         'state',
         'pr',
     ])
-
-    def get_base_queryset(self):
-        raise NotImplementedError
 
     def _get_state(self, qs_parts):
         """
@@ -611,7 +621,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         Return the direction to apply to the group_by
         """
         direction = qs_parts.get('group_by_direction', 'asc')
-        if direction not in ('asc', 'desc'):
+        if direction not in self.allowed_sort_orders:
             direction = 'asc'
         return direction
 
@@ -625,9 +635,13 @@ class BaseIssuesView(WithQueryStringViewMixin):
             return (
                 self.allowed_group_by[group_by]['field'],
                 self._get_group_by_direction(qs_parts),
+                self.allowed_group_by[group_by].get(
+                    'db_field',
+                    self.allowed_group_by[group_by]['field']
+                ),
             )
 
-        return None, None
+        return None, None, None
 
     def _get_sort(self, qs_parts):
         """
@@ -636,7 +650,7 @@ class BaseIssuesView(WithQueryStringViewMixin):
         """
         sort = qs_parts.get('sort', None)
         direction = qs_parts.get('direction', None)
-        if sort not in self.allowed_sort_fields:
+        if sort not in self.allowed_sort:
             sort = self.default_sort[0]
         if direction not in self.allowed_sort_orders:
             direction = self.default_sort[1]
@@ -645,13 +659,13 @@ class BaseIssuesView(WithQueryStringViewMixin):
     def _get_sort_field(self, sort):
         return '%s_at' % sort
 
-    def _prepare_group_by(self, group_by, group_by_direction, qs_parts,
-                          qs_filters, filter_objects, order_by):
-        filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = group_by_direction
+    def _prepare_group_by(self, group_by_info, qs_parts, qs_filters, filter_objects, order_by):
+        field, direction, db_field = group_by_info
+        filter_objects['group_by_direction'] = qs_filters['group_by_direction'] = direction
         qs_filters['group_by'] = qs_parts['group_by']
         filter_objects['group_by'] = qs_parts['group_by']
-        filter_objects['group_by_field'] = group_by
-        order_by.append('%s%s' % ('-' if group_by_direction == 'desc' else '', group_by))
+        filter_objects['group_by_field'] = field
+        order_by.append('%s%s' % ('-' if direction == 'desc' else '', db_field))
 
     def get_filter_parts(self, qs_parts):
 
@@ -682,10 +696,9 @@ class BaseIssuesView(WithQueryStringViewMixin):
         order_by = []
 
         # do we need to group by a field ?
-        group_by, group_by_direction = self._get_group_by(qs_parts)
-        if group_by is not None:
-            self._prepare_group_by(group_by, group_by_direction, qs_parts,
-                                   qs_filters, filter_objects, order_by)
+        group_by = self._get_group_by(qs_parts)
+        if group_by[0] is not None:
+            self._prepare_group_by(group_by, qs_parts, qs_filters, filter_objects, order_by)
 
         # and finally, asked ordering
         sort, sort_direction = self._get_sort(qs_parts)
@@ -693,9 +706,54 @@ class BaseIssuesView(WithQueryStringViewMixin):
         qs_filters['direction'] = filter_objects['direction'] = sort_direction
         order_by.append('%s%s' % ('-' if sort_direction == 'desc' else '', self._get_sort_field(sort)))
 
-        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
+        return query_filters, order_by, group_by, filter_objects, qs_filters
 
-    def get_queryset(self, queryset, filters, order_by):
+    def get_context_data(self, **kwargs):
+        """
+        Set default content for the issue views
+        """
+        context = super(BaseIssuesFilters, self).get_context_data(**kwargs)
+
+        query_filters, order_by, group_by, filter_objects, qs_filters = \
+            self.get_filter_parts(self.get_qs_parts(context))
+
+        context.update({
+            'issues_filter': {
+                'parts': qs_filters,
+                'objects': filter_objects,
+                'querystring': make_querystring(qs_filters),
+                'queryset_info': {
+                    'filters': query_filters,
+                    'order_by': order_by,
+                    'group_by': group_by,
+                }
+            },
+            'qs_parts_for_ttags': qs_filters,
+        })
+
+        return context
+
+
+class BaseIssuesView(object):
+    # subclasses must inherit from a subclass of BaseIssuesFilters
+
+    LIMIT_ISSUES = 300
+
+    filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
+    options_template_name = 'front/issues/include_options.html'
+    issue_item_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+
+    def __init__(self, **kwargs):
+        self.list_uuid = str(uuid4())
+        super(BaseIssuesView, self).__init__(**kwargs)
+
+    def get_base_queryset(self):
+        raise NotImplementedError
+
+    def get_queryset(self, base_queryset, filters, order_by):
+
+        queryset = base_queryset
+
         if filters:
             excludes = {key[1:]: value for key, value in filters.items() if key.startswith('-')}
             filters = {key: value for key, value in filters.items() if not key.startswith('-')}
@@ -734,25 +792,23 @@ class BaseIssuesView(WithQueryStringViewMixin):
         an issues queryset ready to use, with some context
         """
 
-        qs_parts = self.get_qs_parts(context)
+        queryset = self.get_queryset(
+            base_queryset=self.get_base_queryset(),
+            filters=context['issues_filter']['queryset_info']['filters'],
+            order_by=context['issues_filter']['queryset_info']['order_by'],
+        )
+        queryset = self.select_and_prefetch_related(
+            queryset=queryset,
+            group_by=context['issues_filter']['queryset_info']['group_by'],
+        )
 
-        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction = \
-            self.get_filter_parts(qs_parts)
-
-        queryset = self.get_queryset(self.get_base_queryset(), query_filters, order_by)
-        queryset = self.select_and_prefetch_related(queryset, group_by)
-
-        # return the queryset and some context
-        filter_context = {
-            'filter_objects': filter_objects,
-            'qs_filters': qs_filters,
-        }
-        return queryset, filter_context
+        return queryset
 
     def select_and_prefetch_related(self, queryset, group_by):
         return queryset.select_related('repository__owner')
 
-    def get_base_url(self):
+    @cached_property
+    def base_url(self):
         raise NotImplementedError
 
     def get_context_data(self, **kwargs):
@@ -762,27 +818,12 @@ class BaseIssuesView(WithQueryStringViewMixin):
         context = super(BaseIssuesView, self).get_context_data(**kwargs)
 
         # get the list of issues
-        issues, filter_context = self.get_issues_for_context(context)
+        issues = self.get_issues_for_context(context)
 
         # final context
-        issues_url = self.get_base_url()
-
-        issues_filter = self.prepare_issues_filter_context(filter_context)
         context.update({
-            'list_uuid': str(uuid4()),
-            'current_issues_url': issues_url,
-            'issues_filter': issues_filter,
-            'qs_parts_for_ttags': issues_filter['parts'],
-            'sorts': {
-                'created': {
-                    'name': u'created',
-                    'description': u'issue creation date',
-                },
-                'updated': {
-                    'name': u'updated',
-                    'description': u'issue last update date',
-                },
-            },
+            'list_uuid': self.list_uuid,
+            'current_issues_url': self.base_url,
             'can_show_shortcuts': True,
         })
 
@@ -790,18 +831,6 @@ class BaseIssuesView(WithQueryStringViewMixin):
             self.finalize_issues(issues, context)
 
         return context
-
-    def prepare_issues_filter_context(self, filter_context):
-        """
-        Prepare a dict to use in the template, with many information about the
-        current filter: parts (as found in the querystring), objects (to use for
-        display in the template), the full querystring
-        """
-        return {
-            'parts': filter_context['qs_filters'],
-            'objects': filter_context['filter_objects'],
-            'querystring': make_querystring(filter_context['qs_filters']),
-        }
 
     def finalize_issues(self, issues, context):
         """

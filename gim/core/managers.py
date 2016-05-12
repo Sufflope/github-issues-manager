@@ -1409,11 +1409,11 @@ class MentionManager(models.Manager):
                 users[username] = users_cache[username]
             else:
                 try:
-                    users[username] = GithubUser.objects.get(username__iexact=username)
+                    users[username] = GithubUser.objects.get(username_lower=username)
                 except GithubUser.DoesNotExist:
                     pass
                 except GithubUser.MultipleObjectsReturned:
-                    users[username] = GithubUser.objects.filter(username__iexact=username)[0]
+                    users[username] = GithubUser.objects.filter(username_lower=username)[0]
                 finally:
                     if users_cache is not None:
                         users_cache[username] = users[username]
@@ -1422,12 +1422,12 @@ class MentionManager(models.Manager):
 
         for issue in issues:
 
-            existing_users = set(username.lower() for username in self.filter(
+            existing_users = set(self.filter(
                 issue=issue,
                 position=position,
                 content_type=content_type,
                 object_id=obj.pk
-            ).values_list('username', flat=True))
+            ).values_list('username_lower', flat=True))
 
             if existing_users:
                 usernames_to_remove = existing_users.difference(users.keys())

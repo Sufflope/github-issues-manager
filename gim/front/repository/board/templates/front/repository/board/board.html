@@ -1,0 +1,73 @@
+{% extends "front/repository/board/base.html" %}
+{% load staticfiles frontutils repository_tags %}
+
+{% block title %}{{ block.super }} - {{ current_board.name|capfirst }}{% endblock title %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <link href="{% static "front/jquery-ui/jquery-ui.min.css" %}" rel="stylesheet">
+{% endblock extra_css %}
+
+{% block board-header %}
+    <div class="row-fluid">
+        <div class="span4">
+            {{ block.super }}
+        </div>
+        <div class="span8">
+            {% include view.options_template_name %}
+        </div>
+    </div>
+{% endblock board-header %}
+
+{% block board-main %}
+    {% include view.filters_template_name %}
+    <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ current_repository|can_user_write:user|lower }}">
+        {% for column_key, current_column in current_board.columns.items %}
+            {% with list_uuid=new_uuid %}
+        <div class="board-column{% if current_column.hidden %} hidden{% endif %}">
+            {# Minimal html to simulate the issues lists that will be loaded via ajax #}
+            <nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
+            </nav>
+            <section class="issues-list-container span5 with-title" data-key="{{ column_key }}">
+                <div class="issues-list-title{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}" title="{{ current_column.description|capfirst }}">
+                    {% with default=current_column.name|capfirst %}
+                    {% if current_board.mode == 'labels' and current_column.object %}
+                        <span style="border-bottom-color: #{{ current_column.object.color }}">
+                        {{ default }}
+                        </span>
+                    {% elif current_board_key == 'auto-assigned' and current_column.object %}
+                        <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_column.object.full_avatar_url|avatar_size:16 }}" />
+                        {{ default }}
+                    {% else %}
+                        {{ default }}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div id="issues-list-{{ column_key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_column.url }}"></div>
+                <div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>
+            </section>
+            <a href="#" class="board-column-closer" title="Close this column"><i class="fa fa-times"> </i></a>
+        </div>
+            {% endwith %}
+        {% endfor %}
+    </div>
+{% endblock board-main %}
+
+
+{% block js_pre_footer %}
+    {{ block.super }}
+    <script src="{% static "front/jquery-ui/jquery-ui.min.js" %}" type="text/javascript"></script>
+{% endblock js_pre_footer %}
+
+{% block js_footer %}
+    {{ block.super }}
+    <script src="{% static "front/js/chart_modal.js" %}" type="text/javascript"></script>
+    <script type="text/javascript">
+        var all_milestones = {{ milestones_json|safe }};
+    </script>
+{% endblock js_footer %}
+
+{% block modal-windows %}
+    {{ block.super }}
+    {% include "front/repository/dashboard/chart_window.html" %}
+{% endblock modal-windows %}

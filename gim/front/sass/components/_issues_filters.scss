@@ -39,6 +39,14 @@ $sidebar-toggler-width: 22px;
     .clear-all-filters > a {
         padding-left: 5px;
     }
+    .issues-filters-title {
+        display: block;
+        text-align: center;
+        padding: 3px;
+        background: rgba(0, 0, 0, 0.9);
+        min-height: 18px;
+        font-weight: 600;
+     }
     .selection {
         // current selection of a filter
         display: block;
