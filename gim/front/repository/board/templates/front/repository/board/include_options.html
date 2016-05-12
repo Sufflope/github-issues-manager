@@ -1,4 +1,20 @@
 {% extends "front/repository/issues/include_options.html" %}
 
-{% block issues-list-options-navbar-inner-classes %}btn btn-default{% endblock %}
-{% block option-refresh-list-name %}Refresh lists{% endblock %}
+{% block issues-list-options-navbar-inner-classes %}{% if view.url_name == 'board' %}btn btn-default{% endif %}{% endblock %}
+{% block option-refresh-list-name %}{{ block.super }}{% if view.url_name == 'board' %}s{% endif %}{% endblock %}
+
+{% block group_by_choice %}
+    {% if current_board_key == 'auto-state' and group_by_filter == 'state' %}
+    {% elif current_board_key == 'auto-assigned' and group_by_filter == 'assigned' %}
+    {% elif current_board_key == 'auto-milestone' and group_by_filter == 'milestone' %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock group_by_choice %}
+
+{% block group_by_label_choice %}
+    {% if current_board.mode == 'labels' and label_type.name == current_board.name %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock group_by_label_choice %}

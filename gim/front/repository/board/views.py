@@ -456,6 +456,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
     ajax_only = True
 
     filters_template_name = 'front/repository/board/include_filters.html'
+    options_template_name = 'front/repository/board/include_options.html'
     filters_and_list_template_name = 'front/repository/board/include_filters_and_list.html'
     template_name = filters_and_list_template_name
 

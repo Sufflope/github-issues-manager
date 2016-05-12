@@ -16,6 +16,7 @@
         {% for label_type in label_types %}
             {% with "type:"|concat:label_type.name as label_type_group_name %}
                 {% if label_type.labels.ready.count %}
+                    {% block group_by_label_choice %}
                     <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
                         <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">
                             {{ label_type.name }}
@@ -24,6 +25,7 @@
                             {% endif %}
                         </a>
                     </li>
+                    {% endblock group_by_label_choice %}
                 {% endif %}
             {% endwith %}
         {% endfor %}

@@ -59,6 +59,7 @@
                 <ul class="dropdown-menu" role="menu" aria-label="Group options">
                     {% block group_by_choices %}
                         {% for group_by_filter, group_by_info in view.allowed_group_by.items %}
+                            {% block group_by_choice %}
                             <li{% if issues_filter.parts.group_by == group_by_filter %} class="active"{% endif %}>
                                 <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" group_by_filter %}"{% if group_by_info.description %} title="{{ group_by_info.description|capfirst }}"{% endif %}>
                                     {{ group_by_info.name|capfirst }}
@@ -67,6 +68,7 @@
                                     {% endif %}
                                 </a>
                             </li>
+                            {% endblock group_by_choice %}
                         {% endfor %}
                     {% endblock %}
                     {% if issues_filter.parts.group_by %}
