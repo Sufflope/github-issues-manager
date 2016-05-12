@@ -10,9 +10,9 @@ from django.views.generic.base import TemplateView
 from django.views.generic.edit import UpdateView
 
 from gim.core.models import Issue, GithubNotification
-from gim.front.mixins.views import BaseIssuesView
+from gim.front.mixins.views import BaseIssuesView, BaseIssuesFilters
 
-GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
+GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
     ('unread', {
         'field': 'githubnotification__unread',
         'name': 'read status',
@@ -35,16 +35,17 @@ GROUP_BY_CHOICES = dict(BaseIssuesView.GROUP_BY_CHOICES, **{group_by[0]: group_b
     }),
 ]})
 
+SORT_CHOICES = dict(BaseIssuesFilters.SORT_CHOICES, **{sort[0]: sort for sort in [
+    ('notification', {
+        'name': u'notification date',
+        'description': u'date the notification last appeared',
+    }),
+]})
 
-class GithubNotifications(BaseIssuesView, TemplateView):
 
-    template_name = 'front/github_notifications/base.html'
-    url_name = 'front:github-notifications:home'
+class GithubNotificationsFilters(BaseIssuesFilters):
 
-    filters_and_list_template_name = 'front/github_notifications/include_filters_and_list.html'
-    issue_item_template_name = 'front/github_notifications/include_issue_item_for_cache.html'
-
-    default_qs = 'read=no&sort=notification&direction=desc'
+    filters_template_name = 'front/github_notifications/include_filters.html'
 
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
@@ -56,59 +57,157 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         'active',
     ])
 
-    allowed_sort_fields = ['created', 'updated', 'notification']
+    SORT_CHOICES = SORT_CHOICES
+    allowed_sort = OrderedDict(SORT_CHOICES[name] for name in [
+        'created',
+        'updated',
+        'notification',
+    ])
 
     allowed_reads = ['no', 'yes']
     allowed_actives = ['no', 'yes']
     allowed_reasons = ['assign', 'author', 'comment', 'manual', 'mention', 'state_change', 'subscribed', 'team_mention']
 
-    reasons = {
-        'assign': {
+    reasons = OrderedDict([
+        ('assign', {
             'name': u'assigned',
             'description': u'issues you were assigned to',
             'description_one': u'you were assigned to this issue',
-        },
-        'author': {
+        }),
+        ('author', {
             'name': u'authored',
             'description': u'issues you authored',
             'description_one': u'you are the author of this issue',
-        },
-        'comment': {
+        }),
+        ('comment', {
             'name': u'commented',
             'description': u'issues you commented',
             'description_one': u'you commented on this issue',
-        },
-        'manual': {
+        }),
+        ('manual', {
             'name': u'manual',
             'description': u'issues you subscribed to',
             'description_one': u'you manually subscribed to this issue',
-        },
-        'mention': {
+        }),
+        ('mention', {
             'name': u'mentioned',
             'description': u'issues you were mentioned in',
             'description_one': u'you were mentioned in this issue',
-        },
-        'state_change': {
+        }),
+        ('state_change', {
             'name': u'changed state',
             'description': u'issues you changed the state',
             'description_one': u'you changed the state of this issue',
-        },
-        'subscribed': {
+        }),
+        ('subscribed', {
             'name': u'subscribed',
             'description': u'issues in one of your watched repositories',
             'description_one': u'you watch the repository this issue is in',
-        },
-        'team_mention': {
+        }),
+        ('team_mention', {
             'name': u'team',
             'description': u'issues you were, as part of a team, mentioned in',
             'description_one': u'you are in a team that were mentioned in this issue',
-        },
-    }
+        }),
+    ])
+
+    def _get_read(self, qs_parts):
+        """
+        Return the valid "read status" flag to use, or None
+        """
+        read = qs_parts.get('read', None)
+        if read in self.allowed_reads:
+            return True if read == 'yes' else False
+        return None
+
+    def _get_reason(self, qs_parts):
+        """
+        Return the valid "read status" flag to use, or None
+        """
+        reason = qs_parts.get('reason', None)
+        if reason in self.allowed_reasons:
+            return reason
+        return None
+
+    def _get_active(self, qs_parts):
+        """
+        Return the valid "active status" flag to use, or None
+        """
+        active = qs_parts.get('active', None)
+        if active in self.allowed_actives:
+            return True if active == 'yes' else False
+        return None
+
+    @cached_property
+    def github_notifications(self):
+        return self.request.user.github_notifications.all().select_related('repository__owner')
+
+    @cached_property
+    def allowed_repositories(self):
+        repositories = set(n.repository.full_name for n in self.github_notifications)
+        return sorted(repositories, key=lambda full_name: full_name.lower())
+
+    def _get_repository(self, qs_parts):
+        repository = qs_parts.get('repository', None)
+        if repository in self.allowed_repositories:
+            return repository
+        return None
+
+    def _get_sort_field(self, sort):
+        if sort == 'notification':
+            return 'githubnotification__updated_at'
+        return super(GithubNotificationsFilters, self)._get_sort_field(sort)
+
+    def get_filter_parts(self, qs_parts):
+        query_filters, order_by, group_by, filter_objects, qs_filters =  \
+            super(GithubNotificationsFilters, self).get_filter_parts(qs_parts)
+
+        # filter by unread status
+        is_read = self._get_read(qs_parts)
+        if is_read is not None:
+            qs_filters['read'] = self.allowed_reads[is_read]
+            filter_objects['read'] = is_read
+            query_filters['githubnotification__unread'] = not is_read
+
+        # filter by subscribed status
+        is_active = self._get_active(qs_parts)
+        if is_active is not None:
+            qs_filters['active'] = self.allowed_actives[is_active]
+            filter_objects['active'] = is_active
+            query_filters['githubnotification__subscribed'] = is_active
+
+        # filter by reason
+        reason = self._get_reason(qs_parts)
+        if reason is not None:
+            qs_filters['reason'] = filter_objects['reason'] = \
+                query_filters['githubnotification__reason'] = reason
+
+        # filter by repository
+        repository = self._get_repository(qs_parts)
+        if repository is not None:
+            qs_filters['repository'] = filter_objects['repository'] = repository
+            owner_name, repo_name = repository.split('/')
+            query_filters['githubnotification__repository__name'] = repo_name
+            query_filters['githubnotification__repository__owner__username'] = owner_name
+
+        return query_filters, order_by, group_by, filter_objects, qs_filters
+
+
+class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateView):
+
+    template_name = 'front/github_notifications/base.html'
+    url_name = 'front:github-notifications:home'
+
+    filters_and_list_template_name = 'front/github_notifications/include_filters_and_list.html'
+    issue_item_template_name = 'front/github_notifications/include_issue_item_for_cache.html'
+
+    default_qs = 'read=no&sort=notification&direction=desc'
 
     def get_base_queryset(self):
         return Issue.objects
 
-    def get_base_url(self):
+    @cached_property
+    def base_url(self):
         return reverse(self.url_name)
 
     @classmethod
@@ -117,10 +216,6 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         if cls.default_qs:
             url += '?' + cls.default_qs
         return url
-
-    @cached_property
-    def github_notifications(self):
-        return self.request.user.github_notifications.all().select_related('repository__owner')
 
     @cached_property
     def subscriptions(self):
@@ -152,50 +247,7 @@ class GithubNotifications(BaseIssuesView, TemplateView):
 
         return issues, total_count, limit_reached, original_queryset
 
-    def _get_read(self, qs_parts):
-        """
-        Return the valid "read status" flag to use, or None
-        """
-        read = qs_parts.get('read', None)
-        if read in self.allowed_reads:
-            return True if read == 'yes' else False
-        return None
-
-    def _get_reason(self, qs_parts):
-        """
-        Return the valid "read status" flag to use, or None
-        """
-        reason = qs_parts.get('reason', None)
-        if reason in self.allowed_reasons:
-            return reason
-        return None
-
-    def _get_active(self, qs_parts):
-        """
-        Return the valid "active status" flag to use, or None
-        """
-        active = qs_parts.get('active', None)
-        if active in self.allowed_actives:
-            return True if active == 'yes' else False
-        return None
-
-    @cached_property
-    def allowed_repositories(self):
-        repositories = set(n.repository.full_name for n in self.github_notifications)
-        return sorted(repositories, key=lambda full_name: full_name.lower())
-
-    def _get_repository(self, qs_parts):
-        repository = qs_parts.get('repository', None)
-        if repository in self.allowed_repositories:
-            return repository
-        return None
-
-    def _get_sort_field(self, sort):
-        if sort == 'notification':
-            return 'githubnotification__updated_at'
-        return super(GithubNotifications, self)._get_sort_field(sort)
-
-    def get_queryset(self, queryset, filters, order_by):
+    def get_queryset(self, base_queryset, filters, order_by):
 
         notifications_queryset = self.github_notifications
 
@@ -236,58 +288,19 @@ class GithubNotifications(BaseIssuesView, TemplateView):
         # http://blog.mathieu-leplatre.info/django-create-a-queryset-from-a-list-preserving-order.html
         extra_clauses = ' '.join(['WHEN core_issue.id=%s THEN %s' % (pk, i) for i, pk in enumerate(filters['id__in'])])
         extra_ordering = 'CASE %s END' % extra_clauses
-        queryset = queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
+        queryset = base_queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
 
         return super(GithubNotifications, self).get_queryset(queryset, filters, [])
 
-    def get_filter_parts(self, qs_parts):
-        query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction =  \
-            super(GithubNotifications, self).get_filter_parts(qs_parts)
-
-        # filter by unread status
-        is_read = self._get_read(qs_parts)
-        if is_read is not None:
-            qs_filters['read'] = self.allowed_reads[is_read]
-            filter_objects['read'] = is_read
-            query_filters['githubnotification__unread'] = not is_read
-
-        # filter by subscribed status
-        is_active = self._get_active(qs_parts)
-        if is_active is not None:
-            qs_filters['active'] = self.allowed_actives[is_active]
-            filter_objects['active'] = is_active
-            query_filters['githubnotification__subscribed'] = is_active
-
-        # filter by reason
-        reason = self._get_reason(qs_parts)
-        if reason is not None:
-            qs_filters['reason'] = filter_objects['reason'] = \
-                query_filters['githubnotification__reason'] = reason
-
-        # filter by repository
-        repository = self._get_repository(qs_parts)
-        if repository is not None:
-            qs_filters['repository'] = filter_objects['repository'] = repository
-            owner_name, repo_name = repository.split('/')
-            query_filters['githubnotification__repository__name'] = repo_name
-            query_filters['githubnotification__repository__owner__username'] = owner_name
-
-        return query_filters, order_by, filter_objects, qs_filters, group_by, group_by_direction
-
     def get_context_data(self, **kwargs):
         """
-        Add readable reasons and sorts
+        Add readable reasons
         """
         context = super(GithubNotifications, self).get_context_data(**kwargs)
 
         context.update({
             'reasons': self.reasons,
         })
-
-        context['sorts']['notification'] = {
-            'name': u'notification date',
-            'description': u'date the notification last appeared',
-        }
 
         if context['issues_filter']['objects'].get('group_by_field') == 'githubnotification__repository':
             context['force_hide_repositories'] = True

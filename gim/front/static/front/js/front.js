@@ -60,6 +60,7 @@ $().ready(function() {
             return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
         }
     };
+    window.UrlParser = UrlParser;
 
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
@@ -163,6 +164,7 @@ $().ready(function() {
             /* Event handler to set the focus on the given node.
             */
             return function() {
+                if (typeof $node == 'function') { $node = $node(); }
                 if (delay) {
                     setTimeout(Ev.set_focus($node), delay);
                 } else {
@@ -1634,6 +1636,11 @@ $().ready(function() {
         }
     }); // IssuesList__replace_by_node
 
+    IssuesList.get_loaded_lists = (function IssuesList_get_loaded_lists () {
+        return $.grep(IssuesList.all, function(list) { return !list.$node.hasClass('not-loaded'); });
+    }); // IssuesList_get_loaded_lists
+
+
     IssuesList.update_time_ago = (function IssuesList_update_time_ago ($lists) {
         $lists = $lists || $(IssuesList.selector);
         for (var i = 0; i < $lists.length; i++) {
@@ -1674,10 +1681,10 @@ $().ready(function() {
         }
 
         // keyboard events
-        $document.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
-        $document.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
-        $document.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
-        $document.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
 
         if (window.ChartManager) {
             $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
@@ -1724,7 +1731,7 @@ $().ready(function() {
         }
         IssuesList.updating_ids[kwargs.id] = true;
 
-        var loaded_lists = $.grep(IssuesList.all, function(list) { return !list.$node.hasClass('not-loaded'); });
+        var loaded_lists = IssuesList.get_loaded_lists();
 
         var message_conf = {
             count: 0,
@@ -1877,6 +1884,10 @@ $().ready(function() {
     }); // IssuesList__on_issue_create_alert
 
     IssuesList.prototype.on_filter_done = (function IssuesList__on_filter_done () {
+        if (this.skip_on_filter_done_once) {
+            this.skip_on_filter_done_once = false;
+            return;
+        }
         var continue_issue_search = this.$search_input.val() !== '';
         for (var i = 0; i < this.groups.length; i++) {
             var group = this.groups[i];
@@ -2014,6 +2025,15 @@ $().ready(function() {
         return false; // stop event propagation
     }); // IssuesList__toggle_details
 
+    IssuesList.refresh = (function IssuesList_refresh () {
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
+            list.refresh();
+        }
+        return false; // stop event propagation
+    }); // IssuesList_refresh
+
     IssuesList.prototype.refresh = (function IssuesList__refresh () {
         IssuesFilters.reload_filters_and_list(
             this.url,
@@ -2025,8 +2045,9 @@ $().ready(function() {
     }); // IssuesList__refresh
 
     IssuesList.close_all_groups = (function IssuesList_close_all_groups () {
-        for (var i = 0; i < IssuesList.all.length; i++) {
-            var list = IssuesList.all[i];
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
             list.close_all_groups();
         }
         return false; // stop event propagation
@@ -2041,8 +2062,9 @@ $().ready(function() {
     }); // IssuesList__close_all_groups
 
     IssuesList.open_all_groups = (function IssuesList_open_all_groups () {
-        for (var i = 0; i < IssuesList.all.length; i++) {
-            var list = IssuesList.all[i];
+        var loaded_lists = IssuesList.get_loaded_lists();
+        for (var i = 0; i < loaded_lists.length; i++) {
+            var list = loaded_lists[i];
             list.open_all_groups();
         }
         return false; // stop event propagation
@@ -2151,12 +2173,20 @@ $().ready(function() {
             if (!$mask.length) {
                 $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
                 $node.append($mask);
+            } else {
+                $mask.show();
             }
             return $mask;
-        }),
+        }), // add_waiting
+        remove_waiting: (function IssuesFilters__remove_waiting ($node) {
+            $node.children('.loading-mask').hide();
+        }), // remove_waiting
         on_filter_click: (function IssuesFilters__on_filter_click () {
-            var $filters_node = $(this).closest(IssuesFilters.selector),
-                $issues_list_node = $filters_node.next(IssuesList.container_selector);
+            var $filters_node = $(this).closest(IssuesFilters.selector), $issues_list_node;
+            if ($filters_node.attr('id') == 'issues-filters-board-main') {
+                return;
+            }
+            $issues_list_node = $filters_node.next(IssuesList.container_selector);
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
         on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
@@ -2230,7 +2260,8 @@ $().ready(function() {
             IssuesFilters.add_waiting($issues_list_node);
 
             return false;
-        }), // on_filter_click
+        }), // reload_filters_and_list
+
         on_filters_and_list_loaded: (function IssuesFilters_on_filters_and_list_loaded (data) {
             var $data = $(data),
                 $new_filters_node = $data.filter(IssuesFilters.selector),
@@ -2301,7 +2332,7 @@ $().ready(function() {
                 active = true;
             }
             if (IssuesList.all.length) {
-                $document.on('click', '.dropdown-sort a, .dropdown-groupby a, .dropdown-metric a, .metric-stats a:not(.milestone-graph-link), a.no-limit-btn',
+                $document.on('click', '.dropdown-sort ul a, .dropdown-groupby ul a, .dropdown-metric ul a, .metric-stats a:not(.milestone-graph-link), a.no-limit-btn',
                     Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
             }
@@ -5999,13 +6030,14 @@ $().ready(function() {
     GithubNotifications.init();
 
     var HistoryManager = {
+        callbacks: {
+            'IssuesFilters': IssuesFilters.on_history_pop_state
+        },
         on_pop_state: function(ev) {
             var done = true;
             if (ev.state && ev.state.type) {
-                switch(ev.state.type) {
-                    case 'IssuesFilters':
-                        done = IssuesFilters.on_history_pop_state(ev.state);
-                        break;
+                if (HistoryManager.callbacks[ev.state.type]) {
+                    done = HistoryManager.callbacks[ev.state.type](ev.state)
                 }
             }
             if (!done) {
@@ -6018,6 +6050,7 @@ $().ready(function() {
         }
     }; // HistoryManager
     HistoryManager.init();
+    window.HistoryManager = HistoryManager;
 
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {

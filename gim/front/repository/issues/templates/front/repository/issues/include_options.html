@@ -1,0 +1,33 @@
+{% extends "front/issues/include_options.html" %}
+{% load querystring frontutils %}
+
+{% block group_by_selection %}
+    {% if issues_filter.objects.group_by_field == 'label_type_grouper' %}
+        {{ issues_filter.objects.group_by.name|capfirst }}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock group_by_selection %}
+
+{% block group_by_choices %}
+    {{ block.super }}
+    {% if label_types|length %}
+        <li class="divider"></li>
+        {% for label_type in label_types %}
+            {% with "type:"|concat:label_type.name as label_type_group_name %}
+                {% if label_type.labels.ready.count %}
+                    {% block group_by_label_choice %}
+                    <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
+                        <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">
+                            {{ label_type.name }}
+                            {% if issues_filter.parts.group_by == label_type_group_name %}
+                                <i class="fa fa-times"> </i>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endblock group_by_label_choice %}
+                {% endif %}
+            {% endwith %}
+        {% endfor %}
+    {% endif %}
+{% endblock %}

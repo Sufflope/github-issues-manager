@@ -1,0 +1,17 @@
+{% extends "front/repository/issues/include_filters.html" %}
+
+{% block filter-state %}
+    {% if current_board_key != 'auto-state' %}{{ block.super }}{% endif %}
+{% endblock filter-state %}
+
+{% block filter-assigned %}
+    {% if current_board_key != 'auto-assigned' %}{{ block.super }}{% endif %}
+{% endblock filter-assigned %}
+
+{% block filter-milestone %}
+    {% if current_board_key != 'auto-milestone' %}{{ block.super }}{% endif %}
+{% endblock filter-milestone %}
+
+{% block filter-label_type %}
+    {% if current_board.mode != 'labels' or label_type.name != current_board.name %}{{ block.super }}{% endif %}
+{% endblock filter-label_type %}

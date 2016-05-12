@@ -1,0 +1,64 @@
+{% extends "front/repository/issues/include_options.html" %}
+{% load frontutils %}
+
+{% block option-refresh-list-name %}{{ block.super }}{% if view.url_name == 'board' %}s{% endif %}{% endblock %}
+
+{% block group_by_choice %}
+    {% if current_board_key == 'auto-state' and group_by_filter == 'state' %}
+    {% elif current_board_key == 'auto-assigned' and group_by_filter == 'assigned' %}
+    {% elif current_board_key == 'auto-milestone' and group_by_filter == 'milestone' %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock group_by_choice %}
+
+{% block group_by_label_choice %}
+    {% if current_board.mode == 'labels' and label_type.name == current_board.name %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock group_by_label_choice %}
+
+{% block before-options-menu %}
+    {% if view.url_name == 'board' %}
+        <li class="dropdown span4">
+            <a href="#" role="button" class="dropdown-toggle no-selection" data-toggle="dropdown" id="board-columns-arranger-trigger">
+                <span>
+                    Arrange columns
+                    <span class="caret"></span>
+                </span>
+            </a>
+            <ul class="dropdown-menu pull-left" role="menu" aria-label="Search">
+                <li id="board-columns-arranger-holder">
+                    <div>
+                        <button value="clear" class="btn btn-default btn-mini" title="Remove all columns">Empty</button>
+                        <button value="reset" class="btn btn-default btn-mini" title="Restore default columns set">Reset</button>
+                    </div>
+                    <p>
+                        You can hide columns and change their order by drag & drop:
+                    </p>
+                    {% with visible_columns_keys=current_board.columns.values|filter_falsy:"hidden"|map_dict_item:"key"|join:"," %}
+                        <input id="board-columns-arranger" type="hidden" autocomplete="off" value="{{ visible_columns_keys }}" />
+                    {% endwith %}
+                <li>
+            </ul>
+        </li>
+        <li class="divider-vertical"></li>
+    {% endif %}
+{% endblock before-options-menu %}
+
+{% block after-options-menu %}
+    {% if view.url_name == 'board' %}
+        <li class="divider-vertical"></li>
+        <li class="dropdown span4">
+            <a href="#" role="button" class="dropdown-toggle no-selection issues-list-search-main-board-trigger" data-toggle="dropdown">
+                <i class="fa fa-search"> </i>
+            </a>
+            <ul class="dropdown-menu pull-right issues-list-search-board-main-dropdown" role="menu" aria-label="Search">
+                <li>
+                    {% include "front/include_quicksearch.html" with id="issues-list-search-"|concat:list_uuid class="issues-quicksearch" target="#fake-target" content_data="search" placeholder="Filter by owner+number+title+milestone+labels" only %}
+                </li>
+            </ul>
+        </li>
+    {% endif %}
+{% endblock after-options-menu %}
