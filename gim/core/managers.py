@@ -1427,7 +1427,7 @@ class MentionManager(models.Manager):
                 position=position,
                 content_type=content_type,
                 object_id=obj.pk
-            ).values_list('username_lower', flat=True))
+            ).values_list('username', flat=True))
 
             if existing_users:
                 usernames_to_remove = existing_users.difference(users.keys())
