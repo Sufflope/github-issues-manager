@@ -249,6 +249,8 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
 
     def get_queryset(self, base_queryset, filters, order_by):
 
+        queryset = base_queryset
+
         notifications_queryset = self.github_notifications
 
         notifications_filters = {}
@@ -269,7 +271,7 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
         if notifications_excludes:
             notifications_queryset = notifications_queryset.exclude(**notifications_excludes)
 
-        if order_by:
+        if order_by and not self.needs_only_queryset:
             notifications_orders = []
             for order in list(order_by):
                 if 'githubnotification__' in order:
@@ -285,10 +287,11 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
 
         filters['id__in'] = list(notifications_queryset.values_list('issue_id', flat=True))
 
-        # http://blog.mathieu-leplatre.info/django-create-a-queryset-from-a-list-preserving-order.html
-        extra_clauses = ' '.join(['WHEN core_issue.id=%s THEN %s' % (pk, i) for i, pk in enumerate(filters['id__in'])])
-        extra_ordering = 'CASE %s END' % extra_clauses
-        queryset = base_queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
+        if not self.needs_only_queryset:
+            # http://blog.mathieu-leplatre.info/django-create-a-queryset-from-a-list-preserving-order.html
+            extra_clauses = ' '.join(['WHEN core_issue.id=%s THEN %s' % (pk, i) for i, pk in enumerate(filters['id__in'])])
+            extra_ordering = 'CASE %s END' % extra_clauses
+            queryset = queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
 
         return super(GithubNotifications, self).get_queryset(queryset, filters, [])
 
@@ -298,12 +301,13 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
         """
         context = super(GithubNotifications, self).get_context_data(**kwargs)
 
-        context.update({
-            'reasons': self.reasons,
-        })
+        if not self.needs_only_queryset:
+            context.update({
+                'reasons': self.reasons,
+            })
 
-        if context['issues_filter']['objects'].get('group_by_field') == 'githubnotification__repository':
-            context['force_hide_repositories'] = True
+            if context['issues_filter']['objects'].get('group_by_field') == 'githubnotification__repository':
+                context['force_hide_repositories'] = True
 
         return context
 

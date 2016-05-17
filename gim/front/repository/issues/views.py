@@ -479,15 +479,16 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
         """
         context = super(IssuesView, self).get_context_data(**kwargs)
 
-        # final context
-        context.update({
-            'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
-            'metric_stats': self.metric_stats,
-            'all_metrics': list(self.repository.all_metrics())
-        })
-        context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+        if not self.needs_only_queryset:
+            # final context
+            context.update({
+                'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
+                'metric_stats': self.metric_stats,
+                'all_metrics': list(self.repository.all_metrics())
+            })
+            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
 
-        context['can_add_issues'] = True
+            context['can_add_issues'] = True
 
         return context
 
@@ -810,14 +811,15 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
                                     source_request=self.request, pass_user=True)
 
         view = view()
+        view.needs_only_queryset = True
         view.request = new_request
         view.args = resolved_url.args
         view.kwargs = resolved_url.kwargs
 
-        view_context = view.get_pre_context_data()
-        issues_queryset, self.referer_filter_context = view.get_issues_for_context(view_context)
+        view_context = view.get_context_data()
+        self.referer_filter_context = view_context['issues_filter']
 
-        return issues_queryset
+        return view_context['issues']
 
     def get_base_queryset(self):
         queryset = self.get_referer_issues_queryset()
@@ -854,7 +856,7 @@ class IssueSummaryView(WithAjaxRestrictionViewMixin, IssueView):
                 current_issue.repository.subscription = self.request.user.subscriptions.get(repository_id=current_issue.repository_id)
             except:
                 current_issue.repository.subscription = None
-            if self.referer_filter_context['filter_objects'].get('group_by_field') == 'githubnotification__repository':
+            if self.referer_filter_context['objects'].get('group_by_field') == 'githubnotification__repository':
                 context['force_hide_repositories'] = True
 
         return context
