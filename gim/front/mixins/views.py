@@ -742,6 +742,7 @@ class BaseIssuesView(object):
     filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
     options_template_name = 'front/issues/include_options.html'
     issue_item_template_name = 'front/repository/issues/include_issue_item_for_cache.html'
+    needs_only_queryset = False
 
     def __init__(self, **kwargs):
         self.list_uuid = str(uuid4())
@@ -780,7 +781,7 @@ class BaseIssuesView(object):
                             for value in values:
                                 queryset = queryset.exclude(**{key: value})
 
-        if order_by:
+        if order_by and not self.needs_only_queryset:
             queryset = queryset.order_by(*order_by)
 
         return queryset.distinct()
@@ -797,10 +798,11 @@ class BaseIssuesView(object):
             filters=context['issues_filter']['queryset_info']['filters'],
             order_by=context['issues_filter']['queryset_info']['order_by'],
         )
-        queryset = self.select_and_prefetch_related(
-            queryset=queryset,
-            group_by=context['issues_filter']['queryset_info']['group_by'],
-        )
+        if not self.needs_only_queryset:
+            queryset = self.select_and_prefetch_related(
+                queryset=queryset,
+                group_by=context['issues_filter']['queryset_info']['group_by'],
+            )
 
         return queryset
 
@@ -820,15 +822,18 @@ class BaseIssuesView(object):
         # get the list of issues
         issues = self.get_issues_for_context(context)
 
-        # final context
-        context.update({
-            'list_uuid': self.list_uuid,
-            'current_issues_url': self.base_url,
-            'can_show_shortcuts': True,
-        })
+        if not self.needs_only_queryset:
+            # final context
+            context.update({
+                'list_uuid': self.list_uuid,
+                'current_issues_url': self.base_url,
+                'can_show_shortcuts': True,
+            })
 
-        context['issues'], context['issues_count'], context['limit_reached'], __ =\
-            self.finalize_issues(issues, context)
+            context['issues'], context['issues_count'], context['limit_reached'], __ =\
+                self.finalize_issues(issues, context)
+        else:
+            context['issues'] = issues
 
         return context
 
