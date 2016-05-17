@@ -468,14 +468,15 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
     def get_context_data(self, **kwargs):
         context = super(BoardColumnView, self).get_context_data()
 
-        context.update({
-            'list_key': self.current_column['key'],
-            'list_title': self.current_column['name'],
-            'list_description': self.current_column['description'],
-            'filters_title': 'Filters for this column',
-            'can_show_shortcuts': False,
-            'can_add_issues': False,
-        })
+        if not self.needs_only_queryset:
+            context.update({
+                'list_key': self.current_column['key'],
+                'list_title': self.current_column['name'],
+                'list_description': self.current_column['description'],
+                'filters_title': 'Filters for this column',
+                'can_show_shortcuts': False,
+                'can_add_issues': False,
+            })
 
         return context
 
