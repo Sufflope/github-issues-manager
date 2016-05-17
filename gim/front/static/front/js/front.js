@@ -1057,9 +1057,25 @@ $().ready(function() {
     }); // IssuesListIssue_open_issue
 
     IssuesListIssue.finalize_alert = (function IssuesListIssue__finalize_alert ($issue_node, kwargs, front_uuid_exists, $data, $containers, message_mode, message_conf) {
-        var with_repository = $data ? $data.hasClass('with-repository') : ($issue_node ? $issue_node.hasClass('with-repository') : false),
-            with_notification = $data ? $data.hasClass('with-notification') : ($issue_node ? $issue_node.hasClass('with-notification') : false),
-            display_repository = (with_repository || with_notification) ? ($data ? $data.data('repository') : ($issue_node ? $issue_node.data('repository') : '')) : '',
+        var with_repository = $data
+                                ? $data.hasClass('with-repository') || ($data.data('repository') &&  $data.data('repository') != main_repository)
+                                : (
+                                    $issue_node ? $issue_node.hasClass('with-repository') : false
+                                ),
+            with_notification = $data
+                                    ? $data.hasClass('with-notification')
+                                    : (
+                                        $issue_node ? $issue_node.hasClass('with-notification') : false
+                                    ),
+            display_repository = (with_repository || with_notification)
+                                    ? (
+                                        $data
+                                            ? $data.data('repository')
+                                            : (
+                                                $issue_node ? $issue_node.data('repository') : ''
+                                            )
+                                    )
+                                    : '',
             text, $message, issue_type = kwargs.is_pr ? 'pull request' : 'issue';
 
         if ($issue_node && with_notification) {
