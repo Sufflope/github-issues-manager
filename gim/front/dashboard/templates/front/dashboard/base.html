@@ -13,7 +13,7 @@
             </a>
         </li>
         <li{% if view.url_name == "front:dashboard:repositories:choose" %} class="active"{% endif %}>
-            <a role="menuitem" href="{% url "front:dashboard:repositories:choose" %}">
+            <a role="menuitem" href="{% url "front:dashboard:repositories:choose" %}" id="subscriptions-menu-link">
                 <i class="fa fa-check-circle"> </i>
                 Subscriptions
             </a>

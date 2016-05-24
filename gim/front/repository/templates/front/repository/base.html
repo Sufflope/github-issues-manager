@@ -9,14 +9,14 @@
     <ul class="nav">
         {% include "front/include_repository_switcher.html" %}
         <li>
-            <a href="{{ current_repository.github_url }}" title="View current repository on github" target='_blank'><i class="fa fa-github"> </i></a>
+            <a href="{{ current_repository.github_url }}" id="repo-github-link" title="View current repository on github" target='_blank'><i class="fa fa-github"> </i></a>
         </li>
     </ul>
     <ul class="nav repository-views">
         {% for main_view in repository_main_views %}
             {% if main_view.display_in_menu %}
                 <li{% if main_view.is_current %} class="active"{% endif %}>
-                    <a role="menuitem" href="{{ main_view.url }}{% if main_view.qs %}?{{ main_view.qs }}{% endif %}" title="{{ main_view.title }}">
+                    <a role="menuitem" href="{{ main_view.url }}{% if main_view.qs %}?{{ main_view.qs }}{% endif %}" title="{{ main_view.title }}" id="repo-{{ main_view.url_name }}-link">
                         {% if main_view.url_name == 'dashboard' %}
                             <i class="fa fa-tachometer fa-fw"> </i>
                         {% elif main_view.url_name == 'issues' %}
@@ -30,7 +30,7 @@
         {% endif %}
         {% endfor %}
         {% if can_add_issues %}
-            <li class="add-issue-btn"><a role="menuitem" href="#" title="Create an issue on this repository"><i class="fa fa-plus fa-fw"> </i> <span>Add issue</span></a></li>
+            <li class="add-issue-btn"><a role="menuitem" href="#" title="Create an issue on this repository" id="repo-add-issue-link"><i class="fa fa-plus fa-fw"> </i> <span>Add issue</span></a></li>
         {% endif %}
     </ul>
 {% endspaceless %}{% endblock header_nav %}
