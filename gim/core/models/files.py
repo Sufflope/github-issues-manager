@@ -50,6 +50,8 @@ class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):
     github_ignore = GithubObjectWithId.github_ignore + ('nb_additions', 'nb_deletions',
                                 'path') + ('raw_url', 'contents_url', 'blob_url', 'changes')
     github_identifiers = {
+        'repository__github_id': ('repository', 'github_id'),
+        'issue__number': ('issue', 'number'),
         'tree': 'tree',
         'sha': 'sha',
         'path': 'path',
@@ -59,7 +61,7 @@ class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):
         app_label = 'core'
         ordering = ('path', )
         unique_together = (
-            ('repository', 'tree', 'sha', 'path',)
+            ('repository', 'issue', 'tree', 'sha', 'path',)
         )
 
     def __unicode__(self):
@@ -78,6 +80,7 @@ class CommitFile(FileMixin, WithCommitMixin, GithubObject):
     github_ignore = GithubObjectWithId.github_ignore + ('nb_additions', 'nb_deletions',
                                 'path') + ('raw_url', 'contents_url', 'blob_url', 'changes')
     github_identifiers = {
+        'repository__github_id': ('repository', 'github_id'),
         'commit__sha': ('commit', 'sha'),
         'sha': 'sha',
         'path': 'path',
@@ -87,7 +90,7 @@ class CommitFile(FileMixin, WithCommitMixin, GithubObject):
         app_label = 'core'
         ordering = ('path', )
         unique_together = (
-            ('commit', 'sha', 'path',)
+            ('repository', 'commit', 'sha', 'path',)
         )
 
     def __unicode__(self):
