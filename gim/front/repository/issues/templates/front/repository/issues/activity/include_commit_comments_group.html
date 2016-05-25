@@ -12,7 +12,7 @@
                     {{ nb_comments }} commit comment{{ nb_comments|pluralize }} {{ nb_comments|pluralize:'was,were'}} added on a commit
                 </div>
                 <ul class="box-toolbar">
-                    <li class="time" title="{{ group.start_date|date:"DATE_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.start_date|ago }}{% else %}{{ group.start_date|date:"DATE_FORMAT" }}{% endif %}</li>
+                    <li class="time" title="{{ group.created_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.created_at|ago }}{% else %}{{ group.created_at|date:"DATETIME_FORMAT" }}{% endif %}</li>
                 </ul>
             </div>
             <div class="box-content">
