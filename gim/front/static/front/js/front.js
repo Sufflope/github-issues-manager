@@ -966,14 +966,14 @@ $().ready(function() {
         this.$node.removeClass('active');
     }); // IssuesListIssue__unset_current
 
-    IssuesListIssue.prototype.set_current = (function IssuesListIssue__set_current (propagate, force_load, no_loading, keep_recent) {
+    IssuesListIssue.prototype.set_current = (function IssuesListIssue__set_current (propagate, force_load, no_loading, keep_recent, nofocus) {
         if (IssueDetail.$main_container.length || force_load) {
             this.get_html_and_display(null, null, force_load, no_loading);
         }
         if (!this.group.no_visible_issues) {
             if (propagate) {
                 this.group.list.set_current();
-                this.group.set_current();
+                this.group.set_current(null, nofocus);
             }
             if (this.group.current_issue) {
                 this.group.current_issue.unset_current();
@@ -984,8 +984,8 @@ $().ready(function() {
             this.$node.addClass('active');
             var issue = this;
             if (this.group.collapsed) {
-                this.group.open(false, function() { issue.$link.focus(); });
-            } else {
+                this.group.open(false, nofocus ? null : function() { issue.$link.focus(); });
+            } else if (!nofocus) {
                 this.$link.focus();
             }
         }
@@ -1170,8 +1170,8 @@ $().ready(function() {
             }
 
             if (refresh_quicksearch) { list.reinit_quicksearch_results(); }
-            if (is_group_current) { group.set_current(is_group_active); }
-            if (is_issue_active) { issue.set_current(null, null, null, true); }
+            if (is_group_current) { group.set_current(is_group_active, true); }
+            if (is_issue_active) { issue.set_current(null, null, null, true, true); }
 
             FilterManager.convert_links(list);
             IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'updated', message_conf);
@@ -1291,13 +1291,13 @@ $().ready(function() {
         this.$node.removeClass('active');
     }); // IssuesListGroup__unset_active
 
-    IssuesListGroup.prototype.set_active = (function IssuesListGroup__set_active () {
+    IssuesListGroup.prototype.set_active = (function IssuesListGroup__set_active (nofocus) {
         if (this.current_issue) {
             this.current_issue.unset_current();
         }
         IssueDetail.clear_container();
         this.$node.addClass('active');
-        this.$link.focus();
+        if (!nofocus) { this.$link.focus(); }
     }); // IssuesListGroup__set_active
 
     IssuesListGroup.prototype.unset_current = (function IssuesListGroup__unset_current () {
@@ -1312,13 +1312,13 @@ $().ready(function() {
         return this.list.current_group == this;
     }); // IssuesListGroup__is_current
 
-    IssuesListGroup.prototype.set_current = (function IssuesListGroup__set_current (active) {
+    IssuesListGroup.prototype.set_current = (function IssuesListGroup__set_current (active, nofocus) {
         if (this.list.current_group) {
             this.list.current_group.unset_current();
         }
         this.list.current_group = this;
         if (active) {
-            this.set_active();
+            this.set_active(nofocus);
         }
     }); // IssuesListGroup__set_current
 

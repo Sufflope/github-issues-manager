@@ -46,6 +46,8 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
             - list of available repositories
             - list of all main views for this repository
         """
+        self.object = None
+
         context = super(BaseRepositoryView, self).get_context_data(**kwargs)
 
         # we need a list of all main views for this repository

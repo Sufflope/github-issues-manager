@@ -996,7 +996,7 @@ class Hash(lmodel.RedisModel):
             return super(Hash, cls).get_or_connect(**kwargs)
 
 
-def unify_messages(store, topic, repository_id, *args, **kwargs):
+def unify_messages(store, topic, *args, **kwargs):
     """Keep only the last message for a topic/instance each time we receive one in the store"""
 
     store['__order__'] = store.get('__order__', 0) + 1
@@ -1004,7 +1004,6 @@ def unify_messages(store, topic, repository_id, *args, **kwargs):
     message = {
         'message': {
             'topic': topic,
-            'repository_id': repository_id,
             'args': args,
             'kwargs': kwargs,
         },
@@ -1051,7 +1050,7 @@ def send_unified_messages(store):
         message = container['message']
         publisher.publish(
             topic=message['topic'],
-            repository_id=message['repository_id'],
+            repository_id=message['kwargs'].pop('repository_id', None),
             *message['args'],
             **message['kwargs']
         )
