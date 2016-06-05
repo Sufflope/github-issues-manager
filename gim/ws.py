@@ -213,6 +213,13 @@ class HistoryMixin(ModelWithDynamicFieldMixin, lmodel.RedisModel):
 
         return ids
 
+    def clean(self, min_msg_id_to_keep):
+        all_topics = self.all_topics()
+        with self.database.pipeline() as pipeline:
+            for topic in all_topics:
+                self.messages.get_for(topic).zremrangebyscore(0, '(%s' % min_msg_id_to_keep)
+            return sum(pipeline.execute()) if all_topics else 0
+
 
 class AsyncHistoryMixin(object):
 
@@ -542,6 +549,17 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
 
         # And then we can delete all stored messages for this repository
         repository.delete()
+
+    def clean(self, min_msg_id_to_keep):
+        super(Publisher, self).clean(min_msg_id_to_keep)
+
+        touched = self.repositories.zrangebyscore(0, '(%s' % min_msg_id_to_keep)
+        repositories = set(val.split(':')[1] for val in touched) - {''}
+
+        for repository_id in repositories:
+            RepositoryHistory.get_for(repository_id).clean(min_msg_id_to_keep)
+
+        return self.repositories.zremrangebyscore(0, '(%s' % min_msg_id_to_keep)
 
 
 class AsyncPublisher(AsyncHistoryMixin):
