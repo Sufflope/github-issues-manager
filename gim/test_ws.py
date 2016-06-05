@@ -479,7 +479,35 @@ class RepositoryHistoryTestCase(UsingSyncRedis):
         messages_baz.zadd(6, json.dumps({'baz': 'msg-6'}))
 
         result = entry.get_all_message_ids()
-        self.assertEqual(set(result), {2, 3, 4, 5, 6, 6})
+        self.assertEqual(set(result), {2, 3, 4, 5, 6})
+
+    def test_clean(self):
+
+        entry = ws.RepositoryHistory(pk=666)
+
+        # Prepare some topics
+        messages_foo = entry.messages.get_for('foo')
+        messages_bar = entry.messages.get_for('bar.xxx')
+
+        # And save messages
+        messages_foo.zadd(2, json.dumps({'foo': 'msg-2'}))
+        messages_bar.zadd(3, json.dumps({'bar': 'msg-3'}))
+        messages_foo.zadd(4, json.dumps({'foo': 'msg-4'}))
+        messages_foo.zadd(5, json.dumps({'foo': 'msg-5'}))
+
+        # Clean
+        deleted = entry.clean(4)
+        self.assertEqual(deleted, 2)
+
+        # No trace of the deleted messages anymore
+        result = entry.get_all_message_ids()
+        self.assertEqual(set(result), {4, 5})
+
+        # Do it for empty repository
+        entry = ws.RepositoryHistory(pk=667)
+
+        deleted = entry.clean(4)
+        self.assertEqual(deleted, 0)
 
 
 class AsyncRepositoryHistoryTestCase(UsingAsyncRedis):
@@ -1177,6 +1205,72 @@ class PublisherTestCase(UsingSyncRedis):
             ('5:', 5),
             ('6:', 6),
         ])
+
+    def test_clean(self):
+
+        # Set some topics for the publisher (without repository)
+        messages_foo = self.publisher.messages.get_for('foo')
+        messages_bar = self.publisher.messages.get_for('bar.xxx')
+
+        # With messages
+        messages_foo.zadd(20, json.dumps({'foo': 'msg-2'}))
+        self.publisher.repositories.zadd(20, '20:')
+        messages_bar.zadd(30, json.dumps({'bar': 'msg-3'}))
+        self.publisher.repositories.zadd(30, '30:')
+        messages_foo.zadd(40, json.dumps({'foo': 'msg-4'}))
+        self.publisher.repositories.zadd(40, '40:')
+        messages_foo.zadd(50, json.dumps({'foo': 'msg-5'}))
+        self.publisher.repositories.zadd(50, '50:')
+
+        # Same for some topics too
+        repo1 = ws.RepositoryHistory(pk=666)
+        messages_foo = repo1.messages.get_for('foo')
+        messages_bar = repo1.messages.get_for('bar.xxx')
+        messages_foo.zadd(21, json.dumps({'foo': 'msg-2'}))
+        self.publisher.repositories.zadd(21, '21:666')
+        messages_bar.zadd(31, json.dumps({'bar': 'msg-3'}))
+        self.publisher.repositories.zadd(31, '31:666')
+        messages_foo.zadd(41, json.dumps({'foo': 'msg-4'}))
+        self.publisher.repositories.zadd(41, '41:666')
+        messages_foo.zadd(51, json.dumps({'foo': 'msg-5'}))
+        self.publisher.repositories.zadd(51, '51:666')
+
+        repo2 = ws.RepositoryHistory(pk=667)
+        messages_foo = repo2.messages.get_for('foo')
+        messages_bar = repo2.messages.get_for('bar.xxx')
+        messages_foo.zadd(22, json.dumps({'foo': 'msg-2'}))
+        self.publisher.repositories.zadd(22, '22:667')
+        messages_bar.zadd(32, json.dumps({'bar': 'msg-3'}))
+        self.publisher.repositories.zadd(32, '32:667')
+        messages_foo.zadd(42, json.dumps({'foo': 'msg-4'}))
+        self.publisher.repositories.zadd(42, '42:667')
+        messages_foo.zadd(52, json.dumps({'foo': 'msg-5'}))
+        self.publisher.repositories.zadd(52, '52:667')
+
+        deleted = self.publisher.clean(35)
+        self.assertEqual(deleted, 6)
+
+        # No trace of the deleted messages anymore
+        ids = self.publisher.get_all_message_ids()
+        self.assertEqual(set(ids), {40, 50})
+        # Same for repositories
+        ids = repo1.get_all_message_ids()
+        self.assertEqual(set(ids), {41, 51})
+        ids = repo2.get_all_message_ids()
+        self.assertEqual(set(ids), {42, 52})
+
+        # Check also in the main zset containing all messages
+        entries = self.publisher.repositories.zrange(0, -1, withscores=True)
+        self.assertEqual(entries, [
+            (u'40:', 40.0),
+            (u'41:666', 41.0),
+            (u'42:667', 42.0),
+            (u'50:', 50.0),
+            (u'51:666', 51.0),
+            (u'52:667', 52.0),
+        ])
+
+
 
 class FakeCrossbar:
     @inlineCallbacks
