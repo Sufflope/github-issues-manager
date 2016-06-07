@@ -78,6 +78,7 @@ class GithubObject(models.Model):
     github_matching = {}
     github_ignore = ()
     github_format = '+json'
+    github_api_version = 'v3'
     github_edit_fields = {'create': (), 'update': ()}
     github_per_page = {'min': 10, 'max': 100}
     github_date_field = None  # ex ('updated_at', 'updated',   'desc')
@@ -98,8 +99,8 @@ class GithubObject(models.Model):
     def model_name(self):
         return self.__class__.__name__
 
-    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None,
-                                                        meta_base_name=None):
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None,
+              github_api_version=None):
         """
         Fetch data from github for the current object and update itself.
         If defined, "defaults" is a dict with values that will be used if not
@@ -120,7 +121,8 @@ class GithubObject(models.Model):
         request_headers = prepare_fetch_headers(
                     if_modified_since=None if force_fetch else getattr(self, fetched_at_field),
                     if_none_match=None if force_fetch else getattr(self, etag_field, None),
-                    github_format=self.github_format)
+                    github_format=self.github_format,
+                    version=github_api_version or self.github_api_version)
         response_headers = (parameters or {}).pop('response_headers', {})
 
         try:
@@ -160,7 +162,7 @@ class GithubObject(models.Model):
     def _fetch_many(self, field_name, gh, vary=None, defaults=None,
                     parameters=None, remove_missing=True, force_fetch=False,
                     meta_base_name=None, modes=MODE_ALL, max_pages=None,
-                    filter_queryset=None):
+                    filter_queryset=None, github_api_version=None):
         """
         Fetch data from github for the given m2m or related field.
         If defined, "vary" is a dict of list of parameters to fetch. For each
@@ -236,7 +238,8 @@ class GithubObject(models.Model):
 
         request_headers = prepare_fetch_headers(
                     if_modified_since=if_modified_since,
-                    github_format=model.github_format)
+                    github_format=model.github_format,
+                    version=github_api_version or model.github_api_version)
 
         def fetch_page_and_next(objs, parameters, min_date):
             """
@@ -378,7 +381,8 @@ class GithubObject(models.Model):
                 request_headers = prepare_fetch_headers(
                         if_modified_since=if_modified_since,
                         if_none_match=request_etag,
-                        github_format=model.github_format)
+                        github_format=model.github_format,
+                        version=github_api_version or model.github_api_version)
 
             try:
                 # fetch all available pages
@@ -397,7 +401,8 @@ class GithubObject(models.Model):
                             request_headers = prepare_fetch_headers(
                                 if_modified_since=if_modified_since,
                                 if_none_match=None,
-                                github_format=model.github_format)
+                                github_format=model.github_format,
+                                version=github_api_version or model.github_api_version)
 
                     if page_parameters is None:
                         break
@@ -598,7 +603,7 @@ class GithubObject(models.Model):
         return {}
 
     def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
-                  update_method='patch'):
+                  update_method='patch', github_api_version=None):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to
         do the matching action on Github.
@@ -658,7 +663,10 @@ class GithubObject(models.Model):
         # prepare the request
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
         method = getattr(gh_callable, update_method if mode == 'update' else 'post')
-        request_headers = prepare_fetch_headers(github_format=self.github_format)
+        request_headers = prepare_fetch_headers(
+            github_format=self.github_format,
+            version=github_api_version or self.github_api_version,
+        )
 
         # make the request and get fresh data for the object
         result = method(request_headers=request_headers, **data)
