@@ -244,7 +244,7 @@ class ActivityManagerIEV(ActivityManager):
                           |
                           Q(event__in=('mentioned', 'subscribed', 'labeled',
                                        'unlabeled', 'assigned', 'unassigned',
-                                       'milestoned', 'unmilestoned'))
+                                       'milestoned', 'demilestoned', 'renamed'))
                         )
 
     @classmethod
