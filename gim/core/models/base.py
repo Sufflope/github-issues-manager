@@ -78,6 +78,7 @@ class GithubObject(models.Model):
     github_matching = {}
     github_ignore = ()
     github_format = '+json'
+    github_edit_format = '+json'
     github_api_version = 'v3'
     github_edit_fields = {'create': (), 'update': ()}
     github_per_page = {'min': 10, 'max': 100}
@@ -664,7 +665,7 @@ class GithubObject(models.Model):
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
         method = getattr(gh_callable, update_method if mode == 'update' else 'post')
         request_headers = prepare_fetch_headers(
-            github_format=self.github_format,
+            github_format=self.github_edit_format,
             version=github_api_version or self.github_api_version,
         )
 
