@@ -158,7 +158,7 @@ class ActivityManagerICE(ActivityManager):
         return EventPart.objects.filter(
                 event__issue_id=issue.id,
             ).exclude(
-                field__in=issue.RENDERER_IGNORE_FIELDS | set(['assignee'])
+                field__in=issue.RENDERER_IGNORE_FIELDS
             )
 
     @classmethod
@@ -202,7 +202,7 @@ class ActivityManagerICE(ActivityManager):
         """
         objs = list(super(ActivityManagerICE, cls).load_objects(pks))
         for obj in objs:
-            obj.renderer_ignore_fields = Issue.RENDERER_IGNORE_FIELDS | set(['assignee'])
+            obj.renderer_ignore_fields = Issue.RENDERER_IGNORE_FIELDS
             obj.updated_parts = set([cls.NAMES.get(p.field, p.field)
                                     for p in obj.parts.all()
                                     if p.field not in obj.renderer_ignore_fields])

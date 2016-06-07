@@ -14,7 +14,7 @@ from gim.front.mixins.views import WithAjaxRestrictionViewMixin, WithIssueViewMi
 from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
 from gim.front.repository.views import BaseRepositoryView
-from gim.front.repository.issues.views import IssuesView, IssueEditAssignee, IssueEditLabels, \
+from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
     IssueEditMilestone, IssueEditState, IssuesFilters
 
 DEFAULT_BOARDS = OrderedDict((
@@ -320,8 +320,8 @@ class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, Base
                 url = self.issue.edit_field_url('state')
 
             elif board['key'] == 'assigned':
-                view = IssueEditAssignee
-                url = self.issue.edit_field_url('assignee')
+                view = IssueEditAssignees
+                url = self.issue.edit_field_url('assignees')
 
             elif board['key'] == 'milestone':
                 view = IssueEditMilestone
@@ -373,9 +373,24 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
             skip_reset_front_uuid = True
             data = {'state': self.new_column['key']}
 
-        elif view == IssueEditAssignee:
+        elif view == IssueEditAssignees:
             skip_reset_front_uuid = False
-            data = {'assignee': '' if self.new_column['key'] == '__none__' else self.new_column['object'].pk}
+            assignees = self.issue.assignees.all()
+
+            if self.new_column['key'] != self.current_column['key']:
+
+                assignees = list(assignees.values_list('pk', flat=True))
+
+                if self.new_column['key'] != '__none__':
+                    try:
+                        if self.current_column['key'] == '__none__':
+                            raise ValueError
+                        existing_index = assignees.index(self.current_column['object'].pk)
+                        assignees[existing_index] = self.new_column['object'].pk
+                    except ValueError:
+                        assignees.append(self.new_column['object'].pk)
+
+            data = {'assignees': assignees}
 
         elif view == IssueEditMilestone:
             skip_reset_front_uuid = True

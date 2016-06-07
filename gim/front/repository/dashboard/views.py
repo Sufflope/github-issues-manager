@@ -84,7 +84,7 @@ class MilestonesPart(RepositoryDashboardPartView):
             if milestone.issues_count:
                 milestones.append(milestone)
 
-                milestone.non_assigned_issues_count = issues.filter(state='open', assignee_id__isnull=True).count()
+                milestone.non_assigned_issues_count = issues.filter(state='open', assignees__isnull=True).count()
                 milestone.open_issues_count = issues.filter(state='open').count()
                 milestone.assigned_issues_count = milestone.open_issues_count - milestone.non_assigned_issues_count
                 milestone.closed_issues_count = milestone.issues_count - milestone.open_issues_count
@@ -141,7 +141,7 @@ class CountersPart(RepositoryDashboardPartView):
 
         # count non assigned/prs only if we have issues (no issues = no non-assigned)
         if counters['all']:
-            counters['all_na'] = base_filter.filter(assignee_id__isnull=True).count()
+            counters['all_na'] = base_filter.filter(assignees__isnull=True).count()
             counters['all_prs'] = base_filter.filter(is_pull_request=True).count()
         else:
             counters['all_na'] = counters['all_prs'] = 0
@@ -156,7 +156,7 @@ class CountersPart(RepositoryDashboardPartView):
 
         # count assigned only if owner or collaborator
         if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
-            counters['assigned'] = base_filter.filter(assignee=self.request.user).count()
+            counters['assigned'] = base_filter.filter(assignees=self.request.user).count()
 
         return counters
 

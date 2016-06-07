@@ -21,7 +21,7 @@ from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
-                                  IssueEditAssigneeJob, IssueEditLabelsJob,
+                                  IssueEditAssigneesJob, IssueEditLabelsJob,
                                   IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
@@ -50,7 +50,7 @@ from gim.front.mixins.views import BaseIssuesView
 from gim.front.utils import make_querystring, forge_request, get_metric, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
-                    IssueMilestoneForm, IssueAssigneeForm, IssueLabelsForm,
+                    IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm,
                     IssueCreateForm, IssueCreateFormFull,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
@@ -186,8 +186,8 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'description': u'author of the issue',
     }),
     ('assigned', {
-        'field': 'assignee',
-        'db_field': 'assignee__username_lower',
+        'field': 'assignees',
+        'db_field': 'assignees__username_lower',
         'name': 'assigned',
         'description': u'user assigned to the issue',
     }),
@@ -222,7 +222,7 @@ class IssuesFilters(BaseIssuesFilters):
 
     user_filter_types_matching = {
         'created_by': 'user',
-        'assigned': 'assignee',
+        'assigned': 'assignees',
         'closed_by': 'closed_by',
         'mentioned': 'user_mentions',
     }
@@ -354,21 +354,20 @@ class IssuesFilters(BaseIssuesFilters):
                 qs_filters['milestone'] = '%s' % milestone.number
                 query_filters['milestone__number'] = milestone.number
 
-        # filter by author/assigned/closer
+        # filter by author/assigned/closer/mentioned
         for filter_type, filter_field in self.user_filter_types_matching.items():
             user = self._get_user_filter(qs_parts, filter_type)
             if user is not None:
                 filter_objects[filter_type] = user
                 qs_filters[filter_type] = user
+                suffix = '__isnull' if filter_field == 'assignees' else '_id__isnull'
                 if user == '__none__':
-                    query_filters['%s_id__isnull' % filter_field] = True
+                    query_filters['%s%s' % (filter_field, suffix)] = True
                 elif user == '__any__':
-                    query_filters['%s_id__isnull' % filter_field] = False
+                    query_filters['%s%s' % (filter_field, suffix)] = False
                 else:
                     qs_filters[filter_type] = user.username
                     query_filters[filter_field] = user.id
-
-        # filter by mentioned
 
         # now filter by labels
         label_types_to_ignore, full_label_types, labels = self._get_labels(qs_parts)
@@ -468,8 +467,9 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
         return queryset.select_related(
             'repository__owner',  # default
             'user',  # we may have a lot of different ones
+            'closed_by', 'milestone', # we should have only a few ones for each
         ).prefetch_related(
-            'assignee', 'closed_by', 'milestone',  # we should have only a few ones for each
+            'assignees',
             'labels__label_type'
         )
 
@@ -651,8 +651,9 @@ class IssueView(WithIssueViewMixin, TemplateView):
         issue = None
         if 'issue_number' in self.kwargs:
             qs = self.get_base_queryset().select_related(
-                'user',  'assignee', 'closed_by', 'milestone', 'repository__owner'
+                'user',  'closed_by', 'milestone', 'repository__owner'
             ).prefetch_related(
+                'assignees',
                 'labels__label_type'
             )
             issue = get_object_or_404(qs, number=self.kwargs['issue_number'])
@@ -661,7 +662,7 @@ class IssueView(WithIssueViewMixin, TemplateView):
     def get_involved_people(self, issue, activity, collaborators_ids):
         """
         Return a list with a dict for each people involved in the issue, with
-        the submitter first, the assignee, the the closed_by, and all comments
+        the submitter first, the assignees, the closed_by, and all comments
         authors, with only one entry per person, with, for each dict, the
         user, the comment's count as "count", and a list of types (one or many
         of "owner", "collaborator", "submitter") as "types"
@@ -688,8 +689,9 @@ class IssueView(WithIssueViewMixin, TemplateView):
 
         add_involved(issue.user)
 
-        if issue.assignee_id and issue.assignee_id not in involved:
-            add_involved(issue.assignee)
+        for assignee in issue.assignees.all():
+            if assignee not in involved:
+                add_involved(assignee)
 
         if issue.state == 'closed' and issue.closed_by_id and issue.closed_by_id not in involved:
             add_involved(issue.closed_by)
@@ -1052,8 +1054,9 @@ class CreatedIssueView(IssueView):
         issue = None
         if 'issue_pk' in self.kwargs:
             qs = self.repository.issues.select_related(
-                'user',  'assignee', 'closed_by', 'milestone',
+                'user',  'closed_by', 'milestone',
             ).prefetch_related(
+                'assignees',
                 'labels__label_type'
             )
             issue = get_object_or_404(qs, pk=self.kwargs['issue_pk'])
@@ -1218,7 +1221,7 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
 
     def get_final_value(self, value):
         """
-        Return the value that will be pushed to githubs
+        Return the value that will be pushed to github
         """
         return value
 
@@ -1345,23 +1348,25 @@ class IssueEditMilestone(IssueEditFieldMixin):
 
     def get_final_value(self, value):
         """
-        Return the value that will be pushed to githubs
+        Return the value that will be pushed to github
         """
         return value.number if value else ''
 
 
-class IssueEditAssignee(IssueEditFieldMixin):
-    field = 'assignee'
-    job_model = IssueEditAssigneeJob
-    url_name = 'issue.edit.assignee'
-    form_class = IssueAssigneeForm
+class IssueEditAssignees(IssueEditFieldMixin):
+    field = 'assignees'
+    job_model = IssueEditAssigneesJob
+    url_name = 'issue.edit.assignees'
+    form_class = IssueAssigneesForm
     author_allowed = False
 
     def get_final_value(self, value):
         """
-        Return the value that will be pushed to githubs
+        Return the value that will be pushed to github. We encode the list of
+        usernames as json to be stored in the job single field
         """
-        return value.username if value else ''
+        usernames = [u.username for u in value] if value else []
+        return json.dumps(usernames)
 
 
 class IssueEditLabels(IssueEditFieldMixin):
@@ -1373,7 +1378,7 @@ class IssueEditLabels(IssueEditFieldMixin):
 
     def get_final_value(self, value):
         """
-        Return the value that will be pushed to githubs. We encode the list of
+        Return the value that will be pushed to github. We encode the list of
         labels as json to be stored in the job single field
         """
         labels = [l.name for l in value] if value else []

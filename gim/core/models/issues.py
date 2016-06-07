@@ -48,7 +48,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     body_html = models.TextField(blank=True, null=True)
     labels = models.ManyToManyField('Label', related_name='issues')
     user = models.ForeignKey('GithubUser', related_name='created_issues')
-    assignee = models.ForeignKey('GithubUser', related_name='assigned_issues', blank=True, null=True)
+    assignees = models.ManyToManyField('GithubUser', related_name='assigned_issues')
     created_at = models.DateTimeField(db_index=True)
     updated_at = models.DateTimeField(db_index=True)
     closed_at = models.DateTimeField(blank=True, null=True, db_index=True)
@@ -111,22 +111,23 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         'nb_changed_files', ) + ('head', 'commits_url', 'body_text', 'url', 'labels_url',
         'events_url', 'comments_url', 'html_url', 'merge_commit_sha', 'review_comments_url',
         'review_comment_url', 'base', 'patch_url', 'pull_request', 'diff_url',
-        'statuses_url', 'issue_url', 'last_head_status')
+        'statuses_url', 'issue_url', 'last_head_status', 'assignee')
 
     github_format = '.full+json'
+    github_api_version = 'cerberus-preview'  # for multi-assignees (see also IssueManager.create_or_update_from_dict)
     github_edit_fields = {
         'create': (
             'title',
             'body',
-            ('assignee', 'assignee__username'),
+            ('assignees', 'assignees__username'),
             ('milestone', 'milestone__number'),
             ('labels', 'labels__name', )
         ),
-        'create': (
+        'update': (
             'title',
             'body',
             'state',
-            ('assignee', 'assignee__username'),
+            ('assignees', 'assignees__username'),
             ('milestone', 'milestone__number'),
             ('labels', 'labels__name', )
         ),
@@ -150,10 +151,8 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         )
         index_together = [
             ('repository', 'state'),
-            ('repository', 'assignee'),
             ('repository', 'milestone'),
             ('repository', 'milestone', 'state'),
-            ('repository', 'milestone', 'state', 'assignee'),
         ]
 
     @property
@@ -629,7 +628,7 @@ class LabelType(models.Model):
                   u'(?P&lt;label&gt;(?P&lt;order&gt;\d+))</strong>',
         validators=[
             validators.RegexValidator(
-                re.compile('\(\?\P<label>.+\)'),
+                re.compile('\(\?P<label>.+\)'),
                 u'Must contain a "label" part: "(?P<label>visible-part-of-the-label)"',
                 'no-label'
             ),
