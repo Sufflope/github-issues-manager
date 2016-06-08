@@ -405,10 +405,14 @@ nav.issues-list-options .dropdown-toggle .caret {
             margin-right: 2px;
         }
     }
-    .issue-item-assignee {
-        @extend %issue-assignee;
+    .issue-item-assignees {
         float: right;
         margin-right: 5px;
+        i {
+            position: relative;
+            top: 2px;
+            margin-right: 2px
+        }
     }
     .issue-item-labels {
         @extend %issue-labels;

@@ -4,7 +4,7 @@ from gim.core.models import Issue, Repository
 
 
 class IssueAdmin(admin.ModelAdmin):
-    raw_id_fields = ('repository', 'user', 'milestone', 'assignee', 'closed_by', 'merged_by', 'labels', 'commits')
+    raw_id_fields = ('repository', 'user', 'milestone', 'closed_by', 'merged_by', 'labels', 'commits')
 
 
 class RepositoryAdmin(admin.ModelAdmin):

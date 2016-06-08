@@ -391,7 +391,7 @@ class Publisher(HistoryMixin, lmodel.RedisModel):
     @classmethod
     def singleton(cls):
         if not hasattr(cls, '_singleton'):
-            cls._singleton = cls.get_for()
+            cls._singleton = cls.get_for(async=True)
         return cls._singleton
 
     def save_message(self, topic, repository_id=None, *args, **kwargs):

@@ -44,9 +44,16 @@
         </div>
     </div>
     <div class="issue-item-footer{% if issue_labels %} with-labels{% endif %}">
-        {% if issue.assignee %}
-            <a href="" title="Assigned to {{ issue.assignee.username }}" class="issue-item-assignee js-filter-trigger" data-filter='assigned:{{ issue.assignee.username }}'><i class="fa fa-hand-o-right"> </i><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ issue.assignee.full_avatar_url|avatar_size:24 }}"></a>
-        {% endif %}
+        {% with assignees=issue.assignees.all %}
+            {% if assignees %}
+                <span class="issue-item-assignees">
+                <i class="fa fa-hand-o-right"> </i>
+                {% for assignee in assignees %}
+                    <a href="" title="Assigned to {{ assignee.username }}" class="issue-item-assignee js-filter-trigger" data-filter='assigned:{{ assignee.username }}'><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ assignee.full_avatar_url|avatar_size:24 }}"></a>
+                {% endfor %}
+                </span>
+            {% endif %}
+        {% endwith %}
         {% if issue.total_comments_count %}
             <div class="issue-item-comments-count" title="{{ issue.total_comments_count }} comment{{ issue.total_comments_count|pluralize }}">
                 <i class="fa fa-comments-o"> </i>{{ issue.total_comments_count }}

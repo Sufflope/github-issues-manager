@@ -112,7 +112,7 @@ class RepositoryCounters(lmodel.RedisModel):
 
     def update_user(self, user_pk):
         qs = self.repository.issues.filter(state='open')
-        qs_a = qs.filter(assignee=user_pk)
+        qs_a = qs.filter(assignees=user_pk)
         qs_c = qs.filter(user=user_pk)
 
         counts = {
@@ -145,15 +145,19 @@ class RepositoryCounters(lmodel.RedisModel):
         }
 
         counters = {}
-        for typ, field in (('assigned', 'assignee'), ('created', 'user')):
+        for typ, field in (('assigned', 'assignees'), ('created', 'user')):
             counters[typ] = {
-                'total': Counter(map(str, qs.values_list(field, flat=True))) or {},
+                'total': Counter(map(str, qs.filter(
+                    **{'%s__isnull' % field: False}
+                ).values_list(field, flat=True).distinct())) or {},
                 'issues': {},
                 'prs': {},
             }
             if counters[typ]['total']:
                 for limit in ('issues', 'prs'):
-                    counters[typ][limit] = Counter(map(str, qs_limit[limit].values_list(field, flat=True))) or {}
+                    counters[typ][limit] = Counter(map(str, qs_limit[limit].filter(
+                        **{'%s__isnull' % field: False}
+                    ).values_list(field, flat=True).distinct())) or {}
 
         with self.database.pipeline(transaction=False) as pipeline:
             for typ, limit in product(('assigned', 'created'), ('total', 'issues', 'prs')):
@@ -179,18 +183,18 @@ class RepositoryCounters(lmodel.RedisModel):
                 self.created_total_for.hincrby(issue.user_id, 1)
                 getattr(self, 'created_%s_for' % limit).hincrby(issue.user_id, 1)
 
-                if issue.assignee_id:
-                    self.assigned_total_for.hincrby(issue.assignee_id, 1)
-                    getattr(self, 'assigned_%s_for' % limit).hincrby(issue.assignee_id, 11)
+                for assignee_id in issue.assignees.values_list('id', flat=True):
+                    self.assigned_total_for.hincrby(assignee_id, 1)
+                    getattr(self, 'assigned_%s_for' % limit).hincrby(assignee_id, 11)
 
             pipeline.execute()
 
         self.repository.ask_for_counters_update()
 
     def update_from_updated_issue(self, issue, changed_fields):
-        # if new state is close: decrease old assignee/created and global open
-        # if new state is open: increase new assignee/created and global open
-        # if unchanged state is open: decrease old assignee, increase new one
+        # if new state is close: decrease old assignees/created and global open
+        # if new state is open: increase new assignees/created and global open
+        # if unchanged state is open: decrease old assignees, increase new ones
         # if unchanged state is close: do nothing
 
         # if unchanged state is close: no nothing
@@ -199,29 +203,29 @@ class RepositoryCounters(lmodel.RedisModel):
 
         updates = {}
 
-        # if unchanged state is open: decrease old assignee, increase new one
+        # if unchanged state is open: decrease old assignees, increase new ones
         if 'state' not in changed_fields:
-            if 'assignee_id' not in changed_fields:
-                # assignee unchanged, nothing to do
+            if 'assignees__ids' not in changed_fields:
+                # assignees unchanged, nothing to do
                 return
             else:
-                # decrease old assignee
-                updates['old-assignee'] = -1
-                # increase new assignee
-                updates['new-assignee'] = 1
+                # decrease old assignees
+                updates['old-assignees'] = -1
+                # increase new assignees
+                updates['new-assignees'] = 1
 
         else:
             # if here, new state has changed
             if issue.state == 'close':
-                # decreatese old assignee
-                updates['old-assignee'] = -1
+                # decrease old assignees
+                updates['old-assignees'] = -1
                 # decrease created
                 updates['created'] = -1
                 # decrease global open
                 updates['all'] = -1
             else:
-                # increase new assignee
-                updates['new-assignee'] = 1
+                # increase new assignees
+                updates['new-assignees'] = 1
                 # increase new created
                 updates['created'] = 1
                 # increase global open
@@ -237,14 +241,19 @@ class RepositoryCounters(lmodel.RedisModel):
                 self.open_total.hincrby(updates['all'])
                 getattr(self, 'open_%s' % limit).hincrby(updates['all'])
 
-            if 'old-assignee' in updates:
-                assignee_id = changed_fields.get('assignee_id', issue.assignee_id)
-                self.assigned_total_for.hincrby(assignee_id, updates['old-assignee'])
-                getattr(self, 'assigned_%s_for' % limit).hincrby(assignee_id, updates['old-assignee'])
+            if 'old-assignees' in updates:
+                if 'assignees__ids' in changed_fields:
+                    assignee_ids = changed_fields['assignees__ids']
+                else:
+                    assignee_ids = issue.assignees.values_list('id', flat=True)
+                for assignee_id in assignee_ids:
+                    self.assigned_total_for.hincrby(assignee_id, updates['old-assignees'])
+                    getattr(self, 'assigned_%s_for' % limit).hincrby(assignee_id, updates['old-assignees'])
 
-            if 'new-assignee' in updates:
-                self.assigned_total_for.hincrby(issue.assignee_id, updates['new-assignee'])
-                getattr(self, 'assigned_%s_for' % limit).hincrby(issue.assignee_id, updates['new-assignee'])
+            if 'new-assignees' in updates:
+                for assignee_id in issue.assignees.values_list('id', flat=True):
+                    self.assigned_total_for.hincrby(assignee_id, updates['new-assignees'])
+                    getattr(self, 'assigned_%s_for' % limit).hincrby(assignee_id, updates['new-assignees'])
 
             if 'created' in updates:
                 self.created_total_for.hincrby(issue.user_id, updates['created'])

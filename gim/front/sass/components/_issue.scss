@@ -158,7 +158,7 @@ $repo-name-height: 20px;
         }
 
         .issue-milestone .no-milestone,
-        .issue-assigne .no-assignee {
+        .issue-assignes .no-assignee {
             color: #ccc;
         }
 
@@ -499,7 +499,7 @@ $repo-name-height: 20px;
             right: 7px;
         }
         &.issue-edit-btn-milestone,
-        &.issue-edit-btn-assignee,
+        &.issue-edit-btn-assignees,
         &.issue-edit-btn-labels {
             font-size: 16px;
             position: relative;
@@ -580,7 +580,7 @@ $repo-name-height: 20px;
     } // .issue-edit-body
 
     .issue-edit-milestone,
-    .issue-edit-assignee,
+    .issue-edit-assignees,
     .issue-edit-labels {
         display: block;
         div.edit-field {

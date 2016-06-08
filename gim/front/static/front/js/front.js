@@ -4727,8 +4727,8 @@ $().ready(function() {
             }
         }), // issue_edit_milestone_field_prepare
 
-        issue_edit_assignee_field_prepare: (function IssueEditor__issue_edit_assignee_field_prepare ($form, dont_load_select2) {
-            var $select = $form.find('#id_assignee');
+        issue_edit_assignees_field_prepare: (function IssueEditor__issue_edit_assignees_field_prepare ($form, dont_load_select2) {
+            var $select = $form.find('#id_assignees');
             if (!$select.length) { return; }
             var callback = function() {
                 var collaborators_data = $select.data('collaborators'),
@@ -4751,7 +4751,7 @@ $().ready(function() {
                     formatSelection: function(state) { return format(state, true); },
                     formatResult:  function(state) { return format(state, false); },
                     escapeMarkup: function(m) { return m; },
-                    dropdownCssClass: 'select2-assignee',
+                    dropdownCssClass: 'select2-assignees',
                     matcher: IssueEditor.select2_matcher
                 });
                 IssueEditor.select2_auto_open($select);
@@ -4762,7 +4762,7 @@ $().ready(function() {
             } else {
                 IssueEditor.load_select2(callback);
             }
-        }), // issue_edit_assignee_field_prepare
+        }), // issue_edit_assignees_field_prepare
 
         issue_edit_labels_field_prepare: (function IssueEditor__issue_edit_labels_field_prepare ($form, dont_load_select2) {
             var $select = $form.find('#id_labels');
@@ -4957,7 +4957,7 @@ $().ready(function() {
             update_form: (function IssueEditor_create__update_form ($form) {
                 var select2_callback = function() {
                     IssueEditor.issue_edit_milestone_field_prepare($form, true);
-                    IssueEditor.issue_edit_assignee_field_prepare($form, true);
+                    IssueEditor.issue_edit_assignees_field_prepare($form, true);
                     IssueEditor.issue_edit_labels_field_prepare($form, true);
                 };
                 IssueEditor.load_select2(select2_callback);

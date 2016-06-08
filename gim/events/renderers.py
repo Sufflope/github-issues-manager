@@ -171,6 +171,8 @@ class IssueRenderer(Renderer):
         return title
 
     def render_part_assignee(self, part, mode):
+        # now we have a m2m, not a fk, but we keep this method for old events
+
         new, old = part.new_value, part.old_value
 
         if new and old:
@@ -189,6 +191,37 @@ class IssueRenderer(Renderer):
             params['old_assignee'] = self.helper_render_user(old, mode)
 
         return title % params
+
+    def render_part_assignees(self, part, mode):
+
+        new, old = part.new_value, part.old_value
+        tag = ('', '') if mode == 'text' else ('<span>', '</span>')
+        sep = '\n' if mode == 'text' else '<br/>'
+
+        result_parts = []
+        if new and new.get('assignees'):
+            result_parts.append((
+                '%(tag0)sAdded assignee%(plural)s: %(tag1)s %(assignees)s',
+                new['assignees'],
+            ))
+
+        if old and old.get('assignees'):
+            result_parts.append((
+                '%(tag0)sRemoved assignee%(plural)s: %(tag1)s %(assignees)s',
+                old['assignees'],
+            ))
+
+        result = []
+        for title, assignees in result_parts:
+            params = {
+                'tag0': tag[0],
+                'tag1': tag[1],
+                'assignees': ', '.join(self.helper_render_user(assignee, mode) for assignee in assignees),
+                'plural': 's' if len(assignees) < 1 else '',
+            }
+            result.append(title % params)
+
+        return sep.join(result)
 
     def render_part_milestone(self, part, mode):
         new, old = part.new_value, part.old_value

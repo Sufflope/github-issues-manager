@@ -240,7 +240,7 @@ class ChangeTracker(object):
 
 
 class IssueTracker(ChangeTracker):
-    fields = ('title', 'body', 'labels__ids', 'assignee_id', 'milestone_id',
+    fields = ('title', 'body', 'labels__ids', 'assignees__ids', 'milestone_id',
               'state', 'merged', 'mergeable', 'mergeable_state', 'last_head_status')
     model = Issue
 
@@ -263,8 +263,9 @@ class IssueTracker(ChangeTracker):
         if instance.milestone_id:
             parts.extend(cls.event_part_for_milestone_id(instance, instance.milestone_id, None))
 
-        if instance.assignee_id:
-            parts.extend(cls.event_part_for_assignee_id(instance, instance.assignee_id, None))
+        assignee_ids = instance.assignees.values_list('id', flat=True)
+        if assignee_ids:
+            parts.extend(cls.event_part_for_assignees__ids(instance, assignee_ids, None))
 
         if instance.state == 'closed':
             parts.extend(cls.event_part_for_state(instance, 'closed', 'open'))
@@ -345,6 +346,8 @@ class IssueTracker(ChangeTracker):
 
     @staticmethod
     def event_part_for_assignee_id(instance, new, old):
+        # now we have a m2m, not a fk, but we keep this method for old events
+
         ids = []
         if new:
             ids.append(new)
@@ -369,6 +372,46 @@ class IssueTracker(ChangeTracker):
             }
 
         return [result]
+
+    @staticmethod
+    def event_part_for_assignees__ids(instance, new, old):
+        if old is None:
+            old = []
+
+        diff = {
+            'added': set(new).difference(old),
+            'removed': set(old).difference(new),
+            'before': set(old),
+            'after': set(new),
+        }
+
+        # seems that nothing changed...
+        if not diff['added'] and not diff['removed']:
+            return []
+
+        # get all added/removed assignees from DB in one query
+        assignees_by_id = GithubUser.objects.in_bulk(diff['before'] | diff['after'])
+
+        result = []
+
+        for diff_key, result_key in [('added', 'new_value'), ('removed', 'old_value')]:
+            if not diff[diff_key]:
+                continue
+            result.append({
+                'field': 'assignees',
+                result_key: {
+                    'assignees': [
+                        {
+                            'id': user_id,
+                            'username': assignees_by_id[user_id].username,
+                            'full_avatar_url': assignees_by_id[user_id].full_avatar_url
+                        }
+                        for user_id in diff[diff_key]
+                    ]
+                }
+            })
+
+        return result
 
     @staticmethod
     def event_part_for_milestone_id(instance, new, old):

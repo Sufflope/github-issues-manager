@@ -759,6 +759,31 @@ class IssueManager(WithRepositoryManager):
 
         return fields
 
+    def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
+                                   fetched_at_field='fetched_at', etag_field='etag',
+                                   saved_objects=None, force_update=False, etag=None):
+        """Will refetch the issue if we got it without the `assignees` keys
+
+        It may only happen during the preview period of the multi-assignees api, when we got the
+        issue details via another way than simple/repository issue fetching
+
+        """
+
+        # we need to get the assignees if we know that we have at least one in `assignee`
+        fetch_assignees_needed = data.get('assignee') and 'assignees' not in data
+
+        issue = super(IssueManager, self).create_or_update_from_dict(data, modes, defaults,
+                                                                    fetched_at_field, etag_field,
+                                                                    saved_objects, force_update,
+                                                                    etag)
+
+        if fetch_assignees_needed:
+            # THIS WONT BE NEEDED ANYMORE WHEN MULTI-ASSIGNEES API WILL BE OFFICIAL
+            from gim.core.tasks import FetchIssueByNumber
+            FetchIssueByNumber.add_job('%s#%s' % (issue.repository_id, issue.number), force_fetch='1')
+
+        return issue
+
 
 class WithIssueManager(GithubObjectManager):
     """

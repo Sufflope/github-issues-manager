@@ -140,15 +140,16 @@ class IssueMilestoneFormPart(object):
         })
 
 
-class IssueAssigneeFormPart(object):
+class IssueAssigneesFormPart(object):
     def __init__(self, *args, **kwargs):
-        super(IssueAssigneeFormPart, self).__init__(*args, **kwargs)
+        super(IssueAssigneesFormPart, self).__init__(*args, **kwargs)
         collaborators = self.repository.collaborators.all().order_by('username_lower')
-        self.fields['assignee'].queryset = collaborators
-        self.fields['assignee'].widget.choices = self.get_collaborators_choices(collaborators)
-        self.fields['assignee'].widget.attrs.update({
+        self.fields['assignees'].required = False
+        self.fields['assignees'].queryset = collaborators
+        self.fields['assignees'].widget.choices = self.get_collaborators_choices(collaborators)
+        self.fields['assignees'].widget.attrs.update({
             'data-collaborators': self.get_collaborators_json(collaborators),
-            'placeholder': 'Choose an assignee',
+            'placeholder': 'Choose some assignees',
         })
 
     def get_collaborators_json(self, collaborators):
@@ -221,11 +222,11 @@ class IssueMilestoneForm(IssueMilestoneFormPart, IssueFormMixin):
         fields = ['milestone', 'front_uuid']
 
 
-class IssueAssigneeForm(IssueAssigneeFormPart, IssueFormMixin):
+class IssueAssigneesForm(IssueAssigneesFormPart, IssueFormMixin):
     change_updated_at = 'fuzzy'
 
     class Meta(IssueFormMixin.Meta):
-        fields = ['assignee', 'front_uuid']
+        fields = ['assignees', 'front_uuid']
 
 
 class IssueLabelsForm(IssueLabelsFormPart, IssueFormMixin):
@@ -251,11 +252,11 @@ class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,
         return super(IssueCreateForm, self).save(commit)
 
 
-class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneeFormPart,
+class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneesFormPart,
                           IssueLabelsFormPart, IssueCreateForm):
 
     class Meta(IssueCreateForm.Meta):
-        fields = ['title', 'body', 'milestone', 'assignee', 'labels', 'front_uuid']
+        fields = ['title', 'body', 'milestone', 'assignees', 'labels', 'front_uuid']
 
 
 class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):

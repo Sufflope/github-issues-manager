@@ -50,16 +50,28 @@
                 {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'milestone' }}" class="issue-edit-btn issue-edit-btn-milestone btn-loading" data-field="milestone" title="Edit the milestone"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
             </div>
         {% endif %}
-        {% if current_issue.assignee or current_issue_edit_level == 'full' %}
-            <div class="issue-assignee{% if not current_issue.assignee %} no-assignee{% endif %} edit-place" data-field="assignee">
-                {% if current_issue.assignee %}
-                    <i class="fa fa-hand-o-right"> </i>&nbsp;<img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_issue.assignee.full_avatar_url|avatar_size:24 }}" /> Assigned to <strong>{{ current_issue.assignee.username }}</strong>
-                {% else %}
-                    <i class="fa fa-hand-o-right"> </i> No one assigned
-                {% endif %}
-                {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'assignee' }}" class="issue-edit-btn issue-edit-btn-assignee btn-loading" data-field="assignee" title="Edit the assignee"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
-            </div>
-        {% endif %}
+        {% with assignees=current_issue.assignees.all %}
+            {% if assignees or current_issue_edit_level == 'full' %}
+                <div class="issue-assignees{% if not assignees %} no-assignees{% endif %} edit-place" data-field="assignees">
+                    {% if assignees %}
+                        <i class="fa fa-hand-o-right"> </i>&nbsp;
+                        {% for assignee in assignees %}
+                            <img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ assignee.full_avatar_url|avatar_size:24 }}" />
+                        {% endfor %}
+                        Assigned to
+                        {% for assignee in assignees %}
+                            {% if not forloop.first %}
+                                {% if forloop.last %}&amp;{% else %},{% endif %}
+                            {% endif %}
+                            <strong>{{ assignee.username }}</strong>
+                        {% endfor %}
+                    {% else %}
+                        <i class="fa fa-hand-o-right"> </i> No one assigned
+                    {% endif %}
+                    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'assignees' }}" class="issue-edit-btn issue-edit-btn-assignees btn-loading" data-field="assignees" title="Edit the assignees"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+                </div>
+            {% endif %}
+        {% endwith %}
     </section>
     <footer>
         {% with labels=current_issue.labels.all %}
