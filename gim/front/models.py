@@ -137,11 +137,11 @@ class _GithubUser(Hashable, models.Model):
     def get_related_issues(self):
         """
         Return a list of all issues related to this user (it may be the creator,
-        the assignee, or the closer)
+        an assignee, or the closer)
         """
         return core_models.Issue.objects.filter(
                                                    models.Q(user=self)
-                                                 | models.Q(assignee=self)
+                                                 | models.Q(assignees=self)
                                                  | models.Q(closed_by=self)
                                                )
 
@@ -371,7 +371,7 @@ class _Issue(Hashable, FrontEditable):
     class Meta:
         abstract = True
 
-    RENDERER_IGNORE_FIELDS = set(['state', 'merged', ])
+    RENDERER_IGNORE_FIELDS = {'state', 'merged'}
 
     def get_reverse_kwargs(self):
         """
@@ -464,7 +464,7 @@ class _Issue(Hashable, FrontEditable):
         hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
             self.user_id,
             self.closed_by_id,
-            self.assignee_id,
+            ','.join(map(str, sorted(self.assignees.values_list('pk', flat=True)))),
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
@@ -505,9 +505,9 @@ class _Issue(Hashable, FrontEditable):
         issue = self.__class__.objects.filter(
             id=self.id
         ).select_related(
-            'repository__owner', 'user', 'assignee', 'created_by', 'closed_by', 'milestone'
+            'repository__owner', 'user', 'created_by', 'closed_by', 'milestone'
         ).prefetch_related(
-            'labels__label_type'
+            'assignees', 'labels__label_type'
         )[0]
 
         context = Context({

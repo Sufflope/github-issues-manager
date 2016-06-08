@@ -7,7 +7,7 @@ __all__ = [
     'IssueEditTitleJob',
     'IssueEditBodyJob',
     'IssueEditMilestoneJob',
-    'IssueEditAssigneeJob',
+    'IssueEditAssigneesJob',
     'IssueEditLabelsJob',
 ]
 
@@ -342,12 +342,13 @@ class IssueEditMilestoneJob(IssueEditFieldJob):
         return self.value.hget() or None
 
 
-class IssueEditAssigneeJob(IssueEditFieldJob):
-    queue_name = 'edit-issue-assignee'
-    editable_fields = ['assignee']
+class IssueEditAssigneesJob(IssueEditFieldJob):
+    queue_name = 'edit-issue-assignees'
+    editable_fields = ['assignees']
 
     def get_field_value(self):
-        return self.value.hget() or None
+        usernames = self.value.hget() or '[]'
+        return json.loads(usernames)
 
 
 class IssueEditLabelsJob(IssueEditFieldJob):

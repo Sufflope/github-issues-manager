@@ -133,13 +133,13 @@ def parse_header_links(value):
     return links
 
 
-def prepare_fetch_headers(if_modified_since=None, if_none_match=None, github_format=None):
+def prepare_fetch_headers(if_modified_since=None, if_none_match=None, github_format=None, version=None):
     """
     Prepare and return the headers to use for the github call: return a dict
     with Accept, If-Modified-Since and If-None-Match
     """
     headers = {
-        'Accept': 'application/vnd.github.v3%s' % (github_format or '+json')
+        'Accept': 'application/vnd.github.%s%s' % (version or 'v3', github_format or '+json')
     }
     if if_modified_since:
         headers['If-Modified-Since'] = if_modified_since.replace(tzinfo=UTC).strftime('%a, %d %b %Y %H:%M:%S GMT')

@@ -56,7 +56,8 @@ class _Repository(models.Model):
 
     def simple_list_fetch(self, meta_base_name, identifiers, gh=None,
                      force_fetch=True, request_headers=None,
-                     response_headers=None, parameters=None):
+                     response_headers=None, parameters=None,
+                     github_api_version=None):
         """
         Will fetch a list of data from the github API for the given identifiers.
         The %s_etag and %s_fetched_at fields will be updated, using
@@ -88,7 +89,8 @@ class _Repository(models.Model):
         if not force_fetch:
             request_headers.update(prepare_fetch_headers(
                     if_modified_since=getattr(self, fetched_at_field, None),
-                    if_none_match=getattr(self, etag_field, None)
+                    if_none_match=getattr(self, etag_field, None),
+                    version=github_api_version
                 ))
 
         updated_fields = [fetched_at_field]
