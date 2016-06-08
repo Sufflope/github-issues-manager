@@ -8,27 +8,27 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Deleting field 'Issue.assignee'
-        db.delete_column(u'core_issue', 'assignee_id')
-
         # Removing index on 'Issue', fields ['repository', 'milestone', 'state', 'assignee']
         db.delete_index(u'core_issue', ['repository_id', 'milestone_id', 'state', 'assignee_id'])
 
         # Removing index on 'Issue', fields ['repository', 'assignee']
         db.delete_index(u'core_issue', ['repository_id', 'assignee_id'])
 
+        # Deleting field 'Issue.assignee'
+        db.delete_column(u'core_issue', 'assignee_id')
+
 
     def backwards(self, orm):
+        # Adding field 'Issue.assignee'
+        db.add_column(u'core_issue', 'assignee',
+                      self.gf('django.db.models.fields.related.ForeignKey')(related_name='assigned_issues', null=True, to=orm['core.GithubUser'], blank=True),
+                      keep_default=False)
+
         # Adding index on 'Issue', fields ['repository', 'assignee']
         db.create_index(u'core_issue', ['repository_id', 'assignee_id'])
 
         # Adding index on 'Issue', fields ['repository', 'milestone', 'state', 'assignee']
         db.create_index(u'core_issue', ['repository_id', 'milestone_id', 'state', 'assignee_id'])
-
-        # Adding field 'Issue.assignee'
-        db.add_column(u'core_issue', 'assignee',
-                      self.gf('django.db.models.fields.related.ForeignKey')(related_name='assigned_issues', null=True, to=orm['core.GithubUser'], blank=True),
-                      keep_default=False)
 
 
     models = {
