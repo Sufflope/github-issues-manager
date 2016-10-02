@@ -2,6 +2,10 @@ __all__ = [
     'ResetTokenFlags',
 ]
 
+from django.utils.functional import cached_property
+
+from limpyd_jobs import STATUSES
+
 from gim.core.limpyd_models import Token
 
 from .base import Job
@@ -10,11 +14,13 @@ from .base import Job
 class ResetTokenFlags(Job):
     queue_name = 'reset-token-flags'
 
-    @property
+    @cached_property
     def token_obj(self):
-        if not hasattr(self, '_token_obj'):
-            self._token_obj, _ = Token.get_or_connect(token=self.identifier.hget())
-        return self._token_obj
+        try:
+            return Token.get(token=self.identifier.hget())
+        except Token.DoesNotExist:
+            self.hmset(status=STATUSES.CANCELED, cancel_on_error=1)
+            raise
 
     def run(self, queue):
         super(ResetTokenFlags, self).run(queue)
