@@ -114,7 +114,6 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         'statuses_url', 'issue_url', 'last_head_status', 'assignee')
 
     github_format = '.full+json'
-    github_api_version = 'cerberus-preview'  # for multi-assignees (see also IssueManager.create_or_update_from_dict)
     github_edit_fields = {
         'create': (
             'title',
