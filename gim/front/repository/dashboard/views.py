@@ -700,10 +700,10 @@ class MilestoneGraph(WithRepositoryViewMixin, DetailView):
     url_name = 'dashboard.milestone.graph'
 
     point_template = Template(u"""Date: <b>{{ date|date:'F j (l)' }}</b>
-{{ metric.name }} closed: <b>{{ point.total }}</b>
-{{ metric.name }} remaining: <b>{{ point.remaining }}</b>
-{{ point.issues|length }} issue{{ point.issues|length|pluralize }} closed: {% for issue in point.issues %}
-  • <b>#{{ issue.number }}</b> "<i>{{ issue.title }}</i>"{% if issue.closed_by_id %} closed by <b>{{ issue.closed_by }}</b>{% endif %} ({% if issue.graph_value %}{{ metric.name }}: <b>{{ issue.graph_value }}</b>{% else %}<b>No {{ metric.name }}</b>{% endif %}){% endfor %}""")
+{{ metric.name }} closed: <b>{{ point.total }}</b><br />
+{{ metric.name }} remaining: <b>{{ point.remaining }}</b><br />
+<b>{{ point.issues|length }}</b> issue{{ point.issues|length|pluralize }} closed: <br />{% for issue in point.issues %}
+  • <b>#{{ issue.number }}</b> "<i>{{ issue.title }}</i>"{% if issue.closed_by_id %} closed by <b>{{ issue.closed_by }}</b>{% endif %} ({% if issue.graph_value %}{{ metric.name }}: <b>{{ issue.graph_value }}</b>{% else %}<b>No {{ metric.name }}</b>{% endif %})<br />{% endfor %}""")
 
     one_day = timedelta(days=1)
 
