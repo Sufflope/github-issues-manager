@@ -67,7 +67,7 @@
                 params[node.name] = $(node).val();
             });
             return params;
-        },
+        }
     });
 
     $.fn[pluginName] = function (options) {
