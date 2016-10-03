@@ -469,7 +469,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
 
     @property
     def wamp_topic_key(self):
-        return sign('%s%s' % (self.id, self.token))
+        return sign('%s-wamp_topic_key-salt' % self.id)
 
     def ping_github_notifications(self):
         last = self.last_unread_notification_date
