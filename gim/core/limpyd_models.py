@@ -44,8 +44,9 @@ class Token(lmodel.RedisModel):
 
     @classmethod
     def update_token_from_gh(cls, gh, *args, **kwargs):
-        token, _ = Token.get_or_connect(token=gh._connection_args['access_token'])
-        token.update_from_gh(gh, *args, **kwargs)
+        if gh._connection_args.get('access_token'):
+            token, _ = Token.get_or_connect(token=gh._connection_args['access_token'])
+            token.update_from_gh(gh, *args, **kwargs)
 
     def update_from_gh(self, gh, api_error, method, path, request_headers, response_headers, kw):
         """
@@ -82,7 +83,7 @@ class Token(lmodel.RedisModel):
         else:
             self.last_call_ko.hset(str_now)
 
-        # reset scopes
+        # reset scopes (only if we have the header)
         if gh.x_oauth_scopes is not None:
             self.scopes.delete()
             if gh.x_oauth_scopes:
@@ -187,39 +188,34 @@ class Token(lmodel.RedisModel):
         from gim.core.tasks.tokens import ResetTokenFlags
         ResetTokenFlags.add_job(self.token.hget(), delayed_for=delayed_for)
 
-    def get_repos_pks_with_permissions(self, *permissions):
-        """
-        Return a list of repositories pks for which the user as given permissions
-        """
-        return self.user.available_repositories_set.filter(permission__in=permissions
-                                        ).values_list('repository_id', flat=True)
-
-    def update_repos(self):
+    @classmethod
+    def update_repos_for_user(cls, user):
         """
         Update the repos_admin and repo_push fields with pks of repositories
-        the user can admin/push/pull
+        the user can admin/push/pull, for all its tokens
         """
-        self.repos_admin.delete()
-        repos_admin = self.get_repos_pks_with_permissions('admin')
-        if repos_admin:
-            self.repos_admin.sadd(*repos_admin)
+        repos_admin = user.get_repos_pks_with_permissions('admin')
+        repos_push = user.get_repos_pks_with_permissions('admin', 'push')
+        repos_pull = user.get_repos_pks_with_permissions('admin', 'push', 'pull')
 
-        self.repos_push.delete()
-        repos_push = self.get_repos_pks_with_permissions('admin', 'push')
-        if repos_push:
-            self.repos_push.sadd(*repos_push)
+        for token in cls.collection(username=user.username).instances():
+            token.repos_admin.delete()
+            if repos_admin:
+                token.repos_admin.sadd(*repos_admin)
 
-        self.repos_pull.delete()
-        repos_pull = self.get_repos_pks_with_permissions('admin', 'push', 'pull')
-        if repos_pull:
-            self.repos_pull.sadd(*repos_pull)
+            token.repos_push.delete()
+            if repos_push:
+                token.repos_push.sadd(*repos_push)
+
+            token.repos_pull.delete()
+            if repos_pull:
+                token.repos_pull.sadd(*repos_pull)
 
     @classmethod
     def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining'):
-        collection = cls.collection()
+        collection = cls.collection(valid_scopes=1)
         if available:
             collection = collection.filter(available=1)
-        collection = cls.collection(available=1)
         if permission == 'admin':
             collection.filter(repos_admin=repository_pk)
         elif permission == 'push':
@@ -238,7 +234,22 @@ class Token(lmodel.RedisModel):
 
     @classmethod
     def get_one(cls, available=True, sort_by='-rate_limit_remaining'):
-        collection = cls.collection()
+        collection = cls.collection(valid_scopes=1)
+        if available:
+            collection = collection.filter(available=1)
+        try:
+            if sort_by is None:
+                token = choice(collection.instances())
+            else:
+                token = collection.sort(by=sort_by).instances()[0]
+        except IndexError:
+            return None
+        else:
+            return token
+
+    @classmethod
+    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining'):
+        collection = cls.collection(username=username, valid_scopes=1)
         if available:
             collection = collection.filter(available=1)
         try:

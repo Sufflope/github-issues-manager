@@ -205,7 +205,7 @@ class Job(LimpydJob):
         # we have connection args: get the token if available
         if args:
             try:
-                token_kwargs = {'token': args['access_token']}
+                token_kwargs = {'token': args['access_token'], 'valid_scopes': 1}
                 # ignore the available flag for "self"
                 if permission != 'self':
                     token_kwargs['available'] = 1
@@ -261,9 +261,9 @@ class Job(LimpydJob):
                 if permission == 'self':
                     if args:
                         try:
-                            token = Token.get(token=args['access_token'])
+                            token = Token.get(token=args['access_token'], valid_scopes=1)
                         except Token.DoesNotExist:
-                            token = Token.get(username=args['username'])
+                            token = Token.get_one_for_username(args['username'], available=False, sort_by='rate_limit_reset')
                 elif repository:
                     token = Token.get_one_for_repository(repository.pk, permission, available=False, sort_by='rate_limit_reset')
                 else:

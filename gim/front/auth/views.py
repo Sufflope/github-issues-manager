@@ -82,7 +82,7 @@ class ConfirmView(BaseGithubAuthView):
         try:
             user_with_token = GithubUser.objects.get(token=token)
         except GithubUser.DoesNotExist:
-            user_with_token = None
+            pass
         else:
             user_with_token.token = None
             user_with_token.save(update_fields=['token'])
@@ -109,20 +109,21 @@ class ConfirmView(BaseGithubAuthView):
             return False, "This account has been deactivated"
 
         # authenticate the user (needed to call login later)
-        user = authenticate(username=user.username, token=user.token)
+        user = authenticate(username=user.username, token=token)
         if not user:
             return False, "Final authentication failed, please retry"
 
         # and finally login
         login(self.request, user)
 
-        # set its username to the token
-        user.token_object.username.hset(user.username)
-
-        # remove other tokens for this username
+        # set its username to the token (to be created if needed)
         from gim.core.limpyd_models import Token
+        token_object, __ = Token.get_or_connect(token=token)
+        token_object.username.hset(user.username)
+
+        # remove other tokens for this username that are not valid anymore
         for user_token in list(Token.collection(username=user.username).instances()):
-            if user_token.token.hget() != token:
+            if user_token.token.hget() != token and not user_token.valid_scopes.hget():
                 user_token.delete()
 
         # add a job to fetch available repositories

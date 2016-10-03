@@ -26,6 +26,8 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         """
         Override to call register_main_view if the view is a main one
         """
+        if not getattr(cls, 'main_url_name', None):
+            cls.main_url_name = cls.url_name
         if cls.display_in_menu:
             BaseRepositoryView.register_main_view(cls)
         return super(BaseRepositoryView, cls).as_view(*args, **kwargs)
@@ -36,8 +38,6 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         Store views to display as main views
         """
         if view_class not in BaseRepositoryView.main_views:
-            if not getattr(view_class, 'main_url_name', None):
-                view_class.main_url_name = view_class.url_name
             BaseRepositoryView.main_views.append(view_class)
 
     def get_context_data(self, **kwargs):

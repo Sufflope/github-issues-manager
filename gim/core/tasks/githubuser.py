@@ -86,7 +86,7 @@ class FetchAvailableRepositoriesJob(UserJob):
         user = self.user
 
         # force gh if not set
-        if not self.gh_args.hgetall():
+        if not self.gh_args.hget('username'):
             gh = user.get_connection()
             if gh and 'access_token' in gh._connection_args:
                 self.gh = gh
@@ -328,7 +328,7 @@ class FetchNotifications(UserJob):
         user = self.user
 
         # force gh if not set
-        if not self.gh_args.hgetall():
+        if not self.gh_args.hget('username'):
             gh = user.get_connection()
             if gh and 'access_token' in gh._connection_args:
                 self.gh = gh

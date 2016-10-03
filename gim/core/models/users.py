@@ -14,6 +14,7 @@ from django.contrib.contenttypes.generic import GenericForeignKey
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.dateformat import format
+from django.utils.functional import cached_property
 
 from extended_choices import Choices
 
@@ -328,7 +329,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         if self.is_organization:
             return 0, 0, 0, 0, 0
 
-        if not self.token:
+        if not self.one_token:
             return 0, 0, 0, 0, 0
 
         # repositories a user own or collaborate to, but not in organizations
@@ -373,29 +374,28 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         # manage notifications from github
         nb_notifs = self.fetch_github_notifications(gh, force_fetch=force_fetch)
 
-        # update permissions in token object
-        t = self.token_object
-        if t:
-            t.update_repos()
+        # update permissions in all valid tokens for this user
+        from ..limpyd_models import Token
+        Token.update_repos_for_user(self)
 
         return nb_repositories_fetched, nb_orgs_fetched, nb_watched, nb_starred, 0, nb_notifs
 
     def get_connection(self):
-        return Connection.get(username=self.username, access_token=self.token)
+        return Connection.get(username=self.username, access_token=self.one_token)
 
-    @property
-    def token_object(self):
+    @cached_property
+    def one_token(self):
         """
-        Return the "Token" object for the current user, creating it if needed
+        Return an available token for the current user
         """
-        if not hasattr(self, '_token_object'):
-            if not self.token:
-                return None
-            from ..limpyd_models import Token
-            self._token_object, created = Token.get_or_connect(token=self.token)
-            if created:
-                self._token_object.username.hset(self.username)
-        return self._token_object
+        from ..limpyd_models import Token
+        try:
+            token_object = Token.get_one_for_username(self.username, available=False)
+        except Token.DoesNotExist:
+            token = self.token  # token got from last login... should be None if not found in Token
+        else:
+            token = token_object.token.hget()
+        return token
 
     def can_use_repository(self, repository):
         """
@@ -469,7 +469,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
 
     @property
     def wamp_topic_key(self):
-        return sign('%s%s' % (self.id, self.token))
+        return sign('%s-wamp_topic_key-salt' % self.id)
 
     def ping_github_notifications(self):
         last = self.last_unread_notification_date
@@ -482,6 +482,13 @@ class GithubUser(GithubObjectWithId, AbstractUser):
             last=last,
         )
 
+    def get_repos_pks_with_permissions(self, *permissions):
+        """
+        Return a list of repositories pks for which the user as given permissions
+        """
+        return self.available_repositories_set.filter(
+            permission__in=permissions
+        ).values_list('repository_id', flat=True)
 
 class Team(GithubObjectWithId):
     organization = models.ForeignKey('GithubUser', related_name='org_teams')
