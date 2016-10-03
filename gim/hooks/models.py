@@ -8,9 +8,9 @@ from django.db import models
 
 from gim.core import models as core_models
 from gim.core.ghpool import prepare_fetch_headers, ApiError, Connection
-from gim.core.managers import SavedObjects, MODE_ALL
+from gim.core.managers import MODE_ALL
 from gim.core.tasks.issue import FetchIssueByNumber
-from gim.core.utils import contribute_to_model
+from gim.core.utils import contribute_to_model, SavedObjects
 
 from gim.front.models import unify_messages, send_unified_messages
 from gim.ws import publisher

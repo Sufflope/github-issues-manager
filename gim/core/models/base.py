@@ -21,6 +21,7 @@ from ..ghpool import (
     prepare_fetch_headers,
 )
 from ..managers import MODE_ALL, GithubObjectManager
+from ..utils import SavedObjects
 
 
 class MinDateRaised(Exception):
@@ -196,6 +197,8 @@ class GithubObject(models.Model):
         if modes is None:
             modes = MODE_ALL
 
+        saved_objects = SavedObjects()
+
         if parameters is None:
             parameters = {}
         first_response_headers = parameters.pop('response_headers', {})
@@ -271,6 +274,7 @@ class GithubObject(models.Model):
                     response_headers=response_headers,
                     min_date=min_date,
                     force_update=force_fetch,
+                    saved_objects=saved_objects,
                 )
 
             except ApiNotFoundError:

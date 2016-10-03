@@ -1,18 +1,17 @@
-
 import logging
 import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
-from django.db import models, IntegrityError
-from django.db.models import Q
 from django.contrib.auth.models import UserManager
 from django.contrib.contenttypes.models import ContentType
+from django.db import models, IntegrityError
 from django.db.models import FieldDoesNotExist
+from django.db.models import Q
 
-from gim.core.utils import queryset_iterator
 from .ghpool import Connection, ApiError
+from .utils import queryset_iterator, SavedObjects
 
 MODE_CREATE = {'create'}
 MODE_UPDATE = {'update'}
@@ -20,19 +19,6 @@ MODE_ALL = MODE_CREATE | MODE_UPDATE
 
 
 logger = logging.getLogger('django')
-
-
-class SavedObjects(dict):
-    """
-    A simple dict with two helpers to get/set saved objects during a fetch, to
-    avoid getting/setting them many time from/to the database
-    """
-
-    def get_object(self, model, filters):
-        return self[model][tuple(sorted(filters.items()))]
-
-    def set_object(self, model, filters, obj, saved=False):
-        self.setdefault(model, {})[tuple(sorted(filters.items()))] = obj
 
 
 class BaseManager(models.Manager):
@@ -94,7 +80,8 @@ class GithubObjectManager(BaseManager):
                         response_headers=None, min_date=None,
                         fetched_at_field='fetched_at',
                         etag_field='etag',
-                        force_update=False):
+                        force_update=False,
+                        saved_objects=None):
         """
         Trying to get data for the model related to this manager, by using
         identifiers to generate the API call. gh is the connection to use.
@@ -103,6 +90,9 @@ class GithubObjectManager(BaseManager):
         if you got a list from github, and we assume that the list is ordered by
         this field, descending)
         """
+
+        if saved_objects is None:
+            saved_objects = SavedObjects()
 
         if response_headers is None:
             response_headers = {}
@@ -117,7 +107,7 @@ class GithubObjectManager(BaseManager):
         if isinstance(data, list):
             result = self.create_or_update_from_list(data, modes, defaults,
                         min_date=min_date, fetched_at_field=fetched_at_field,
-                        saved_objects=SavedObjects(), force_update=force_update)
+                        saved_objects=saved_objects, force_update=force_update)
         else:
             etag = response_headers.get('etag') or None
             if etag and '""' in etag:
@@ -125,7 +115,7 @@ class GithubObjectManager(BaseManager):
             result = self.create_or_update_from_dict(data, modes, defaults,
                                             fetched_at_field=fetched_at_field,
                                             etag_field=etag_field,
-                                            saved_objects=SavedObjects(),
+                                            saved_objects=saved_objects,
                                             force_update=force_update,
                                             etag=etag)
             if not result:
@@ -539,6 +529,8 @@ class WithRepositoryManager(GithubObjectManager):
     repository belongs the object.
     """
 
+    repository_url_field = 'url'
+
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
         """
         In addition to the default get_object_fields_from_dict, try to guess the
@@ -547,7 +539,7 @@ class WithRepositoryManager(GithubObjectManager):
         """
         from .models import Repository
 
-        url = data.get('url')
+        url = data.get(self.repository_url_field)
 
         fields = super(WithRepositoryManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
@@ -1586,3 +1578,169 @@ class MentionManager(models.Manager):
             self.set_for_commit_comment,
             users_cache
         )
+
+
+class ProjectManager(WithRepositoryManager):
+    repository_url_field = 'owner_url'
+    project_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/(?P<number>\w+)(?:/|$)')
+
+    def get_number_from_url(self, url):
+        """
+        Taking an url, try to return the number of a project, or None.
+        """
+        if not url:
+            return None
+        match = self.project_finder.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('number', None)
+
+    def get_by_repository_and_number(self, repository, number):
+        """
+        Taking a repository instance and a project number, try to return the
+        matching project. or None if no one is found.
+        """
+        if not repository or not number:
+            return None
+        try:
+            return self.get(repository_id=repository.id, number=number)
+        except self.model.DoesNotExist:
+            return None
+
+    def get_by_url(self, url, repository=None):
+        """
+        Taking an url, try to return the matching project by finding the repository
+        by its path, and a project number, and then fetching the project from the db.
+        Return None if no Issue if found.
+        """
+        if not repository:
+            from .models import Repository
+            repository = Repository.objects.get_by_url(url)
+        if not repository:
+            return None
+        number = self.get_number_from_url(url)
+        return self.get_by_repository_and_number(repository, number)
+
+
+class ColumnManager(GithubObjectManager):
+
+    column_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/columns/(?P<id>\w+)(?:/|$)')
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+        """
+        In addition to the default get_object_fields_from_dict, try to guess the
+        project the objects belongs to, from the url found in the data given
+        by the github api. Only set if the project is found.
+        And finally get the position from the context and increment it.
+        """
+        from .models import Project
+
+        # we need a project
+        project = defaults.get('fk', {}).get('project')
+        if not project:
+            url = data.get('project_url')
+            if url:
+                project = Project.objects.get_by_url(url)
+                defaults.setdefault('fk', {})['project'] = project
+
+        if not project:
+            # no project found, don't save the object !
+            return None
+
+        if 'position' not in data:
+            position_key = 'project#%s:column-position' % project.github_id
+            position = saved_objects.context.get(position_key, 0) + 1
+            data['position'] = saved_objects.context[position_key] = position
+
+        fields = super(ColumnManager, self).get_object_fields_from_dict(
+                                                data, defaults, saved_objects)
+        if not fields:
+            return None
+
+        return fields
+
+    def get_github_id_from_url(self, url):
+        """
+        Taking an url, try to return the github_id of a column, or None.
+        """
+        if not url:
+            return None
+        match = self.column_finder.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('id', None)
+
+    def get_by_project_and_github_id(self, project, github_id):
+        """
+        Taking a project instance and a column id, try to return the
+        matching column. or None if no one is found.
+        """
+        if not project or not github_id:
+            return None
+        try:
+            return self.get(project_id=project.id, github_id=github_id)
+        except self.model.DoesNotExist:
+            return None
+
+    def get_by_url(self, url, project=None):
+        """
+        Taking an url, try to return the matching column by finding the project
+        by its path, and a column github_id, and then fetching the column from the db.
+        Return None if no Issue if found.
+        """
+        if not project:
+            from .models import Project
+            project = Project.objects.get_by_url(url)
+        if not project:
+            return None
+        github_id = self.get_github_id_from_url(url)
+        return self.get_by_project_and_github_id(project, github_id)
+
+
+class CardManager(GithubObjectManager):
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+        """
+        In addition to the default get_object_fields_from_dict, try to guess the
+        column the objects belongs to, from the url found in the data given
+        by the github api. Only set if the column is found.
+        """
+        from .models import Card, Column, Issue
+
+        # we need a column
+        column = defaults.get('fk', {}).get('column')
+        if not column:
+            url = data.get('column_url')
+            if url:
+                column = Column.objects.get_by_url(url)
+
+        if not column:
+            # no column found, don't save the object !
+            return None
+
+        # we may have an issue
+        issue = defaults.get('fk', {}).get('issue')
+        if not issue:
+            url = data.get('content_url')
+            if url:
+                issue = Issue.objects.get_by_url(url)
+
+        if 'position' not in data:
+            position_key = 'column#%s:card-position' % column.github_id
+            position = saved_objects.context.get(position_key, 0) + 1
+            data['position'] = saved_objects.context[position_key] = position
+
+        fields = super(CardManager, self).get_object_fields_from_dict(
+                                                data, defaults, saved_objects)
+        if not fields:
+            return None
+
+        if not fields['fk'].get('column'):
+            fields['fk']['column'] = column
+
+        if not fields['fk'].get('issue'):
+            fields['fk']['issue'] = issue
+
+        fields['simple']['type'] = Card.CARDTYPE.ISSUE if fields['fk'].get('issue') else Card.CARDTYPE.NOTE
+
+        return fields

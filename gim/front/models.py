@@ -985,6 +985,43 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
+class _Project(models.Model):
+    body_html = models.TextField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        if not update_fields or 'body' in update_fields:
+            self.body_html = html_content(self) if self.body else ''
+            if update_fields:
+                update_fields.append('body_html')
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+contribute_to_model(_Project, core_models.Project, {'save'}, {'save'})
+
+
+class _Card(models.Model):
+    note_html = models.TextField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        if self.type == self.CARDTYPE.NOTE:
+            if not update_fields or 'note' in update_fields:
+                self.note_html = html_content(self, 'note') if self.note else ''
+                if update_fields:
+                    update_fields.append('note_html')
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+contribute_to_model(_Card, core_models.Card, {'save'}, {'save'})
+
+
 class Hash(lmodel.RedisModel):
 
     database = get_main_limpyd_database()

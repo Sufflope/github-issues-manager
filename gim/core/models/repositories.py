@@ -64,6 +64,8 @@ class Repository(GithubObjectWithId):
     has_commit_statuses = models.BooleanField(default=False)
     main_metric = models.OneToOneField('LabelType', blank=True, null=True, related_name='+',
                                         on_delete=models.SET_NULL)
+    projects_fetched_at = models.DateTimeField(blank=True, null=True)
+    projects_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = RepositoryManager()
 
@@ -577,6 +579,22 @@ class Repository(GithubObjectWithId):
                                 force_fetch=force_fetch,
                                 max_pages=max_pages)
 
+    @property
+    def github_callable_identifiers_for_projects(self):
+        return self.github_callable_identifiers + [
+            'projects',
+        ]
+
+    def fetch_projects(self, gh, force_fetch=False, parameters=None, max_pages=None):
+        return self._fetch_many('projects', gh,
+                                defaults={
+                                    'fk': {'repository': self},
+                                    'related': {'*': {'fk': {'repository': self}}},
+                                },
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                max_pages=None)  # we need them all to get all the positions
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -638,5 +656,7 @@ class Repository(GithubObjectWithId):
             counts['pr_comments'] = self.fetch_pr_comments(**kwargs)
         if 'commit_comments' not in to_ignore:
             counts['commit_comments'] = self.fetch_commit_comments(**kwargs)
+        if 'projects' not in to_ignore:
+            counts['projects'] = self.fetch_projects(**kwargs)
 
         return counts
