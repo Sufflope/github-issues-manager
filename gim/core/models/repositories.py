@@ -595,6 +595,20 @@ class Repository(GithubObjectWithId):
                                 parameters=parameters,
                                 max_pages=None)  # we need them all to get all the positions
 
+    def fetch_all_projects(self, gh, force_fetch=False):
+        now = datetime.utcnow()
+        if not self.fetch_projects(gh, force_fetch=force_fetch):
+            # we have no new/updated projects
+            return
+        for project in self.projects.all():
+            if force_fetch or project.fetched_at > now:
+                if not project.fetch_columns(gh, force_fetch=force_fetch):
+                    # we have no new/updated columns
+                    continue
+                for column in project.columns.all():
+                    if force_fetch or column.fetched_at > now:
+                        column.fetch_cards(gh, force_fetch=force_fetch)
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -620,6 +634,8 @@ class Repository(GithubObjectWithId):
             FirstFetchStep2.add_job(self.id, gh=gh)
         else:
             self.fetch_all_step2(gh, force_fetch)
+            from gim.core.tasks.project import FetchProjects
+            FetchProjects.add_job(self.id)
             from gim.core.tasks.repository import FetchUnmergedPullRequests
             FetchUnmergedPullRequests.add_job(self.id, priority=-15, gh=gh, delayed_for=60*60*3)  # 3 hours
 
@@ -629,6 +645,9 @@ class Repository(GithubObjectWithId):
 
     def fetch_all_step2(self, gh, force_fetch=False, start_page=None,
                         max_pages=None, to_ignore=None, issues_state=None):
+
+        # projects are fetched separately
+
         if not to_ignore:
             to_ignore = set()
 
@@ -656,7 +675,5 @@ class Repository(GithubObjectWithId):
             counts['pr_comments'] = self.fetch_pr_comments(**kwargs)
         if 'commit_comments' not in to_ignore:
             counts['commit_comments'] = self.fetch_commit_comments(**kwargs)
-        if 'projects' not in to_ignore:
-            counts['projects'] = self.fetch_projects(**kwargs)
 
         return counts
