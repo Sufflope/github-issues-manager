@@ -28,17 +28,22 @@
             <div class="issue-item-milestone-and-project-columns">
             {% if issue.milestone %}
                 <div class="issue-item-milestone">
+                    <span>
                     <a href="" class="js-filter-trigger" data-filter='milestone:{{ issue.milestone.number }}'>
                         <i class="fa fa-tasks text-{{ issue.milestone.state }}" title="{{ issue.milestone.state|capfirst }} milestone{% if issue.milestone.state == 'open' and issue.milestone.due_on %}, due on {{ issue.milestone.due_on|date:'DATE_FORMAT' }} {% endif %}"> </i> {{ issue.milestone.title }}
                     </a>
+                    </span>
                 </div>
             {% endif %}
             {% if issue_cards %}
                 <div class="issue-item-project-columns">
                     {% for card in issue_cards %}
-                        <a href="" class="js-filter-trigger" data-filter="project">
-                            <i class="fa fa-align-left fa-rotate-90"> </i> <strong>{{ card.column.project.name }}:</strong> {{ card.column.name }}
-                        </a>
+                        <span>
+                            <a href="" class="js-filter-trigger" data-filter="project:{{ card.column.project.number}}">
+                                <i class="fa fa-align-left fa-rotate-90"> </i> <strong>{{ card.column.project.name }}</strong>
+                            </a>:
+                            <a href="" class="js-filter-trigger" data-filter="project_column:{{ card.column.project.number}}:{{ card.column.position }}">{{ card.column.name }}</a>
+                        </span>
                     {% endfor %}
                 </div>
             {% endif %}

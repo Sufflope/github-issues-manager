@@ -793,6 +793,14 @@ $().ready(function() {
             closed_by: {
                 'on': 'Click to filter issues closed by them',
                 'off': 'Click to stop filtering issues closed by them'
+            },
+            project: {
+                'on': 'Click to filter on this project',
+                'off': 'Click to stop filtering on this project'
+            },
+            project_column: {
+                'on': "Click to filter on this project's column",
+                'off': "Click to stop filtering on this project's column"
             }
         }, // messages
         block_empty_links: function(ev) {
@@ -809,10 +817,15 @@ $().ready(function() {
             if (typeof this.cache[filter] === 'undefined') {
                 var parts = filter.split(':'),
                     key = parts.shift(),
+                    message_key = key,
                     value = parts.join(':'),
                     args = $.extend({}, this.args),
                     message_type;
                 switch(key) {
+                    case 'project_column':
+                    case 'project':
+                        value = (key == 'project' ? '__any__' : parts[1]);
+                        key = 'project_' + parts[0];
                     case 'pr':
                     case 'milestone':
                     case 'created_by':
@@ -825,7 +838,7 @@ $().ready(function() {
                             delete args[key];
                             message_type = 'off';
                         }
-                        title = FilterManager.messages[key][message_type];
+                        title = FilterManager.messages[message_key][message_type];
                         href = Arg.url(this.path, args);
                         break;
                     case 'labels':
@@ -847,7 +860,7 @@ $().ready(function() {
                             delete args[key];
                             message_type = 'off';
                         }
-                        title = FilterManager.messages[key][message_type] + ($link.data('type-name') || 'label');
+                        title = FilterManager.messages[message_key][message_type] + ($link.data('type-name') || 'label');
                         href = Arg.url(this.path, args);
                         break;
                 }

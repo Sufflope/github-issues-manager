@@ -1173,8 +1173,8 @@ nav.issues-list-options .dropdown-toggle .caret {
   display: inline-block;
 }
 /* line 356, ../../../../../sass/components/_issues_list.scss */
-.issue-item .issue-item-milestone a,
-.issue-item .issue-item-project-columns a {
+.issue-item .issue-item-milestone > span,
+.issue-item .issue-item-project-columns > span {
   font-weight: bold;
   display: inline-block;
   padding: 1px 5px 2px;
@@ -1191,12 +1191,12 @@ nav.issues-list-options .dropdown-toggle .caret {
   margin-right: 5px;
 }
 /* line 369, ../../../../../sass/components/_issues_list.scss */
-.issue-item .issue-item-project-columns a {
+.issue-item .issue-item-project-columns > span {
   margin-left: 3px;
   font-weight: normal;
 }
 /* line 372, ../../../../../sass/components/_issues_list.scss */
-.issue-item .issue-item-project-columns a strong {
+.issue-item .issue-item-project-columns > span strong {
   font-weight: bold;
 }
 /* line 376, ../../../../../sass/components/_issues_list.scss */

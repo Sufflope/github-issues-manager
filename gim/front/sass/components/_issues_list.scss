@@ -353,7 +353,7 @@ nav.issues-list-options .dropdown-toggle .caret {
         padding: 0;
         overflow: hidden;
         display: inline-block;
-        a {
+        > span {
             font-weight: bold;
             display: inline-block;
             padding: 1px 5px 2px;
@@ -366,7 +366,7 @@ nav.issues-list-options .dropdown-toggle .caret {
             margin-right: 5px;
         }
     }
-    .issue-item-project-columns a {
+    .issue-item-project-columns > span {
         margin-left: 3px;
         font-weight: normal;
         strong {
