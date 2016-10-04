@@ -1,5 +1,5 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
-<li class="accordion-group dark-nav">
+<li class="accordion-group dark-nav new-accordion-part">
     <span class="glow"></span>
     <a class="accordion-toggle collapsed{% if issues_filter.objects.created_by %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ view.relation }}-{{ list_uuid }}">
         Creators

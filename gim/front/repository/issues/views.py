@@ -258,6 +258,37 @@ class IssuesFilters(BaseIssuesFilters):
                 return '__none__'
         return None
 
+    def _get_projects(self, qs_parts):
+        """
+        Return a dict with as key, the project and as value, one of:
+        - '__none__'
+        - '__any__'
+        - or a column of the project
+        """
+        projects_by_number = {('%s' % p.number): {
+            'project': p,
+            'columns_by_position': {('%s' % c.position): c for c in p.columns.all()}
+        } for p in self.projects}
+
+        project_filters = {}
+        for key, value in qs_parts.items():
+            if not key.startswith('project_'):
+                continue
+            project_number = key[8:]
+            if not project_number.isdigit() or project_number not in projects_by_number:
+                continue
+            project_dict = projects_by_number[project_number]
+            project = project_dict['project']
+            if project in project_filters:
+                continue
+            value = '%s' % value
+            if value in ('__none__', '__any__'):
+                project_filters[project] = value
+            elif value.isdigit() and value in project_dict['columns_by_position']:
+                project_filters[project] = project_dict['columns_by_position'][value]
+
+        return project_filters
+
     def _get_labels(self, qs_parts):
         """
         Return a tuple with two lists:
@@ -386,6 +417,29 @@ class IssuesFilters(BaseIssuesFilters):
                     qs_filters[filter_type] = user.username
                     query_filters[filter_field] = user.id
 
+        # filter by project
+        projects_query_filters = {
+            'cards__column__project__id': [],
+            'cards__column__id': [],
+            '-cards__column__project__id': [],
+        }
+        for project, column in self._get_projects(qs_parts).items():
+            project_key = 'project_%s' % project.number
+            filter_objects[project_key] = column
+            qs_filters[project_key] = column
+            if column == '__none__':
+                projects_query_filters['-cards__column__project__id'].append(project.id)
+            elif column == '__any__':
+                projects_query_filters['cards__column__project__id'].append(project.id)
+            else:
+                qs_filters[project_key] = column.position
+                projects_query_filters['cards__column__id'].append(column.id)
+
+        for projects_query_filter_key, projects_query_filter_value in  projects_query_filters.items():
+            if not projects_query_filter_value:
+                continue
+            query_filters[projects_query_filter_key] = projects_query_filter_value
+
         # now filter by labels
         label_types_to_ignore, full_label_types, labels = self._get_labels(qs_parts)
         if label_types_to_ignore or full_label_types or labels:
@@ -436,6 +490,7 @@ class IssuesFilters(BaseIssuesFilters):
         context.update({
             'label_types': self.label_types,
             'milestones': self.milestones,
+            'projects': self.projects,
         })
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
