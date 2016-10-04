@@ -24,11 +24,24 @@
         {% else %}
             <span data-filter="pr:no" style="display:none"/>
         {% endif %}
-        {% if issue.milestone %}
-            <div class="issue-item-milestone">
-                <a href="" class="js-filter-trigger" data-filter='milestone:{{ issue.milestone.number }}'>
-                    <i class="fa fa-tasks text-{{ issue.milestone.state }}" title="{{ issue.milestone.state|capfirst }} milestone{% if issue.milestone.state == 'open' and issue.milestone.due_on %}, due on {{ issue.milestone.due_on|date:'DATE_FORMAT' }} {% endif %}"> </i> {{ issue.milestone.title }}
-                </a>
+        {% if issue.milestone or issue_cards %}
+            <div class="issue-item-milestone-and-project-columns">
+            {% if issue.milestone %}
+                <div class="issue-item-milestone">
+                    <a href="" class="js-filter-trigger" data-filter='milestone:{{ issue.milestone.number }}'>
+                        <i class="fa fa-tasks text-{{ issue.milestone.state }}" title="{{ issue.milestone.state|capfirst }} milestone{% if issue.milestone.state == 'open' and issue.milestone.due_on %}, due on {{ issue.milestone.due_on|date:'DATE_FORMAT' }} {% endif %}"> </i> {{ issue.milestone.title }}
+                    </a>
+                </div>
+            {% endif %}
+            {% if issue_cards %}
+                <div class="issue-item-project-columns">
+                    {% for card in issue_cards %}
+                        <a href="" class="js-filter-trigger" data-filter="project">
+                            <i class="fa fa-align-left fa-rotate-90"> </i> <strong>{{ card.column.project.name }}:</strong> {{ card.column.name }}
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
             </div>
         {% endif %}
     </div>
@@ -43,7 +56,7 @@
             </a>
         </div>
     </div>
-    <div class="issue-item-footer{% if issue_labels or issue_cards %} with-labels{% endif %}">
+    <div class="issue-item-footer{% if issue_labels %} with-labels{% endif %}">
         {% with assignees=issue.assignees.all %}
             {% if assignees %}
                 <span class="issue-item-assignees">
@@ -75,13 +88,6 @@
                         </a>
                 {% endif %}
             {% endfor %}
-        </div>
-        <div class="issue-item-project-columns">
-            {% if issue_cards %}
-                {% for card in issue_cards %}
-                    <span class='issue-item-project-column'><strong>{{ card.column.project.name }}:</strong> {{ card.column.name }}</span>
-                {% endfor %}
-            {% endif %}
         </div>
     </div>
 </li>{% endwith %}{% endspaceless %}

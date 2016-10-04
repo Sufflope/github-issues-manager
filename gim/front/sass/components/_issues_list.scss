@@ -324,7 +324,11 @@ nav.issues-list-options .dropdown-toggle .caret {
             color: inherit;
         }
     }
-    .issue-item-pull-request, .issue-item-milestone, .issue-item-times, .issue-item-repository {
+    .issue-item-pull-request,
+    .issue-item-milestone,
+    .issue-item-project-column,
+    .issue-item-times,
+    .issue-item-repository {
         @include text-shadow(0 1px rgba(#fff, 0.5));
     }
     .issue-item-pull-request {
@@ -340,11 +344,15 @@ nav.issues-list-options .dropdown-toggle .caret {
             font-size: 14px;
         }
     }
-    .issue-item-milestone {
+    .issue-item-milestone-and-project-columns {
         margin-left: 50px;
         margin-right: 95px;
+    }
+    .issue-item-milestone,
+    .issue-item-project-columns {
         padding: 0;
         overflow: hidden;
+        display: inline-block;
         a {
             font-weight: bold;
             display: inline-block;
@@ -354,8 +362,15 @@ nav.issues-list-options .dropdown-toggle .caret {
         }
         i {
             position: relative;
-            top: 2px;
+            top: 1px;
             margin-right: 5px;
+        }
+    }
+    .issue-item-project-columns a {
+        margin-left: 3px;
+        font-weight: normal;
+        strong {
+            font-weight: bold;
         }
     }
     .issue-item-times {
@@ -418,17 +433,6 @@ nav.issues-list-options .dropdown-toggle .caret {
         @extend %issue-labels;
         padding-right: 5px;
         display: inline;
-    }
-    .issue-item-project-columns {
-        padding-right: 5px;
-        display: inline;
-    }
-    .issue-item-project-column {
-        border-bottom: dotted #aaa 1px;
-        padding: 0;
-        margin: 1px 3px;
-        white-space: nowrap;
-        display: inline-block;
     }
     @extend %issue-state-marker;
 
