@@ -677,3 +677,10 @@ class Repository(GithubObjectWithId):
             counts['commit_comments'] = self.fetch_commit_comments(**kwargs)
 
         return counts
+
+    def has_projects(self):
+        return self.projects.exists()
+
+    def has_projects_with_issues(self):
+        from .projects import CARDTYPE
+        return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()

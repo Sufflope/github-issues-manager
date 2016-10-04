@@ -202,6 +202,18 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'name': 'milestone',
         'description': u'milestone the issue is in',
     }),
+    ('project', {
+        'field': 'project',
+        'db_field': None,
+        'name': 'project',
+        'description': u'projects with this issue',
+    }),
+    ('project_column', {
+        'field': 'project_column',
+        'db_field': None,
+        'name': 'project + column',
+        'description': u'column of projects with this issue',
+    }),
 ]})
 
 
@@ -339,6 +351,11 @@ class IssuesFilters(BaseIssuesFilters):
             super(IssuesFilters, self)._prepare_group_by(group_by_info, qs_parts,
                                                       qs_filters, filter_objects, order_by)
 
+        if field == 'project':
+            filter_objects['group_by_field'] = 'project_grouper'
+        elif field == 'project_column':
+            filter_objects['group_by_field'] = 'project_column_grouper'
+
     def get_filter_parts(self, qs_parts):
         query_filters, order_by, group_by, filter_objects, qs_filters =  \
             super(IssuesFilters, self).get_filter_parts(qs_parts)
@@ -408,6 +425,12 @@ class IssuesFilters(BaseIssuesFilters):
         return query_filters, order_by, group_by, filter_objects, qs_filters
 
     def get_context_data(self, **kwargs):
+
+        if self.repository.has_projects_with_issues():
+            self.allowed_group_by = self.allowed_group_by.copy()
+            for name in ('project', 'project_column'):
+                self.allowed_group_by[name] = GROUP_BY_CHOICES[name][1]
+
         context = super(IssuesFilters, self).get_context_data(**kwargs)
 
         context.update({
@@ -463,15 +486,17 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
         if not group_by:
             return queryset
 
-        # TODO: select/prefetch only the stuff needed for grouping
+        prefetch_related = ['assignees']
+        if isinstance(group_by, LabelType):
+            prefetch_related.append('labels__label_type')
+        elif group_by in ('project', 'project_column'):
+            prefetch_related.append('cards__column__project')
+
         return queryset.select_related(
             'repository__owner',  # default
             'user',  # we may have a lot of different ones
             'closed_by', 'milestone', # we should have only a few ones for each
-        ).prefetch_related(
-            'assignees',
-            'labels__label_type'
-        )
+        ).prefetch_related(*prefetch_related)
 
     def get_context_data(self, **kwargs):
         """
@@ -508,35 +533,68 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                 total_count
             )
 
-        group_by_label_type = context['issues_filter']['objects'].get('group_by', None)
+        group_by = context['issues_filter']['objects'].get('group_by', None)
         group_by_attribute = context['issues_filter']['objects'].get('group_by_field', None)
-        if group_by_label_type and isinstance(group_by_label_type, LabelType) and group_by_attribute:
-
-            # regroup issues by label from the lab
+        if group_by:
             issues_dict = {}
-            for issue in issues:
-                add_to = None
 
-                for label in issue.labels.ready():  # thanks prefetch_related
-                    if label.label_type_id == group_by_label_type.id:
-                        # found a label for the wanted type, mark it and stop
-                        # checking labels for this issue
-                        add_to = label.id
-                        setattr(issue, group_by_attribute, label)
-                        break
+            if isinstance(group_by, LabelType) and group_by_attribute:
 
-                # add in a dict, with one entry for each label of the type (and one for None)
-                issues_dict.setdefault(add_to, []).append(issue)
+                # regroup issues by label from the label-type
+                for issue in issues:
+                    add_to = None
 
-            # for each label of the type, append matching issues to the final list
-            issues = []
-            label_type_labels = [None] + list(group_by_label_type.labels.ready())
-            if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
-                label_type_labels.reverse()
-            for label in label_type_labels:
-                label_id = None if label is None else label.id
-                if label_id in issues_dict:
-                    issues += issues_dict[label_id]
+                    for label in issue.labels.ready():  # thanks prefetch_related
+                        if label.label_type_id == group_by.id:
+                            # found a label for the wanted type, mark it and stop
+                            # checking labels for this issue
+                            add_to = label.id
+                            setattr(issue, group_by_attribute, label)
+                            break
+
+                    # add in a dict, with one entry for each label of the type (and one for None)
+                    issues_dict.setdefault(add_to, []).append(issue)
+
+                # for each label of the type, append matching issues to the final list
+                issues = []
+                label_type_labels = [None] + list(group_by.labels.ready())
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    label_type_labels.reverse()
+                for label in label_type_labels:
+                    label_id = None if label is None else label.id
+                    if label_id in issues_dict:
+                        issues += issues_dict[label_id]
+
+            elif group_by in ('project', 'project_column'):
+
+                # regroup issues by project
+                for issue in issues:
+                    added = False
+                    for card in issue.ordered_cards():
+                        obj = card.column
+                        if group_by == 'project':
+                            obj = obj.project
+                        added = True
+                        issues_dict.setdefault(obj.id, []).append(issue)
+                        setattr(issue, group_by_attribute, obj)
+                        break  # can only display an issue once in a list for now :-/
+                    if not added:
+                        issues_dict.setdefault(None, []).append(issue)
+
+                # for each  project, append matching issues to the final list
+                issues = []
+                objs = [None]
+                for project in self.repository.projects.all().prefetch_related('columns'):
+                    if group_by == 'project':
+                        objs.append(project)
+                    else:
+                        objs.extend(project.columns.all())
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    objs.reverse()
+                for obj in objs:
+                    obj_id = None if obj is None else obj.id
+                    if obj_id in issues_dict:
+                        issues += issues_dict[obj_id]
 
         return issues, total_count, limit_reached, original_queryset
 

@@ -357,6 +357,12 @@ def group_by_filter_value(grouper, group_field):
     if isinstance(grouper, core_models.Label):
         return grouper.name
 
+    if isinstance(grouper, core_models.Project):
+        return grouper.number
+
+    if isinstance(grouper, core_models.Column):
+        return '%s:%s' % (grouper.project.number, grouper.position)
+
     return ''
 
 @register.filter

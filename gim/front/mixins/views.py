@@ -665,7 +665,8 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
         qs_filters['group_by'] = qs_parts['group_by']
         filter_objects['group_by'] = qs_parts['group_by']
         filter_objects['group_by_field'] = field
-        order_by.append('%s%s' % ('-' if direction == 'desc' else '', db_field))
+        if db_field:
+            order_by.append('%s%s' % ('-' if direction == 'desc' else '', db_field))
 
     def get_filter_parts(self, qs_parts):
 
