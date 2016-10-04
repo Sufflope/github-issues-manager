@@ -480,6 +480,7 @@ class _Issue(Hashable, FrontEditable):
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
+            ','.join(map(str, sorted(self.cards.values_list('pk', flat=True)))),
         )
 
         if self.is_pull_request:
@@ -519,7 +520,7 @@ class _Issue(Hashable, FrontEditable):
         ).select_related(
             'repository__owner', 'user', 'created_by', 'closed_by', 'milestone'
         ).prefetch_related(
-            'assignees', 'labels__label_type'
+            'assignees', 'labels__label_type', 'cards__column__project'
         )[0]
 
         context = Context({
@@ -663,6 +664,37 @@ class _Issue(Hashable, FrontEditable):
             if hasattr(self, '_repository_cache'):
                 notification._repository_cache = self._repository_cache
             notification.publish()
+
+    def ordered_cards(self):
+        """Order card by project/column, using prefetched info if present"""
+
+        need_fetch = True
+
+        if hasattr(self, '_prefetched_objects_cache') and 'cards' in self._prefetched_objects_cache:
+            # cards are already prefetched
+            need_fetch = False
+            for card in self._prefetched_objects_cache['cards']:
+                try:
+                    card._column_cache._project_cache
+                except AttributeError:
+                    # column or project not in cache
+                    need_fetch = True
+                    break
+
+            if not need_fetch:
+                return sorted(
+                    self._prefetched_objects_cache['cards'],
+                    key=lambda card: (card.column.project.number, card.column.position)
+                )
+
+        if not hasattr(self, '_prefetched_objects_cache'):
+            self._prefetched_objects_cache = {}
+        self._prefetched_objects_cache['cards'] =  list(self.cards.select_related(
+            'column__project'
+        ).order_by(
+            'column__project__number'
+        ))
+        return self._prefetched_objects_cache['cards']
 
 contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 

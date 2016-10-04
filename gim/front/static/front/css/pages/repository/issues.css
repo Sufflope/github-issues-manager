@@ -1241,24 +1241,38 @@ nav.issues-list-options .dropdown-toggle .caret {
 /* line 417, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-labels {
   padding-right: 5px;
+  display: inline;
 }
-/* line 424, ../../../../../sass/components/_issues_list.scss */
+/* line 422, ../../../../../sass/components/_issues_list.scss */
+.issue-item .issue-item-project-columns {
+  padding-right: 5px;
+  display: inline;
+}
+/* line 426, ../../../../../sass/components/_issues_list.scss */
+.issue-item .issue-item-project-column {
+  border-bottom: dotted #aaa 1px;
+  padding: 0;
+  margin: 1px 3px;
+  white-space: nowrap;
+  display: inline-block;
+}
+/* line 436, ../../../../../sass/components/_issues_list.scss */
 .issue-item.recent .issue-item-times {
   -moz-animation: breathing-recent-issue-item-times 5s infinite normal;
   -webkit-animation: breathing-recent-issue-item-times 5s infinite normal;
   animation: breathing-recent-issue-item-times 5s infinite normal;
 }
-/* line 429, ../../../../../sass/components/_issues_list.scss */
+/* line 441, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-helper {
   -moz-box-shadow: 0 4px 5px 0 #888;
   -webkit-box-shadow: 0 4px 5px 0 #888;
   box-shadow: 0 4px 5px 0 #888;
 }
-/* line 433, ../../../../../sass/components/_issues_list.scss */
+/* line 445, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-placeholder {
   border-top-color: #aaa;
 }
-/* line 435, ../../../../../sass/components/_issues_list.scss */
+/* line 447, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-placeholder .mask {
   position: absolute;
   top: 0;
@@ -1268,35 +1282,35 @@ nav.issues-list-options .dropdown-toggle .caret {
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* line 446, ../../../../../sass/components/_issues_list.scss */
+/* line 458, ../../../../../sass/components/_issues_list.scss */
 .issue-item {
   background: #fbfbfb;
   padding-left: 13px;
 }
-/* line 450, ../../../../../sass/components/_issues_list.scss */
+/* line 462, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active {
   padding-left: 8px;
   border-left: solid #7BC8D7 5px;
   border-top-color: #f0fcff;
 }
-/* line 454, ../../../../../sass/components/_issues_list.scss */
+/* line 466, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active .issue-item-repository {
   background: transparent;
   margin-left: -8px;
   padding-left: 12px;
   border-bottom-color: rgba(0, 0, 0, 0.05);
 }
-/* line 459, ../../../../../sass/components/_issues_list.scss */
+/* line 471, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active .issue-item-repository.is-private {
   padding-left: 17px;
 }
 
-/* line 468, ../../../../../sass/components/_issues_list.scss */
+/* line 480, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch {
   margin: 0;
   padding: 0;
 }
-/* line 471, ../../../../../sass/components/_issues_list.scss */
+/* line 483, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch label {
   margin: 0;
   padding: 0;
@@ -1306,7 +1320,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   height: 28px;
   background: white;
 }
-/* line 480, ../../../../../sass/components/_issues_list.scss */
+/* line 492, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on, .issues-quicksearch input, .issues-quicksearch .btn {
   border: 0;
   -moz-border-radius: 0;
@@ -1315,14 +1329,14 @@ nav.issues-list-options .dropdown-toggle .caret {
   position: absolute;
   top: 0;
 }
-/* line 486, ../../../../../sass/components/_issues_list.scss */
+/* line 498, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on {
   border-right: solid 1px #d4d4d4;
   left: 0;
   width: 16px;
   z-index: 10;
 }
-/* line 492, ../../../../../sass/components/_issues_list.scss */
+/* line 504, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch input {
   display: block;
   width: 100%;
@@ -1337,7 +1351,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   height: 28px;
   z-index: 20;
 }
-/* line 504, ../../../../../sass/components/_issues_list.scss */
+/* line 516, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .btn {
   border-left: solid 1px #d4d4d4;
   right: 0;
