@@ -45,11 +45,26 @@
                 {% if current_issue.milestone %}
                     <i class="fa fa-tasks text-{{ current_issue.milestone.state }}" title="{{ current_issue.milestone.state|capfirst }} milestone{% if current_issue.milestone.state == 'open' and current_issue.milestone.due_on %}, due on {{ current_issue.milestone.due_on|date:'DATE_FORMAT' }} {% endif %}"> </i> Milestone: <strong>{{ current_issue.milestone.title|truncatechars:30 }}</strong>
                 {% else %}
-                    <i class="fa fa-tasks"> </i> No milestone
+                    <i class="fa fa-tasks"> </i>&nbsp;<em>No milestone</em>
                 {% endif %}
                 {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'milestone' }}" class="issue-edit-btn issue-edit-btn-milestone btn-loading" data-field="milestone" title="Edit the milestone"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
             </div>
         {% endif %}
+        {% with cards=current_issue.ordered_cards %}
+            {% if cards or current_issue_edit_level == 'full' %}
+                <div class="issue-projects{% if not cards %} no-projects{% endif %} edit-place" data-field="projects">
+                    <ul class="unstyled">
+                        {% if cards %}
+                            {% for card in cards %}
+                                <li><i class="fa fa-align-left fa-rotate-90"> </i>&nbsp;<strong title="{{ card.column.project.name }}">{{ card.column.project.name|truncatechars:30 }}: </strong><span title="{{ card.column.name }}">{{ card.column.name|truncatechars:30 }}</span></li>
+                            {% endfor %}
+                        {% else %}
+                            <li><i class="fa fa-align-left fa-rotate-90"> </i>&nbsp;<em>No projects</em></li>
+                        {% endif %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endwith %}
         {% with assignees=current_issue.assignees.all %}
             {% if assignees or current_issue_edit_level == 'full' %}
                 <div class="issue-assignees{% if not assignees %} no-assignees{% endif %} edit-place" data-field="assignees">
