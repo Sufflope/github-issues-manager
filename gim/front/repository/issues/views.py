@@ -216,12 +216,20 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
     }),
 ]})
 
+SORT_CHOICES = dict(BaseIssuesFilters.SORT_CHOICES, **{sort[0]: sort for sort in [
+    ('position', {
+        'name': u'card position',
+        'description': u"position of the card in the project's column",
+    }),
+]})
+
 
 class IssuesFilters(BaseIssuesFilters):
 
     filters_template_name = 'front/repository/issues/include_filters.html'
 
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
+    SORT_CHOICES = SORT_CHOICES
 
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
         'state',
@@ -238,6 +246,18 @@ class IssuesFilters(BaseIssuesFilters):
         'closed_by': 'closed_by',
         'mentioned': 'user_mentions',
     }
+
+    def _get_sort(self, qs_parts):
+        if qs_parts.get('group_by', None) == 'project_column':
+            self.allowed_sort = self.allowed_sort.copy()
+            self.allowed_sort['position'] = SORT_CHOICES['position'][1]
+
+        return super(IssuesFilters, self)._get_sort(qs_parts)
+
+    def _get_sort_field(self, sort):
+        if sort == 'position':
+            return 'cards__position'
+        return super(IssuesFilters, self)._get_sort_field(sort)
 
     def _get_milestone(self, qs_parts):
         """
