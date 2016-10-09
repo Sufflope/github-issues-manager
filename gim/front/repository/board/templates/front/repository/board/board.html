@@ -46,7 +46,11 @@
                 <div id="issues-list-{{ column_key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_column.url }}"></div>
                 <div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>
             </section>
-            <a href="#" class="board-column-closer" title="Close this column"><i class="fa fa-times"> </i></a>
+            <div class="board-column-icons">
+                <a href="#" class="board-column-minifier" title="Minify this column"><i class="fa fa-toggle-left"> </i></a>
+                <a href="#" class="board-column-unminifier" title="Restore this column"><i class="fa fa-toggle-right"> </i></a>
+                <a href="#" class="board-column-closer" title="Close this column"><i class="fa fa-times"> </i></a>
+            </div>
         </div>
             {% endwith %}
         {% endfor %}

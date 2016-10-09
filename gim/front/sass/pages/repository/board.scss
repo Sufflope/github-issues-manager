@@ -79,6 +79,54 @@ body#repository_board #main-inner {
         order: -1;
         display: none;
     }
+    .board-column-unminifier {
+        display: none;
+    }
+    &.is-active {
+        .board-column-minifier {
+            display: none;
+        }
+    }
+    &.mini {
+        .board-column-minifier {
+            display: none;
+        }
+        .board-column-unminifier {
+            display: inline;
+        }
+        &:not(.is-active) {
+            min-width: 31px;
+            width: 31px;
+            .issues-filters {
+                display: none;
+            }
+            .issues-list-container {
+                & > * {
+                    display: none;
+                }
+                & > .issues-list-title {
+                    // always
+                    display: block;
+                    white-space: nowrap;
+                    border: none;
+                    top: 30px;
+                    text-align: center;
+                    height: 20px;
+                    font-style: normal;
+                }
+            }
+            &:not(.small-title) {
+                .issues-list-container  > .issues-list-title {
+                    // rotated
+                    left: initial;
+                    right: 25px;
+                    text-align: right;
+                    transform: rotate(270deg);
+                    transform-origin: right top;
+                }
+            }
+        }
+    }
 }
 
 .issues-list-container {
@@ -96,10 +144,16 @@ body#repository_board #main-inner {
     @include box-sizing(border-box);
 }
 
-.board-column-closer {
+.board-column-icons {
     position: absolute;
     top: 5px;
     right: 5px;
+    .board-column-closer {
+        margin-left: 1px;
+    }
+    .board-column.mini:not(.is-active) & {
+        right: 3px;
+    }
 }
 
 .issues-list-title {

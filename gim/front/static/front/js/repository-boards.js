@@ -206,9 +206,27 @@ $().ready(function() {
             }, // rearrange
 
             on_closer_click: function () {
-                Board.arranger.remove_column($(this).prev(Board.lists.lists_selector).data('key'));
+                var $this = $(this);
+                Board.arranger.remove_column($this.parent().prev(Board.lists.lists_selector).data('key'));
+                $this.parents('.board-column').removeClass('mini small-title');
                 return false;
             }, // on_closer_click
+
+            on_minifier_click: function () {
+                var $column = $(this).parents('.board-column'),
+                    title = $column.find('.issues-list-title').first().text().trim(),
+                    classes = 'mini';
+
+                if (title.length <= 2) { classes += ' small-title'; }
+
+                $column.addClass(classes);
+                return false;
+            },
+
+            on_unminifier_click: function () {
+                $(this).parents('.board-column').removeClass('mini small-title');
+                return false;
+            },
 
             animate_scroll_to: function() {
                 if (!Board.lists.asked_scroll_to.running) { return; }
@@ -260,6 +278,8 @@ $().ready(function() {
                 $document.on('reloaded', IssuesList.container_selector, Board.filters.on_column_loaded);
                 Board.lists.load_visible();
                 $('.board-column-closer').on('click', Ev.stop_event_decorate(Board.lists.on_closer_click));
+                $('.board-column-minifier').on('click', Ev.stop_event_decorate(Board.lists.on_minifier_click));
+                $('.board-column-unminifier').on('click', Ev.stop_event_decorate(Board.lists.on_unminifier_click));
                 jwerty.key('x', IssuesList.on_current_list_key_event('close'));
 
             } // init
@@ -884,9 +904,11 @@ $().ready(function() {
     IssuesList.prototype.set_current = (function IssuesList__set_current () {
         this.set_current_original();
         if (!Board.$columns.length) { return; }
+        var $column = this.$node.closest('.board-column');
+        $('.board-column.is-active').removeClass('is-active');
+        $column.addClass('is-active');
         if (!Board.dragger.dimensions.scrollLeftMax) { return; }
-        var $column = this.$node.closest('.board-column'),
-            column_left = $column.position().left,
+        var column_left = $column.position().left,
             column_width = $column.width(),
             column_right = column_left + column_width,
             container_left = Board.container.scrollLeft,
