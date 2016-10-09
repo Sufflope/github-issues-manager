@@ -130,10 +130,34 @@
     {% block filter-projects %}
     {# The projects and their columns #}
     {% if projects|length %}
+        {# projects: in a project or not #}
+        {% if projects|length > 1 %}
+            {% block filter-in_project %}
+            <li class="accordion-group dark-nav new-accordion-part">
+                <span class="glow"></span>
+                <a class="accordion-toggle collapsed{% if issues_filter.parts.in_project %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-in_project-{{ list_uuid }}">
+                    In a project
+                    <i class="fa fa-caret-right"></i>
+                    {% if issues_filter.parts.in_project %}
+                            <span class="selection">{{ issues_filter.parts.in_project }}</span>
+                        </a>
+                        <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "in_project" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                    {% endif %}
+                </a>
+                <ul id="filter-in_project-{{ list_uuid }}" class="collapse">
+                    {% for in_project in view.allowed_in_projects %}
+                        <li{% if issues_filter.parts.in_project == in_project %} class="active"{% endif %}>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "in_project" in_project %}">{{ in_project|capfirst }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endblock filter-in_project %}
+        {% endif %}
         {% for project in projects %}
             {% block filter-project %}
                 {% with project_key='project_'|concat:project.number columns=project.columns.all %}{% with filter_object=issues_filter.objects|dict_item:project_key %}
-                    <li class="accordion-group dark-nav{% if forloop.first %} new-accordion-part{% endif %}">
+                    <li class="accordion-group dark-nav{% if forloop.first and projects|length == 1 %} new-accordion-part{% endif %}">
                         <span class="glow"></span>
                         <a class="accordion-toggle collapsed{% if filter_object %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ project_key }}-{{ list_uuid }}">
                             {{ project.name }}

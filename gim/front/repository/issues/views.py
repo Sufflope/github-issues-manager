@@ -231,6 +231,8 @@ class IssuesFilters(BaseIssuesFilters):
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
     SORT_CHOICES = SORT_CHOICES
 
+    allowed_in_projects = ['no', 'yes']
+
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
         'state',
         'created_by',
@@ -276,6 +278,15 @@ class IssuesFilters(BaseIssuesFilters):
                     return milestone
             elif milestone_number == '__none__':
                 return '__none__'
+        return None
+
+    def _get_in_project(self, qs_parts):
+        """
+        Return the valid "is_pull_request" flag to use, or None
+        """
+        in_project = qs_parts.get('in_project', None)
+        if in_project in self.allowed_in_projects:
+            return True if in_project == 'yes' else False
         return None
 
     def _get_projects(self, qs_parts):
@@ -436,6 +447,13 @@ class IssuesFilters(BaseIssuesFilters):
                 else:
                     qs_filters[filter_type] = user.username
                     query_filters[filter_field] = user.id
+
+        # filter by "in project"" status
+        in_project = self._get_in_project(qs_parts)
+        if in_project is not None:
+            qs_filters['in_project'] = self.allowed_in_projects[in_project]
+            filter_objects['in_project'] = in_project
+            query_filters['cards__isnull'] = not in_project
 
         # filter by project
         projects_query_filters = {
