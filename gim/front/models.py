@@ -461,7 +461,7 @@ class _Issue(Hashable, FrontEditable):
                                    .values_list('author_name', flat=True)))
 
     @property
-    def hash(self):
+    def hash_values(self):
         """
         Hash for this issue representing its state at the current time, used to
         know if we have to reset its cache
@@ -480,14 +480,18 @@ class _Issue(Hashable, FrontEditable):
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
-            ','.join(map(str, sorted(self.cards.values_list('pk', flat=True)))),
+            ','.join(sorted(['%s:%s' % c for c in self.cards.values_list('column_id', 'position')]))
         )
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
             hash_values += (commits_part, )
 
-        return hash(hash_values)
+        return hash_values
+
+    @property
+    def hash(self):
+        return hash(self.hash_values)
 
     def update_saved_hash(self):
         """
@@ -1035,7 +1039,7 @@ class _Project(models.Model):
 contribute_to_model(_Project, core_models.Project, {'save'}, {'save'})
 
 
-class _Card(models.Model):
+class _Card(Hashable, models.Model):
     note_html = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -1050,6 +1054,20 @@ class _Card(models.Model):
                     update_fields.append('note_html')
 
         self.old_save(force_insert, force_update, using, update_fields)
+
+    @property
+    def hash(self):
+        """
+        Hash for this object representing its state at the current time, used to
+        know if we have to reset an issue's cache
+        """
+        return hash((self.column_id, self.position, ))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this card (ie only one!)
+        """
+        return core_models.Issue.objects.filter(cards=self)
 
 contribute_to_model(_Card, core_models.Card, {'save'}, {'save'})
 
@@ -1192,6 +1210,16 @@ def publish_update(instance, message_type, extra_data=None):
 
     if conf.get('pre_publish_action'):
         conf['pre_publish_action'](instance)
+
+    # try:
+    #     from pprint import pformat
+    #     extra_data['hashable_values'] = pformat(instance.hash_values)
+    # except Exception:
+    #     pass
+    # try:
+    #     extra_data["github_status"] = instance.get_github_status_display()
+    # except Exception:
+    #     pass
 
     base_data = {
         'model': str(instance.model_name),
@@ -1340,6 +1368,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
     if created or getattr(instance, 'is_new', False):
         extra_data['is_new'] = True
 
+    # extra_data['updated_fields'] = list(update_fields or [])
+
     publish_update(instance, 'updated', extra_data)
 
 
@@ -1378,6 +1408,7 @@ def hash_check(sender, instance, created, **kwargs):
                         core_models.Milestone,
                         core_models.LabelType,
                         core_models.Label,
+                        core_models.Card,
                         core_models.Issue
                       )):
         return

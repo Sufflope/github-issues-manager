@@ -260,21 +260,17 @@ class IssueProjectsFormPart(object):
             seen_projects.add(column.project.number)
         return columns
 
-    def save(self, commit=True):
-        instance = super(IssueProjectsFormPart, self).save(commit=commit)
+    def update_columns(self, instance):
 
-        if instance.pk:
-            actual_columns =  Column.objects.filter(cards__issue=instance)
-            actual_columns_by_id = {c.id: c for c in actual_columns}
-            actual_projects_ids = {c.project_id for c in actual_columns}
-        else:
-            actual_columns = []
-            actual_columns_by_id = {}
-            actual_projects_ids = set()
+        actual_columns =  Column.objects.filter(cards__issue=instance)
+        actual_columns_by_id = {c.id: c for c in actual_columns}
+        actual_projects_ids = {c.project_id for c in actual_columns}
 
         new_columns = self.cleaned_data['columns']
         new_columns_by_id = {c.id: c for c in new_columns}
         new_projects_ids = {c.project_id for c in new_columns}
+
+        update_data = {}
 
         if actual_columns_by_id.keys() != new_columns_by_id.keys():
 
@@ -291,7 +287,7 @@ class IssueProjectsFormPart(object):
                 if actual_column_id != new_column_id:
                     columns_to_move[actual_column_id] = new_column_id
 
-            instance._columns_to_update = {
+            update_data = {
                 'remove_from_columns': {},
                 'add_to_columns': list(columns_to_add),  # a set cannot be saved as json for the job
                 'move_between_columns': columns_to_move,
@@ -300,47 +296,62 @@ class IssueProjectsFormPart(object):
             cards_to_remove = {}
             if columns_to_remove:
                 cards_to_remove = instance.cards.filter(column_id__in=columns_to_remove)
-                instance._columns_to_update['remove_from_columns'] = dict(cards_to_remove.values_list('column_id', 'github_id'))
+                update_data['remove_from_columns'] = dict(cards_to_remove.values_list('column_id', 'github_id'))
 
-            if commit:  # issue instance is in database
-                now = datetime.utcnow()
+            now = datetime.utcnow()
 
-                if columns_to_remove:
-                    cards_to_remove.delete()
+            if columns_to_remove:
+                cards_to_remove.delete()
 
-                if columns_to_add:
-                    for column_id in columns_to_add:
-                        column = new_columns_by_id[column_id]
-                        last_card = column.cards.order_by('position').only('position').last()
-                        Card.objects.create(
-                            type=Card.CARDTYPE.ISSUE,
-                            created_at=now,
-                            updated_at=now,
-                            issue=instance,
-                            column=column,
-                            position=last_card.position + 1 if last_card is not None else 1,
+            if columns_to_add:
+                for column_id in columns_to_add:
+                    column = new_columns_by_id[column_id]
+                    last_card = column.cards.order_by('position').only('position').last()
+                    Card.objects.create(
+                        type=Card.CARDTYPE.ISSUE,
+                        created_at=now,
+                        updated_at=now,
+                        issue=instance,
+                        column=column,
+                        position=last_card.position + 1 if last_card is not None else 1,
+                    )
+
+            if columns_to_move:
+                for actual_column_id, new_column_id in columns_to_move.items():
+                    actual_column = actual_columns_by_id[actual_column_id]
+                    new_column = new_columns_by_id[new_column_id]
+                    last_card = new_column.cards.order_by('position').only('position').last()
+                    card = instance.cards.get(column_id=actual_column_id)
+                    actual_position = card.position
+                    # update card
+                    card.updated_at = now
+                    card.column = new_column
+                    card.position = last_card.position + 1 if last_card is not None else 1
+                    card.save()
+                    # move cards after the current one in the original column
+                    if actual_position:
+                        actual_column.cards.filter(position__gt=actual_position).update(
+                            position=F('position') - 1
                         )
 
-                if columns_to_move:
-                    for actual_column_id, new_column_id in columns_to_move.items():
-                        actual_column = actual_columns_by_id[actual_column_id]
-                        new_column = new_columns_by_id[new_column_id]
-                        last_card = new_column.cards.order_by('position').only('position').last()
-                        card = instance.cards.get(column_id=actual_column_id)
-                        actual_position = card.position
-                        # update card
-                        card.updated_at = now
-                        card.column = new_column
-                        card.position = last_card.position + 1 if last_card is not None else 1
-                        card.save()
-                        # move cards after the current one in the original column
-                        if actual_position:
-                            actual_column.cards.filter(position__gt=actual_position).update(
-                                position=F('position') - 1
-                            )
+        return update_data
+
+    def save(self, commit=True):
+        is_new = not bool(self.instance.pk)
+
+        update_data = {}
+
+        if not is_new:
+            update_data = self.update_columns(self.instance)
+
+        instance = super(IssueProjectsFormPart, self).save(commit=commit)
+
+        if is_new:
+            update_data = self.update_columns(instance)
+
+        instance._columns_to_update = update_data
 
         return instance
-
 
 
 class IssueTitleForm(IssueTitleFormPart, IssueFormMixin):
