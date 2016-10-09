@@ -8,7 +8,6 @@ import json
 from django import forms
 from django.conf import settings
 from django.db.models import F
-from django.db.models.query import EmptyQuerySet
 from django.template.defaultfilters import date as convert_date
 from django.utils.html import escape
 
@@ -209,7 +208,7 @@ class IssueLabelsFormPart(object):
 
 class IssueProjectsFormPart(object):
 
-    columns = forms.ModelMultipleChoiceField(queryset=EmptyQuerySet, required=False)
+    columns = forms.ModelMultipleChoiceField(queryset=Column.objects.none(), required=False)
 
     def __init__(self, *args, **kwargs):
         super(IssueProjectsFormPart, self).__init__(*args, **kwargs)
@@ -409,7 +408,9 @@ class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,
 
 
 class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneesFormPart,
-                          IssueLabelsFormPart, IssueCreateForm):
+                          IssueLabelsFormPart, IssueProjectsFormPart, IssueCreateForm):
+
+    columns = IssueProjectsFormPart.columns  # will be at the end by default
 
     class Meta(IssueCreateForm.Meta):
         fields = ['title', 'body', 'milestone', 'assignees', 'labels', 'front_uuid']

@@ -13,6 +13,7 @@ __all__ = [
 
 import json
 import time
+from datetime import datetime
 
 from async_messages import message_users, constants, messages
 
@@ -535,3 +536,39 @@ class IssueCreateJob(BaseIssueEditJob):
     def get_issue_title_for_message(self, issue, number=False):
         # dont use the number in create mode, but the title
         return super(IssueCreateJob, self).get_issue_title_for_message(issue, number)
+
+    def do_action(self, issue, gh):
+
+        # get the projects to save it on github after
+        columns = list(Column.objects.filter(cards__issue=issue))
+
+        issue = super(IssueCreateJob, self).do_action(issue, gh)
+
+        # now save the columns
+        if columns:
+            job_data = {
+                'add_to_columns': []
+            }
+            now = datetime.utcnow()
+
+            # locally
+            for column in columns:
+                last_card = column.cards.order_by('position').only('position').last()
+                Card.objects.create(
+                    type=Card.CARDTYPE.ISSUE,
+                    created_at=now,
+                    updated_at=now,
+                    issue=issue,
+                    column=column,
+                    position=last_card.position + 1 if last_card is not None else 1,
+                )
+                job_data['add_to_columns'].append(column.id)
+
+            # and on github
+            IssueEditProjecsJob.add_job(
+                self.object.pk,
+                gh=gh,
+                value=json.dumps(job_data)
+            )
+
+        return issue

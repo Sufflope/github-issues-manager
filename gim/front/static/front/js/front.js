@@ -5050,6 +5050,7 @@ $().ready(function() {
                     IssueEditor.issue_edit_milestone_field_prepare($form, true);
                     IssueEditor.issue_edit_assignees_field_prepare($form, true);
                     IssueEditor.issue_edit_labels_field_prepare($form, true);
+                    IssueEditor.issue_edit_projects_field_prepare($form, true);
                 };
                 IssueEditor.load_select2(select2_callback);
             }), // update_form
