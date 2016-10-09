@@ -19,7 +19,7 @@ from async_messages import message_users, constants, messages
 from limpyd import fields
 from limpyd_jobs import STATUSES
 
-from gim.core.models import Issue, Repository, GithubUser
+from gim.core.models import Issue, Repository, GithubUser, Card, Column
 from gim.core.ghpool import ApiError, ApiNotFoundError
 
 from .base import DjangoModelJob, Job
@@ -213,6 +213,10 @@ class BaseIssueEditJob(IssueJob):
                 title = title[:30] + u'…'
         return '"<strong>%s</strong>"' % title
 
+    def do_action(self, issue, gh):
+        self.edited_issue = issue.dist_edit(mode=self.edit_mode, gh=gh, fields=self.editable_fields, values=self.values)
+        return self.edited_issue
+
     def run(self, queue):
         """
         Get the issue and update it
@@ -232,7 +236,7 @@ class BaseIssueEditJob(IssueJob):
             return False
 
         try:
-            issue = self.edited_issue = issue.dist_edit(mode=self.edit_mode, gh=gh, fields=self.editable_fields, values=self.values)
+            issue = self.do_action(issue, gh)
 
             if issue.github_status != issue.GITHUB_STATUS_CHOICES.FETCHED:
                 # Maybe it was still in saving mode but we didn't have anything new to get
@@ -271,7 +275,7 @@ class BaseIssueEditJob(IssueJob):
 
         messages.success(self.gh_user, self.get_success_user_message(issue))
 
-        # ask for frech data
+        # ask for fresh data
         FetchIssueByNumber.add_job('%s#%s' % (issue.repository_id, issue.number), gh=gh)
 
         return None
@@ -358,6 +362,156 @@ class IssueEditLabelsJob(IssueEditFieldJob):
     def get_field_value(self):
         labels = self.value.hget() or '[]'
         return json.loads(labels)
+
+
+class IssueEditProjecsJob(IssueEditFieldJob):
+    queue_name = 'edit-issue-projects'
+    editable_fields = ['projects']
+
+    def get_field_value(self):
+        columns = self.value.hget() or '[]'
+        return json.loads(columns)
+
+    def send_error_message_removed_column(self, issue, action):
+        direction = {
+            'removing': 'from',
+            'adding': 'to',
+            'moving': 'to',  # we only check destination column
+        }
+        messages.error(
+            self.gh_user,
+            "There was a problem %s the %s %s on <strong>%s</strong> %s a project's column that do "
+            "not exist anymore" % (
+                action,
+                issue.type,
+                self.get_issue_title_for_message(issue),
+                issue.repository.full_name,
+                direction[action]
+            )
+        )
+
+    def do_action(self, issue, gh):
+        actions = self.values['projects']
+
+        all_columns_by_id = {
+            c.id: c
+            for c in Column.objects.filter(
+                project__repository=issue.repository
+            ).select_related('project')
+        }
+
+        cards_qs = issue.cards
+
+        # start by removing cards from projects
+        if actions.get('remove_from_columns'):
+            for column_id, github_id in actions['remove_from_columns'].items():
+                if not github_id:
+                    continue
+
+                column_id = int(column_id)
+
+                try:
+                    column = all_columns_by_id[column_id]
+                except KeyError:
+                    # the column doesn't exist anymore, we can't do anything
+                    self.send_error_message_removed_column(issue, 'removing')
+                    continue
+
+                # do we have an existing card?
+                try:
+                    card = cards_qs.get(github_id=github_id)
+                except Card.DoesNotExist:
+                    try:
+                        card = cards_qs.get(column_id=column_id)
+                    except Card.DoesNotExist:
+                        # make a fake card to use dist_delete
+                        card = Card(github_id=github_id, column=column)
+
+                try:
+                    card.dist_delete(gh)
+                except ApiNotFoundError:
+                    # card already deleted, we can ignore
+                    pass
+
+        # now add new cards
+        if actions.get('add_to_columns'):
+            for column_id in actions['add_to_columns']:
+                column_id = int(column_id)
+                try:
+                    column = all_columns_by_id[column_id]
+                except KeyError:
+                    # the column doesn't exist anymore, we can't do anything
+                    self.send_error_message_removed_column(issue, 'adding')
+                    continue
+
+                # do we have an existing card?
+                try:
+                    card = cards_qs.get(column__project_id=column.project_id)
+                except Card.DoesNotExist:
+                    # make a fake card to use dist_edit
+                    card = Card(
+                        column=column,
+                        type=Card.CARDTYPE.ISSUE,
+                        issue=issue,
+                    )
+
+                if card.github_id:
+                    # we have a github_id, so we cannot add it
+                    if card.column_id == column_id:
+                        # already in the correct column, nothing to do
+                        continue
+                else:
+                    data = {
+                        'content_type': 'PullRequest' if issue.is_pull_request else 'Issue',
+                        'content_id': issue.github_id
+                    }
+                    try:
+                        card = card.dist_edit(gh, mode='create', fields=data.keys(), values=data)
+                    except ApiError, e:
+                        if e.code == 422:
+                            # a card for this issue may already exists in this column on github
+                            pass
+                        else:
+                            raise
+
+                # move the card to the bottom
+                data = {
+                    'position': 'bottom',
+                    'column_id': column.github_id
+                }
+                card.dist_edit(gh, mode='create', fields=data.keys(), values=data,
+                               meta_base_name='moves', update_object=False)
+
+        # and finally move cards between columns
+        if actions.get('move_between_columns'):
+            for old_column_id, new_column_id in actions['move_between_columns'].items():
+                new_column_id = int(new_column_id)
+                try:
+                    column = all_columns_by_id[new_column_id]
+                except KeyError:
+                    # the column doesn't exist anymore, we can't do anything
+                    self.send_error_message_removed_column(issue, 'moving')
+                    continue
+
+                # we should have a card
+                try:
+                    card = cards_qs.get(column__project_id=column.project_id)
+                except Card.DoesNotExist:
+                    # it was removed in the meantime
+                    continue
+
+                # we can move
+                data = {
+                    'position': 'bottom',
+                    'column_id': column.github_id
+                }
+                card.dist_edit(gh, mode='create', fields=data.keys(), values=data,
+                               meta_base_name='moves', update_object=False)
+
+        # now we have to update the projects
+        issue.repository.fetch_all_projects(gh)
+
+        return issue
 
 
 class IssueCreateJob(BaseIssueEditJob):

@@ -21,7 +21,7 @@ from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
-                                  IssueEditAssigneesJob, IssueEditLabelsJob,
+                                  IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjecsJob,
                                   IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
@@ -50,7 +50,7 @@ from gim.front.mixins.views import BaseIssuesView
 from gim.front.utils import make_querystring, forge_request, get_metric, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
-                    IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm,
+                    IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm, IssueProjectsForm,
                     IssueCreateForm, IssueCreateFormFull,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
@@ -1333,13 +1333,17 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
         return self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS
 
     def after_form_valid(self, form):
-        value = self.get_final_value(form.cleaned_data[self.field])
+        do_something, value = self.get_final_value(form)
 
-        self.job_model.add_job(self.object.pk,
-                          gh=self.request.user.get_connection(),
-                          value=value)
+        if do_something:
+            self.job_model.add_job(self.object.pk,
+                                   gh=self.request.user.get_connection(),
+                                   value=value)
+            message = self.get_success_user_message(self.object)
+        else:
+            message = self.get_nothing_changed_user_message(self.object)
 
-        messages.success(self.request, self.get_success_user_message(self.object))
+        messages.success(self.request, message)
 
     def form_valid(self, form):
         """
@@ -1352,11 +1356,13 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
 
         return response
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github
         """
-        return value
+        value = form.cleaned_data[self.field]
+        return True, value
 
     def form_invalid(self, form):
         return self.render_form_errors_as_messages(form, show_fields=False)
@@ -1364,6 +1370,10 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     def get_success_user_message(self, issue):
         return u"""The <strong>%s</strong> for the %s <strong>#%d</strong> will
                 be updated shortly""" % (self.field, issue.type, issue.number)
+
+    def get_nothing_changed_user_message(self, issue):
+        return u"""Nothing changed about the <strong>%s</strong> for the %s <strong>#%d</strong>""" % (
+            self.field, issue.type, issue.number)
 
     def get_context_data(self, **kwargs):
         context = super(IssueEditFieldMixin, self).get_context_data(**kwargs)
@@ -1479,11 +1489,13 @@ class IssueEditMilestone(IssueEditFieldMixin):
     form_class = IssueMilestoneForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github
         """
-        return value.number if value else ''
+        value = form.cleaned_data[self.field]
+        return True, value.number if value else ''
 
 
 class IssueEditAssignees(IssueEditFieldMixin):
@@ -1493,13 +1505,15 @@ class IssueEditAssignees(IssueEditFieldMixin):
     form_class = IssueAssigneesForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github. We encode the list of
-        usernames as json to be stored in the job single field
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github. We encode the list of usernames as json to be stored in the
+        job single field
         """
+        value = form.cleaned_data[self.field]
         usernames = [u.username for u in value] if value else []
-        return json.dumps(usernames)
+        return True, json.dumps(usernames)
 
 
 class IssueEditLabels(IssueEditFieldMixin):
@@ -1509,13 +1523,15 @@ class IssueEditLabels(IssueEditFieldMixin):
     form_class = IssueLabelsForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github. We encode the list of
-        labels as json to be stored in the job single field
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github. We encode the list of labels as json to be stored in the job
+        single field
         """
+        value = form.cleaned_data[self.field]
         labels = [l.name for l in value] if value else []
-        return json.dumps(labels)
+        return True, json.dumps(labels)
 
     @classmethod
     def get_not_editable_user_message(cls, issue, who):
@@ -1523,6 +1539,25 @@ class IssueEditLabels(IssueEditFieldMixin):
                 currently being updated (asked by <strong>%s</strong>), please
                 wait a few seconds and retry""" % (
                                     cls.field, issue.type, issue.number, who)
+
+
+class IssueEditProjects(IssueEditFieldMixin):
+    field = 'projects'
+    job_model = IssueEditProjecsJob
+    url_name = 'issue.edit.projects'
+    form_class = IssueProjectsForm
+    author_allowed = False
+
+    def get_final_value(self, form):
+        """
+        Return a boolean indicating if we have to update something and the values to use to update
+        the github side, ie a dict with `remove_from_columns`, `add_to_columns`,
+        `move_between_columns` entries.
+        We encode this dict as json to be stored in the job single field
+        """
+        value = form.cleaned_data['columns']
+        data = getattr(self.object, '_columns_to_update', {})
+        return bool(data), json.dumps(data)
 
 
 class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):

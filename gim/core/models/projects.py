@@ -85,7 +85,7 @@ class Project(WithRepositoryMixin, GithubObjectWithId):
             column.fetch_cards(gh, force_fetch)
 
 
-class Column(WithRepositoryMixin, GithubObjectWithId):
+class Column(GithubObjectWithId):
     project = models.ForeignKey(Project, related_name='columns')
 
     created_at = models.DateTimeField(db_index=True)
@@ -148,7 +148,7 @@ CARDTYPE = Choices(
 )
 
 
-class Card(WithRepositoryMixin, GithubObjectWithId):
+class Card(GithubObjectWithId):
     CARDTYPE = CARDTYPE
 
     column = models.ForeignKey(Column, related_name='cards')
@@ -183,7 +183,18 @@ class Card(WithRepositoryMixin, GithubObjectWithId):
 
     @property
     def github_callable_identifiers(self):
-        return self.project.repository.github_callable_identifiers_for_projects + [
+        return self.column.project.repository.github_callable_identifiers_for_projects + [
+            'columns',
             'cards',
             self.github_id,
+        ]
+
+    @property
+    def github_callable_create_identifiers(self):
+        return self.column.github_callable_identifiers_for_cards
+
+    @property
+    def github_callable_create_identifiers_for_moves(self):
+        return self.github_callable_identifiers + [
+            'moves',
         ]

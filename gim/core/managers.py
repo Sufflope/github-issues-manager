@@ -8,7 +8,7 @@ from django.contrib.auth.models import UserManager
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, IntegrityError
 from django.db.models import FieldDoesNotExist
-from django.db.models import Q
+from django.db.models import Max, Q
 
 from .ghpool import Connection, ApiError
 from .utils import queryset_iterator, SavedObjects
@@ -1633,7 +1633,7 @@ class ColumnManager(GithubObjectManager):
         by the github api. Only set if the project is found.
         And finally get the position from the context and increment it.
         """
-        from .models import Project
+        from .models import Column, Project
 
         # we need a project
         project = defaults.get('fk', {}).get('project')
@@ -1647,10 +1647,18 @@ class ColumnManager(GithubObjectManager):
             # no project found, don't save the object !
             return None
 
-        if 'position' not in data:
+        if 'position' not in data and hasattr(saved_objects, 'context'):
             position_key = 'project#%s:column-position' % project.github_id
             position = saved_objects.context.get(position_key, 0) + 1
             data['position'] = saved_objects.context[position_key] = position
+        else:
+            # do we have this column  positioned?
+            try:
+                project.columns.get(github_id=data['id'], position__isnull=False)
+            except Column.DoesNotExist:
+                # we don't have it so we'll put it at the end
+                last_position = project.columns.exclude(github_id=data['id']).aggregate(Max('position'))['position__max']
+                data['position'] = last_position + 1 if last_position else 1
 
         fields = super(ColumnManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
@@ -1670,15 +1678,15 @@ class ColumnManager(GithubObjectManager):
             return None
         return match.groupdict().get('id', None)
 
-    def get_by_project_and_github_id(self, project, github_id):
+    def get_by_github_id(self, github_id):
         """
         Taking a project instance and a column id, try to return the
         matching column. or None if no one is found.
         """
-        if not project or not github_id:
+        if not github_id:
             return None
         try:
-            return self.get(project_id=project.id, github_id=github_id)
+            return self.get(github_id=github_id)
         except self.model.DoesNotExist:
             return None
 
@@ -1688,13 +1696,8 @@ class ColumnManager(GithubObjectManager):
         by its path, and a column github_id, and then fetching the column from the db.
         Return None if no Issue if found.
         """
-        if not project:
-            from .models import Project
-            project = Project.objects.get_by_url(url)
-        if not project:
-            return None
         github_id = self.get_github_id_from_url(url)
-        return self.get_by_project_and_github_id(project, github_id)
+        return self.get_by_github_id(github_id)
 
 
 class CardManager(GithubObjectManager):
@@ -1726,9 +1729,18 @@ class CardManager(GithubObjectManager):
                 issue = Issue.objects.get_by_url(url)
 
         if 'position' not in data:
-            position_key = 'column#%s:card-position' % column.github_id
-            position = saved_objects.context.get(position_key, 0) + 1
-            data['position'] = saved_objects.context[position_key] = position
+            if hasattr(saved_objects, 'context'):
+                position_key = 'column#%s:card-position' % column.github_id
+                position = saved_objects.context.get(position_key, 0) + 1
+                data['position'] = saved_objects.context[position_key] = position
+            else:
+                # do we have the card, and in this column, positioned?
+                try:
+                    column.cards.get(github_id=data['id'], position__isnull=False)
+                except Card.DoesNotExist:
+                    # we don't have it so we'll put it at the end
+                    last_position = column.cards.exclude(github_id=data['id']).aggregate(Max('position'))['position__max']
+                    data['position'] = last_position + 1 if last_position else 1
 
         fields = super(CardManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)

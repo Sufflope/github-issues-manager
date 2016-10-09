@@ -157,9 +157,22 @@ $repo-name-height: 20px;
             font-size: 24px;
         }
 
-        .issue-milestone .no-milestone,
-        .issue-assignes .no-assignee {
-            color: #ccc;
+        .issue-milestone.no-milestone,
+        .issue-assignees.no-assignees,
+        .issue-projects.no-projects,
+        .issue-labels.no-labels {
+            color: #aaa;
+        }
+        .issue-projects {
+            overflow: auto;
+            margin-bottom: -3px;
+            ul {
+                float: left;
+                margin-bottom: 0;
+            }
+        }
+        .issue-assignees {
+            clear:both;
         }
 
         .issue-footer-infos {
@@ -500,13 +513,18 @@ $repo-name-height: 20px;
         }
         &.issue-edit-btn-milestone,
         &.issue-edit-btn-assignees,
+        &.issue-edit-btn-projects,
         &.issue-edit-btn-labels {
             font-size: 16px;
             position: relative;
             top: 1px;
             margin-left: 3px;
         }
+        &.issue-edit-btn-projects {
+            top: -2px;
+        }
     }
+
 
     .issue-edit-title {
         position: absolute;
@@ -581,6 +599,7 @@ $repo-name-height: 20px;
 
     .issue-edit-milestone,
     .issue-edit-assignees,
+    .issue-edit-projects,
     .issue-edit-labels {
         display: block;
         div.edit-field {
@@ -627,7 +646,7 @@ $repo-name-height: 20px;
         @include ellipsis();
     }
 }
-.select2-labels {
+.select2-labels, .select2-projects {
     .select2-results {
         max-height: 400px;
         display: block;
@@ -643,7 +662,7 @@ $repo-name-height: 20px;
     }
 }
 
-.edit-field-labels {
+.edit-field-labels, .edit-field-columns {
     .select2-container-multi .select2-choices {
         * {
             @include box-sizing(content-box);

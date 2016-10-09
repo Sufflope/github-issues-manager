@@ -1,8 +1,8 @@
-<form method="post" action="{{ form_action }}" class="one-field-form {{ form_classes }}" data-field="{{ form.fields.0.name }}">
+<form method="post" action="{{ form_action }}" class="one-field-form {{ form_classes }}">
     {% csrf_token %}
     {% for field in form %}
         {% if forloop.first %}
-            <div class="edit-field edit-field-{{ field.name }}">{{ field }}</div>
+            <div class="edit-field edit-field-{{ field.name }}"{% if field.help_text %} title="{{ field.help_text }}"{% endif %}>{{ field }}</div>
         {% endif %}
     {% endfor %}
     {% block buttons %}

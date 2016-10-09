@@ -7,10 +7,12 @@ import json
 
 from django import forms
 from django.conf import settings
+from django.db.models import F
+from django.db.models.query import EmptyQuerySet
 from django.template.defaultfilters import date as convert_date
 from django.utils.html import escape
 
-from gim.core.models import (Issue, GITHUB_STATUS_CHOICES,
+from gim.core.models import (Issue, GITHUB_STATUS_CHOICES, Card, Column,
                              IssueComment, PullRequestComment, CommitComment)
 
 from gim.front.mixins.forms import (LinkedToUserFormMixin, LinkedToIssueFormMixin,
@@ -205,6 +207,143 @@ class IssueLabelsFormPart(object):
         return data.items()
 
 
+class IssueProjectsFormPart(object):
+
+    columns = forms.ModelMultipleChoiceField(queryset=EmptyQuerySet, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super(IssueProjectsFormPart, self).__init__(*args, **kwargs)
+        columns = Column.objects.filter(
+            project__repository=self.repository
+        ).select_related(
+            'project'
+        ).order_by('project__number', 'position')
+        self.fields['columns'].queryset = columns
+        if self.instance and self.instance.pk:
+            self.fields['columns'].initial = Column.objects.filter(cards__issue=self.instance)
+        self.fields['columns'].widget.choices = self.get_columns_choices(columns)
+        self.fields['columns'].widget.attrs.update({
+            'data-columns': self.get_columns_json(columns),
+            'placeholder': 'Assign to projects',
+        })
+        self.fields['columns'].error_messages['invalid_choice'] =\
+            self.fields['columns'].error_messages['invalid_pk_value'] =\
+            'At least one of the choices is invalid'
+        self.fields['columns'].help_text = 'When selecting a new column, the issue will be ' \
+                                           'appended at the bottom of that column.'
+
+    def get_columns_choices(self, columns):
+        data = OrderedDict()
+        for column in columns:
+            data.setdefault(column.project.name, []).append(
+                (column.id, column.name)
+            )
+        return data.items()
+
+    def get_columns_json(self, columns):
+        data = {c.id: {
+                        'id': c.id,
+                        'name': c.name,
+                        'project_number': c.project.number,
+                        'project_name': c.project.name,
+                        'search': '%s: %s' % (c.project.name, c.name),
+                      }
+                for c in columns}
+        return json.dumps(data)
+
+    def clean_columns(self):
+        """Validate that there is no more than one selected column for a given project"""
+        columns = self.cleaned_data['columns']
+        seen_projects = set()
+        for column in columns:
+            if column.project.number in seen_projects:
+                raise forms.ValidationError('You can only select one column for a given project')
+            seen_projects.add(column.project.number)
+        return columns
+
+    def save(self, commit=True):
+        instance = super(IssueProjectsFormPart, self).save(commit=commit)
+
+        if instance.pk:
+            actual_columns =  Column.objects.filter(cards__issue=instance)
+            actual_columns_by_id = {c.id: c for c in actual_columns}
+            actual_projects_ids = {c.project_id for c in actual_columns}
+        else:
+            actual_columns = []
+            actual_columns_by_id = {}
+            actual_projects_ids = set()
+
+        new_columns = self.cleaned_data['columns']
+        new_columns_by_id = {c.id: c for c in new_columns}
+        new_projects_ids = {c.project_id for c in new_columns}
+
+        if actual_columns_by_id.keys() != new_columns_by_id.keys():
+
+            projects_to_add = new_projects_ids - actual_projects_ids
+            projects_to_remove = actual_projects_ids - new_projects_ids
+            projects_to_move = new_projects_ids.intersection(actual_projects_ids)
+
+            columns_to_add = {c.id for c in new_columns if c.project_id in projects_to_add}
+            columns_to_remove = {c.id for c in actual_columns if c.project_id in projects_to_remove}
+            columns_to_move = {}
+            for project_id in projects_to_move:
+                actual_column_id = [c.id for c in actual_columns if c.project_id == project_id][0]
+                new_column_id = [c.id for c in new_columns if c.project_id == project_id][0]
+                if actual_column_id != new_column_id:
+                    columns_to_move[actual_column_id] = new_column_id
+
+            instance._columns_to_update = {
+                'remove_from_columns': {},
+                'add_to_columns': list(columns_to_add),  # a set cannot be saved as json for the job
+                'move_between_columns': columns_to_move,
+            }
+
+            cards_to_remove = {}
+            if columns_to_remove:
+                cards_to_remove = instance.cards.filter(column_id__in=columns_to_remove)
+                instance._columns_to_update['remove_from_columns'] = dict(cards_to_remove.values_list('column_id', 'github_id'))
+
+            if commit:  # issue instance is in database
+                now = datetime.utcnow()
+
+                if columns_to_remove:
+                    cards_to_remove.delete()
+
+                if columns_to_add:
+                    for column_id in columns_to_add:
+                        column = new_columns_by_id[column_id]
+                        last_card = column.cards.order_by('position').only('position').last()
+                        Card.objects.create(
+                            type=Card.CARDTYPE.ISSUE,
+                            created_at=now,
+                            updated_at=now,
+                            issue=instance,
+                            column=column,
+                            position=last_card.position + 1 if last_card is not None else 1,
+                        )
+
+                if columns_to_move:
+                    for actual_column_id, new_column_id in columns_to_move.items():
+                        actual_column = actual_columns_by_id[actual_column_id]
+                        new_column = new_columns_by_id[new_column_id]
+                        last_card = new_column.cards.order_by('position').only('position').last()
+                        card = instance.cards.get(column_id=actual_column_id)
+                        actual_position = card.position
+                        # update card
+                        card.updated_at = now
+                        card.column = new_column
+                        card.position = last_card.position + 1 if last_card is not None else 1
+                        card.save()
+                        # move cards after the current one in the original column
+                        if actual_position:
+                            actual_column.cards.filter(position__gt=actual_position).update(
+                                position=F('position') - 1
+                            )
+
+        return instance
+
+
+
 class IssueTitleForm(IssueTitleFormPart, IssueFormMixin):
     class Meta(IssueFormMixin.Meta):
         fields = ['title', 'front_uuid']
@@ -234,6 +373,23 @@ class IssueLabelsForm(IssueLabelsFormPart, IssueFormMixin):
 
     class Meta(IssueFormMixin.Meta):
         fields = ['labels', 'front_uuid']
+
+
+class IssueProjectsForm(IssueProjectsFormPart, IssueFormMixin):
+    change_updated_at = 'fuzzy'
+
+    columns = IssueProjectsFormPart.columns
+
+    def __init__(self, *args, **kwargs):
+        super(IssueProjectsForm, self).__init__(*args, **kwargs)
+        self.fields = OrderedDict(
+            (name, self.fields[name]) for name in ['columns', 'front_uuid']
+        )
+
+    class Meta(IssueFormMixin.Meta):
+        # 'columns' is not a model fields, and is added directly by `IssueProjectsFormPart` so
+        # we must not set it in `fields` which represents only model fields
+        fields = ['front_uuid']
 
 
 class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,

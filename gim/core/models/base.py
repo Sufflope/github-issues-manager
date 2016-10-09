@@ -600,21 +600,25 @@ class GithubObject(models.Model):
         # return count of added and removed data
         return count
 
-    def dist_delete(self, gh):
+    def dist_delete(self, gh, github_api_version=None):
         """
         Delete the object on the github side, then delete it on our side.
         """
         identifiers = self.github_callable_identifiers
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
-        gh_callable.delete()
-        self.delete()
+        request_headers = prepare_fetch_headers(
+            version=github_api_version or self.github_api_version,
+        )
+        gh_callable.delete(request_headers=request_headers)
+        if self.pk:
+            self.delete()
 
     def defaults_create_values(self):
         """Default values to use to update data got from github"""
         return {}
 
     def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
-                  update_method='patch', github_api_version=None):
+                  update_method='patch', github_api_version=None, update_object=True):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to
         do the matching action on Github.
@@ -679,15 +683,18 @@ class GithubObject(models.Model):
             version=github_api_version or self.github_api_version,
         )
 
-        # make the request and get fresh data for the object
+        # make the request and get fresh data for the object if asked
         result = method(request_headers=request_headers, **data)
+
+        if not update_object:
+            return self
 
         # get defaults to update the data with fresh data we just got
         defaults = self.defaults_create_values()
 
         # if we are in create mode, we delete the object to recreate it with
         # the data we just got
-        if mode == 'create':
+        if mode == 'create' and self.pk:
             self.delete()
 
         # update the object on our side

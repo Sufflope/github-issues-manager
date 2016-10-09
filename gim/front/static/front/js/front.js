@@ -4759,10 +4759,14 @@ $().ready(function() {
                             result = '<i class="fa fa-hand-o-right"> </i> ' + result;
                         }
                         return result;
+                    },
+                    formatNoMatches = function(term) {
+                        return term ? "No matches found" : "No more available user";
                     };
                 $select.select2({
                     formatSelection: function(state) { return format(state, true); },
                     formatResult:  function(state) { return format(state, false); },
+                    formatNoMatches: formatNoMatches,
                     escapeMarkup: function(m) { return m; },
                     dropdownCssClass: 'select2-assignees',
                     matcher: IssueEditor.select2_matcher
@@ -4795,10 +4799,14 @@ $().ready(function() {
                     },
                     matcher = function(term, text, opt) {
                         return IssueEditor.select2_matcher(term, labels_data[opt.val()].search);
+                    },
+                    formatNoMatches = function(term) {
+                        return term ? "No matches found" : "No more available labels";
                     };
                 $select.select2({
                     formatSelection: function(state) { return format(state, true); },
                     formatResult:  function(state) { return format(state, false); },
+                    formatNoMatches: formatNoMatches,
                     escapeMarkup: function(m) { return m; },
                     dropdownCssClass: 'select2-labels',
                     matcher: matcher,
@@ -4813,6 +4821,76 @@ $().ready(function() {
                 IssueEditor.load_select2(callback);
             }
         }), // issue_edit_labels_field_prepare
+
+        issue_edit_projects_field_prepare: (function IssueEditor__issue_edit_projects_field_prepare ($form, dont_load_select2) {
+            var $select = $form.find('#id_columns');
+            if (!$select.length) { return; }
+            var callback = function() {
+                var columns_data = $select.data('columns'),
+                    selected_projects = {},
+                    updateSelectedProjects = function(vals) {
+                        selected_projects = {};
+                        if (!$.isArray(vals)) { return; }
+                        for (var i=0; i<vals.length; i++) {
+                            selected_projects[columns_data[vals[i]].project_number] = true;
+                        }
+                    },
+                    format = function(state, include_project) {
+                        if (state.children) {
+                            return state.text;
+                        }
+                        var data = columns_data[state.id];
+                        var result = data.name;
+                        if (include_project) {
+                            result = '<strong>' + data.project_name + ':</strong> ' + result;
+                        }
+                        return '<span>' + result + '</span>';
+                    },
+                    matcher = function(term, text, opt) {
+                        var column_id = opt.val();
+                        if (column_id && selected_projects[columns_data[column_id].project_number]) {
+                            return false;
+                        }
+                        return IssueEditor.select2_matcher(term, columns_data[column_id].search);
+                    },
+                    formatNoMatches = function(term) {
+                        return term ? "No matches found" : "No more available projects";
+                    },
+                    onChange = function(e) {
+                        if (e.val) {
+                            updateSelectedProjects(e.val);
+                        }
+                        // will hide columns choices from already selected projects
+                        $select.data('select2').updateResults();
+                    },
+                    onSelecting = function(e) {
+                        if (e.val && selected_projects[columns_data[e.val].project_number]) {
+                            e.preventDefault();
+                        }
+                    };
+
+                updateSelectedProjects($select.val());
+
+                $select.select2({
+                    formatSelection: function(state) { return format(state, true); },
+                    formatResult:  function(state) { return format(state, false); },
+                    formatNoMatches: formatNoMatches,
+                    escapeMarkup: function(m) { return m; },
+                    dropdownCssClass: 'select2-projects',
+                    matcher: matcher,
+                    closeOnSelect: false
+                }).on('change', onChange)
+                  .on('select2-selecting', onSelecting);
+                IssueEditor.select2_auto_open($select);
+                $form.closest('.modal').removeAttr('tabindex');  // tabindex set to -1 bugs select2
+            };
+            if (dont_load_select2) {
+                callback();
+            } else {
+                IssueEditor.load_select2(callback);
+            }
+
+        }), // issue_edit_projects_field_prepare
 
         on_issue_edit_field_cancel_click: (function IssueEditor__on_issue_edit_field_cancel_click () {
             var $btn = $(this),

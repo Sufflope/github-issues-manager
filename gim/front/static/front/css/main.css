@@ -5391,6 +5391,12 @@ ol.errorlist, ul.errorlist {
   color: #8E6A47;
 }
 
+/* line 404, ../../../sass/main.scss */
+.fa-align-left.fa-rotate-90 {
+  position: relative;
+  left: -2px;
+}
+
 @media (max-width: 1023px) {
   /* line 4, ../../../sass/_responsive.scss */
   .navbar-fixed-top .user-avatar .dropdown-toggle {
