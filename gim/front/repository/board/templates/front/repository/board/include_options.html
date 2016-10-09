@@ -28,14 +28,17 @@
                     <span class="caret"></span>
                 </span>
             </a>
-            <ul class="dropdown-menu pull-left" role="menu" aria-label="Search">
+            <ul class="dropdown-menu pull-left" role="menu" aria-label="Columns arranger">
                 <li id="board-columns-arranger-holder">
                     <div>
                         <button value="clear" class="btn btn-default btn-mini" title="Remove all columns">Empty</button>
                         <button value="reset" class="btn btn-default btn-mini" title="Restore default columns set">Reset</button>
+                        {# <button value="close" class="btn btn-default btn-mini" title="Close the arranger">Close</button> #}
                     </div>
                     <p>
-                        You can hide columns and change their order by drag & drop:
+                        You can hide columns and change their order by drag & drop.
+                        <br/>
+                        Click in the white space of the box to show hidden ones.
                     </p>
                     {% with visible_columns_keys=current_board.columns.values|filter_falsy:"hidden"|map_dict_item:"key"|join:"," %}
                         <input id="board-columns-arranger" type="hidden" autocomplete="off" value="{{ visible_columns_keys }}" />

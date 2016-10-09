@@ -85,7 +85,7 @@ $().ready(function() {
                         Board.arranger.$input.select2('data', [], true);
                         break;
                     case "close":
-                        Board.arranger.$holder.collapse('hide');
+                        Board.arranger.$trigger.dropdown('toggle');
                         break;
                 }
                 return false;
@@ -410,7 +410,7 @@ $().ready(function() {
                 var obj = $(this).data('ui-sortable');
                 obj._mouseDrag = Board.dragger.sortable_mouse_drag;
             }, // on_sortable_create
-            
+
             sortable_mouse_drag: function (event) {
                 // copy of _mouseDrag from jqueryUI.sortable, to not scroll more than the max of the board
                 // see `CHANGED HERE` parts
