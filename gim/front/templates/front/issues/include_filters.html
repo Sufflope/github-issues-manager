@@ -35,7 +35,7 @@
 
             {% block filter-pr %}
             {# The two pull-requests states #}
-            <li class="accordion-group dark-nav">
+            <li class="accordion-group dark-nav{% block filter-pr-first %}{% endblock %}">
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.parts.pr %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-pr-{{ list_uuid }}">
                     Pull-request

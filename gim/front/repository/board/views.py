@@ -15,7 +15,7 @@ from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
-    IssueEditMilestone, IssueEditState, IssuesFilters
+    IssueEditMilestone, IssueEditState, IssueEditProjects, IssuesFilters
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -114,6 +114,37 @@ class BoardMixin(object):
         if len(boards['auto-milestone']['columns']) < 2:
             del boards['auto-milestone']
 
+        # Add projects
+        if self.repository.has_projects():
+            for project in self.projects:
+                columns = OrderedDict([
+                    ('__none__', {
+                        'key': '__none__',
+                        'name': u'(Not in the project)',
+                        'description': u'not in this project',
+                        'qs': ('project_%s' % project.number, '__none__')
+                    })
+                ] + [
+                        (str(column.pk), {
+                            'key': str(column.pk),
+                            'name': column.name,
+                            'description': u'',
+                            'qs': ('project_%s' % project.number, column.position),
+                            'object': column,
+                        })
+                        for column in project.columns.all()
+                ])
+                if len(columns) > 1:
+                    boards['project-%d' % project.number] = {
+                        'mode': 'project',
+                        'key': str(project.number),
+                        'name': project.name,
+                        'description': u'Github project with all its columns',
+                        'object': project,
+                        'columns': columns,
+                        'default_qs': 'sort=position&direction=asc'
+                    }
+
         # Add label types
         for label_type in self.label_types:
             columns = OrderedDict([
@@ -139,6 +170,7 @@ class BoardMixin(object):
                     'key': str(label_type.pk),
                     'name': label_type.name,
                     'description': u'one column for each label of this type',
+                    'object': label_type,
                     'columns': columns
                 }
 
@@ -150,7 +182,9 @@ class BoardMixin(object):
                             board_key=board['key'])
             )
             board['base_url'] = board['board_url']
-            if self.default_qs:
+            if board.get('default_qs'):
+                board['board_url'] += '?' + board['default_qs']
+            elif self.default_qs:
                 board['board_url'] += '?' + self.default_qs
             board['visible_count'] = len(list(c for c in board['columns'].values() if not c.get('hidden', False)))
 
@@ -206,6 +240,11 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
     def __init__(self):
         self.list_uuid = 'board-main'  # used for the filters
         super(BoardView, self).__init__()
+
+    def _can_add_position_sorting(self, qs_parts):
+        if self.current_board['mode'] == 'project':
+            return True
+        return super(BoardView, self)._can_add_position_sorting(qs_parts)
 
     @cached_property
     def base_url(self):
@@ -331,6 +370,10 @@ class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, Base
             view = IssueEditLabels
             url = self.issue.edit_field_url('labels')
 
+        elif board['mode'] == 'project':
+            view = IssueEditProjects
+            url = self.issue.edit_field_url('projects')
+
         if not view:
             raise Http404
 
@@ -418,6 +461,23 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
 
             data = {'labels': labels}
 
+        elif view == IssueEditProjects:
+            skip_reset_front_uuid = False
+            from gim.core.models import Column
+            columns = Column.objects.filter(cards__issue=self.issue)
+
+            if self.new_column['key'] != self.current_column['key']:  # to manage when enabling position changing inside a column
+
+                if self.current_column['key'] != '__none__':
+                    columns = columns.exclude(id=self.current_column['object'].pk)
+
+                columns = list(columns.values_list('pk', flat=True))
+
+                if self.new_column['key'] != '__none__':
+                    columns.append(self.new_column['object'].pk)
+
+            data = {'columns': columns}
+
         else:
             raise Http404
 
@@ -502,7 +562,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
         mode = self.current_board['mode']
         qs_name, qs_value = self.current_column['qs']
 
-        if mode == 'auto':
+        if mode in ('auto', 'project'):
             qs_parts[qs_name] = qs_value
 
         elif mode == 'labels':

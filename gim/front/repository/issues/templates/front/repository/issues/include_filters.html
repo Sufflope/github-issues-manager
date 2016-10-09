@@ -157,7 +157,7 @@
         {% for project in projects %}
             {% block filter-project %}
                 {% with project_key='project_'|concat:project.number columns=project.columns.all %}{% with filter_object=issues_filter.objects|dict_item:project_key %}
-                    <li class="accordion-group dark-nav{% if forloop.first and projects|length == 1 %} new-accordion-part{% endif %}">
+                    <li class="accordion-group dark-nav{% block filter-project-first %}{% if forloop.first and projects|length == 1 %} new-accordion-part{% endif %}{% endblock filter-project-first %}">
                         <span class="glow"></span>
                         <a class="accordion-toggle collapsed{% if filter_object %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ project_key }}-{{ list_uuid }}">
                             {{ project.name }}
@@ -208,7 +208,7 @@
         {% with label_type_labels=label_type.labels.ready unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}
             {% attributes_for_list label_type_labels "name" as label_names %}
             {% with label_names=label_names|append:unset|append:set current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
-            <li class="accordion-group dark-nav{% if forloop.first %} new-accordion-part{% endif %}">
+            <li class="accordion-group dark-nav{% block filter-label_type-first %}{% if forloop.first %} new-accordion-part{% endif %}{% endblock filter-label_type-first %}">
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
                     {{ label_type.name }}

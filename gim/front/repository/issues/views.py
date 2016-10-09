@@ -249,10 +249,34 @@ class IssuesFilters(BaseIssuesFilters):
         'mentioned': 'user_mentions',
     }
 
-    def _get_sort(self, qs_parts):
+    def _can_add_position_sorting(self, qs_parts):
+        allow_position_sorting = False
+
+        # allow position sorting when grouping by columns and filtering on issues on at least one project
         if qs_parts.get('group_by', None) == 'project_column':
+            # check if we're not filtering on only one project for issues not in this project
+            for key, value in qs_parts.items():
+                if key.startswith('project_') and value != '__none__':
+                    allow_position_sorting = True
+                    break
+        else:
+            # allow position sorting when filtering on issues in exactly one column
+            for key, value in qs_parts.items():
+                if key.startswith('project_') and value not in ('__none__', '__any__'):
+                    if allow_position_sorting:
+                        allow_position_sorting = False
+                        break
+                    allow_position_sorting = True
+
+        return allow_position_sorting
+
+    def _get_sort(self, qs_parts):
+        if self._can_add_position_sorting(qs_parts):
             self.allowed_sort = self.allowed_sort.copy()
             self.allowed_sort['position'] = SORT_CHOICES['position'][1]
+        elif qs_parts.get('sort') == 'position':
+            # reset default sort order
+            qs_parts['direction'] = 'desc'
 
         return super(IssuesFilters, self)._get_sort(qs_parts)
 
