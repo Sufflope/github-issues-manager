@@ -64,7 +64,7 @@ class BoardMixin(object):
 
     @cached_property
     def collaborators(self):
-        return self.repository.collaborators.all().order_by('username')
+        return self.repository.collaborators.all()
 
     def get_boards(self):
         boards = OrderedDict(DEFAULT_BOARDS)

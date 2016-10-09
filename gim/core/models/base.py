@@ -101,6 +101,10 @@ class GithubObject(models.Model):
     def model_name(self):
         return self.__class__.__name__
 
+    @property
+    def status_ready(self):
+        return self.github_status not in GITHUB_STATUS_CHOICES.NOT_READY
+
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None,
               github_api_version=None):
         """

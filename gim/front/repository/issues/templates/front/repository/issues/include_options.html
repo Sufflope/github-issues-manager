@@ -15,7 +15,7 @@
         <li class="divider"></li>
         {% for label_type in label_types %}
             {% with "type:"|concat:label_type.name as label_type_group_name %}
-                {% if label_type.labels.ready.count %}
+                {% if label_type.num_labels %}
                     {% block group_by_label_choice %}
                     <li{% if issues_filter.parts.group_by == label_type_group_name %} class="active"{% endif %}>
                         <a href="{{ current_issues_url }}{% toggle_in_querystring "group_by" label_type_group_name %}">

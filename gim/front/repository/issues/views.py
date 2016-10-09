@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from datetime import datetime
 import json
+from operator import attrgetter
 from time import sleep
 from urlparse import unquote, urlparse, urlunparse
 
@@ -65,7 +66,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
     relation = None
 
     def get_usernames(self):
-        return getattr(self.repository, self.relation).order_by('username_lower').values_list('username', flat=True)
+        return getattr(self.repository, self.relation).values_list('username', flat=True)
 
     def count_usernames(self):
         if not hasattr(self, '_count'):
@@ -140,6 +141,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
 
     def inherit_from_view(self, view):
         super(UserFilterPart, self).inherit_from_view(view)
+        self.repository = view.repository
 
 
 class IssuesFilterCreators(UserFilterPart):
@@ -186,8 +188,8 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'description': u'author of the issue',
     }),
     ('assigned', {
-        'field': 'assignees',
-        'db_field': 'assignees__username_lower',
+        'field': 'assignee',  # computed
+        'db_field': None,  # not a field: managed manually
         'name': 'assigned',
         'description': u'user assigned to the issue',
     }),
@@ -203,14 +205,14 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'description': u'milestone the issue is in',
     }),
     ('project', {
-        'field': 'project',
-        'db_field': None,
+        'field': 'project',  # computed
+        'db_field': None,  # not a field: managed manually
         'name': 'project',
         'description': u'projects with this issue',
     }),
     ('project_column', {
-        'field': 'project_column',
-        'db_field': None,
+        'field': 'project_column',  # computed
+        'db_field': None,  # not a field: managed manually
         'name': 'project + column',
         'description': u'column of projects with this issue',
     }),
@@ -599,21 +601,21 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
     def base_url(self):
         return self.repository.get_view_url(self.url_name)
 
-    def select_and_prefetch_related(self, queryset, group_by):
-        if not group_by:
-            return queryset
+    def get_select_and_prefetch_related(self, queryset, group_by):
+        select_related, prefetch_related = \
+            super(IssuesView, self).get_select_and_prefetch_related(queryset, group_by)
 
-        prefetch_related = ['assignees']
-        if isinstance(group_by, LabelType):
-            prefetch_related.append('labels__label_type')
-        elif group_by in ('project', 'project_column'):
-            prefetch_related.append('cards__column__project')
+        if group_by[0]:
+            if isinstance(group_by[0], LabelType):
+                prefetch_related.append('labels__label_type')
+            elif group_by[0] in ('project', 'project_column'):
+                prefetch_related.append('cards__column__project')
+            elif group_by[0] == 'assignee':
+                prefetch_related.append('assignees')
+            elif group_by[0] in ('user', 'closed_by', 'milestone'):
+                select_related.append(group_by[0])
 
-        return queryset.select_related(
-            'repository__owner',  # default
-            'user',  # we may have a lot of different ones
-            'closed_by', 'milestone', # we should have only a few ones for each
-        ).prefetch_related(*prefetch_related)
+        return select_related, prefetch_related
 
     def get_context_data(self, **kwargs):
         """
@@ -628,7 +630,7 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                 'metric_stats': self.metric_stats,
                 'all_metrics': list(self.repository.all_metrics())
             })
-            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True, milestones=self.milestones))
 
             context['can_add_issues'] = True
 
@@ -661,7 +663,9 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                 for issue in issues:
                     add_to = None
 
-                    for label in issue.labels.ready():  # thanks prefetch_related
+                    for label in issue.labels.all():  # thanks prefetch_related
+                        if not label.status_ready:
+                            continue
                         if label.label_type_id == group_by.id:
                             # found a label for the wanted type, mark it and stop
                             # checking labels for this issue
@@ -682,8 +686,28 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                     if label_id in issues_dict:
                         issues += issues_dict[label_id]
 
-            elif group_by in ('project', 'project_column'):
+            elif group_by == 'assigned':
+                # regroup issues by first assignee
+                only_assignee = None
+                if isinstance(context['issues_filter']['objects'].get('assigned'), GithubUser):
+                    only_assignee = context['issues_filter']['objects']['assigned']
+                for issue in issues:
+                    if only_assignee:
+                        assignee = only_assignee
+                    else:
+                        assignees = list(issue.assignees.all())
+                        assignee = assignees[0] if assignees else None
+                    setattr(issue, group_by_attribute, assignee)
+                    issues_dict.setdefault(assignee, []).append(issue)
+                issues = []
+                objs = [None] + sorted([a for a in issues_dict if a], key=attrgetter('username_lower'))
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    objs.reverse()
+                for obj in objs:
+                    if obj in issues_dict:
+                        issues += issues_dict[obj]
 
+            elif group_by in ('project', 'project_column'):
                 # regroup issues by project
                 for issue in issues:
                     added = False

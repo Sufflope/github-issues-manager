@@ -205,7 +205,7 @@
     {# The different label-types #}
     {% for label_type in label_types %}
         {% block filter-label_type %}
-        {% with label_type_labels=label_type.labels.ready unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}
+        {% with label_type_labels=label_type.labels|filter_status_ready unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}
             {% attributes_for_list label_type_labels "name" as label_names %}
             {% with label_names=label_names|append:unset|append:set current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
             <li class="accordion-group dark-nav{% block filter-label_type-first %}{% if forloop.first %} new-accordion-part{% endif %}{% endblock filter-label_type-first %}">

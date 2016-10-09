@@ -86,7 +86,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
 
     class Meta:
         app_label = 'core'
-        ordering = ('username', )
+        ordering = ('username_lower', )
 
     def must_be_fetched(self):
         return not self.fetched_at or self.full_name is None

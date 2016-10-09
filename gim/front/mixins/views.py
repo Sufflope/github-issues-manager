@@ -807,8 +807,17 @@ class BaseIssuesView(object):
 
         return queryset
 
+    def get_select_and_prefetch_related(self, queryset, group_by):
+        # by default we add nothing, we expect issues to be already rendered in cache
+        return [], []
+
     def select_and_prefetch_related(self, queryset, group_by):
-        return queryset.select_related('repository__owner')
+        select_related, prefetch_related = self.get_select_and_prefetch_related(queryset, group_by)
+        if select_related:
+            queryset = queryset.select_related(*select_related)
+        if prefetch_related:
+            queryset = queryset.prefetch_related(*prefetch_related)
+        return queryset
 
     @cached_property
     def base_url(self):

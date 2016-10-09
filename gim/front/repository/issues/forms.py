@@ -144,7 +144,7 @@ class IssueMilestoneFormPart(object):
 class IssueAssigneesFormPart(object):
     def __init__(self, *args, **kwargs):
         super(IssueAssigneesFormPart, self).__init__(*args, **kwargs)
-        collaborators = self.repository.collaborators.all().order_by('username_lower')
+        collaborators = self.repository.collaborators.all()
         self.fields['assignees'].required = False
         self.fields['assignees'].queryset = collaborators
         self.fields['assignees'].widget.choices = self.get_collaborators_choices(collaborators)

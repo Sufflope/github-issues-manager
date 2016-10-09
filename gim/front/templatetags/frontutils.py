@@ -412,3 +412,7 @@ def format_int_or_float(value):
         return (u'%.2f' % value).rstrip('0').rstrip('.')
     except Exception:
         return ''
+
+@register.filter
+def filter_status_ready(queryset):
+    return [obj for obj in queryset.all() if obj.status_ready]
