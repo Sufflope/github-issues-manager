@@ -324,7 +324,7 @@ class IssuesFilters(BaseIssuesFilters):
         """
         projects_by_number = {('%s' % p.number): {
             'project': p,
-            'columns_by_position': {('%s' % c.position): c for c in p.columns.all()}
+            'columns_by_id': {('%s' % c.id): c for c in p.columns.all()}
         } for p in self.projects}
 
         project_filters = {}
@@ -341,8 +341,8 @@ class IssuesFilters(BaseIssuesFilters):
             value = '%s' % value
             if value in ('__none__', '__any__'):
                 project_filters[project] = value
-            elif value.isdigit() and value in project_dict['columns_by_position']:
-                project_filters[project] = project_dict['columns_by_position'][value]
+            elif value.isdigit() and value in project_dict['columns_by_id']:
+                project_filters[project] = project_dict['columns_by_id'][value]
 
         return project_filters
 
@@ -496,7 +496,7 @@ class IssuesFilters(BaseIssuesFilters):
             elif column == '__any__':
                 projects_query_filters['cards__column__project__id'].append(project.id)
             else:
-                qs_filters[project_key] = column.position
+                qs_filters[project_key] = column.id
                 projects_query_filters['cards__column__id'].append(column.id)
 
         for projects_query_filter_key, projects_query_filter_value in  projects_query_filters.items():

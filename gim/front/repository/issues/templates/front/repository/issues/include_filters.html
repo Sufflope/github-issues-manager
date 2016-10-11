@@ -189,8 +189,8 @@
                                 </li>
                             {% endif %}
                             {% for column in columns %}
-                                <li class="column{% if filter_object.position == column.position %} active{% endif %}">
-                                    <a href="{{ current_issues_url }}{% toggle_in_querystring project_key column.position %}">{{ column.name }}</a>
+                                <li class="column{% if filter_object.id == column.id %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% toggle_in_querystring project_key column.id %}">{{ column.name }}</a>
                                 </li>
                             {% endfor %}
                         </ul>

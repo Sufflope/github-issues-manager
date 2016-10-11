@@ -129,7 +129,7 @@ class BoardMixin(object):
                             'key': str(column.pk),
                             'name': column.name,
                             'description': u'',
-                            'qs': ('project_%s' % project.number, column.position),
+                            'qs': ('project_%s' % project.number, column.id),
                             'object': column,
                         })
                         for column in project.columns.all()
