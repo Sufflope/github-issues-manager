@@ -289,7 +289,7 @@ $().ready(function() {
         dragger: {
             activated: false,
             all_selector: '.board-column.loaded .issues-group:not(.template) .issues-group-issues',
-            active_selector: '.issues-group-issues',  // '.board-column.loaded:not(.hidden) .issues-group:not(.template) .issues-group-issues',
+            active_selector: '.board-column.loaded:not(.hidden) .issues-group:not(.template) .issues-group-issues',
             dimensions: {
                 scrollLeftMax: 0,
                 scrollWidth: 0
@@ -363,7 +363,7 @@ $().ready(function() {
                 ui.item.removeClass('force-without-details');
 
                 Board.dragger.hide_empty_columns();
-                requestNextAnimationFrame(Board.dragger.update_sortables);
+                requestNextAnimationFrame(function() { Board.dragger.update_sortables()});
 
             }, // on_drag_stop
 
@@ -408,10 +408,44 @@ $().ready(function() {
 
             on_sortable_create: function(ev, ui) {
                 var obj = $(this).data('ui-sortable');
-                obj._mouseDrag = Board.dragger.sortable_mouse_drag;
+                obj._mouseDrag = Board.dragger._sortable_override_mouse_drag;
+
+                obj._oldRemoveCurrentsFromItems = obj._removeCurrentsFromItems
+                obj._removeCurrentsFromItems = Board.dragger._sortable_override__removeCurrentsFromItems;
+
+                obj._oldRearrange = obj._rearrange;
+                obj._rearrange = Board.dragger._sortable_override_rearrage;
             }, // on_sortable_create
 
-            sortable_mouse_drag: function (event) {
+            _sortable_override__removeCurrentsFromItems: function () {
+                this._oldRemoveCurrentsFromItems();
+                if (!this.canMoveInsideSelf) {
+                    // we remove the other items in the same list to disallow dragging on this list
+                    // (we keep a sibling to be able to drag it to the same place)
+                    var currentItem = this.currentItem[0],
+                        issue = currentItem.IssuesListIssue,
+                        index=issue.group.filtered_issues.indexOf(issue),
+                        siblingPosition =  issue.group.filtered_issues[index+1] ? 1 : (issue.group.filtered_issues[index-1] ? -1 : null),
+                        sibling = siblingPosition ? issue.group.filtered_issues[index + siblingPosition] : null;
+                    if (siblingPosition) {
+                        this.currentItemSibling = sibling.$node[0];
+                        this.currentItemSiblingDirection = siblingPosition;
+                    } else {
+                        this.currentItemSibling = null;
+                    }
+                    this.items = this.items.filter(item => item.item[0].IssuesListIssue.group.list != issue.group.list || item.item[0] == currentItem || (sibling && item.item[0].IssuesListIssue == sibling));
+                }
+            }, // _sortable_override__removeCurrentsFromItems
+
+            _sortable_override_rearrage: function(event, i, a, hardRefresh) {
+                if (!this.canMoveInsideSelf && this.currentItemSibling && i && i.item && i.item.length && i.item[0] == this.currentItemSibling) {
+                    // We force the item to be back at its original position
+                    this.direction = this.currentItemSiblingDirection == 1 ? 'down' : 'up';
+                }
+                this._oldRearrange(event, i, a, hardRefresh);
+            }, // _sortable_override_rearrage
+
+            _sortable_override_mouse_drag: function (event) {
                 // copy of _mouseDrag from jqueryUI.sortable, to not scroll more than the max of the board
                 // see `CHANGED HERE` parts
                 var i, item, itemElement, intersection,
@@ -536,20 +570,27 @@ $().ready(function() {
                 this.lastPositionAbs = this.positionAbs;
                 return false;
 
-            }, // sortable_mouse_drag
+            }, // _sortable_override_mouse_drag
 
             create_placeholder: function(currentItem) {
                 return currentItem.clone().addClass('ui-sortable-placeholder').append('<div class="mask"/>').show();
             }, // create_placeholder
 
-            on_drag_receive: function(ev, ui) {
-                var receiver = this,
-                    issue = ui.item[0].IssuesListIssue;
+            on_drag_update: function(ev, ui) {
+                var $new_group = ui.item.parent(),
+                    new_group, issue;
+
+                if (this !== $new_group[0]) {
+                    // this is called for the source and receiver, but we only need to work on the receiver
+                    return;
+                }
+
+                $new_group = $new_group.parent();
+                new_group = $new_group[0].IssuesListGroup;
+                issue = ui.item[0].IssuesListIssue;
 
                 requestNextAnimationFrame(function() {
-                    var $new_group = $(receiver).parent(),
-                        new_group = $new_group[0].IssuesListGroup,
-                        new_list = new_group.list,
+                    var new_list = new_group.list,
                         old_group = issue.group,
                         old_list = old_group.list,
                         changed = new_group != old_group,
@@ -703,10 +744,11 @@ $().ready(function() {
                         create: Board.dragger.on_sortable_create,
                         start: Board.dragger.on_drag_start,
                         stop: Board.dragger.on_drag_stop,
-                        receive: Board.dragger.on_drag_receive
+                        update: Board.dragger.on_drag_update
                     }).disableSelection();
 
                     $list.data('ui-sortable').board_column = $column;
+                    $list.data('ui-sortable').canMoveInsideSelf = false;
                 }
 
                 if (refresh_needed) {
