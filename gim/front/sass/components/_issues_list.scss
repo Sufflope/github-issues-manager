@@ -286,6 +286,8 @@ nav.issues-list-options .dropdown-toggle .caret {
 .issue-item {
     padding: 5px;
     padding-top: 0;
+    margin: 0;
+    list-style-type: none;
     position: relative;
     min-height: 80px;
     color: $body-text-color;
