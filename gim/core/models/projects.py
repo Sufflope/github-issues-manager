@@ -198,3 +198,11 @@ class Card(GithubObjectWithId):
         return self.github_callable_identifiers + [
             'moves',
         ]
+
+    @property
+    def repository_id(self):
+        return self.column.project.repository_id
+
+    @property
+    def repository(self):
+        return self.column.project.repository

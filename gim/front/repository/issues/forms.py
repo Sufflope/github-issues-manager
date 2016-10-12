@@ -301,20 +301,28 @@ class IssueProjectsFormPart(object):
             now = datetime.utcnow()
 
             if columns_to_remove:
-                cards_to_remove.delete()
+                for card in cards_to_remove:
+                    card.skip_status_check_to_publish = True
+                    card.delete()
 
             if columns_to_add:
                 for column_id in columns_to_add:
                     column = new_columns_by_id[column_id]
                     last_card = column.cards.order_by('position').only('position').last()
-                    Card.objects.create(
+                    card = Card.objects.create(
                         type=Card.CARDTYPE.ISSUE,
                         created_at=now,
                         updated_at=now,
                         issue=instance,
                         column=column,
                         position=last_card.position + 1 if last_card is not None else 1,
+                        front_uuid=instance.front_uuid,
                     )
+                    # we do this to activate publish right now, because the create won't
+                    # do it because of the `github_status`
+                    card.is_new = True
+                    card.skip_status_check_to_publish = True
+                    card.save()
 
             if columns_to_move:
                 for actual_column_id, new_column_id in columns_to_move.items():
@@ -327,12 +335,20 @@ class IssueProjectsFormPart(object):
                     card.updated_at = now
                     card.column = new_column
                     card.position = last_card.position + 1 if last_card is not None else 1
+                    card.github_status = GITHUB_STATUS_CHOICES.WAITING_UPDATE
+                    card.front_uuid = instance.front_uuid,
+                    card.skip_status_check_to_publish = True
                     card.save()
                     # move cards after the current one in the original column
                     if actual_position:
-                        actual_column.cards.filter(position__gt=actual_position).update(
-                            position=F('position') - 1
-                        )
+                        cards_to_update = actual_column.cards.filter(position__gt=actual_position)
+                        for card in cards_to_update:
+                            card.position -= 1
+                            card.updated_at = now
+                            card.github_status = GITHUB_STATUS_CHOICES.WAITING_UPDATE
+                            card.front_uuid = instance.front_uuid,
+                            card.skip_status_check_to_publish = True
+                            card.save()
 
         return update_data
 

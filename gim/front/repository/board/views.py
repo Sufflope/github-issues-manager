@@ -462,7 +462,7 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
             data = {'labels': labels}
 
         elif view == IssueEditProjects:
-            skip_reset_front_uuid = False
+            skip_reset_front_uuid = True
             from gim.core.models import Column
             columns = Column.objects.filter(cards__issue=self.issue)
 

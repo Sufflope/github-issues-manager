@@ -1039,7 +1039,7 @@ class _Project(models.Model):
 contribute_to_model(_Project, core_models.Project, {'save'}, {'save'})
 
 
-class _Card(Hashable, models.Model):
+class _Card(Hashable, FrontEditable):
     note_html = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -1069,7 +1069,7 @@ class _Card(Hashable, models.Model):
         """
         return core_models.Issue.objects.filter(cards=self)
 
-contribute_to_model(_Card, core_models.Card, {'save'}, {'save'})
+contribute_to_model(_Card, core_models.Card, {'save', 'defaults_create_values'}, {'save'})
 
 
 class Hash(lmodel.RedisModel):
@@ -1190,6 +1190,24 @@ PUBLISHABLE = {
         'self': True,
         'pre_publish_action': lambda self: setattr(self, 'signal_hash_changed', self.hash_changed()),
         'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
+    },
+    core_models.Card: {
+        'self': True,
+        'pre_publish_action': lambda self: setattr(self.issue, 'signal_hash_changed', self.issue.hash_changed()) if self.issue_id else None,
+        'more_data': lambda self: {
+            'project_number': self.column.project.number,
+            'column_id': self.column_id,
+            'position': self.position,
+            'issue': {  # used by the front if the issue needs to be fetched when the card changed, for example a change of column
+                'id': self.issue.id,
+                'url': str(self.issue.get_websocket_data_url()),
+                'front_uuid': self.issue.front_uuid,
+                'hash': self.issue.saved_hash,
+                'is_new': getattr(self.issue, 'is_new', False),
+                'is_pr': self.issue.is_pull_request,
+                'number': self.issue.number,
+            } if self.issue_id else None,
+        }
     },
     # core_models.Repository: {
     #     'self': True,
@@ -1335,7 +1353,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
         return
 
     # That we got from github
-    if getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
+    if not getattr(instance, 'skip_status_check_to_publish', False) and \
+            getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
     # Only if we didn't specifically say to not publish
