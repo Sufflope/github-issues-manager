@@ -1836,6 +1836,7 @@ $().ready(function() {
         }
         group.clean();
         if (!this.groups.length) {
+            this.$node.find('.alert').hide();
             this.create_empty_node();
             this.$empty_node.show();
         }
