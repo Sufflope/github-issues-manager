@@ -16,3 +16,4 @@ from .label import *
 from .milestone import *
 from .repository import *
 from .tokens import *
+from .project import *

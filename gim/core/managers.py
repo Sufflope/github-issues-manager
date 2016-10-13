@@ -1700,6 +1700,15 @@ class ColumnManager(GithubObjectManager):
         return self.get_by_github_id(github_id)
 
 
+class CardIssueNotAvailable(ValueError):
+    def __init__(self, repository_id, issue_number):
+        self.repository_id = repository_id
+        self.issue_number = issue_number
+        super(CardIssueNotAvailable, self).__init__(
+            'Issue %s:%s not yet available' % (repository_id, issue_number)
+        )
+
+
 class CardManager(GithubObjectManager):
 
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
@@ -1721,10 +1730,13 @@ class CardManager(GithubObjectManager):
             # no column found, don't save the object !
             return None
 
+        issue_url = data.get('content_url')
+        is_issue_expected = issue_url and not data.get('note')
+
         # we may have an issue
         issue = defaults.get('fk', {}).get('issue')
         if not issue:
-            url = data.get('content_url')
+            url = issue_url
             if url:
                 issue = Issue.objects.get_by_url(url)
 
@@ -1750,7 +1762,13 @@ class CardManager(GithubObjectManager):
         if not fields['fk'].get('column'):
             fields['fk']['column'] = column
 
-        if not fields['fk'].get('issue'):
+        if is_issue_expected and not fields['fk'].get('issue'):
+            if not issue:
+                raise CardIssueNotAvailable(
+                    fields['fk']['column'].project.repository_id,
+                    Issue.objects.get_number_from_url(issue_url)
+                )
+
             fields['fk']['issue'] = issue
 
         fields['simple']['type'] = Card.CARDTYPE.ISSUE if fields['fk'].get('issue') else Card.CARDTYPE.NOTE

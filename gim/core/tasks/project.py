@@ -4,6 +4,8 @@ __all__ = [
 
 from random import randint
 
+from gim.core.managers import CardIssueNotAvailable
+from .issue import FetchIssueByNumber
 from .repository import RepositoryJob
 
 
@@ -28,7 +30,14 @@ class FetchProjects(RepositoryJob):
         if not gh:
             return  # it's delayed !
 
-        self.repository.fetch_all_projects(gh)
+        try:
+            self.repository.fetch_all_projects(gh)
+        except CardIssueNotAvailable as e:
+            FetchIssueByNumber.add_job('%s#%s' % (
+                e.repository_id,
+                e.issue_number
+            ))
+            raise
 
     def on_success(self, queue, result):
         """
