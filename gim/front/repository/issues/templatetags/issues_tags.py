@@ -22,7 +22,7 @@ class IssueCacheTag(CacheTag):
         compress_spaces = True
         include_pk = True
         cache_backend = 'issues_tag'
-        internal_version = "13.pre13"
+        internal_version = "13.pre14"
 
 IssueCacheTag.register(register, 'issue_cache')
 
