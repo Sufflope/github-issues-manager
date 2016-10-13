@@ -251,24 +251,38 @@ class IssuesFilters(BaseIssuesFilters):
         'mentioned': 'user_mentions',
     }
 
+    def _get_only_project(self, qs_parts, allow_any=False, get_first=False):
+        exclude = {'__none__'}
+        if not allow_any:
+            exclude.add('__any__')
+
+        project_number = None
+        for key, value in qs_parts.items():
+            if key.startswith('project_') and value not in exclude:
+                if project_number:
+                    return None
+                project_number = key[8:]
+                if get_first:
+                    return project_number
+
+        return project_number
+
     def _can_add_position_sorting(self, qs_parts):
         allow_position_sorting = False
 
         # allow position sorting when grouping by columns and filtering on issues on at least one project
         if qs_parts.get('group_by', None) == 'project_column':
-            # check if we're not filtering on only one project for issues not in this project
-            for key, value in qs_parts.items():
-                if key.startswith('project_') and value != '__none__':
-                    allow_position_sorting = True
-                    break
+            # if we filter only issues in any project, it's ok
+            if qs_parts.get('in_project') == 'yes':
+                allow_position_sorting = True
+            else:
+                # check if we're not filtering on only one project for issues not in this project
+                project_number = self._get_only_project(qs_parts, allow_any=True, get_first=True)
+                allow_position_sorting = project_number is not None
         else:
             # allow position sorting when filtering on issues in exactly one column
-            for key, value in qs_parts.items():
-                if key.startswith('project_') and value not in ('__none__', '__any__'):
-                    if allow_position_sorting:
-                        allow_position_sorting = False
-                        break
-                    allow_position_sorting = True
+            project_number = self._get_only_project(qs_parts)
+            allow_position_sorting = project_number is not None
 
         return allow_position_sorting
 
@@ -556,6 +570,12 @@ class IssuesFilters(BaseIssuesFilters):
             'milestones': self.milestones,
             'projects': self.projects,
         })
+
+        if context['issues_filter']['parts'].get('sort') == 'position' and\
+                not context['issues_filter']['parts'].get('group_by'):
+            # if no group by, we need the project at the list level, else the project will be
+            # available in each group-by, which is by column
+            context['filtered_project'] = self._get_only_project(context['issues_filter']['parts'])
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
                                  IssuesFilterClosers, IssuesFilterMentioned):

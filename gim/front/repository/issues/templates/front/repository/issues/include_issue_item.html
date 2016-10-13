@@ -1,5 +1,5 @@
 {% load querystring frontutils issues_tags %}{% spaceless %}
-{% with issue_labels=issue.labels.all issue_cards=issue.ordered_cards default_avatar=default_avatar|default:issue.user.get_default_avatar %}<li id="issue-{{ issue.pk }}" class="box-section news issue-item state-{{ issue.state }} hoverable-issue" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" data-issue-hash="{{ issue.saved_hash }}" data-filter="state:{{ issue.state }}" data-search="{{ issue.user.username }} #{{ issue.number }} {{ issue.title }}{% if issue.milestone %} {{ issue.milestone.title }}{% endif %}{% for label in issue_labels %}{% if label.label_type_id %} {{ label.label_type.name }}:{{ label.typed_name }}{% endif %}{% endfor %}{% for label in issue_labels %}{% if not label.label_type_id %} {{ label.name }}{% endif %}{% endfor %}">
+{% with issue_labels=issue.labels.all issue_cards=issue.ordered_cards default_avatar=default_avatar|default:issue.user.get_default_avatar %}<li id="issue-{{ issue.pk }}" class="box-section news issue-item state-{{ issue.state }} hoverable-issue" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" data-issue-hash="{{ issue.saved_hash }}" data-created_at="{{ issue.created_at|date:'c' }}" data-updated_at="{{ issue.updated_at|date:'c' }}" data-filter="state:{{ issue.state }}" data-search="{{ issue.user.username }} #{{ issue.number }} {{ issue.title }}{% if issue.milestone_id %} {{ issue.milestone.title }}{% endif %}{% for label in issue_labels %}{% if label.label_type_id %} {{ label.label_type.name }}:{{ label.typed_name }}{% endif %}{% endfor %}{% for label in issue_labels %}{% if not label.label_type_id %} {{ label.name }}{% endif %}{% endfor %}{% if issue_cards %}{% for card in issue_cards %} {{ card.column.project.name }}:{{ card.column.name }}{% endfor %}{% endif %}"{% if issue_cards %} data-projects="{% for card in issue_cards %}{{ card.column.project.number }}{% if not forloop.last %},{% endif %}{% endfor %}"{% for card in issue_cards %} data-project_{{ card.column.project.number }}-position="{{ card.column_id }}:{{ card.position }}"{% endfor %}{% endif %}>
     <div class="issue-item-header" data-filter="repository:{{ issue.repository.full_name }}">
         <div class="issue-item-times">
             <span title="Created on {{ issue.created_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.created_at|date:'r' }}">{{ issue.created_at|ago:True }}</span>
@@ -24,9 +24,9 @@
         {% else %}
             <span data-filter="pr:no" style="display:none"></span>
         {% endif %}
-        {% if issue.milestone or issue_cards %}
+        {% if issue.milestone_id or issue_cards %}
             <div class="issue-item-milestone-and-project-columns">
-            {% if issue.milestone %}
+            {% if issue.milestone_id %}
                 <div class="issue-item-milestone">
                     <span>
                     <a href="" class="js-filter-trigger" data-filter='milestone:{{ issue.milestone.number }}'>
