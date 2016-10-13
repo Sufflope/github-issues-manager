@@ -14,7 +14,7 @@ class FetchProjects(RepositoryJob):
     Job that will do an unforced full fetch of the repository projects to update all that
     needs to.
     When done:
-    - clone the job to be done again 3 min later (+-30s)
+    - clone the job to be done again 1 min later (+-15s)
     """
     queue_name = 'fetch-projects'
     permission = 'read'
@@ -41,6 +41,6 @@ class FetchProjects(RepositoryJob):
 
     def on_success(self, queue, result):
         """
-        Go fetch again in 3mn +- 30s
+        Go fetch again in 1mn +- 15
         """
-        self.clone(delayed_for=int(60 * 2.5) + randint(0, 60 * 1))
+        self.clone(delayed_for=int(60 * .75) + randint(0, 30 * 1))
