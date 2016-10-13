@@ -480,7 +480,7 @@ class _Issue(Hashable, FrontEditable):
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
-            ','.join(sorted(['%s:%s' % c for c in self.cards.values_list('column_id', 'position')]))
+            ','.join(['%s' % c for c in sorted(self.cards.values_list('column_id', flat=True))])
         )
 
         if self.is_pull_request:
