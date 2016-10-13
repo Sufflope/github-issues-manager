@@ -596,18 +596,29 @@ class Repository(GithubObjectWithId):
                                 max_pages=None)  # we need them all to get all the positions
 
     def fetch_all_projects(self, gh, force_fetch=False):
+        if not force_fetch:
+            if not self.projects_fetched_at:
+                force_fetch = True
         now = datetime.utcnow()
-        if not self.fetch_projects(gh, force_fetch=force_fetch):
-            # we have no new/updated projects
-            return
-        for project in self.projects.all():
-            if force_fetch or project.fetched_at > now:
-                if not project.fetch_columns(gh, force_fetch=force_fetch):
-                    # we have no new/updated columns
-                    continue
-                for column in project.columns.all():
-                    if force_fetch or column.fetched_at > now:
-                        column.fetch_cards(gh, force_fetch=force_fetch)
+        try:
+            if not self.fetch_projects(gh, force_fetch=force_fetch):
+                # we have no new/updated projects
+                return
+            for project in self.projects.all():
+                if force_fetch or project.fetched_at > now:
+                    if not project.fetch_columns(gh, force_fetch=force_fetch):
+                        # we have no new/updated columns
+                        continue
+                    for column in project.columns.all():
+                        if force_fetch or column.fetched_at > now:
+                            column.fetch_cards(gh, force_fetch=force_fetch)
+        except Exception:
+            # Next time we'll refetch all. Else we won't be able to get new data if
+            # the error occured for example while fetching cards: the fetch of the
+            # project would have returned 304, so no more fetch
+            self.projects_fetched_at = None
+            self.save(update_fields=['projects_fetched_at'])
+            raise
 
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
