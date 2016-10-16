@@ -9,6 +9,7 @@ __all__ = [
     'IssueEditMilestoneJob',
     'IssueEditAssigneesJob',
     'IssueEditLabelsJob',
+    'IssueEditProjectsJob',
 ]
 
 import json
@@ -365,7 +366,7 @@ class IssueEditLabelsJob(IssueEditFieldJob):
         return json.loads(labels)
 
 
-class IssueEditProjecsJob(IssueEditFieldJob):
+class IssueEditProjectsJob(IssueEditFieldJob):
     queue_name = 'edit-issue-projects'
     editable_fields = ['projects']
 
@@ -464,7 +465,7 @@ class IssueEditProjecsJob(IssueEditFieldJob):
                 else:
                     data = {
                         'content_type': 'PullRequest' if issue.is_pull_request else 'Issue',
-                        'content_id': issue.github_id
+                        'content_id': issue.github_pr_id if issue.is_pull_request else issue.github_id
                     }
                     try:
                         card = card.dist_edit(gh, mode='create', fields=data.keys(), values=data)
@@ -565,7 +566,7 @@ class IssueCreateJob(BaseIssueEditJob):
                 job_data['add_to_columns'].append(column.id)
 
             # and on github
-            IssueEditProjecsJob.add_job(
+            IssueEditProjectsJob.add_job(
                 self.object.pk,
                 gh=gh,
                 value=json.dumps(job_data)

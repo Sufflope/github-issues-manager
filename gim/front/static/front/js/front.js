@@ -911,7 +911,7 @@ $().ready(function() {
         }
         this.created_at = this.$node.data('created_at');
         this.updated_at = this.$node.data('updated_at');
-        this.project_numbers = (''+(this.$node.data('projects') || '')).split(',').filter(function(number){ return number;});
+        this.project_numbers = (''+(this.$node.data('projects') || '')).split(',').filter(function(number){ return number;}).map(function(number){ return parseInt(number, 10)});
         this.project_positions = {};
         for (i = 0; i < this.project_numbers.length; i++) {
             project_number = this.project_numbers[i];
@@ -1154,15 +1154,50 @@ $().ready(function() {
         }
     }); // IssuesListIssue__finalize_alert
 
-    IssuesListIssue.prototype.on_update_card_alert = (function IssuesListIssue__on_update_card_alert (topic, args, kwargs) {
-        if (kwargs.project_number && kwargs.column_id && this.project_positions && this.project_positions[kwargs.project_number] && this.project_positions[kwargs.project_number].column_id == kwargs.column_id) {
-            // we just changed the position of the card, so we update it and reorder the group
-            this.project_positions[kwargs.project_number].card_position = kwargs.position;
-            this.$node.data('project_' + kwargs.project_number + '-position', kwargs.column_id + ':' + kwargs.card_position);
-            this.group.ask_for_reorder();
-            return true;
+    IssuesListIssue.prototype.remove_from_project = (function IssuesListIssue__remove_from_project (project_number) {
+        var pp = this.project_positions, project_numbers_str, project_position_key;
+        if (pp[project_number]) {
+            delete pp[project_number];
+            this.project_numbers.splice(this.project_numbers.indexOf(project_number), 1);
+            if (!this.project_numbers.length) {
+                this.$node.removeData('projects');
+                this.$node.removeAttr('data-projects');
+            } else {
+                project_numbers_str = this.project_numbers.join(',');
+                this.$node.data('projects', project_numbers_str);
+                this.$node.attr('data-projects', project_numbers_str);
+            }
+            project_position_key = 'project_' + project_number + '-position';
+            this.$node.removeData(project_position_key);
+            this.$node.removeAttr('data-' + project_position_key);
         }
-        return false;
+    }); // IssuesListIssue__remove_from_project
+
+    IssuesListIssue.prototype.move_to_project_column = (function IssuesListIssue__move_to_project_column (project_number, column_id, position) {
+        var pp = this.project_positions, project_numbers_str, project_position_str, project_position_key;;
+        if (!pp[project_number]) {
+            pp[project_number] = {};
+            this.project_numbers.push(project_number);
+            project_numbers_str = this.project_numbers.join(',');
+            this.$node.data('projects', project_numbers_str);
+            this.$node.attr('data-projects', project_numbers_str);
+        }
+        pp[project_number].column_id = column_id;
+        pp[project_number].card_position = position;
+        project_position_str = column_id + ':' + position;
+        project_position_key = 'project_' + project_number + '-position';
+        this.$node.data(project_position_key, project_position_str);
+        this.$node.attr('data-' + project_position_key, project_position_str);
+    }); // IssuesListIssue__move_to_project_column
+
+    IssuesListIssue.prototype.on_update_card_alert = (function IssuesListIssue__on_update_card_alert (topic, args, kwargs) {
+        var same_column = false;
+        if (kwargs.project_number && kwargs.column_id && this.project_positions) {
+            same_column = (this.project_positions[kwargs.project_number] && this.project_positions[kwargs.project_number].column_id == kwargs.column_id);
+            this.move_to_project_column(kwargs.project_number, kwargs.column_id, kwargs.position);
+            this.group.ask_for_reorder();
+        }
+        return same_column;
     }); // IssuesListIssue__on_update_card_alert
 
     IssuesListIssue.prototype.on_update_alert = (function IssuesListIssue__on_update_alert (topic, args, kwargs, message_conf) {
@@ -1207,8 +1242,8 @@ $().ready(function() {
             }
 
             if (same_group) {
-                group.ask_for_reorder();
                 list.reinit_quicksearch_results();
+                group.ask_for_reorder();
             }
             if (is_group_current) { group.set_current(is_group_active, true); }
             if (is_issue_active) { issue.set_current(null, null, null, true, true); }
@@ -1279,6 +1314,10 @@ $().ready(function() {
                     filter_text = filter_value == 'no' ? 'inactive' : 'active';
                 } else if (filter_key == 'unread') {
                     filter_text = filter_value == 'no' ? 'read' : 'unread';
+                } else if (filter_key == 'project_column') {
+                    filter_text = matching_filters[0].$node.parent().text();
+                } else if (filter_key == 'project') {
+                    filter_text = matching_filters[0].$node.contents()[1].textContent;
                 } else {
                     filter_text = filter_value;
                 }
@@ -1497,21 +1536,25 @@ $().ready(function() {
         return this.go_to_last_issue(propagate);
     }); // IssuesListGroup__go_to_last_issue_if_opened
 
-    IssuesListGroup.prototype.get_previous_issue = (function IssuesListGroup__get_previous_issue () {
-        if (!this.current_issue) { return false; }
-        var pos = this.filtered_issues.indexOf(this.current_issue);
+    IssuesListGroup.prototype.get_previous_issue = (function IssuesListGroup__get_previous_issue (all, issue) {
+        if (!issue) { issue = this.current_issue; }
+        if (!issue) { return false; }
+        var issues = all ? this.issues : this.filtered_issues;
+        var pos = issues.indexOf(issue);
         if (pos < 1) { return null; }
-        return this.filtered_issues[pos - 1];
+        return issues[pos - 1];
     }); // IssuesListGroup__get_previous_issue
 
-    IssuesListGroup.prototype.get_next_issue = (function IssuesListGroup__get_next_issue () {
-        if (!this.current_issue) {
-            if (!this.filtered_issues.length) { return null; }
-            return this.filtered_issues[0];
+    IssuesListGroup.prototype.get_next_issue = (function IssuesListGroup__get_next_issue (all, issue) {
+        if (!issue) { issue = this.current_issue; }
+        var issues = all ? this.issues : this.filtered_issues;
+        if (!issue) {
+            if (!issues.length) { return null; }
+            return issues[0]; // special case, we return the first issue if we didn't have a current one
         }
-        var pos = this.filtered_issues.indexOf(this.current_issue);
-        if (pos == this.filtered_issues.length - 1) { return null; }
-        return this.filtered_issues[pos + 1];
+        var pos = issues.indexOf(issue);
+        if (pos == issues.length - 1) { return null; }
+        return issues[pos + 1];
     }); // IssuesListGroup__get_next_issue
 
     IssuesListGroup.prototype.on_show = (function IssuesListGroup__on_show () {
@@ -1546,12 +1589,14 @@ $().ready(function() {
         return issue;
     }); // IssuesListGroup__get_issue_by_id
 
-    IssuesListGroup.prototype.update_issues_list = (function IssuesListGroup__update_issues_list () {
+    IssuesListGroup.prototype.update_issues_list = (function IssuesListGroup__update_issues_list (dont_reorder) {
         this.issues = $.map(this.$node.find(IssuesListIssue.selector),
                           function(node) { return node.IssuesListIssue });
-        this.ask_for_reorder();
 
         this.update_filtered_issues();
+        if (!dont_reorder) {
+            this.ask_for_reorder();
+        }
     }); // IssuesListGroup__update_issues_list
 
     IssuesListGroup.prototype.update_filtered_issues = (function IssuesListGroup__update_filtered_issues () {
@@ -1574,9 +1619,9 @@ $().ready(function() {
         }
         issue.group = this;
         this.issues.unshift(issue);
-        this.ask_for_reorder();
         this.list.reinit_quicksearch_results();
         this.update_filtered_issues();
+        this.ask_for_reorder();
     }); // IssuesListGroup__add_issue
 
     IssuesListGroup.prototype.remove_issue = (function IssuesListGroup__remove_issue (issue) {
@@ -1667,6 +1712,9 @@ $().ready(function() {
             }
             list.insertBefore(node, dest);
         }
+
+        this.list.reinit_quicksearch_results();
+        this.update_filtered_issues();
     }); // IssuesListGroup__reorder
 
 
@@ -1743,7 +1791,7 @@ $().ready(function() {
         this.group_by_key = this.$node.data('group_by-key');
         this.sort_field = this.$node.data('sort-field');
         this.sort_direction = this.$node.data('sort-direction');
-        this.filtered_project_number = this.$node.data('filtered-project');
+        this.filtered_project_number = parseInt(this.$node.data('filtered-project'), 10);
 
         var list = this;
         this.groups = $.map(this.$node.find(IssuesListGroup.selector),
@@ -1890,6 +1938,7 @@ $().ready(function() {
     IssuesList.on_update_card_alert = (function IssuesList_on_update_card_alert (topic, args, kwargs) {
         if (!kwargs.model || kwargs.model != 'Card' || !kwargs.id || !kwargs.issue) { return; }  // we'll manage notes later
         kwargs.issue.model = 'Issue';
+        kwargs.issue.front_uuid = kwargs.front_uuid;
 
         if (!IssuesList.can_update_on_alert(kwargs.issue, 'on_update_card_alert', topic, args, kwargs)) {
             return;
@@ -1920,6 +1969,19 @@ $().ready(function() {
     }); // IssuesList_on_update_card_alert
 
     IssuesList.on_delete_card_alert = (function IssuesList_on_delete_card_alert (topic, args, kwargs) {
+        var loaded_lists = IssuesList.get_loaded_lists();
+
+        if (kwargs.project_number) {
+            for (var i = 0; i < loaded_lists.length; i++) {
+                var list = loaded_lists[i],
+                    issue = list.get_issue_by_id(kwargs.issue.id);
+                if (issue) {
+                    // we have the issue for this card, we remove the project from it (data/attrs)
+                    issue.remove_from_project(kwargs.project_number)
+                }
+            }
+        }
+
         // resetting the card info will allow to directly fetch the issue in each column
         kwargs.project_number = 0;
         kwargs.column_id = 0;

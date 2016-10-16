@@ -22,7 +22,7 @@ from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
-                                  IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjecsJob,
+                                  IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjectsJob,
                                   IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
@@ -1629,7 +1629,7 @@ class IssueEditLabels(IssueEditFieldMixin):
 
 class IssueEditProjects(IssueEditFieldMixin):
     field = 'projects'
-    job_model = IssueEditProjecsJob
+    job_model = IssueEditProjectsJob
     url_name = 'issue.edit.projects'
     form_class = IssueProjectsForm
     author_allowed = False

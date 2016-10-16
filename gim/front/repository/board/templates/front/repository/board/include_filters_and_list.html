@@ -1,5 +1,7 @@
 {% extends "front/repository/issues/include_filters_and_list.html" %}
-{% load frontutils %}
+{% load frontutils repository_tags %}
+
+{% block issues-additional-data %}{{ block.super }} data-can-handle-positions="{{ can_handle_positions|yesno:"true,false" }}"{% endblock issues-additional-data %}
 
 {% block issues-list-classes %}{{ block.super }} without-details{% endblock %}
 
@@ -18,4 +20,7 @@
         {{ default }}
     {% endif %}
     {% endwith %}
+    {% if current_repository|can_user_write:user %}
+        <i class="fa fa-sort-amount-desc{% if not can_handle_positions %} is-swiped-out{% endif %}" title="Issues dragged in this column {% if can_handle_positions %}will{% else %}won't{% endif %} have their new position saved"></i>
+    {% endif %}
 {% endblock list-title-content %}

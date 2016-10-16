@@ -480,7 +480,7 @@ class _Issue(Hashable, FrontEditable):
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
-            ','.join(['%s' % c for c in sorted(self.cards.values_list('column_id', flat=True))])
+            ','.join(sorted(['%s:%s' % c for c in self.cards.values_list('column_id', 'position')]))
         )
 
         if self.is_pull_request:
@@ -1199,9 +1199,9 @@ PUBLISHABLE = {
             'column_id': self.column_id,
             'position': self.position,
             'issue': {  # used by the front if the issue needs to be fetched when the card changed, for example a change of column
+                        # model and front_uuid will be set by the front
                 'id': self.issue.id,
                 'url': str(self.issue.get_websocket_data_url()),
-                'front_uuid': self.issue.front_uuid,
                 'hash': self.issue.saved_hash,
                 'is_new': getattr(self.issue, 'is_new', False),
                 'is_pr': self.issue.is_pull_request,

@@ -590,51 +590,137 @@ $().ready(function() {
                 issue = ui.item[0].IssuesListIssue;
 
                 requestNextAnimationFrame(function() {
-                    var new_list = new_group.list,
-                        old_group = issue.group,
+                    // a list can handle positions only when filtered on a project, sorted by card position, without group-by
+                    // so in this case we know we only have one group in this list
+                    var old_group = issue.group,
+                        group_changed = new_group != old_group,
                         old_list = old_group.list,
-                        changed = new_group != old_group,
-                        is_current = old_group.current_issue == issue,
-                        $duplicates;
+                        new_list = new_group.list,
+                        list_changed = new_list != old_list,
+                        was_current_issue = old_group.current_issue == issue,
+                        old_list_can_handle_positions = old_list.$node.data('can-handle-positions'),
+                        new_list_can_handle_positions = new_list.$node.data('can-handle-positions'),
+                        handle_positions = old_list_can_handle_positions || new_list_can_handle_positions,
+                        $duplicates, project_number, is_asc, sibling_issue, old_position = -1, new_position = -1, i, pp, filter;
 
-                    if ($new_group.hasClass('empty-sortable')) {
-                        $new_group.removeClass('empty-sortable visible');
-                        new_list.groups.push(new_group);
-                    }
+                    if (group_changed) {
+                        if ($new_group.hasClass('empty-sortable')) {
+                            $new_group.removeClass('empty-sortable visible');
+                            new_list.groups.push(new_group);
+                        }
 
-                    if (changed && is_current) {
-                        issue.unset_current();
-                    }
+                        if (was_current_issue) {
+                            issue.unset_current();
+                        }
 
-                    if (changed) {
+                        // remove the existing duplicate(s)
                         $duplicates = new_list.$node.find('#issue-' + issue.id + '.issue-item:not(.ui-sortable-placeholder):not(.ui-sortable-helper)').not(issue.$node);
-                        // we remove the existing one(s)
                         for (var i = 0; i < $duplicates.length; i++) {
                             $duplicates[i].IssuesListIssue.clean();
                         }
+
+                        issue.group = new_group;
                     }
 
-                    issue.group = new_group;
-                    new_group.update_issues_list();
+                    // passing `true` for `dont_reorder` as we'll do it later
+                    if (group_changed) {
+                        old_group.update_issues_list(true);
+                    }
+                    new_group.update_issues_list(true);
 
-                    if (changed) {
-                        if (is_current) {
-                            issue.set_current();
+
+                    if (group_changed && was_current_issue) {
+                        issue.set_current();
+                    }
+
+                    if (handle_positions) {
+                        // we assume we are in the column of a project (old_group and new_group are project column (or issues not in the project)
+                        project_number = new_list.filtered_project_number || old_list.filtered_project_number;
+
+                        pp = issue.project_positions
+                        if (old_list_can_handle_positions && pp[project_number] && pp[project_number].card_position) {
+                            old_position = pp[project_number].card_position;
                         }
 
-                        Board.dragger.remote_move_issue(issue, old_list, new_list);
+                        if (new_list_can_handle_positions) {
+                            // get the reference issue in the new group
+                            is_asc = new_list.sort_direction == 'asc';
+                            sibling_issue = new_group[ is_asc ? 'get_previous_issue' : 'get_next_issue'](true, issue);
 
-                        old_group.update_issues_list();
-
-                        if (!old_group.issues.length) {
-                            old_list.remove_group(old_group);
-                            $.proxy(Board.dragger.on_column_loaded, old_list.$container_node)();
+                            // place our issue after the reference issue, or at first if none
+                            if (sibling_issue) {
+                                new_position = sibling_issue.project_positions[project_number].card_position + 1;
+                            } else {
+                                sibling_issue = new_group[ is_asc ? 'get_next_issue' : 'get_previous_issue'](true, issue);
+                                if (sibling_issue) {
+                                    new_position = sibling_issue.project_positions[project_number].card_position;
+                                } else {
+                                    new_position = 1;
+                                }
+                            }
+                            if (!group_changed && old_position < new_position) {
+                                new_position -= 1;
+                            }
                         }
+
+                        // decrement positions for ones with higher position in old group
+                        // we do it after getting the position in the new group as both group may be the same
+                        if (old_list_can_handle_positions && old_position != -1) {
+                            for (i = 0; i < old_group.issues.length; i++) {
+                                pp = old_group.issues[i].project_positions
+                                if (pp[project_number] && pp[project_number].card_position && pp[project_number].card_position >= old_position) {
+                                    pp[project_number].card_position -= 1;
+                                }
+                            }
+                        }
+
+                        // increment positions for ones with higher position in new group
+                        if (new_list_can_handle_positions && new_position != -1) {
+                            for (i = 0; i < new_group.issues.length; i++) {
+                                if (new_group.issues[i] === issue) { continue; }
+                                pp = new_group.issues[i].project_positions
+                                if (pp[project_number] && pp[project_number].card_position && pp[project_number].card_position >= new_position) {
+                                    pp[project_number].card_position += 1;
+                                }
+                            }
+                            // and save our position
+                            issue.move_to_project_column(project_number, parseInt(new_list.$container_node.data('key'), 10), new_position);
+                        }
+
+                        if (old_list_can_handle_positions && !new_list_can_handle_positions) {
+                            // we moved the issue from a project column to the column "not in the project"
+                            issue.remove_from_project(project_number);
+                        }
+
+                    }
+
+                    // do we have to put the issue in another group on the same list
+                    if (!new_list_can_handle_positions && group_changed && new_list.group_by_key) {
+                        filter = issue.get_filter_for(new_list.group_by_key);
+                        new_group = new_list.get_group_for_value(filter.value) || new_list.create_group(filter.value, filter.text, filter.description);
+                        if (new_group != issue.group) {
+                            new_list.change_issue_group(issue, new_group);
+                        }
+                    }
+
+                    // we can now reorder
+                    if (group_changed) {
+                        old_group.ask_for_reorder();
+                    }
+                    new_group.ask_for_reorder();
+
+                    if (group_changed || handle_positions && new_position != old_position) {
+                        Board.dragger.remote_move_issue(issue, old_list, new_list, new_position && new_position > 0 ? new_position : null);
+                    }
+
+                    if (group_changed && !old_group.issues.length) {
+                        old_list.remove_group(old_group);
+                        $.proxy(Board.dragger.on_column_loaded, old_list.$container_node)();
                     }
                 });
             }, // on_drag_receive
 
-            remote_move_issue: function(issue, old_list, new_list) {
+            remote_move_issue: function(issue, old_list, new_list, position) {
                 var new_key = new_list.$container_node.data('key'),
                     url = old_list.base_url + 'move/' + issue.number + '/to/' + new_key + '/',
                     front_uuid = UUID.generate('waiting'),
@@ -642,8 +728,10 @@ $().ready(function() {
                     context = {
                         old_list: old_list,
                         new_list: new_list,
-                        issue: issue
+                        issue: issue,
+                        position: position,
                     };
+                if (position) { data.position = position; }
                 $.post(url, data)
                     .fail($.proxy(Board.dragger.on_remote_move_issue_failure, context))
                     .always(function() {UUID.set_state(front_uuid, '');});
@@ -657,7 +745,9 @@ $().ready(function() {
                 MessagesManager.add_messages([MessagesManager.make_message($message, 'error')]);
                 setTimeout(function() {
                     context.old_list.refresh();
-                    context.new_list.refresh();
+                    if (context.new_list != context.old_list) {
+                        context.new_list.refresh();
+                    }
                 }, 5000);
             }, // on_remote_move_issue_failure
 
@@ -725,6 +815,7 @@ $().ready(function() {
                     $list.sortable({
                         helper: 'clone',
                         appendTo: Board.$container,
+                        // items: '> li.issue-item:not(.hidden)',
                         connectWith: Board.dragger.active_selector,
                         placeholder: {
                             element: Board.dragger.create_placeholder,
@@ -748,7 +839,7 @@ $().ready(function() {
                     }).disableSelection();
 
                     $list.data('ui-sortable').board_column = $column;
-                    $list.data('ui-sortable').canMoveInsideSelf = false;
+                    $list.data('ui-sortable').canMoveInsideSelf = $list[0].parentNode.IssuesListGroup.list.$node.data('can-handle-positions');
                 }
 
                 if (refresh_needed) {
@@ -769,9 +860,11 @@ $().ready(function() {
                 if (!Board.$columns.length) { return; }
                 Board.dragger.update_dimensions();
                 Board.dragger.activated = true;
-                setTimeout(function() {
-                    MessagesManager.add_messages([MessagesManager.make_message("Vertical position in a column won't be saved.", 'warning')]);
-                }, 2000);
+                // setTimeout(function() {
+                //     MessagesManager.add_messages([MessagesManager.make_message(
+                //         "Vertical position will only be saved on project columns ordered by card position, without group-by.",
+                //     'info')]);
+                // }, 2000);
             }
         }, // Board.dragger
 

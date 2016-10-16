@@ -1,14 +1,17 @@
 from collections import OrderedDict
-from uuid import uuid4
+from datetime import datetime
+from time import sleep
 
 from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
 from django.shortcuts import render
 from django.http import Http404
-from django.http.response import HttpResponse, HttpResponseRedirect
+from django.http.response import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.utils.functional import cached_property
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES
+
+from gim.core.tasks import IssueEditProjectsJob, MoveCardJob
 
 from gim.front.mixins.views import WithAjaxRestrictionViewMixin, WithIssueViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
@@ -208,6 +211,12 @@ class BoardMixin(object):
 
         return context
 
+    def can_handle_positions(self, filter_parts):
+        return self.current_board['mode'] == 'project' and \
+               self.current_column['key'] != '__none__' and \
+               filter_parts.get('sort') == 'position' and \
+               not filter_parts.get('group_by')
+
 
 class BoardSelectorView(BoardMixin, BaseRepositoryView):
     name = 'Board'
@@ -370,10 +379,6 @@ class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, Base
             view = IssueEditLabels
             url = self.issue.edit_field_url('labels')
 
-        elif board['mode'] == 'project':
-            view = IssueEditProjects
-            url = self.issue.edit_field_url('projects')
-
         if not view:
             raise Http404
 
@@ -402,9 +407,65 @@ class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardMixin):
         return self.render_messages()
 
 
+class BoardCanMoveProjectCardView(BoardCanMoveIssueView):
+    url_name = 'board-can-move-project-card'
+
+    @classmethod
+    def get_job_for_issue(cls, issue):
+
+        current_job = cls.get_current_job_for_issue(issue)
+
+        if current_job:
+            for i in range(0, 3):
+                sleep(0.1)  # wait a little, it may be fast
+                current_job = cls.get_current_job_for_issue(issue)
+                if not current_job:
+                    break
+
+            if current_job:
+                who = current_job.gh_args.hget('username')
+                return current_job, who
+
+        return None, None
+
+    @classmethod
+    def get_current_job_for_issue(cls, issue):
+        for job_model, issue_field in ((IssueEditProjectsJob, 'identifier'), (MoveCardJob, 'issue_id')):
+            try:
+                job = job_model.collection(**{issue_field: issue.pk, 'queued': 1}).instances()[0]
+            except IndexError:
+                pass
+            else:
+                return job
+
+        return None
+
+    def post(self, request, *args, **kwargs):
+        self.get_boards_context()
+
+        current_job, who = self.get_job_for_issue(self.issue)
+
+        if current_job:
+            if who == self.request.user.username:
+                who = 'yourself'
+
+            if isinstance(current_job, IssueEditProjects):
+                message = u"""The <strong>projects</strong> for the %s <strong>#%d</strong> are
+                    currently being updated (asked by <strong>%s</strong>), please
+                    wait a few seconds and retry""" % (self.issue.type, self.issue.number, who)
+            else:
+                message = u"""A previous move for the %s <strong>#%d</strong> is
+                    currently being saved (asked by <strong>%s</strong>), please
+                    wait a few seconds and retry""" % (self.issue.type, self.issue.number, who)
+
+            messages.warning(request, message)
+            return self.render_messages(status=409)
+
+        return self.render_messages()
+
+
 class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
     url_name = 'board-move'
-
 
     def get_post_view_info(self):
         view, url = super(BoardMoveIssueView, self).get_post_view_info()
@@ -461,23 +522,6 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
 
             data = {'labels': labels}
 
-        elif view == IssueEditProjects:
-            skip_reset_front_uuid = True
-            from gim.core.models import Column
-            columns = Column.objects.filter(cards__issue=self.issue)
-
-            if self.new_column['key'] != self.current_column['key']:  # to manage when enabling position changing inside a column
-
-                if self.current_column['key'] != '__none__':
-                    columns = columns.exclude(id=self.current_column['object'].pk)
-
-                columns = list(columns.values_list('pk', flat=True))
-
-                if self.new_column['key'] != '__none__':
-                    columns.append(self.new_column['object'].pk)
-
-            data = {'columns': columns}
-
         else:
             raise Http404
 
@@ -524,6 +568,68 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
         return response
 
 
+class BoardMoveProjectCardView(BoardMoveIssueView):
+    url_name = 'board-move-project-card'
+
+    def post(self, request, *args, **kwargs):
+        self.get_boards_context()
+
+        project = self.current_board['object']
+        from_column = self.current_column.get('object')
+        to_column = self.new_column.get('object')
+        position = self.request.POST.get('position', None)
+        if position is not None:
+            try:
+                position = int(position)
+                if position < 1:
+                    raise ValueError()
+            except ValueError:
+                return HttpResponseBadRequest()
+
+        # here choice is done to not update the positions in db but let the job do it
+
+        from gim.core.models import Card
+
+        if to_column:
+            # we're asked to move a card from a column to another, or add it to the project
+            try:
+                card = self.issue.cards.get(column__project=project)
+            except Card.DoesNotExist:
+                now = datetime.utcnow()
+                card = Card.objects.create(
+                    type=Card.CARDTYPE.ISSUE,
+                    created_at=now,
+                    updated_at=now,
+                    issue=self.issue,
+                    column=to_column,
+                    position=position,
+                )
+        else:
+            # the card is in a column but is asked to be removed from the project
+            card = self.issue.cards.get(column__project=project)
+
+        card.front_uuid = self.request.POST['front_uuid']
+        card.save(update_fields=['front_uuid'])
+
+        job_args = {
+            'issue_id': self.issue.pk,
+        }
+        if to_column:
+            job_args['column_id'] = to_column.pk
+            if from_column == to_column:
+                job_args['direction'] = 1 if position > card.position else -1
+            if position:
+                job_args['position'] = position
+
+        MoveCardJob.add_job(
+            card.pk,
+            gh=self.request.user.get_connection(),
+            **job_args
+        )
+
+        return self.render_messages()
+
+
 class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView):
     url_name = 'board-column'
 
@@ -551,6 +657,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
                 'filters_title': 'Filters for this column',
                 'can_show_shortcuts': False,
                 'can_add_issues': False,
+                'can_handle_positions': self.can_handle_positions(context['issues_filter']['parts']),
             })
 
         return context
