@@ -4,6 +4,7 @@
         {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|lower }}
     {% endblock %}
 {% endmacro %}
+{% macro no_group_by_name %}{% block no_group_by_name %}issues{% endblock %}{% endmacro %}
 {% macro issue_item %}{% block issue_item %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endblock %}{% endmacro %}
 {% static 'front/img/default-avatar.png' as default_avatar %}
 
@@ -59,7 +60,7 @@
                 {% else %}
                     <div class='box issues-group'>
                         <a class="box-header" href='#'>
-                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
+                            <span class="title">{% if issues_filter.parts.keys|length > view.MIN_FILTER_KEYS %}Filtered{% else %}All{% endif %} {% usemacro no_group_by_name %}</span>
                             <ul class="unstyled box-toolbar">
                                 <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
                             </ul>
@@ -77,7 +78,7 @@
                     {% if issues_filter.objects.group_by_field %}
                         No {% usemacro empty_group_by_name %}
                     {% else %}
-                        {% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues
+                        {% if issues_filter.parts.keys|length > view.MIN_FILTER_KEYS %}Filtered{% else %}All{% endif %} {% usemacro no_group_by_name %}
                     {% endif %}
                 </span>
                 <ul class="unstyled box-toolbar">

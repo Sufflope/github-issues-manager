@@ -279,6 +279,7 @@ class WithRepositoryViewMixin(object):
         context = super(WithRepositoryViewMixin, self).get_context_data(**kwargs)
         context['current_repository'] = self.repository
         context['current_subscription'] = self.subscription
+        context['current_repository_edit_level'] = 'full' if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS else None
         return context
 
     @cached_property
@@ -736,9 +737,11 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
 
 
 class BaseIssuesView(object):
-    # subclasses must inherit from a subclass of BaseIssuesFilters
+    # subclasses must also inherit from a subclass of BaseIssuesFilters
 
     LIMIT_ISSUES = 300
+    LIMIT_ISSUES_TOLERANCE = 5
+    MIN_FILTER_KEYS = 2
 
     filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
     options_template_name = 'front/issues/include_options.html'
@@ -838,6 +841,7 @@ class BaseIssuesView(object):
                 'list_uuid': self.list_uuid,
                 'current_issues_url': self.base_url,
                 'can_show_shortcuts': True,
+                'no_limit': self.request.GET.get('limit') == 'no',
             })
 
             context['issues'], context['issues_count'], context['limit_reached'], __ =\
@@ -858,7 +862,7 @@ class BaseIssuesView(object):
         if not issues_count:
             return [], 0, False, original_queryset
 
-        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES + 5:  # tolerance
+        if not context['no_limit'] and issues_count > self.LIMIT_ISSUES + self.LIMIT_ISSUES_TOLERANCE:
             issues_count = self.LIMIT_ISSUES
             issues = issues[:self.LIMIT_ISSUES]
             limit_reached = True

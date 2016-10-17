@@ -796,11 +796,13 @@ class IssueView(WithIssueViewMixin, TemplateView):
                         and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
                     if resolved_url.url_name == IssuesView.url_name:
                         return IssuesView, url_info, resolved_url
-                    from gim.front.repository.board.views import BoardColumnView, BoardView
+                    from gim.front.repository.board.views import BoardColumnView, BoardView, BoardProjectColumnView
                     if resolved_url.url_name == BoardView.url_name:
                         return BoardView, url_info, resolved_url
                     if resolved_url.url_name == BoardColumnView.url_name:
                         return BoardColumnView, url_info, resolved_url
+                    if resolved_url.url_name == BoardProjectColumnView.url_name:
+                        return BoardProjectColumnView, url_info, resolved_url
 
         return None, None, None
 

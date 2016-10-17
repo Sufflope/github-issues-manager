@@ -399,3 +399,26 @@ body#repository_board #main-inner {
         }
     }
 }
+
+.note-item {
+    cursor: default;
+    background: $warningBackground;
+    color: #8E6A47;
+    @include transition(color 0.35s ease);
+    &.active {
+        color: $body-text-color;
+    }
+    text-shadow: white 0 1px;
+    h1, h2, h3, h4, h5, h6, a {
+        color: inherit;
+    }
+    a {
+        text-decoration: underline;
+    }
+    > p:last-child {
+        margin-bottom: 0;
+    }
+    &:after {
+        display: none;
+    }
+}

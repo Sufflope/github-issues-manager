@@ -756,7 +756,7 @@ $().ready(function() {
                     var $list_node = ui_item.closest('.issues-list'),
                         list = $list_node[0].IssuesList,
                         issue = ui_item[0].IssuesListIssue,
-                        url = Board.base_url + 'can_move/' + issue.number + '/',
+                        url = list.base_url + 'can_move/' + issue.number + '/',
                         data = {csrfmiddlewaretoken: $body.data('csrf')},
                         context = {
                             sortable_node: sortable_node,

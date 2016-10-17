@@ -1,0 +1,5 @@
+{% extends "front/repository/board/include_filters_and_list.html" %}
+
+{% block issue_item %}{% if issue.is_note %}{% include "front/repository/board/projects/include_note.html" with note=issue %}{% else %}{{ block.super }}{% endif %}{% endblock %}
+
+{% block no_group_by_name %}{{ block.super }}{% if can_display_notes %} and notes{% endif %}{% endblock %}

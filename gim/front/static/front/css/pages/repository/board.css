@@ -4410,3 +4410,35 @@ body#repository_board #main-inner {
   -webkit-border-radius: 0;
   border-radius: 0 6px 6px 0;
 }
+
+/* line 403, ../../../../../sass/pages/repository/board.scss */
+.note-item {
+  cursor: default;
+  background: #fcf8e3;
+  color: #8E6A47;
+  -moz-transition: color 0.35s ease;
+  -o-transition: color 0.35s ease;
+  -webkit-transition: color 0.35s ease;
+  transition: color 0.35s ease;
+  text-shadow: white 0 1px;
+}
+/* line 408, ../../../../../sass/pages/repository/board.scss */
+.note-item.active {
+  color: #707070;
+}
+/* line 412, ../../../../../sass/pages/repository/board.scss */
+.note-item h1, .note-item h2, .note-item h3, .note-item h4, .note-item h5, .note-item h6, .note-item a {
+  color: inherit;
+}
+/* line 415, ../../../../../sass/pages/repository/board.scss */
+.note-item a {
+  text-decoration: underline;
+}
+/* line 418, ../../../../../sass/pages/repository/board.scss */
+.note-item > p:last-child {
+  margin-bottom: 0;
+}
+/* line 421, ../../../../../sass/pages/repository/board.scss */
+.note-item:after {
+  display: none;
+}

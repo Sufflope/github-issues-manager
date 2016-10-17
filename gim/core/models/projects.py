@@ -206,3 +206,7 @@ class Card(GithubObjectWithId):
     @property
     def repository(self):
         return self.column.project.repository
+
+    @property
+    def is_note(self):
+        return self.type == CARDTYPE.NOTE

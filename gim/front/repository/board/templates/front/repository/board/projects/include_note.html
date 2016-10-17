@@ -1,0 +1,3 @@
+{% load querystring frontutils issues_tags %}{% spaceless %}<li id="note-{{ note.id }}" class="box-section news issue-item note-item" data-issue-number="{{ note.number }}" data-issue-id="note-{{ note.id }}" data-repository="{{current_repository.full_name }}" data-repository-id="{{ current_repository.id }}" data-created_at="{{ note.created_at|date:'c' }}" data-updated_at="{{ note.updated_at|date:'c' }}" data-search="note: {{ note.note }}" data-projects="{{ current_board.object.number }}" data-project_{{ current_board.object.number }}-position="{{ current_column.object.id }}:{{ note.position }}">
+    {{ note.note_html|safe }}
+</li>{% endspaceless %}

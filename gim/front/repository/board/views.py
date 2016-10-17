@@ -4,7 +4,7 @@ from time import sleep
 
 from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.http.response import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.utils.functional import cached_property
@@ -211,12 +211,6 @@ class BoardMixin(object):
 
         return context
 
-    def can_handle_positions(self, filter_parts):
-        return self.current_board['mode'] == 'project' and \
-               self.current_column['key'] != '__none__' and \
-               filter_parts.get('sort') == 'position' and \
-               not filter_parts.get('group_by')
-
 
 class BoardSelectorView(BoardMixin, BaseRepositoryView):
     name = 'Board'
@@ -388,7 +382,7 @@ class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, Base
         return render(self.request, 'front/messages.html', **kwargs)
 
 
-class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardMixin):
+class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
     url_name = 'board-can-move'
 
     def post(self, request, *args, **kwargs):
@@ -407,18 +401,32 @@ class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardMixin):
         return self.render_messages()
 
 
-class BoardCanMoveProjectCardView(BoardCanMoveIssueView):
+class BoardMoveProjectCardMixin(object):
+    @cached_property
+    def issue_or_card(self):
+        from gim.core.models import Card, Issue
+
+        if self.kwargs.get('is_note'):
+            return get_object_or_404(Card,
+                pk=self.kwargs['issue_number'],
+                column=self.current_column['object'],
+            )
+
+        return self.issue
+
+
+class BoardCanMoveProjectCardView(BoardMoveProjectCardMixin, BoardCanMoveIssueView):
     url_name = 'board-can-move-project-card'
 
     @classmethod
-    def get_job_for_issue(cls, issue):
+    def get_job_for_object(cls, obj):
 
-        current_job = cls.get_current_job_for_issue(issue)
+        current_job = cls.get_current_job_for_object(obj)
 
         if current_job:
             for i in range(0, 3):
                 sleep(0.1)  # wait a little, it may be fast
-                current_job = cls.get_current_job_for_issue(issue)
+                current_job = cls.get_current_job_for_object(obj)
                 if not current_job:
                     break
 
@@ -429,10 +437,17 @@ class BoardCanMoveProjectCardView(BoardCanMoveIssueView):
         return None, None
 
     @classmethod
-    def get_current_job_for_issue(cls, issue):
-        for job_model, issue_field in ((IssueEditProjectsJob, 'identifier'), (MoveCardJob, 'issue_id')):
+    def get_current_job_for_object(cls, obj):
+        from gim.core.models import Issue
+
+        if isinstance(obj, Issue):
+            to_check = [(IssueEditProjectsJob, 'identifier'), (MoveCardJob, 'issue_id')]
+        else:
+            to_check = [(MoveCardJob, 'identifier')]
+
+        for job_model, field in to_check:
             try:
-                job = job_model.collection(**{issue_field: issue.pk, 'queued': 1}).instances()[0]
+                job = job_model.collection(**{field: obj.pk, 'queued': 1}).instances()[0]
             except IndexError:
                 pass
             else:
@@ -443,7 +458,11 @@ class BoardCanMoveProjectCardView(BoardCanMoveIssueView):
     def post(self, request, *args, **kwargs):
         self.get_boards_context()
 
-        current_job, who = self.get_job_for_issue(self.issue)
+        from gim.core.models import Card, Issue
+
+        obj = self.issue_or_card
+
+        current_job, who = self.get_job_for_object(obj)
 
         if current_job:
             if who == self.request.user.username:
@@ -454,9 +473,14 @@ class BoardCanMoveProjectCardView(BoardCanMoveIssueView):
                     currently being updated (asked by <strong>%s</strong>), please
                     wait a few seconds and retry""" % (self.issue.type, self.issue.number, who)
             else:
-                message = u"""A previous move for the %s <strong>#%d</strong> is
-                    currently being saved (asked by <strong>%s</strong>), please
-                    wait a few seconds and retry""" % (self.issue.type, self.issue.number, who)
+                if isinstance(obj, Issue):
+                    message = u"""A previous move for the %s <strong>#%d</strong> is
+                        currently being saved (asked by <strong>%s</strong>), please
+                        wait a few seconds and retry""" % (self.issue.type, self.issue.number, who)
+                else:
+                    message = u"""A previous move for this note is
+                        currently being saved (asked by <strong>%s</strong>), please
+                        wait a few seconds and retry""" % who
 
             messages.warning(request, message)
             return self.render_messages(status=409)
@@ -568,7 +592,7 @@ class BoardMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
         return response
 
 
-class BoardMoveProjectCardView(BoardMoveIssueView):
+class BoardMoveProjectCardView(BoardMoveProjectCardMixin, BoardMoveIssueView):
     url_name = 'board-move-project-card'
 
     def post(self, request, *args, **kwargs):
@@ -588,32 +612,38 @@ class BoardMoveProjectCardView(BoardMoveIssueView):
 
         # here choice is done to not update the positions in db but let the job do it
 
-        from gim.core.models import Card
+        from gim.core.models import Card, Issue
 
-        if to_column:
-            # we're asked to move a card from a column to another, or add it to the project
-            try:
-                card = self.issue.cards.get(column__project=project)
-            except Card.DoesNotExist:
-                now = datetime.utcnow()
-                card = Card.objects.create(
-                    type=Card.CARDTYPE.ISSUE,
-                    created_at=now,
-                    updated_at=now,
-                    issue=self.issue,
-                    column=to_column,
-                    position=position,
-                )
+        obj = self.issue_or_card
+
+        if isinstance(obj, Card):
+            card = obj
         else:
-            # the card is in a column but is asked to be removed from the project
-            card = self.issue.cards.get(column__project=project)
+            if to_column:
+                # we're asked to move a card from a column to another, or add it to the project
+                try:
+                    card = self.issue.cards.get(column__project=project)
+                except Card.DoesNotExist:
+                    now = datetime.utcnow()
+                    card = Card.objects.create(
+                        type=Card.CARDTYPE.ISSUE,
+                        created_at=now,
+                        updated_at=now,
+                        issue=self.issue,
+                        column=to_column,
+                        position=position,
+                    )
+            else:
+                # the card is in a column but is asked to be removed from the project
+                card = self.issue.cards.get(column__project=project)
 
         card.front_uuid = self.request.POST['front_uuid']
         card.save(update_fields=['front_uuid'])
 
-        job_args = {
-            'issue_id': self.issue.pk,
-        }
+        job_args = {}
+
+        if isinstance(obj, Issue):
+            job_args['issue_id'] = obj.pk
         if to_column:
             job_args['column_id'] = to_column.pk
             if from_column == to_column:
@@ -632,6 +662,8 @@ class BoardMoveProjectCardView(BoardMoveIssueView):
 
 class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView):
     url_name = 'board-column'
+
+    MIN_FILTER_KEYS = 3
 
     display_in_menu = False
     ajax_only = True
@@ -657,7 +689,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
                 'filters_title': 'Filters for this column',
                 'can_show_shortcuts': False,
                 'can_add_issues': False,
-                'can_handle_positions': self.can_handle_positions(context['issues_filter']['parts']),
+                'can_handle_positions': False,
             })
 
         return context
@@ -689,4 +721,81 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
             'querystring_parts': qs_parts,
             'querystring': make_querystring(qs_parts)[1:],
         }
+
+
+class BoardProjectColumnView(BoardColumnView):
+    """A board column for a project column"""
+
+    url_name = 'board-project-column'
+    filters_and_list_template_name = 'front/repository/board/projects/include_filters_and_list.html'
+
+    def can_handle_positions(self, filter_parts):
+        return self.current_column['key'] != '__none__' and \
+               filter_parts.get('sort') == 'position' and \
+               not filter_parts.get('group_by')
+
+    def can_display_notes(self, filter_parts):
+        if  self.current_column['key'] != '__none__' and \
+               filter_parts.get('sort') == 'position' and \
+               not filter_parts.get('group_by'):
+
+            # we may be able to display notes, but only if no filters
+
+            allowed_keys = {'direction', 'sort', 'project_%s' % self.current_board['object'].number}
+            return set(filter_parts.keys()) == allowed_keys
+
+        else:
+            return None
+
+    def get_context_data(self, **kwargs):
+        context = super(BoardProjectColumnView, self).get_context_data(**kwargs)
+
+        if not self.needs_only_queryset:
+            context['can_handle_positions'] = self.can_handle_positions(context['issues_filter']['parts'])
+            context['can_display_notes'] = self.can_display_notes(context['issues_filter']['parts'])
+
+        return context
+
+    def finalize_issues(self, issues, context):
+        issues, total_count, limit_reached, original_queryset = \
+            super(BoardProjectColumnView, self).finalize_issues(issues, context)
+
+        if self.can_display_notes(context['issues_filter']['parts']) and total_count:
+            from gim.core.models import Card
+
+            incr_order = context['issues_filter']['parts']['direction'] == 'asc'
+            column = self.current_column['object']
+
+            issues = list(issues)
+            issues_by_id = {issue.id: issue for issue in issues}
+
+            # get all the cards to display
+            filters = {}
+            if limit_reached:
+                max_position = issues[-1].cards.get(column=column).position
+                filters['position__lte' if incr_order else 'position__gte'] = max_position
+
+            cards = column.cards.filter(**filters).order_by('position' if incr_order else '-position')
+
+            # compose the list from the cards
+            issues = []
+            for card in cards:
+                if card.type == Card.CARDTYPE.ISSUE:
+                    if card.issue_id in issues_by_id:
+                        issues.append(issues_by_id[card.issue_id])
+                else:
+                    # for the template to simulate an issue
+                    card.number = 'note-%s' % card.id
+                    issues.append(card)
+
+            if limit_reached:
+                issues = issues[:self.LIMIT_ISSUES]
+                total_count = column.cards.count()
+            else:
+                total_count = len(issues)
+                if not context['no_limit'] and total_count > self.LIMIT_ISSUES + self.LIMIT_ISSUES_TOLERANCE:
+                    issues = issues[:self.LIMIT_ISSUES]
+                    limit_reached = True
+
+        return issues, total_count, limit_reached, original_queryset
 
