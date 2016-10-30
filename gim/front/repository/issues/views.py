@@ -1519,7 +1519,7 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     def render_not_editable(self, request, who):
         if who == request.user.username:
             who = 'yourself'
-        messages.warning(request, self.get_not_editable_user_message(self.object, who))
+        messages.error(request, self.get_not_editable_user_message(self.object, who))
         # 409 Conflict Indicates that the request could not be processed because of
         # conflict in the request, such as an edit conflict between multiple simultaneous updates.
         return self.render_messages(status=409)
@@ -1722,10 +1722,10 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
             queryset = self.get_queryset()
 
         pk = self.kwargs['comment_pk']
-        object = None
+        obj = None
 
         try:
-            object = queryset.get(pk=pk)
+            obj = queryset.get(pk=pk)
         except self.model.DoesNotExist:
             # maybe the object was deleted and recreated by dist_edit
             try:
@@ -1737,14 +1737,14 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
                 while to_wait > 0:
                     created_pk = job.created_pk.hget()
                     if created_pk:
-                        object = queryset.get(pk=created_pk)
+                        obj = queryset.get(pk=created_pk)
                         break
                     sleep(0.1)
 
-        if not object:
+        if not obj:
             raise Http404("No comment found matching the query")
 
-        return object
+        return obj
 
 
 class IssueCommentView(BaseIssueCommentView):

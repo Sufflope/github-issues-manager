@@ -931,7 +931,7 @@ $().ready(function() {
         this.repository_id = issue_ident.repository_id;
     }); // IssuesListIssue__set_issue_ident
 
-    IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (group_method, stop, pass_event) {
+    IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (issue_method, stop, pass_event) {
         var decorator = function(e) {
             // ignore filter links
             if (e.target.nodeName.toUpperCase() == 'A' && e.target.className.indexOf('issue-link') == -1 || e.target.parentNode.nodeName.toUpperCase() == 'A') { return; }
@@ -939,20 +939,20 @@ $().ready(function() {
             var issue_node = $(e.target).closest(IssuesListIssue.selector);
             if (!issue_node.length || !issue_node[0].IssuesListIssue) { return; }
             if (pass_event) {
-                return issue_node[0].IssuesListIssue[group_method](e);
+                return issue_node[0].IssuesListIssue[issue_method](e);
             } else {
-                return issue_node[0].IssuesListIssue[group_method]();
+                return issue_node[0].IssuesListIssue[issue_method]();
             }
         };
         return stop ? Ev.stop_event_decorate(decorator) : decorator;
     }); // IssuesListIssue_on_issue_node_event
 
-    IssuesListIssue.on_current_issue_key_event = (function IssuesListIssue_on_current_issue_key_event (group_method, param) {
+    IssuesListIssue.on_current_issue_key_event = (function IssuesListIssue_on_current_issue_key_event (issue_method, param) {
         var decorator = function() {
             if (!IssuesList.current) { return; }
             if (!IssuesList.current.current_group) { return; }
             if (!IssuesList.current.current_group.current_issue) { return; }
-            return IssuesList.current.current_group.current_issue[group_method](param);
+            return IssuesList.current.current_group.current_issue[issue_method](param);
         };
         return Ev.key_decorate(decorator);
     }); // IssuesListIssue_on_current_issue_key_event
@@ -974,6 +974,10 @@ $().ready(function() {
     }); // IssuesListIssue__toggle_details
 
     IssuesListIssue.prototype.on_click = (function IssuesListIssue__on_click (ev) {
+        if ($(ev.target).is(':button,:input')) {
+            this.set_current(true);
+            return;
+        }
         if (ev.ctrlKey) {
             return this.toggle_details();
         } else if (ev.shiftKey) {
@@ -1724,6 +1728,8 @@ $().ready(function() {
     var IssuesList = (function IssuesList__constructor (node) {
         this.set_node($(node));
     }); // IssuesList__constructor
+    IssuesList.IssuesListIssue = IssuesListIssue;
+    IssuesList.IssuesListGroup = IssuesListGroup;
 
     IssuesList.selector = '.issues-list';
     IssuesList.container_selector = '.issues-list-container';
@@ -1928,17 +1934,21 @@ $().ready(function() {
     }); // IssuesList_subscribe_updates
 
     IssuesList.can_update_on_alert = (function IssuesList_delay_update_alert_if_needed (issue_kwargs, method, topic, args, kwargs) {
-        if (typeof IssuesList.updating_ids[issue_kwargs.id] != 'undefined' || issue_kwargs.front_uuid && UUID.exists(issue_kwargs.front_uuid) && UUID.has_state(issue_kwargs.front_uuid, 'waiting')) {
+        var js_id = issue_kwargs.js_id || issue_kwargs.id;
+        if (typeof IssuesList.updating_ids[js_id] != 'undefined' || issue_kwargs.front_uuid && UUID.exists(issue_kwargs.front_uuid) && UUID.has_state(issue_kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
                 IssuesList[method](topic, args, kwargs);
             }, 100);
             return false;
         }
-        IssuesList.updating_ids[issue_kwargs.id] = true;
+        IssuesList.updating_ids[js_id] = true;
         return true;
     }); // IssuesList_delay_update_alert_if_needed
 
     IssuesList.on_update_card_alert = (function IssuesList_on_update_card_alert (topic, args, kwargs) {
+        if (IssuesList.on_before_update_card_alert && IssuesList.on_before_update_card_alert(topic, args, kwargs)) {
+            return;
+        }
         if (!kwargs.model || kwargs.model != 'Card' || !kwargs.id || !kwargs.issue) { return; }  // we'll manage notes later
         kwargs.issue.model = 'Issue';
         kwargs.issue.front_uuid = kwargs.front_uuid;
@@ -1972,6 +1982,10 @@ $().ready(function() {
     }); // IssuesList_on_update_card_alert
 
     IssuesList.on_delete_card_alert = (function IssuesList_on_delete_card_alert (topic, args, kwargs) {
+        if (IssuesList.on_before_delete_card_alert && IssuesList.on_before_delete_card_alert(topic, args, kwargs)) {
+            return;
+        }
+
         var loaded_lists = IssuesList.get_loaded_lists();
 
         if (kwargs.project_number) {
@@ -4494,8 +4508,8 @@ $().ready(function() {
     MessagesManager.init();
     window.MessagesManager = MessagesManager;
 
-    var IssueEditor = {
-        disable_form: (function IssueEditor__disable_form ($form) {
+    var FormTools = {
+        disable_form: (function FormTools__disable_form ($form) {
             // disabled input will be ignored by serialize, so just set them
             // readonly
             $form.find(':input').prop('readonly', true);
@@ -4506,7 +4520,7 @@ $().ready(function() {
             $form.data('disabled', true);
         }), // disable_form
 
-        enable_form: (function IssueEditor__enable_form ($form) {
+        enable_form: (function FormTools__enable_form ($form) {
             $form.find(':input').prop('readonly', false);
             $form.find(':button').prop('disabled', false);
             if (typeof $().select2 != 'undefined') {
@@ -4515,13 +4529,111 @@ $().ready(function() {
             $form.data('disabled', false);
         }), // enable_form
 
-        focus_form: (function IssueEditor__focus_form ($form, delay) {
+        focus_form: (function FormTools__focus_form ($form, delay) {
             if (delay) {
-                setTimeout(function() { IssueEditor.focus_form($form); }, delay)
+                setTimeout(function() { FormTools.focus_form($form); }, delay)
             } else {
                 $form.find(':input:visible:not([type=submit])').first().focus();
             }
         }), // focus_form
+
+        load_select2: (function FormTools__load_select2 (callback) {
+            if (typeof $().select2 == 'undefined') {
+                var count_done = 0,
+                    on_one_done = function() {
+                        count_done++;
+                        if (count_done == 2) {
+                            callback();
+                        }
+                    };
+                $.ajax({
+                    url: window.select2_statics.css,
+                    dataType: 'text',
+                    cache: true,
+                    success: function(data) {
+                        $('<style>').attr('type', 'text/css').text(data).appendTo('head');
+                        on_one_done();
+                    }
+                });
+                $.ajax({
+                    url: window.select2_statics.js,
+                    dataType: 'script',
+                    cache: true,
+                    success: on_one_done
+                });
+            } else {
+                callback();
+            }
+        }), // load_select2
+
+        select2_matcher: (function FormTools__select2_matcher (term, text) {
+                var last = -1;
+                term = term.toLowerCase();
+                text = text.toLowerCase();
+                for (var i = 0; i < term.length; i++) {
+                    last = text.indexOf(term[i], last+1);
+                    if (last == -1) { return false; }
+                }
+                return true;
+        }), // select2_matcher
+
+        select2_auto_open: (function FormTools__select2_auto_open ($select) {
+            // http://stackoverflow.com/a/22210140
+            $select.one('select2-focus', FormTools.on_select2_focus)
+                   .on("select2-blur", function () {
+                        $(this).one('select2-focus', FormTools.on_select2_focus)
+                    });
+        }), // select2_auto_open
+
+        on_select2_focus: (function FormTools__on_select2_focus () {
+           var select2 = $(this).data('select2');
+            setTimeout(function() {
+                if (!select2.opened()) {
+                    select2.open();
+                }
+            }, 0);
+        }), // on_select2_focus
+
+        on_textarea_focus: (function FormTools__on_textarea_focus () {
+            $(this).addClass('focused');
+        }), // on_textarea_focus
+
+        post_form_with_uuid: (function FormTools__post_form_with_uuid($form, context, on_done, on_failed, data, action) {
+            if (typeof data == 'undefined') { data = $form.serializeArray(); }
+            if (typeof action == 'undefined') { action = $form.attr('action'); }
+            data.push({name:'front_uuid', value: context.uuid});
+            $.post(action, data)
+                .done($.proxy(on_done, context))
+                .fail($.proxy(on_failed, context))
+                .always(function() {UUID.set_state(context.uuid, '');});
+        }), // post_form_with_uuid
+
+        get_form_context_with_uuid: (function FormTools__get_form_context_with_uuid ($form, front_uuid) {
+            if (front_uuid) {
+                UUID.set_state(front_uuid, 'waiting');
+            } else {
+                front_uuid = UUID.generate('waiting');
+            }
+            return {
+                $form: $form,
+                uuid: front_uuid
+            };
+        }), // get_form_context_with_uuid
+
+        handle_form: (function FormTools__handle_form ($form, ev, front_uuid) {
+            Ev.cancel(ev);
+            if ($form.data('disabled')) { return false; }
+            FormTools.disable_form($form);
+            var context = FormTools.get_form_context_with_uuid($form, front_uuid),
+                $alert = $form.find('.alert');
+            $form.find('button').addClass('loading');
+            if ($alert.length) { $alert.remove(); }
+            return context;
+        }) // handle_form
+    };
+    window.FormTools = FormTools;
+
+    var IssueEditor = {
 
         display_issue: (function IssueEditor__display_issue (html, context, force_popup) {
             var is_popup = force_popup || context.$node.parents('.modal').length > 0,
@@ -4530,36 +4642,14 @@ $().ready(function() {
             IssueDetail.display_issue(html, context.issue_ident, is_popup);
         }), // display_issue
 
-        get_form_context: (function IssueEditor__get_form_context ($form) {
-            var $node = $form.closest('.issue-container');
-            return {
-                issue_ident: IssueDetail.get_issue_ident($node),
-                $form: $form,
-                $node: $node,
-                uuid: UUID.generate('waiting')
-            };
-        }), // get_form_context
-
         handle_form: (function IssueEditor__handle_form ($form, ev) {
-            Ev.cancel(ev);
-            if ($form.data('disabled')) { return false; }
-            IssueEditor.disable_form($form);
-            var context = IssueEditor.get_form_context($form),
-                $alert = $form.find('.alert');
-            $form.find('button').addClass('loading');
-            if ($alert.length) { $alert.remove(); }
+            var context = FormTools.handle_form($form, ev);
+            if (context === false) { return false; }
+            var $node = $form.closest('.issue-container');
+            context.issue_ident = IssueDetail.get_issue_ident($node);
+            context.$node = $node
             return context;
         }), // handle_form
-
-        post_form: (function IssueEditor__post_form($form, context, on_done, on_failed, data, action) {
-            if (typeof data == 'undefined') { data = $form.serializeArray(); }
-            if (typeof action == 'undefined') { action = $form.attr('action'); }
-            data.push({name:'front_uuid', value: context.uuid});
-            $.post(action, data)
-                .done($.proxy(on_done, context))
-                .fail($.proxy(on_failed, context))
-                .always(function() {UUID.set_state(context.uuid, '');});
-        }), // post_form
 
         /* CHANGE ISSUE STATE */
         on_state_submit: (function IssueEditor__on_state_submit (ev) {
@@ -4567,8 +4657,10 @@ $().ready(function() {
                 context = IssueEditor.handle_form($form, ev);
             if (context === false) { return false; }
 
-            IssueEditor.post_form($form, context, IssueEditor.on_state_submit_done,
-                                                  IssueEditor.on_state_submit_failed);
+            FormTools.post_form_with_uuid($form, context,
+                IssueEditor.on_state_submit_done,
+                IssueEditor.on_state_submit_failed
+            );
         }), // on_state_submit
 
         on_state_submit_done: (function IssueEditor__on_state_submit_done (data) {
@@ -4576,13 +4668,13 @@ $().ready(function() {
             if (data.trim()) {
                 IssueEditor.display_issue(data, this);
             } else {
-                IssueEditor.enable_form(this.$form);
+                FormTools.enable_form(this.$form);
                 this.$form.find('button.loading').removeClass('loading');
             }
         }), // on_state_submit_done
 
         on_state_submit_failed: (function IssueEditor__on_state_submit_failed () {
-            IssueEditor.enable_form(this.$form);
+            FormTools.enable_form(this.$form);
             this.$form.find('button').removeClass('loading');
             alert('A problem prevented us to do your action !');
         }), // on_state_submit_failed
@@ -4598,15 +4690,17 @@ $().ready(function() {
             if ($textarea.length && !$textarea.val().trim()) {
                 $textarea.after('<div class="alert alert-error">You must enter a comment</div>');
                 $form.find('button').removeClass('loading');
-                IssueEditor.enable_form($form);
+                FormTools.enable_form($form);
                 $textarea.focus();
                 return false;
             }
 
             $form.closest('li.issue-comment')[0].setAttribute('data-front-uuid', context.uuid);
 
-            IssueEditor.post_form($form, context, IssueEditor.on_comment_submit_done,
-                                                  IssueEditor.on_comment_submit_failed);
+            FormTools.post_form_with_uuid($form, context,
+                IssueEditor.on_comment_submit_done,
+                IssueEditor.on_comment_submit_failed
+            );
         }), // on_comment_submit
 
         on_comment_submit_done: (function IssueEditor__on_comment_submit_done (data) {
@@ -4622,17 +4716,13 @@ $().ready(function() {
         }), // on_comment_submit_done
 
         on_comment_submit_failed: (function IssueEditor__on_comment_submit_failed () {
-            IssueEditor.enable_form(this.$form);
+            FormTools.enable_form(this.$form);
             this.$form.find('.alert').remove();
             var $textarea = this.$form.find('textarea');
             $textarea.after('<div class="alert alert-error">We were unable to post this comment</div>');
             this.$form.find('button').removeClass('loading');
             $textarea.focus();
         }), // on_comment_submit_failed
-
-        on_comment_textarea_focus: (function IssueEditor__on_comment_textarea_focus () {
-            $(this).addClass('focused');
-        }), // on_comment_textarea_focus
 
         on_comment_edit_click: (function IssueEditor__on_comment_edit_click () {
             var $link = $(this),
@@ -4758,7 +4848,7 @@ $().ready(function() {
                 $placeholder = $li.prev('.comment-create-placeholder'),
                 $pr_parent = $li.parents('.code-comments');
 
-            IssueEditor.disable_form($form);
+            FormTools.disable_form($form);
 
             // it's an answer to a previous PR comment
             if ($placeholder.length) {
@@ -4795,7 +4885,7 @@ $().ready(function() {
             // It's a template !
             if ($li.hasClass('comment-create-container')) {
                 $li.find('textarea').val('');
-                IssueEditor.enable_form($form);
+                FormTools.enable_form($form);
                 return false;
             }
 
@@ -4809,13 +4899,13 @@ $().ready(function() {
         }), //on_comment_create_cancel_click
 
         on_comment_edit_or_delete_cancel_click: (function IssueEditor__on_comment_edit_or_delete_cancel_click () {
-            var $li = $(this).closest('li.issue-comment');
+            var $note = $(this).closest('li.issue-comment');
 
-            IssueEditor.disable_form($li.find('form'));
+            FormTools.disable_form($note.find('form'));
 
-            $.get($li.data('url'))
+            $.get($note.data('url'))
                 .done(function(data) {
-                    $li.replaceWith(data);
+                    $note.replaceWith(data);
                 })
                 .fail(function() {
                     alert('Unable to retrieve the original comment')
@@ -4871,7 +4961,7 @@ $().ready(function() {
             var $form = $(data);
             $link.remove();
             $placeholder.replaceWith($form);
-            IssueEditor.focus_form($form, 50);
+            FormTools.focus_form($form, 50);
             return $form;
         }), // issue_edit_default_insert_field_form
 
@@ -4882,63 +4972,6 @@ $().ready(function() {
             $form.css('left', left + 'px');
             return $form;
         }), // issue_edit_title_insert_field_form
-
-        load_select2: (function IssueEditor__load_select2 (callback) {
-            if (typeof $().select2 == 'undefined') {
-                var count_done = 0,
-                    on_one_done = function() {
-                        count_done++;
-                        if (count_done == 2) {
-                            callback();
-                        }
-                    };
-                $.ajax({
-                    url: window.select2_statics.css,
-                    dataType: 'text',
-                    cache: true,
-                    success: function(data) {
-                        $('<style>').attr('type', 'text/css').text(data).appendTo('head');
-                        on_one_done();
-                    }
-                });
-                $.ajax({
-                    url: window.select2_statics.js,
-                    dataType: 'script',
-                    cache: true,
-                    success: on_one_done
-                });
-            } else {
-                callback();
-            }
-        }), // load_select2
-
-        select2_matcher: (function IssueEditor__select2_matcher (term, text) {
-                var last = -1;
-                term = term.toLowerCase();
-                text = text.toLowerCase();
-                for (var i = 0; i < term.length; i++) {
-                    last = text.indexOf(term[i], last+1);
-                    if (last == -1) { return false; }
-                }
-                return true;
-        }), // select2_matcher
-
-        select2_auto_open: (function IssueEditor__select2_auto_open ($select) {
-            // http://stackoverflow.com/a/22210140
-            $select.one('select2-focus', IssueEditor.on_select2_focus)
-                   .on("select2-blur", function () {
-                        $(this).one('select2-focus', IssueEditor.on_select2_focus)
-                    });
-        }), // select2_auto_open
-
-        on_select2_focus: (function IssueEditor__on_select2_focus () {
-           var select2 = $(this).data('select2');
-            setTimeout(function() {
-                if (!select2.opened()) {
-                    select2.open();
-                }
-            }, 0);
-        }), // on_select2_focus
 
         issue_edit_milestone_field_prepare: (function IssueEditor__issue_edit_milestone_field_prepare ($form, dont_load_select2) {
             var $select = $form.find('#id_milestone');
@@ -4969,15 +5002,15 @@ $().ready(function() {
                     formatResult:  function(state) { return format(state, true); },
                     escapeMarkup: function(m) { return m; },
                     dropdownCssClass: 'select2-milestone',
-                    matcher: IssueEditor.select2_matcher
+                    matcher: FormTools.select2_matcher
                 });
-                IssueEditor.select2_auto_open($select);
+                FormTools.select2_auto_open($select);
                 $form.closest('.modal').removeAttr('tabindex');  // tabindex set to -1 bugs select2
             };
             if (dont_load_select2) {
                 callback();
             } else {
-                IssueEditor.load_select2(callback);
+                FormTools.load_select2(callback);
             }
         }), // issue_edit_milestone_field_prepare
 
@@ -5010,15 +5043,15 @@ $().ready(function() {
                     formatNoMatches: formatNoMatches,
                     escapeMarkup: function(m) { return m; },
                     dropdownCssClass: 'select2-assignees',
-                    matcher: IssueEditor.select2_matcher
+                    matcher: FormTools.select2_matcher
                 });
-                IssueEditor.select2_auto_open($select);
+                FormTools.select2_auto_open($select);
                 $form.closest('.modal').removeAttr('tabindex');  // tabindex set to -1 bugs select2
             };
             if (dont_load_select2) {
                 callback();
             } else {
-                IssueEditor.load_select2(callback);
+                FormTools.load_select2(callback);
             }
         }), // issue_edit_assignees_field_prepare
 
@@ -5039,7 +5072,7 @@ $().ready(function() {
                         return '<span style="border-bottom-color: #' + data.color + '">' + result + '</span>';
                     },
                     matcher = function(term, text, opt) {
-                        return IssueEditor.select2_matcher(term, labels_data[opt.val()].search);
+                        return FormTools.select2_matcher(term, labels_data[opt.val()].search);
                     },
                     formatNoMatches = function(term) {
                         return term ? "No matches found" : "No more available labels";
@@ -5053,13 +5086,13 @@ $().ready(function() {
                     matcher: matcher,
                     closeOnSelect: false
                 });
-                IssueEditor.select2_auto_open($select);
+                FormTools.select2_auto_open($select);
                 $form.closest('.modal').removeAttr('tabindex');  // tabindex set to -1 bugs select2
             };
             if (dont_load_select2) {
                 callback();
             } else {
-                IssueEditor.load_select2(callback);
+                FormTools.load_select2(callback);
             }
         }), // issue_edit_labels_field_prepare
 
@@ -5092,7 +5125,7 @@ $().ready(function() {
                         if (column_id && selected_projects[columns_data[column_id].project_number]) {
                             return false;
                         }
-                        return IssueEditor.select2_matcher(term, columns_data[column_id].search);
+                        return FormTools.select2_matcher(term, columns_data[column_id].search);
                     },
                     formatNoMatches = function(term) {
                         return term ? "No matches found" : "No more available projects";
@@ -5122,13 +5155,13 @@ $().ready(function() {
                     closeOnSelect: false
                 }).on('change', onChange)
                   .on('select2-selecting', onSelecting);
-                IssueEditor.select2_auto_open($select);
+                FormTools.select2_auto_open($select);
                 $form.closest('.modal').removeAttr('tabindex');  // tabindex set to -1 bugs select2
             };
             if (dont_load_select2) {
                 callback();
             } else {
-                IssueEditor.load_select2(callback);
+                FormTools.load_select2(callback);
             }
 
         }), // issue_edit_projects_field_prepare
@@ -5137,7 +5170,7 @@ $().ready(function() {
             var $btn = $(this),
                 $form = $btn.closest('form');
             if ($form.data('disabled')) { return false; }
-            IssueEditor.disable_form($form);
+            FormTools.disable_form($form);
             $btn.addClass('loading');
             var $container = $form.closest('.issue-container'),
                 issue_ident = IssueDetail.get_issue_ident($container),
@@ -5149,19 +5182,15 @@ $().ready(function() {
             return false;
         }), // on_issue_edit_field_cancel_click
 
-        on_issue_edit_field_submit: (function IssueEditor__on_issue_edit_field_submit () {
-            var $form = $(this);
-            if ($form.data('disabled')) { return false; }
-            var $btn = $form.find('.btn-save');
-            IssueEditor.disable_form($form);
-            $btn.addClass('loading');
-            var context = IssueEditor.get_form_context($form);
-            var data = $form.serializeArray();
-            data.push({name:'front_uuid', value: context.uuid});
-            $.post($form.attr('action'), data)
-                .done($.proxy(IssueEditor.on_issue_edit_submit_done, context))
-                .fail($.proxy(IssueEditor.on_issue_edit_submit_fail, context))
-                .always(function() {UUID.set_state(context.uuid, '');});
+        on_issue_edit_field_submit: (function IssueEditor__on_issue_edit_field_submit (ev) {
+            var $form = $(this),
+                context = IssueEditor.handle_form($form, ev);
+            if (context === false) { return false; }
+
+            FormTools.post_form_with_uuid($form, context,
+                IssueEditor.on_issue_edit_submit_done,
+                IssueEditor.on_issue_edit_submit_fail
+            );
             return false;
         }), // on_issue_edit_field_submit
 
@@ -5170,9 +5199,9 @@ $().ready(function() {
             if (data.trim() || data == 'error') {  // error if 409 from on_issue_edit_submit_fail
                 IssueEditor.display_issue(data, this);
             } else {
-                IssueEditor.enable_form(this.$form);
+                FormTools.enable_form(this.$form);
                 this.$form.find('button.loading').removeClass('loading');
-                IssueEditor.focus_form(this.$form);
+                FormTools.focus_form(this.$form);
             }
         }), // on_issue_edit_submit_done
 
@@ -5182,11 +5211,12 @@ $().ready(function() {
                 // conflict in the request, such as an edit conflict between multiple simultaneous updates.
                 return $.proxy(IssueEditor.on_issue_edit_submit_done, this)(data);
             }
-            IssueEditor.enable_form(this.$form);
+            FormTools.enable_form(this.$form);
             this.$form.find('button.loading').removeClass('loading');
             alert('A problem prevented us to do your action !');
         }), // on_issue_edit_submit_fail
 
+        // UPDATE COMMENTS FROM WEBSOCKET
         on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs) {
             if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
                 setTimeout(function() {
@@ -5238,6 +5268,7 @@ $().ready(function() {
             }
         }), // on_delete_alert
 
+        // CREATE ISSUE
         create: {
             allowed_path_re: new RegExp('^/([\\w\\-\\.]+/[\\w\\-\\.]+)/(?:issues/|dashboard/|board/)'),
             $modal: null,
@@ -5278,7 +5309,7 @@ $().ready(function() {
                 IssueEditor.create.$modal_body.html(data);
                 var $form = IssueEditor.create.get_form();
                 IssueEditor.create.update_form($form);
-                IssueEditor.focus_form($form, 250);
+                FormTools.focus_form($form, 250);
                 IssueEditor.create.$modal_footer.show();
             }), // on_load_done
 
@@ -5293,22 +5324,21 @@ $().ready(function() {
                     IssueEditor.issue_edit_labels_field_prepare($form, true);
                     IssueEditor.issue_edit_projects_field_prepare($form, true);
                 };
-                IssueEditor.load_select2(select2_callback);
+                FormTools.load_select2(select2_callback);
             }), // update_form
 
             on_form_submit: (function IssueEditor_create__on_form_submit (ev) {
                 Ev.cancel(ev);
                 var $form = IssueEditor.create.get_form();
                 if ($form.data('disabled')) { return false; }
-                IssueEditor.disable_form($form);
+                FormTools.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                var data = $form.serializeArray(), front_uuid = UUID.generate('waiting');
-                data.push({name:'front_uuid', value: front_uuid});
-                $.post($form.attr('action'), data)
-                    .done($.proxy(IssueEditor.create.on_submit_done, {'front_uuid': front_uuid}))
-                    .fail(IssueEditor.create.on_submit_failed)
-                    .always(function() {UUID.set_state(front_uuid, '');});
+                var front_uuid = UUID.generate('waiting'), context = {'front_uuid': front_uuid};
+                FormTools.post_form_with_uuid($form, context,
+                    IssueEditor.create.on_submit_done,
+                    IssueEditor.create.on_submit_failed
+                );
             }), // on_form_submit
 
             on_submit_done: (function IssueEditor_create__on_submit_done (data) {
@@ -5317,8 +5347,8 @@ $().ready(function() {
                     // we have an error, the whole form is returned
                     IssueEditor.create.get_form().replaceWith(data);
                     var $form = IssueEditor.create.get_form();
-                    IssueEditor.enable_form($form);
-                    IssueEditor.focus_form($form, 250);
+                    FormTools.enable_form($form);
+                    FormTools.focus_form($form, 250);
                     IssueEditor.create.update_form($form);
                     IssueEditor.create.$modal_submit.removeClass('loading');
                 } else {
@@ -5329,8 +5359,8 @@ $().ready(function() {
 
             on_submit_failed: (function IssueEditor_create__on_submit_failed () {
                 var $form = IssueEditor.create.get_form();
-                IssueEditor.enable_form($form);
-                IssueEditor.focus_form($form, 250);
+                FormTools.enable_form($form);
+                FormTools.focus_form($form, 250);
                 IssueEditor.create.$modal_submit.removeClass('loading');
                 IssueEditor.create.$modal_footer.prepend('<div class="alert alert-error">A problem prevented us to save the issue</div>');
             }), // on_submit_failed
@@ -5383,7 +5413,7 @@ $().ready(function() {
             $document.on('click', '.comment-create-placeholder button', IssueEditor.on_comment_create_placeholder_click);
 
             $document.on('submit', '.comment-form', IssueEditor.on_comment_submit);
-            $document.on('focus', '.comment-form textarea', IssueEditor.on_comment_textarea_focus);
+            $document.on('focus', '.comment-form textarea', FormTools.on_textarea_focus);
 
             $document.on('click', '.comment-create-form button[type=button]', IssueEditor.on_comment_create_cancel_click);
             $document.on('click', '.comment-edit-form button[type=button], .comment-delete-form button[type=button]', IssueEditor.on_comment_edit_or_delete_cancel_click);

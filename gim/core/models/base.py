@@ -617,7 +617,7 @@ class GithubObject(models.Model):
         if self.pk:
             self.delete()
 
-    def defaults_create_values(self):
+    def defaults_create_values(self, mode):
         """Default values to use to update data got from github"""
         return {}
 
@@ -694,7 +694,7 @@ class GithubObject(models.Model):
             return self
 
         # get defaults to update the data with fresh data we just got
-        defaults = self.defaults_create_values()
+        defaults = self.defaults_create_values(mode)
 
         # if we are in create mode, we delete the object to recreate it with
         # the data we just got

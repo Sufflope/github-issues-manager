@@ -1,3 +1,5 @@
+from django.core.urlresolvers import reverse_lazy
+
 __all__ = [
     'Card',
     'Column',
@@ -157,6 +159,8 @@ class Card(GithubObjectWithId):
     note = models.TextField(blank=True, null=True)
     issue = models.ForeignKey('Issue', related_name='cards', blank=True, null=True)
 
+    creator = models.ForeignKey('GithubUser', related_name='cards', null=True)  # not returned by github for now
+
     position = models.PositiveIntegerField(null=True)
 
     github_per_page = {'min': 30, 'max': 30}  # forced to 30 by github
@@ -202,3 +206,11 @@ class Card(GithubObjectWithId):
     @property
     def is_note(self):
         return self.type == CARDTYPE.NOTE
+
+    def defaults_create_values(self, mode):
+        values = super(Card, self).defaults_create_values(mode)
+
+        if self.is_note and mode == 'create':
+            values.setdefault('simple', {})['position'] = 1
+
+        return values

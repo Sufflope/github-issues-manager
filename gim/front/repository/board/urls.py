@@ -3,7 +3,8 @@ from django.conf.urls import patterns, url
 from .views import (
     BoardSelectorView, BoardView, BoardColumnView, BoardProjectColumnView,
     BoardMoveIssueView, BoardCanMoveIssueView,
-    BoardCanMoveProjectCardView, BoardMoveProjectCardView
+    BoardCanMoveProjectCardView, BoardMoveProjectCardView,
+    CardNoteCreateView, CardNoteView, CardNoteEditView, CardNoteDeleteView
 )
 
 urlpatterns = patterns('',
@@ -22,4 +23,10 @@ urlpatterns = patterns('',
     # move to columns not related to a project
     url(r'^(?P<board_mode>auto|labels)/(?P<board_key>[^/]+)/(?P<column_key>[^/]+)/can_move/(?P<issue_number>\d+)/$', BoardCanMoveIssueView.as_view(), name=BoardCanMoveIssueView.url_name),
     url(r'^(?P<board_mode>auto|labels)/(?P<board_key>[^/]+)/(?P<column_key>[^/]+)/move/(?P<issue_number>\d+)/to/(?P<to_column_key>[^/]+)/$', BoardMoveIssueView.as_view(), name=BoardMoveIssueView.url_name),
+
+    # card note edit
+    url(r'project/(?P<project_number>\d+)/(?P<column_id>\d+)/note/add/$', CardNoteCreateView.as_view(), name=CardNoteCreateView.url_name),
+    url(r'project/(?P<project_number>\d+)/note/(?P<card_pk>\d+)/$', CardNoteView.as_view(), name=CardNoteView.url_name),
+    url(r'project/(?P<project_number>\d+)/note/(?P<card_pk>\d+)/edit/$', CardNoteEditView.as_view(), name=CardNoteEditView.url_name),
+    url(r'project/(?P<project_number>\d+)/note/(?P<card_pk>\d+)/delete/$', CardNoteDeleteView.as_view(), name=CardNoteDeleteView.url_name),
 )

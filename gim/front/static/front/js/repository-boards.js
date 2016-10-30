@@ -367,16 +367,18 @@ $().ready(function() {
 
             }, // on_drag_stop
 
-            prepare_empty_list: function(list) {
-                var group = list.create_group(null, null, null);
-                group.$node.addClass('empty-sortable');
-                group.list.create_empty_node();
-                group.list.$empty_node.show();
-                group.$count_node.text(0);
-                group.$issues_node.addClass('in');
-                group.collapsed = false;
-                group.list.groups = [];  // we don't count it in groups to avoid navigating in it
-            }, // prepare_empty_list
+            prepare_list_if_empty: function(list) {
+                if (!list.$node.has('.issues-group:not(.template)').length) {
+                    var group = list.create_group(null, null, null);
+                    group.$node.addClass('empty-sortable');
+                    group.list.create_empty_node();
+                    group.list.$empty_node.show();
+                    group.$count_node.text(0);
+                    group.$issues_node.addClass('in');
+                    group.collapsed = false;
+                    group.list.groups = [];  // we don't count it in groups to avoid navigating in it
+                }
+            }, // prepare_list_if_empty
 
             show_empty_columns: function () {
                 $('.issues-group.empty-sortable:not(.visible)').addClass('visible').siblings('.no-issues').hide();
@@ -391,9 +393,7 @@ $().ready(function() {
                 var $list_container_node = $(this);
                 requestNextAnimationFrame(function() {
                     var list = IssuesList.get_for_node($list_container_node);
-                    if (!list.$node.has('.issues-group:not(.template)').length) {
-                        Board.dragger.prepare_empty_list(list);
-                    }
+                    Board.dragger.prepare_list_if_empty(list);
                     Board.dragger.update_sortables(true);
                 });
             }, // on_column_loaded
@@ -692,7 +692,7 @@ $().ready(function() {
                             issue.remove_from_project(project_number);
                         }
 
-                    }
+                    } // if (handle_positions)
 
                     // do we have to put the issue in another group on the same list
                     if (!new_list_can_handle_positions && group_changed && new_list.group_by_key) {
@@ -704,7 +704,7 @@ $().ready(function() {
                     }
 
                     // we can now reorder
-                    if (group_changed) {
+                    if (group_changed && old_group.issues.length) {
                         old_group.ask_for_reorder();
                     }
                     new_group.ask_for_reorder();
@@ -715,7 +715,6 @@ $().ready(function() {
 
                     if (group_changed && !old_group.issues.length) {
                         old_list.remove_group(old_group);
-                        $.proxy(Board.dragger.on_column_loaded, old_list.$container_node)();
                     }
                 });
             }, // on_drag_receive
@@ -1001,6 +1000,196 @@ $().ready(function() {
 
         }, // Board.filters
 
+        notes: {
+
+            on_edit_or_delete_click: function () {
+                var $link = $(this),
+                    $note_node = $link.closest('li.note-item');
+                if ($link.parent().hasClass('disabled')) { return false; }
+                $note_node.find('a.btn-loading').addClass('loading');
+                $note_node[0].IssuesListIssue.set_current(true);
+                $.get($link.attr('href'))
+                    .done($.proxy(Board.notes.on_edit_or_delete_loaded, {$note_node: $note_node, $link: $link}))
+                    .fail($.proxy(Board.notes.on_edit_or_delete_load_failed, {$note_node: $note_node, $link: $link, text: 'edit'}));
+                return false;
+            }, // on_edit_click
+
+            on_edit_or_delete_loaded: function (data) {
+                if (!data.trim() || data == 'error') {  // error if 409 from on_edit_or_delete_load_failed
+                    this.$note_node.find('a.btn-loading.loading').removeClass('loading');
+                    return false;
+                }
+                var $data = $(data).children();
+                this.$note_node.addClass('edit-mode').empty().append($data);
+                var $textarea = $data.find('textarea');
+                if ($textarea.length && !$(':input:focus').length) {
+                    $textarea.focus();
+                }
+            }, // on_edit_or_delete_load_failed
+
+            on_edit_or_delete_load_failed: function (xhr, data) {
+                if (xhr.status == 409) {
+                    // 409 Conflict Indicates that the request could not be processed because of
+                    // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                    return $.proxy(Board.notes.on_edit_or_delete_loaded, this)(data);
+                }
+                this.$note_node.find('a.btn-loading.loading').removeClass('loading');
+                alert('Unable to load the ' + this.text + ' form!')
+            }, // on_edit_or_delete_load_failed
+
+            on_edit_or_delete_cancel_click: function () {
+                var $node = $(this).closest('li.note-item');
+
+                FormTools.disable_form($node.find('form'));
+
+                $.get($node.data('url'))
+                    .done(function(data) {
+                        var $data = $(data).children();
+                        $node.empty().removeClass('edit-mode').append($data);
+                    })
+                    .fail(function() {
+                        alert('Unable to retrieve the original note')
+                    });
+            }, // on_edit_or_delete_cancel_click
+
+            on_submit: function (ev, is_create) {
+                var $form = $(this),
+                    front_uuid = is_create ? $form.closest('.note-item')[0].id.substr(5) : null,
+                    context = FormTools.handle_form($form, ev, front_uuid);
+                if (context === false) { return false; }
+
+                var $textarea = $form.find('textarea');
+
+                if (false & $textarea.length && !$textarea.val().trim()) {
+                    $textarea.after('<div class="alert alert-error">You must enter a note</div>');
+                    $form.find('button').removeClass('loading');
+                    FormTools.enable_form($form);
+                    $textarea.focus();
+                    return false;
+                }
+
+                $form.closest('li.note-item')[0].setAttribute('data-front-uuid', context.uuid);
+
+                FormTools.post_form_with_uuid($form, context,
+                    is_create ? Board.notes.on_add_submit_done : Board.notes.on_submit_done,
+                    Board.notes.on_submit_failed
+                );
+            }, // on_submit
+
+            on_submit_done: function (data) {
+                var $node = $('li.note-item[data-front-uuid=' + this.uuid + ']');
+                if ($node.length) {
+                    var $data = $(data).children();
+                    $node.empty().removeClass('edit-mode').append($data);
+                }
+            }, // on_submit_done
+
+            on_submit_failed: function (xhr, data) {
+                if (xhr.status == 409) {
+                    // 409 Conflict Indicates that the request could not be processed because of
+                    // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                    this.$form.find('button.submit').remove();
+                    FormTools.enable_form(this.$form);
+                    var $textarea = this.$form.find('textarea');
+                    $textarea.after('<div class="alert alert-error">The note cannot be saved for now. Copy the text if you need, then cancel and retry in a few seconds.</div>');
+                    return
+                }
+                FormTools.enable_form(this.$form);
+                this.$form.find('.alert').remove();
+                var $textarea = this.$form.find('textarea');
+                $textarea.after('<div class="alert alert-error">We were unable to post this note</div>');
+                this.$form.find('button').removeClass('loading');
+                $textarea.focus();
+            }, // on_submit_failed
+
+            on_add_click: function() {
+                var $link = $(this),
+                    $list = $link.closest('.issues-list'),
+                    $group = $link.closest('.issues-group'),
+                    url = $list.data('create-note-url'),
+                    group, $group_header;
+
+                if (!$group.length) {
+                    group = $list[0].IssuesList.create_group(null, null, null);
+                    group.update_filtered_issues();
+                    $group = group.$node;
+                    $link = $group.find('.note-add-btn')
+                }
+
+                $group_header = $link.closest('.box-header');
+
+                $.get(url)
+                    .done(function(data) {
+                        var $new_notes_holder = $group.children('ul.new-notes-holder');
+                        if (!$new_notes_holder.length) {
+                            $new_notes_holder = $('<ul class="unstyled box-content new-notes-holder"></ul>');
+                        }
+                        $group_header.after($new_notes_holder);
+                        var $data = $(data);
+                        $data.addClass('edit-mode');
+                        $new_notes_holder.append($data);
+                        if (!$(':input:focus').length) {
+                            $data.find('textarea').focus();
+                        }
+                    })
+                    .fail(function() {
+                        alert('Unable to retrieve the form to create a new note')
+                    });
+
+                return false;
+
+            }, // on_add_click
+
+            remove_add_item_node: function ($node) {
+                var $new_notes_holder = $node.parent(),
+                    group = $new_notes_holder.closest('.issues-group')[0].IssuesListGroup;
+                $node.remove();
+                if (!$new_notes_holder.children().length) {
+                    $new_notes_holder.remove();
+                    if (!group.issues.length) {
+                        group.list.remove_group(group);
+                    }
+                }
+            },
+
+            on_add_cancel_click: function() {
+                Board.notes.remove_add_item_node($(this).closest('li.note-item'));
+            }, // on_add_cancel_click
+
+            on_add_submit: function(ev) {
+                return Board.notes.on_submit.bind(this)(ev, true);
+            }, // on_add_submit
+
+            on_add_submit_done: function (data) {
+                var $node = this.$form.closest('li.note-item'),
+                    list = $node.closest('.issues-list')[0].IssuesList,
+                    $data = $(data),
+                    issue = new IssuesList.IssuesListIssue($data[0], null),
+                    group = list.groups[0];
+
+                $data[0].setAttribute('data-front-uuid', this.uuid);
+
+                Board.notes.remove_add_item_node(this.$form.closest('li.note-item'));
+
+                group.add_issue(issue, true);
+                group.open();
+                list.reinit_quicksearch_results();
+            }, // on_add_submit_done
+
+            init: function() {
+                if (!Board.$columns.length) { return; }
+
+                $document.on('click', '.note-edit-btn, .note-delete-btn', Ev.stop_event_decorate(Board.notes.on_edit_or_delete_click));
+                $document.on('submit', '.note-form:not(.note-create-form)', Board.notes.on_submit);
+                $document.on('click', '.note-edit-form button[type=button], .note-delete-form button[type=button]', Board.notes.on_edit_or_delete_cancel_click);
+                $document.on('click', '.note-add-btn', Ev.stop_event_decorate(Board.notes.on_add_click))
+                $document.on('click', '.note-create-form button[type=button]', Board.notes.on_add_cancel_click);
+                $document.on('submit', '.note-create-form', Board.notes.on_add_submit);
+                $document.on('focus', '.new-notes-holder .note-item :input', function() { $(this).closest('.note-item').addClass('active');} );
+                $document.on('blur', '.new-notes-holder .note-item :input', function() { $(this).closest('.note-item').removeClass('active');} );
+            }
+        }, // Board.notes
+
         on_scroll: function(ev) {
             Board.lists.load_visible(500);
         }, //scroll
@@ -1016,6 +1205,7 @@ $().ready(function() {
             Board.lists.init();
             Board.selector.init();
             Board.arranger.init();
+            Board.notes.init();
 
             if (Board.container) {
                 Board.base_url = Board.$container.data('base_url');
@@ -1058,6 +1248,177 @@ $().ready(function() {
         Board.lists.scroll_to(scroll_to);
 
     }); // IssuesList__set_current
+
+    IssuesList.prototype.create_group_original = IssuesList.prototype.create_group;
+    IssuesList.prototype.create_group = (function IssuesList__create_group (filter_value, filter_text, filter_description) {
+        this.$node.children('.issues-group.empty-sortable').remove();
+        return this.create_group_original(filter_value, filter_text, filter_description);
+    }); // IssuesList__create_group
+
+    IssuesList.prototype.remove_group_original = IssuesList.prototype.remove_group;
+    IssuesList.prototype.remove_group = (function IssuesList__remove_group (group) {
+        var $new_notes_holder = group.$node.children('ul.new-notes-holder');
+        if ($new_notes_holder.length) { return; }
+        this.remove_group_original(group);
+        $.proxy(Board.dragger.on_column_loaded, this.$container_node)();
+    }); // IssuesList__remove_group
+
+
+    IssuesList.on_before_update_card_alert = (function IssuesList_on_before_update_card_alert (topic, args, kwargs) {
+        if (kwargs.model && kwargs.model == 'Card' && kwargs.id && !kwargs.issue) {
+            // we're updating a note
+
+            kwargs.js_id = 'note-' + kwargs.id;
+
+            if (!IssuesList.can_update_on_alert(kwargs, 'on_update_card_alert', topic, args, kwargs)) {
+                return;
+            }
+
+            var loaded_lists = IssuesList.get_loaded_lists(),
+                managed = false;
+
+            for (var i = 0; i < loaded_lists.length; i++) {
+                var list = loaded_lists[i],
+                    can_display_notes = list.$node.data('can-display-notes'),
+                    project_number, column_id, issue, can_handle_note,
+                    selector, $nodes;
+
+                if (!can_display_notes) {
+                    continue;
+                }
+
+                project_number = list.filtered_project_number,
+                column_id = list.$container_node.data('key'),
+                can_handle_note = project_number && column_id && project_number == kwargs.project_number && parseInt(column_id, 10) == kwargs.column_id;
+
+
+                selector = 'li.note-item#' + kwargs.js_id;
+                if (kwargs.front_uuid) {
+                    selector += ', li.note-item[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                $nodes = list.$node.find(selector);
+                if ($nodes.length) {
+                    issue = $nodes[0].IssuesListIssue;
+
+                    // not a column the note should be, we have the issue, we remove it
+                    if (!can_handle_note) {
+                        issue.group.remove_issue(issue);
+                        continue;
+                    }
+
+                    // the note should definitely be in this column, we have the issue, we update it
+                    managed = true;
+                    (function(issue) {
+                        $.get(kwargs.url)
+                            .done(function(data) {
+                                var $data = $(data);
+                                issue.$node.replaceWith($data);
+                                issue.prepare($data[0]);
+                                issue.set_issue_ident({
+                                    number: issue.$node.data('issue-number'),
+                                    id: issue.$node.data('issue-id'),
+                                    repository: issue.$node.data('repository'),
+                                    repository_id: issue.$node.data('repository-id')
+                                });
+                                issue.group.ask_for_reorder();
+                            })
+                            .always(function() {
+                                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                                    UUID.set_state(kwargs.front_uuid, '');
+                                }
+                                delete IssuesList.updating_ids[kwargs.js_id];
+                            });
+                    })(issue);
+
+                } else {
+                    // not a column the note should be, we don't have the issue, nothing to do
+                    if (!can_handle_note) {
+                        continue;
+                    }
+
+                    // the note should definitely be in this column, we don't have the issue, we fetch it to add it
+                    managed = true;
+                    (function(list) {
+                        $.get(kwargs.url)
+                            .done(function(data) {
+                                var $data = $(data),
+                                    front_uuid_exists = UUID.exists(kwargs.front_uuid),
+                                    issue = new IssuesList.IssuesListIssue($data[0], null),
+                                    group = list.groups.length ? list.groups[0] : list.create_group(null, null, null);
+
+                                $data.addClass('recent');
+                                group.add_issue(issue, true);
+                                if (list.groups.length == 1) {
+                                    group.open();
+                                } else {
+                                    group.$node.addClass('recent');
+                                }
+                                list.reinit_quicksearch_results();
+
+                                if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+                                    $data.removeClass('recent');
+                                }
+
+                            })
+                            .always(function() {
+                                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                                    UUID.set_state(kwargs.front_uuid, '');
+                                }
+                                delete IssuesList.updating_ids[kwargs.js_id];
+                            });
+                    })(list);
+
+                }
+            }
+
+            if (!managed) {
+                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                    UUID.set_state(kwargs.front_uuid, '');
+                }
+                delete IssuesList.updating_ids[kwargs.js_id];
+            }
+
+            return true;
+
+        }
+
+        return false;
+
+    }); // IssuesList_on_before_update_card_alert
+
+    IssuesList.on_before_delete_card_alert = (function IssuesList_on_before_delete_card_alert (topic, args, kwargs) {
+        if (kwargs.model && kwargs.model == 'Card' && kwargs.id && !kwargs.issue) {
+            // we're updating a note
+
+            kwargs.js_id = 'note-' + kwargs.id;
+
+            if (!IssuesList.can_update_on_alert(kwargs, 'on_delete_card_alert', topic, args, kwargs)) {
+                return;
+            }
+
+            var loaded_lists = IssuesList.get_loaded_lists();
+
+            for (var i = 0; i < loaded_lists.length; i++) {
+                var list = loaded_lists[i],
+                    issue = list.get_issue_by_id(kwargs.js_id);
+                if (issue) {
+                    // we have the note in this list, we remove it
+                    issue.group.remove_issue(issue);
+                }
+            }
+
+            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                UUID.set_state(kwargs.front_uuid, '');
+            }
+            delete IssuesList.updating_ids[kwargs.js_id];
+
+
+            return true;
+
+        }
+
+        return false;
+    }); // IssuesList_on_before_delete_card_alert
 
     Math.easeInOutQuad = function (t, b, c, d) {
       t /= d/2;

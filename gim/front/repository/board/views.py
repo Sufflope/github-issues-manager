@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
+from uuid import uuid4
 
 from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy
@@ -8,17 +9,21 @@ from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.http.response import HttpResponse, HttpResponseRedirect, HttpResponseBadRequest
 from django.utils.functional import cached_property
+from django.views.generic import UpdateView, CreateView, TemplateView, DetailView, DeleteView
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES
 
-from gim.core.tasks import IssueEditProjectsJob, MoveCardJob
+from gim.core.models.projects import Card, Project
+from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob
 
-from gim.front.mixins.views import WithAjaxRestrictionViewMixin, WithIssueViewMixin
+from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin, WithIssueViewMixin, WithSubscribedRepositoryViewMixin, DependsOnRepositoryViewMixin, WithRepositoryViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
     IssueEditMilestone, IssueEditState, IssueEditProjects, IssuesFilters
+
+from .forms import CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -395,7 +400,7 @@ class BoardCanMoveIssueView(BoardMoveIssueMixin, BoardColumnMixin):
         if current_job:
             if who == self.request.user.username:
                 who = 'yourself'
-            messages.warning(request, view.get_not_editable_user_message(self.issue, who))
+            messages.error(request, view.get_not_editable_user_message(self.issue, who))
             return self.render_messages(status=409)
 
         return self.render_messages()
@@ -482,7 +487,7 @@ class BoardCanMoveProjectCardView(BoardMoveProjectCardMixin, BoardCanMoveIssueVi
                         currently being saved (asked by <strong>%s</strong>), please
                         wait a few seconds and retry""" % who
 
-            messages.warning(request, message)
+            messages.error(request, message)
             return self.render_messages(status=409)
 
         return self.render_messages()
@@ -760,7 +765,7 @@ class BoardProjectColumnView(BoardColumnView):
         issues, total_count, limit_reached, original_queryset = \
             super(BoardProjectColumnView, self).finalize_issues(issues, context)
 
-        if self.can_display_notes(context['issues_filter']['parts']) and total_count:
+        if self.can_display_notes(context['issues_filter']['parts']):
             from gim.core.models import Card
 
             incr_order = context['issues_filter']['parts']['direction'] == 'asc'
@@ -784,8 +789,6 @@ class BoardProjectColumnView(BoardColumnView):
                     if card.issue_id in issues_by_id:
                         issues.append(issues_by_id[card.issue_id])
                 else:
-                    # for the template to simulate an issue
-                    card.number = 'note-%s' % card.id
                     issues.append(card)
 
             if limit_reached:
@@ -799,3 +802,279 @@ class BoardProjectColumnView(BoardColumnView):
 
         return issues, total_count, limit_reached, original_queryset
 
+
+class WithProjectViewMixin(WithRepositoryViewMixin):
+    """
+    A mixin that is meant to be used when a view depends on a project.
+    Provides stuff provided by WithSubscribedRepositoryViewMixin, plus:
+    - a "project" property that'll get the project depending on the repository and
+    the "number" url params
+    - a "get_project_filter_args" to use to filter a model on a repository's name,
+    its owner's username, and an project number
+    And finally, put the project in the context
+    """
+
+    def get_project_filter_args(self, filter_root=''):
+        """
+        Return a dict with attribute to filter a model for a given repository's
+        name, its owner's username and an project number as given in the url.
+        Use the "filter_root" to prefix the filter.
+        """
+
+        if filter_root and not filter_root.endswith('__'):
+            filter_root += '__'
+        return {
+            '%srepository_id' % filter_root: self.repository.id,
+            '%snumber' % filter_root: self.kwargs['project_number']
+        }
+
+    @cached_property
+    def project(self):
+        """
+        Return (and cache) the project. Raise a 404 if the current user is
+        not allowed to use this repository, or if the project is not found
+        """
+        return get_object_or_404(
+            Project.objects.select_related('repository__owner'),
+            **self.get_project_filter_args()
+        )
+
+    def get_context_data(self, **kwargs):
+        """
+        Put the current project in the context
+        """
+        context = super(WithProjectViewMixin, self).get_context_data(**kwargs)
+        context['current_project'] = self.project
+        context['current_project_edit_level'] = self.get_edit_level(self.project)
+        return context
+
+    def get_edit_level(self, project):
+        """
+        Return the edit level of the given project. It may be None (read only),
+        or "full"
+        """
+        edit_level = None
+        if project and project.number:
+            if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+                edit_level = 'full'
+        return edit_level
+
+
+class DependsOnProjectViewMixin(WithProjectViewMixin, DependsOnRepositoryViewMixin):
+    """
+    A simple mixin to use for views when the main object depends on a project
+    Will limit entries to ones matching the project fetched using url params
+    and the "allowed_rights" attribute.
+    The "project_related_name" attribute is the name to use to filter only
+    on the current project.
+    """
+    project_related_name = 'project'
+    repository_related_name = 'project__repository'
+
+    def get_queryset(self):
+        """
+        Return a queryset based on the current repository, project, and allowed
+        rights.
+        """
+        return self.model._default_manager.filter(**{
+                self.project_related_name: self.project
+            })
+
+
+class LinkedToProjectFormViewMixin(WithAjaxRestrictionViewMixin, DependsOnProjectViewMixin):
+    """
+    A mixin for form views when the main object depends on a project, and
+    using a form which is a subclass of LinkedToProjectFormMixin, to have the
+    current project passed to the form
+    """
+
+    def get_form_kwargs(self):
+        kwargs = super(LinkedToProjectFormViewMixin, self).get_form_kwargs()
+        kwargs['project'] = self.project
+        return kwargs
+
+
+class CardNoteView(WithAjaxRestrictionViewMixin, DependsOnProjectViewMixin, DetailView):
+    context_object_name = 'note'
+    pk_url_kwarg = 'card_pk'
+    http_method_names = ['get']
+    ajax_only = False  # TODO: CHANGE TO TRUE
+    url_name = 'project.note'
+    model = Card
+    template_name = 'front/repository/board/projects/include_note.html'
+    job_model = CardNoteEditJob
+    project_related_name = 'column__project'
+    repository_related_name = 'column__project__repository'
+
+    def get_object(self, queryset=None):
+        if queryset is None:
+            queryset = self.get_queryset()
+
+        pk = self.kwargs['card_pk']
+        obj = None
+
+        try:
+            obj = queryset.get(pk=pk)
+        except self.model.DoesNotExist:
+            # maybe the object was deleted and recreated by dist_edit
+            try:
+                job = self.job_model.get(identifier=pk, mode='create')
+            except self.job_model.DoesNotExist:
+                pass
+            else:
+                to_wait = 0.3
+                while to_wait > 0:
+                    created_pk = job.created_pk.hget()
+                    if created_pk:
+                        obj = queryset.get(pk=created_pk)
+                        break
+                    sleep(0.1)
+
+        if not obj:
+            raise Http404("No note found matching the query")
+
+        return obj
+
+
+class CardNoteEditMixin(LinkedToUserFormViewMixin, LinkedToProjectFormViewMixin):
+    model = Card
+    job_model = CardNoteEditJob
+    project_related_name = 'column__project'
+    repository_related_name = 'column__project__repository'
+    ajax_only = False  # TODO: CHANGE TO TRUE
+    http_method_names = ['get', 'post']
+    edit_mode = None
+
+    def form_valid(self, form):
+        """
+        Override the default behavior to add a job to edit the note on the
+        github side
+        """
+        response = super(CardNoteEditMixin, self).form_valid(form)
+
+        job_kwargs = {}
+        if self.object.front_uuid:
+            job_kwargs = {'extra_args': {
+                'front_uuid': self.object.front_uuid,
+                'skip_reset_front_uuid': 1,
+            }}
+
+        self.job_model.add_job(self.object.pk,
+                               mode=self.edit_mode,
+                               gh=self.request.user.get_connection(),
+                               **job_kwargs)
+
+        return response
+
+
+class CardNoteCreateView(CardNoteEditMixin, CreateView):
+    edit_mode = 'create'
+    verb = 'created'
+    template_name = 'front/repository/board/projects/include_note_create.html'
+    url_name = 'project.note.create'
+    form_class = CardNoteCreateForm
+    context_object_name = 'note'
+
+    @cached_property
+    def column(self):
+        """
+        Return (and cache) the column. Raise a 404 if the current user is
+        not allowed to use this repository, or if the column is not found
+        """
+
+        return get_object_or_404(
+            self.project.columns,
+            pk=self.kwargs['column_id']
+        )
+
+    def get_form_kwargs(self):
+        self.object = Card(column=self.column)
+        return super(CardNoteCreateView, self).get_form_kwargs()
+
+    def get_context_data(self, **kwargs):
+        context = super(CardNoteCreateView, self).get_context_data(**kwargs)
+        context['current_column'] = self.column
+        context['create_note_uuid'] = self.request.POST.get('front_uuid', None) or uuid4()
+        return context
+
+
+class BaseCardNoteEditView(CardNoteEditMixin, UpdateView):
+    context_object_name = 'note'
+    pk_url_kwarg = 'card_pk'
+
+    def get_object(self, queryset=None):
+        """
+        Early check that the user has enough rights to edit this note
+        """
+        obj = super(BaseCardNoteEditView, self).get_object(queryset)
+        if self.subscription.state not in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+            raise Http404
+        return obj
+
+    @classmethod
+    def get_current_job_for_card(cls, card):
+        try:
+            job = cls.job_model.collection(identifier=card.id, queued=1).instances()[0]
+        except IndexError:
+            return None
+        else:
+            return job
+
+    @classmethod
+    def get_job_for_card(cls, card):
+
+        current_job = cls.get_current_job_for_card(card)
+
+        if current_job:
+            for i in range(0, 3):
+                sleep(0.1)  # wait a little, it may be fast
+                current_job = cls.get_current_job_for_card(card)
+                if not current_job:
+                    break
+
+            if current_job:
+                who = current_job.gh_args.hget('username')
+                return current_job, who
+
+        return None, None
+
+    @classmethod
+    def get_not_editable_user_message(cls, card, edit_mode, who):
+        message = u"This note is currently being %sd (asked by <strong>%s</strong>)"  % (edit_mode or 'update', who)
+        if edit_mode != 'delete':
+            message += u", please wait a few seconds and retry"
+        return message
+
+    def render_not_editable(self, request, edit_mode, who):
+        if who == request.user.username:
+            who = 'yourself'
+        messages.error(request, self.get_not_editable_user_message(self.object, edit_mode, who))
+        # 409 Conflict Indicates that the request could not be processed because of
+        # conflict in the request, such as an edit conflict between multiple simultaneous updates.
+        return self.render_messages(status=409)
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        current_job, who = self.get_job_for_card(self.object)
+
+        if current_job:
+            return self.render_not_editable(request, current_job.mode.hget(), who)
+
+        return super(CardNoteEditMixin, self).dispatch(request, *args, **kwargs)
+
+
+class CardNoteEditView(BaseCardNoteEditView):
+    edit_mode = 'update'
+    verb = 'updated'
+    template_name = 'front/repository/board/projects/include_note_edit.html'
+    url_name = 'project.note.edit'
+    form_class = CardNoteEditForm
+
+
+class CardNoteDeleteView(BaseCardNoteEditView):
+    edit_mode = 'delete'
+    verb = 'deleted'
+    template_name = 'front/repository/board/projects/include_note_delete.html'
+    url_name = 'project.note.delete'
+    form_class = CardNoteDeleteForm

@@ -1768,7 +1768,7 @@ class CardManager(GithubObjectManager):
             if url:
                 issue = Issue.objects.get_by_url(url)
 
-        if 'position' not in data:
+        if 'position' not in data and 'position' not in defaults.get('simple', {}):
             if hasattr(saved_objects, 'context'):
                 position_key = 'column#%s:card-position' % column.github_id
                 position = saved_objects.context.get(position_key, 0) + 1

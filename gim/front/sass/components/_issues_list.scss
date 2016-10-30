@@ -134,6 +134,10 @@ nav.issues-list-options .dropdown-toggle .caret {
     }
     .issues-group {
         @include box-shadow(0 2px 2px #ccc);
+        .box-toolbar {
+            position: relative;
+            top: 1px;
+        }
         &:first-child .box-header {
             border-top: 0;
         }
@@ -154,8 +158,15 @@ nav.issues-list-options .dropdown-toggle .caret {
         margin-top: -5px;
     }
 
-    .no-issues, .too-many-issues {
-        text-align: center;
+    .alert {
+        &.no-issues, &.too-many-issues {
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        &.too-many-issues {
+            line-height: 18px;
+        }
     }
 
 } // .issues-list

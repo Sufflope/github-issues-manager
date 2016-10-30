@@ -1,6 +1,7 @@
 __all__ = [
     'FetchProjects',
     'MoveCardJob',
+    'CardNoteEditJob',
 ]
 
 from random import randint
@@ -57,35 +58,12 @@ class FetchProjects(RepositoryJob):
         self.clone(delayed_for=int(60 * .75) + randint(0, 30 * 1))
 
 
-class ProjectJob(DjangoModelJob):
+class CardJob(DjangoModelJob):
     """
     Abstract job model for jobs based on the Project model
     """
     abstract = True
-    model = Project
-
-    @property
-    def project(self):
-        if not hasattr(self, '_project'):
-            self._project = self.object
-        return self._project
-
-    @property
-    def repository(self):
-        if not hasattr(self, '_repository'):
-            self._repository = self.project.repository
-        return self._repository
-
-
-class MoveCardJob(DjangoModelJob):
-
-    queue_name = 'move-project-card'
     model = Card
-    permission = 'self'
-    issue_id = fields.InstanceHashField(indexable=True)
-    column_id = fields.InstanceHashField()
-    position = fields.InstanceHashField()
-    direction = fields.InstanceHashField()
 
     @property
     def card(self):
@@ -98,6 +76,16 @@ class MoveCardJob(DjangoModelJob):
         if not hasattr(self, '_project'):
             self._project = self.card.column.project
         return self._project
+
+
+class MoveCardJob(CardJob):
+
+    queue_name = 'move-project-card'
+    permission = 'self'
+    issue_id = fields.InstanceHashField(indexable=True)
+    column_id = fields.InstanceHashField()
+    position = fields.InstanceHashField()
+    direction = fields.InstanceHashField()
 
     def run(self, queue):
         """
@@ -200,3 +188,85 @@ class MoveCardJob(DjangoModelJob):
 
         # now we have to update the projects
         self.project.repository.fetch_all_projects(gh)
+
+
+class CardNoteEditJob(CardJob):
+    queue_name = 'edit-project-note'
+
+    mode = fields.InstanceHashField(indexable=True)
+    created_pk = fields.InstanceHashField(indexable=True)
+
+    def run(self, queue):
+        """
+        Get the comment and create/update/delete it
+        """
+        super(CardNoteEditJob, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        mode = self.mode.hget()
+
+        try:
+            card = self.object
+        except self.model.DoesNotExist:
+            return None
+
+        if mode == 'create':
+            card.is_new = True
+
+        project = self.project
+
+        try:
+            if mode == 'delete':
+                card.dist_delete(gh)
+            else:
+                data = {
+                    'note': card.note
+                }
+                card = card.dist_edit(gh, mode=mode, fields=data.keys(), values=data)
+                if mode == 'create':
+                    self.created_pk.hset(card.pk)
+                else:
+                    # force publish
+                    from gim.front.models import publish_update
+                    publish_update(card, 'updated', {})
+
+        except ApiError, e:
+            message = None
+
+            if e.code == 422:
+                message = u'Github refused to %s the card on the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                    mode, project.name, project.repository.full_name)
+
+            elif e.code in (401, 403):
+                tries = self.tries.hget()
+                if tries and int(tries) >= 5:
+                    message = u'You seem to not have the right to %s a card on the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                        mode, project.name, project.repository.full_name)
+
+            if message:
+                messages.error(self.gh_user, message)
+                if mode == 'create':
+                    card.delete()
+                else:
+                    try:
+                        card.fetch(gh, force_fetch=True)
+                    except ApiError:
+                        pass
+                return None
+
+            else:
+                raise
+
+        # now we have to update the projects
+        project.repository.fetch_all_projects(gh)
+
+        return None
+
+    def success_message_addon(self, queue, result):
+        """
+        Display the action done (created/updated/deleted)
+        """
+        return ' [%sd]' % self.mode.hget()

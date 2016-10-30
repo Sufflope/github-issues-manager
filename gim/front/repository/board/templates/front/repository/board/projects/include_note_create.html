@@ -1,0 +1,15 @@
+{% extends "front/repository/board/projects/include_base_note.html" %}
+{% block note-content %}
+    <form class="note-form note-create-form"  method="post" action="{{ current_column.get_create_note_url }}">
+        {% csrf_token %}
+        <div><textarea name="note" placeholder="Leave a note on this project"></textarea></div>
+        <div class="row-fluid auto-align edit-buttons">
+            <div class="span6">
+                <button class="btn btn-blue submit btn-loading">Add a note<i class='fa fa-spinner fa-spin'> </i></button>
+            </div>
+            <div class="span6">
+                <button class="btn btn-default" type="button">Cancel</button>
+            </div>
+        </div>
+    </form>
+{% endblock note-content %}

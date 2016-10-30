@@ -11,10 +11,11 @@ class LinkedToUserFormMixin(object):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user')
         super(LinkedToUserFormMixin, self).__init__(*args, **kwargs)
-        attr = '%s_id' % self.user_attribute
-        if self.user_attribute and getattr(self, 'instance', None) and hasattr(self.instance, attr):
-            if not getattr(self.instance, attr):
-                setattr(self.instance, self.user_attribute, self.user)
+        if self.user_attribute:
+            attr = '%s_id' % self.user_attribute
+            if self.user_attribute and getattr(self, 'instance', None) and hasattr(self.instance, attr):
+                if not getattr(self.instance, attr):
+                    setattr(self.instance, self.user_attribute, self.user)
 
 
 class LinkedToRepositoryFormMixin(forms.ModelForm):

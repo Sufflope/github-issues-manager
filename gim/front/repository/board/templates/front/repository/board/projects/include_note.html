@@ -1,3 +1,14 @@
-{% load querystring frontutils issues_tags %}{% spaceless %}<li id="note-{{ note.id }}" class="box-section news issue-item note-item" data-issue-number="{{ note.number }}" data-issue-id="note-{{ note.id }}" data-repository="{{current_repository.full_name }}" data-repository-id="{{ current_repository.id }}" data-created_at="{{ note.created_at|date:'c' }}" data-updated_at="{{ note.updated_at|date:'c' }}" data-search="note: {{ note.note }}" data-projects="{{ current_board.object.number }}" data-project_{{ current_board.object.number }}-position="{{ current_column.object.id }}:{{ note.position }}">
-    {{ note.note_html|safe }}
-</li>{% endspaceless %}
+{% extends "front/repository/board/projects/include_base_note.html" %}
+{% block note-content %}
+    {{ block.super }}
+    {% if note.github_status != GITHUB_STATUSES.FETCHED %}
+        <span class="time">
+            <span class="label label-{% if note.github_status in GITHUB_STATUSES.ALL_WAITING %}warning{% else %}important{% endif %}">
+            {{ note.get_github_status_display }}
+            {% if note.github_status in GITHUB_STATUSES.ALL_WAITING %}<i class="fa fa-spinner fa-spin"> </i>{% endif %}
+            </span>
+        </span>
+    {% else %}
+        {% if current_repository_edit_level %}<a href="{{ note.get_edit_url }}" class="note-edit-btn btn-loading" title="Edit this note"><i class="fa fa-edit fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i></a><a href="{{ note.get_delete_url }}" class="note-delete-btn btn-loading" title="Delete this note"><i class="fa fa-times fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i></a>{% endif %}
+    {% endif %}
+{% endblock note-content %}

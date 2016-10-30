@@ -1,0 +1,5 @@
+{% load querystring frontutils issues_tags %}{% with create_note_uuid=create_note_uuid|default:new_uuid %}{% spaceless %}<li id="note-{{ note.id|default:create_note_uuid }}" class="box-section news issue-item note-item" data-issue-number="note-{{ note.id|default:create_note_uuid }}" data-issue-id="note-{{ note.id|default:create_note_uuid }}" data-repository="{{current_repository.full_name }}" data-repository-id="{{ current_repository.id }}"{% if note.id %} data-created_at="{{ note.created_at|date:'c' }}" data-updated_at="{{ note.updated_at|date:'c' }}" data-search="note: {{ note.note }}"{% endif %} data-projects="{{ note.column.project.number }}" data-project_{{ note.column.project.number }}-position="{{ note.column.id }}:{{ note.position }}"{% if note.id %} data-url="{{ note.get_absolute_url }}"{% endif %}{% if note.front_uuid %} data-front-uuid="{{ note.front_uuid }}"{% endif %}>
+    {% block note-content %}
+        <div class="note-content">{{ note.note_html|safe }}</div>
+    {% endblock %}
+</li>{% endspaceless %}{% endwith %}

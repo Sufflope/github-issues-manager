@@ -1,0 +1,15 @@
+{% extends "front/repository/board/projects/include_base_note.html" %}
+{% block note-content %}
+    <form class="note-form note-delete-form"  method="post" action="{{ note.get_delete_url }}">
+        {% csrf_token %}
+        <div class="row-fluid auto-align edit-buttons">
+            <div class="span8">
+                <button class="btn btn-red btn-loading">Confirm deletion of this note <i class='fa fa-spinner fa-spin'> </i></button>
+            </div>
+            <div class="span4">
+                <button class="btn btn-default" type="button">Cancel</button>
+            </div>
+        </div>
+    </form>
+    {{ block.super }}
+{% endblock note-content %}

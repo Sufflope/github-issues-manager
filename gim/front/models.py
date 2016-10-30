@@ -38,8 +38,10 @@ from gim.ws import publisher
 thread_data = local()
 
 
-def html_content(self, body_field='body'):
-    html = getattr(self, '%s_html' % body_field, None)
+def html_content(self, body_field='body', force=False):
+    html = None
+    if not force:
+        html = getattr(self, '%s_html' % body_field, None)
     if html is None:
         html = markdown(getattr(self, body_field),
                         extensions=[
@@ -57,8 +59,8 @@ class FrontEditable(models.Model):
     class Meta:
         abstract = True
 
-    def defaults_create_values(self):
-        values = self.old_defaults_create_values()
+    def defaults_create_values(self, mode):
+        values = self.old_defaults_create_values(mode)
         values.setdefault('simple', {})['front_uuid'] = self.front_uuid
         if hasattr(self, 'is_new'):
             values['simple']['is_new'] = self.is_new
@@ -1039,6 +1041,31 @@ class _Project(models.Model):
 contribute_to_model(_Project, core_models.Project, {'save'}, {'save'})
 
 
+class _Column(models.Model):
+    class Meta:
+        abstract = True
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.project.repository.owner.username,
+            'repository_name': self.project.repository.name,
+            'project_number': self.project.number,
+            'column_id': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_create_note_url(self):
+        from gim.front.repository.board.views import CardNoteCreateView
+        return self.get_view_url(CardNoteCreateView.url_name)
+
+contribute_to_model(_Column, core_models.Column)
+
+
 class _Card(Hashable, FrontEditable):
     note_html = models.TextField(blank=True, null=True)
 
@@ -1049,7 +1076,7 @@ class _Card(Hashable, FrontEditable):
 
         if self.type == self.CARDTYPE.NOTE:
             if not update_fields or 'note' in update_fields:
-                self.note_html = html_content(self, 'note') if self.note else ''
+                self.note_html = html_content(self, 'note', force=True) if self.note else ''
                 if update_fields:
                     update_fields.append('note_html')
 
@@ -1068,6 +1095,33 @@ class _Card(Hashable, FrontEditable):
         Return a list of all issues related to this card (ie only one!)
         """
         return core_models.Issue.objects.filter(cards=self)
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'project_number': self.column.project.number,
+            'card_pk': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.board.views import CardNoteView
+        return self.get_view_url(CardNoteView.url_name)
+
+    def get_edit_url(self):
+        from gim.front.repository.board.views import CardNoteEditView
+        return self.get_view_url(CardNoteEditView.url_name)
+
+    def get_delete_url(self):
+        from gim.front.repository.board.views import CardNoteDeleteView
+        return self.get_view_url(CardNoteDeleteView.url_name)
+
 
 contribute_to_model(_Card, core_models.Card, {'save', 'defaults_create_values'}, {'save'})
 
@@ -1198,6 +1252,7 @@ PUBLISHABLE = {
             'project_number': self.column.project.number,
             'column_id': self.column_id,
             'position': self.position,
+            'url': self.get_absolute_url(),
             'issue': {  # used by the front if the issue needs to be fetched when the card changed, for example a change of column
                         # model and front_uuid will be set by the front
                 'id': self.issue.id,

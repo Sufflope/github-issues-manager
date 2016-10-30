@@ -1,5 +1,31 @@
-{% extends "front/repository/board/include_filters_and_list.html" %}
+{% extends "front/repository/board/include_filters_and_list.html" %}{% load macros %}
+
+{% block issues-additional-data %}{{ block.super }} data-can-display-notes="{{ can_display_notes|yesno:"true,false" }}" data-create-note-url="{{ current_column.object.get_create_note_url }}"{% endblock issues-additional-data %}
 
 {% block issue_item %}{% if issue.is_note %}{% include "front/repository/board/projects/include_note.html" with note=issue %}{% else %}{{ block.super }}{% endif %}{% endblock %}
 
+{% macro note_add_btn %}
+    <li class="note-add-btn" title="Add a note in this column">
+        <span class="fa-stack fa-lg">
+          <i class="fa fa-file-o fa-stack-1x"></i>
+          <i class="fa fa-plus fa-stack-1x"></i>
+        </span>
+    </li>
+{% endmacro %}
+
 {% block no_group_by_name %}{{ block.super }}{% if can_display_notes %} and notes{% endif %}{% endblock %}
+{% block no-issues %}
+    {% if can_display_notes %}
+        No issues or notes to display.
+        {% usemacro note_add_btn %}
+    {% else %}
+        No issues to display.
+    {% endif %}
+{% endblock %}
+
+{% block issues-group-toolbar %}
+    {% if can_display_notes %}
+        {% usemacro note_add_btn %}
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
