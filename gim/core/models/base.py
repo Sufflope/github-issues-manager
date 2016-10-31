@@ -296,6 +296,12 @@ class GithubObject(models.Model):
                 last_page_ok -= 1
                 return None, etag, last_page_ok
 
+            if len(objs) and page_objs[0] == objs[0]:
+                # we fetched a second page but we may have the same data if github
+                # doesn't support pagination for this endpoint
+                last_page_ok -= 1
+                return None, etag, last_page_ok
+
             objs += page_objs
 
             # if we reached the min_date, stop
