@@ -103,7 +103,12 @@ class Hashable(object):
 
 
 class _GithubUser(Hashable, models.Model):
-    AVATAR_START = re.compile('^https?://\d+\.')
+    AVATAR_STARTS = [
+        # 0.gravatar.com => gravatar.com
+        (re.compile('^(https?://)\d+\.'), r'\1'),
+        # avatars0.githubusercontent.com => avatars.githubusercontent.com
+        (re.compile('^(https?://[^\.]+)\d+\.'), r'\1.'),
+    ]
 
     class Meta:
         abstract = True
@@ -126,12 +131,19 @@ class _GithubUser(Hashable, models.Model):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        # we remove the subdomain of the gravatar url that may change between
-        # requests to the github api for the same user with the save avatar
-        # (https://0.gravatar...,  https://1.gravatar...)
+
         avatar_url = ''
+
         if self.avatar_url:
-            avatar_url = self.AVATAR_START.sub('', self.avatar_url, count=1)
+            avatar_url = self.avatar_url
+
+            # if we have a number at the end of the subdomain, we remove it because it may
+            # change between requests to the github api for the same user with the save avatar
+            for regex, repl in self.AVATAR_STARTS:
+                if regex.match(avatar_url):
+                    avatar_url = regex.sub(repl, avatar_url, count=1)
+                    break
+
         return hash((self.username, avatar_url, ))
 
     def get_related_issues(self):
