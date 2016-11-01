@@ -1582,7 +1582,8 @@ class MentionManager(models.Manager):
 
 class ProjectManager(WithRepositoryManager):
     repository_url_field = 'owner_url'
-    project_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/(?P<number>\w+)(?:/|$)')
+    project_finder_by_number = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/(?P<number>\d+)(?:/|$)')
+    project_finder_by_id = re.compile('^https?://api\.github\.com/projects/(?P<github_id>\d+)(?:/|$)')
 
     def get_number_from_url(self, url):
         """
@@ -1590,10 +1591,21 @@ class ProjectManager(WithRepositoryManager):
         """
         if not url:
             return None
-        match = self.project_finder.match(url)
+        match = self.project_finder_by_number.match(url)
         if not match:
             return None
         return match.groupdict().get('number', None)
+
+    def get_github_id_from_url(self, url):
+        """
+        Taking an url, try to return the github_id of a project, or None.
+        """
+        if not url:
+            return None
+        match = self.project_finder_by_id.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('github_id', None)
 
     def get_by_repository_and_number(self, repository, number):
         """
@@ -1607,12 +1619,28 @@ class ProjectManager(WithRepositoryManager):
         except self.model.DoesNotExist:
             return None
 
+    def get_by_github_id(self, github_id):
+        """
+        Taking a project github_id, try to return the
+        matching project. or None if no one is found.
+        """
+        if not github_id:
+            return None
+        try:
+            return self.get(github_id=github_id)
+        except self.model.DoesNotExist:
+            return None
+
     def get_by_url(self, url, repository=None):
         """
-        Taking an url, try to return the matching project by finding the repository
-        by its path, and a project number, and then fetching the project from the db.
-        Return None if no Issue if found.
+        Taking an url, try to return the matching project by finding its github id, or
+        its repository by its path and a project number, then fetching the project from the db.
+        Return None if no Project if found.
         """
+        github_id = self.get_github_id_from_url(url)
+        if github_id:
+            return self.get_by_github_id(github_id)
+
         if not repository:
             from .models import Repository
             repository = Repository.objects.get_by_url(url)
@@ -1624,7 +1652,7 @@ class ProjectManager(WithRepositoryManager):
 
 class ColumnManager(GithubObjectManager):
 
-    column_finder = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/columns/(?P<id>\w+)(?:/|$)')
+    column_finder = re.compile('^https?://api\.github\.com/projects/columns/(?P<id>\d+)(?:/|$)')
 
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
         """

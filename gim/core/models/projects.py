@@ -56,9 +56,7 @@ class Project(WithRepositoryMixin, GithubObjectWithId):
 
     @property
     def github_callable_identifiers(self):
-        return self.repository.github_callable_identifiers_for_projects + [
-            self.number,
-        ]
+        return ['projects', self.github_id]
 
     @property
     def github_callable_identifiers_for_columns(self):
@@ -118,10 +116,7 @@ class Column(GithubObjectWithId):
 
     @property
     def github_callable_identifiers(self):
-        return self.project.repository.github_callable_identifiers_for_projects + [
-            'columns',
-            self.github_id,
-        ]
+        return ['projects', 'columns', self.github_id]
 
     @property
     def github_callable_identifiers_for_cards(self):
@@ -141,6 +136,7 @@ class Column(GithubObjectWithId):
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Column, self).fetch_all(gh, force_fetch=force_fetch)
         self.fetch_cards(gh, force_fetch=force_fetch)
+
 
 CARDTYPE = Choices(
     ('NOTE', 1, u'Note'),
@@ -183,11 +179,7 @@ class Card(GithubObjectWithId):
 
     @property
     def github_callable_identifiers(self):
-        return self.column.project.repository.github_callable_identifiers_for_projects + [
-            'columns',
-            'cards',
-            self.github_id,
-        ]
+        return ['projects', 'columns', 'cards', self.github_id]
 
     @property
     def github_callable_create_identifiers(self):
