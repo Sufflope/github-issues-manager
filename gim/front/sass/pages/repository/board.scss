@@ -72,6 +72,7 @@ body#repository_board #main-inner {
     padding: 0;
 }
 .board-column {
+    background: #f0f0f0;
     position: relative;
     min-width: 300px;
     width: 500px;
@@ -116,15 +117,13 @@ body#repository_board #main-inner {
                     font-style: normal;
                 }
             }
-            &:not(.small-title) {
-                .issues-list-container  > .issues-list-title {
-                    // rotated
-                    left: initial;
-                    right: 25px;
-                    text-align: right;
-                    transform: rotate(270deg);
-                    transform-origin: right top;
-                }
+            .issues-list-container  > .issues-list-title {
+                // rotated
+                left: initial;
+                right: 25px;
+                text-align: right;
+                transform: rotate(270deg);
+                transform-origin: right top;
             }
         }
     }

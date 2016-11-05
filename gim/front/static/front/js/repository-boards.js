@@ -60,82 +60,63 @@ $().ready(function() {
         }, // Board.selector
 
         arranger: {
-            $input: $('#board-columns-arranger'),
-            $trigger: $('#board-columns-arranger-trigger'),
-            $holder: $('#board-columns-arranger-holder'),
-            init_done: false,
-            data: [],
-            default_data: [],
-            on_change: function(ev) {
-                var keys = ev.val,
-                    indexes = {};
-                for (var i = 0; i < keys.length; i++) {
-                    var key = keys[i];
-                    indexes[key] = i + 1; // start at 1 to avoid 0, by default
-                }
-                Board.lists.rearrange(indexes);
-            }, // on_change
+            hide_column: function($column) {
+                $column.addClass('hidden');
+                Board.arranger.on_columns_rearranged();
+            }, // hide_column
 
-            on_button_action_click: function () {
-                switch(this.value) {
-                    case "reset":
-                        Board.arranger.$input.select2('data', Board.arranger.default_data, true);
-                        break;
-                    case "clear":
-                        Board.arranger.$input.select2('data', [], true);
-                        break;
-                    case "close":
-                        Board.arranger.$trigger.dropdown('toggle');
-                        break;
-                }
-                return false;
+            restore_hidden: function() {
+                $('.board-column.hidden').removeClass('hidden');
+                Board.arranger.on_columns_rearranged();
+            }, // restore_hidden
+
+            on_columns_rearranged: function() {
+                window.PanelsSwpr.update_panels_order();
+                Board.lists.load_visible();
+                Board.dragger.on_columns_rearranged();
+                Board.arranger.update_sortable();
+            }, // on_columns_rearranged
+
+            on_sortable_create: function(ev, ui) {` `
+                var obj = $(this).data('ui-sortable');
+                obj._mouseDrag = Board.dragger._sortable_override_mouse_drag;
+                obj._isFloating = Board.arranger._sortable_override_isFloating;
+            }, // on_sortable_create
+
+            _sortable_override_isFloating: function( item ) {
+                return ( /left|right/ ).test( item.css( "float" ) ) ||
+                    ( /inline|table-cell/ ).test( item.css( "display" ) ) ||
+                    ( /flex/ ).test( this.element.css( "display" ) );  // line added
             },
 
-            init_select2: function() {
-                if (Board.arranger.init_done) { return; }
-                Board.arranger.data = Board.$columns.map(function() {
-                    var $column = $(this),
-                        $list = $column.children('.issues-list-container'),
-                        key = $list.data('key'),
-                        data = {
-                            id: key,
-                            text: $list.children('.issues-list-title').text().trim()
-                        };
-                    if (!$column.hasClass('hidden')) {
-                        Board.arranger.default_data.push(data);
-                    }
-                    this.board_key = key;
-                    return data;
-                }).toArray();
+            prepare_sortable: function() {
+                Board.$container.sortable({
+                    scroll: true,
+                    scrollSensitivity: 50,
+                    scrollSpeed: 50,
+                    containment: Board.container_selector,
+                    cursor: 'move',
+                    tolerance: 'pointer',
+                    create: Board.arranger.on_sortable_create,
+                    items: '> .board-column:not(:first-child)',
+                    stop: Board.arranger.on_drag_stop,
+                }).disableSelection();
+            }, // prepare_sortable
 
-                Board.arranger.$input.select2({
-                    data: Board.arranger.data,
-                    multiple: true,
-                    formatNoMatches: function(term) { return term ? 'No matching column' : 'No more columns to display'; },
-                    change: Board.arranger.on_change
-                }).on("change", Board.arranger.on_change)
-                .select2("container").find("ul.select2-choices").sortable({
-                    containment: 'parent',
-                    start: function() {Board.arranger.$input.select2("onSortStart"); },
-                    update: function() {Board.arranger.$input.select2("onSortEnd"); }
-                });
+            on_drag_stop: function(ev, ui) {
+                IssuesList.reorder();
+                Board.arranger.on_columns_rearranged();
+            }, // on_drag_stop
 
-                Board.arranger.$holder.find('button').on('click', Ev.stop_event_decorate(Board.arranger.on_button_action_click));
-            }, // init_select2,
-
-            remove_column: function(key) {
-                Board.arranger.init_select2();
-                var data = Board.arranger.$input.select2('data');
-                Board.arranger.$input.select2(
-                    'data',
-                    $.grep(data, function(entry) { if (entry.id != key) { return entry }}),
-                    true
-                );
-            }, // remove_column
+            update_sortable: function() {
+                Board.$container.sortable('refresh');
+            }, // update_sortable
 
             init: function() {
-                if (!Board.arranger.$input.length) { return; }
-                Board.arranger.$trigger.one('focus', Board.arranger.init_select2);
+                $('#issues-list-options-board-main a.refresh-list').parent().after('<li><a href="#" class="restore-closed-lists">Restore closed columns</a></li>');
+                if (!Board.$columns.length) { return; }
+                Board.filters.$options_node.on('click', '.restore-closed-lists', Ev.stop_event_decorate_dropdown(Board.arranger.restore_hidden));
+                Board.arranger.prepare_sortable();
             } // init
 
         }, // Board.arranger
@@ -188,43 +169,21 @@ $().ready(function() {
 
             }, // load_visible
 
-            rearrange: function(indexes) {
-                for (var i = 0; i < Board.$columns.length; i++) {
-                    var column = Board.$columns[i],
-                        $column = $(column);
-                    if (typeof indexes[column.board_key] != 'undefined') {
-                        $column.css('order', indexes[column.board_key]);
-                        $column.removeClass('hidden');
-                    } else {
-                        $column.css('order', -1);
-                        $column.addClass('hidden');
-                    }
-                }
-                window.PanelsSwpr.update_panels_order();
-                Board.lists.load_visible();
-                Board.dragger.on_columns_rearranged();
-            }, // rearrange
-
             on_closer_click: function () {
-                var $this = $(this);
-                Board.arranger.remove_column($this.parent().prev(Board.lists.lists_selector).data('key'));
-                $this.parents('.board-column').removeClass('mini small-title');
+                var $this = $(this),
+                    $column = $this.parents('.board-column');
+                Board.arranger.hide_column($column);
+                $column.removeClass('mini');
                 return false;
             }, // on_closer_click
 
             on_minifier_click: function () {
-                var $column = $(this).parents('.board-column'),
-                    title = $column.find('.issues-list-title').first().text().trim(),
-                    classes = 'mini';
-
-                if (title.length <= 2) { classes += ' small-title'; }
-
-                $column.addClass(classes);
+                $(this).parents('.board-column').addClass('mini');
                 return false;
             },
 
             on_unminifier_click: function () {
-                $(this).parents('.board-column').removeClass('mini small-title');
+                $(this).parents('.board-column').removeClass('mini');
                 return false;
             },
 
@@ -1221,7 +1180,7 @@ $().ready(function() {
     }; // Board
 
     IssuesList.prototype.close = function close () {
-        Board.arranger.remove_column(this.$container_node.data('key'));
+        Board.arranger.hide_column(this.$container_node.closest('.board-column'));
         return false;
     };
 

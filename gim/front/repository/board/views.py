@@ -52,11 +52,17 @@ DEFAULT_BOARDS = OrderedDict((
         'name': u'assignees',
         'description': u'one column per assignee',
     }),
-    ('auto-milestone', {
+    ('auto-open-milestones', {
         'mode': 'auto',
-        'key': 'milestone',
-        'name': u'milestone',
-        'description': u'one column per milestone (only open ones displayed by default)',
+        'key': 'open-milestones',
+        'name': u'open milestones',
+        'description': u'one column per open milestone',
+    }),
+    ('auto-all-milestones', {
+        'mode': 'auto',
+        'key': 'all-milestones',
+        'name': u'all milestones',
+        'description': u'one column per milestone',
     }),
 ))
 
@@ -100,27 +106,29 @@ class BoardMixin(object):
             del boards['auto-assigned']
 
         # Fill milestone columns
-        boards['auto-milestone']['columns'] = OrderedDict([
-            ('__none__', {
-                'key': '__none__',
-                'name': u'(No milestone)',
-                'description': u'',
-                'qs': ('milestone', '__none__'),
-            })
-        ] + [
-            (str(milestone.number), {
-                'key': str(milestone.number),
-                'name': '#%d - %s (%s)' % (milestone.number, milestone.title, milestone.state),
-                'description': milestone.description,
-                'qs': ('milestone', str(milestone.number)),
-                'object': milestone,
-                'hidden': milestone.state == 'closed',
-            })
-            for milestone in reversed(list(self.milestones))
-        ])
-        # No board on milestones if no milestones
-        if len(boards['auto-milestone']['columns']) < 2:
-            del boards['auto-milestone']
+        for milestone_filter in ('open', 'all'):
+            column_name = 'auto-%s-milestones' % milestone_filter
+            boards[column_name]['columns'] = OrderedDict([
+                ('__none__', {
+                    'key': '__none__',
+                    'name': u'(No milestone)',
+                    'description': u'',
+                    'qs': ('milestone', '__none__'),
+                })
+            ] + [
+                (str(milestone.number), {
+                    'key': str(milestone.number),
+                    'name': '#%d - %s (%s)' % (milestone.number, milestone.title, milestone.state),
+                    'description': milestone.description,
+                    'qs': ('milestone', str(milestone.number)),
+                    'object': milestone,
+                })
+                for milestone in reversed(list(self.milestones))
+                if milestone_filter == 'all' or milestone.is_open
+            ])
+            # No board on milestones if no milestones
+            if len(boards[column_name]['columns']) < 2:
+                del boards[column_name]
 
         # Add projects
         if self.repository.has_projects():
@@ -370,7 +378,7 @@ class BoardMoveIssueMixin(WithAjaxRestrictionViewMixin, WithIssueViewMixin, Base
                 view = IssueEditAssignees
                 url = self.issue.edit_field_url('assignees')
 
-            elif board['key'] == 'milestone':
+            elif 'milestone' in board['key']:
                 view = IssueEditMilestone
                 url = self.issue.edit_field_url('milestone')
 

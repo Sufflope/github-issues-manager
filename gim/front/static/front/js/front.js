@@ -1783,6 +1783,14 @@ $().ready(function() {
         return null;
     }); // IssuesList_get_index_for_node
 
+    IssuesList.reorder = (function IssuesList_reorder () {
+        var $nodes = $(IssuesList.selector), lists = [];
+        for (var i = 0; i < $nodes.length; i++) {
+            lists.push(IssuesList.get_for_node($($nodes[i])));
+        }
+        IssuesList.all = lists;
+    }); // IssuesList_reorder
+
     IssuesList.prototype.set_node = (function IssuesList__set_node ($node) {
         this.node = $node[0];
         this.node.IssuesList = this;
@@ -4116,7 +4124,6 @@ $().ready(function() {
                     PanelsSwapper.select_panel(PanelsSwapper.panels[idx]);
                     break;
                 }
-                idx += 1;
             }
             return false;
         }), // go_next_panel
@@ -4146,11 +4153,12 @@ $().ready(function() {
                 var issues_list = IssuesList.all[i],
                     $parent = issues_list.$node.parent(),
                     $column = $parent.parent('.board-column'),
+                    is_hidden = $column.length ? $column.hasClass('hidden') : false,
                     flex_order = $column.length ? $column.css('order') : 0,
                     data = {$node: $parent, obj: issues_list, handlable: true};
                 flex_order = isNaN(flex_order) ? 0 : parseInt(flex_order, 10); // 0 for not flex-ordered lists
                 if (flex_order <= 0) {
-                    if (flex_order == -1) { // it has a flex order but we chose to hide it
+                    if (is_hidden || flex_order == -1) { // it has a flex order but we chose to hide it
                         data.handlable = false;
                     }
                     panels.push(data);
