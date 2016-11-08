@@ -13,8 +13,8 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES
 
-from gim.core.models.projects import Card, Project
-from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob
+from gim.core.models.projects import Card, Column, Project
+from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob, ColumnEditJob
 
 from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin, WithIssueViewMixin, WithSubscribedRepositoryViewMixin, DependsOnRepositoryViewMixin, WithRepositoryViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
@@ -23,7 +23,7 @@ from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
     IssueEditMilestone, IssueEditState, IssueEditProjects, IssuesFilters
 
-from .forms import CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm
+from .forms import CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm, ColumnCreateForm, ColumnEditForm, ColumnDeleteForm
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -703,6 +703,7 @@ class BoardColumnView(WithAjaxRestrictionViewMixin, BoardColumnMixin, IssuesView
                 'can_show_shortcuts': False,
                 'can_add_issues': False,
                 'can_handle_positions': False,
+                'include_board_column_icons': self.request.GET.get('with-icons', False),
             })
 
         return context
@@ -810,6 +811,12 @@ class BoardProjectColumnView(BoardColumnView):
 
         return issues, total_count, limit_reached, original_queryset
 
+    def get_template_names(self):
+        if self.current_column['object'].github_status in Column.GITHUB_STATUS_CHOICES.NOT_READY:
+            return 'front/repository/board/projects/include_not_loaded_column.html'
+
+        return super(BoardProjectColumnView, self).get_template_names()
+
 
 class WithProjectViewMixin(WithRepositoryViewMixin):
     """
@@ -906,7 +913,7 @@ class CardNoteView(WithAjaxRestrictionViewMixin, DependsOnProjectViewMixin, Deta
     context_object_name = 'note'
     pk_url_kwarg = 'card_pk'
     http_method_names = ['get']
-    ajax_only = False  # TODO: CHANGE TO TRUE
+    ajax_only = True
     url_name = 'project.note'
     model = Card
     template_name = 'front/repository/board/projects/include_note.html'
@@ -949,7 +956,7 @@ class CardNoteEditMixin(LinkedToUserFormViewMixin, LinkedToProjectFormViewMixin)
     job_model = CardNoteEditJob
     project_related_name = 'column__project'
     repository_related_name = 'column__project__repository'
-    ajax_only = False  # TODO: CHANGE TO TRUE
+    ajax_only = True  # TODO: CHANGE TO TRUE
     http_method_names = ['get', 'post']
     edit_mode = None
 
@@ -1086,3 +1093,144 @@ class CardNoteDeleteView(BaseCardNoteEditView):
     template_name = 'front/repository/board/projects/include_note_delete.html'
     url_name = 'project.note.delete'
     form_class = CardNoteDeleteForm
+
+
+class ColumnEditMixin(LinkedToProjectFormViewMixin):
+    model = Column
+    job_model = ColumnEditJob
+    project_related_name = 'project'
+    repository_related_name = 'project__repository'
+    ajax_only = True
+    http_method_names = ['get', 'post']
+    edit_mode = None
+
+    def form_valid(self, form):
+        """
+        Override the default behavior to add a job to edit the column on the
+        github side
+        """
+        response = super(ColumnEditMixin, self).form_valid(form)
+
+        job_kwargs = {}
+        if self.object.front_uuid:
+            job_kwargs = {'extra_args': {
+                'front_uuid': self.object.front_uuid,
+                'skip_reset_front_uuid': 1,
+            }}
+
+        self.job_model.add_job(self.object.pk,
+                               mode=self.edit_mode,
+                               gh=self.request.user.get_connection(),
+                               **job_kwargs)
+
+        return response
+
+
+class ColumnInfoView(LinkedToProjectFormViewMixin, DetailView):
+    model = Column
+    ajax_only = True
+    repository_related_name = 'project__repository'
+    http_method_names = ['get']
+    template_name = 'front/repository/board/projects/minimal_column_info.html'
+    context_object_name = 'column'
+    pk_url_kwarg = 'column_id'
+    url_name = 'project.column.info'
+
+
+class ColumnCreateView(ColumnEditMixin, CreateView):
+    edit_mode = 'create'
+    verb = 'created'
+    template_name = 'front/repository/board/projects/include_column_create.html'
+    url_name = 'project.column.create'
+    form_class = ColumnCreateForm
+    context_object_name = 'column'
+
+    def get_context_data(self, **kwargs):
+        context = super(ColumnCreateView, self).get_context_data(**kwargs)
+        context['current_project'] = self.project
+        return context
+
+
+class BaseColumnEditView(ColumnEditMixin, UpdateView):
+    context_object_name = 'column'
+    pk_url_kwarg = 'column_id'
+
+    def get_object(self, queryset=None):
+        """
+        Early check that the user has enough rights to edit this column
+        """
+        obj = super(BaseColumnEditView, self).get_object(queryset)
+        if self.subscription.state not in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+            raise Http404
+        return obj
+
+    @classmethod
+    def get_current_job_for_column(cls, column):
+        try:
+            job = cls.job_model.collection(identifier=column.id, queued=1).instances()[0]
+        except IndexError:
+            return None
+        else:
+            return job
+
+    @classmethod
+    def get_job_for_column(cls, column):
+
+        current_job = cls.get_current_job_for_column(column)
+
+        if current_job:
+            for i in range(0, 3):
+                sleep(0.1)  # wait a little, it may be fast
+                current_job = cls.get_current_job_for_column(column)
+                if not current_job:
+                    break
+
+            if current_job:
+                who = current_job.gh_args.hget('username')
+                return current_job, who
+
+        return None, None
+
+    @classmethod
+    def get_not_editable_user_message(cls, column, edit_mode, who):
+        message = u"This column is currently being %sd (asked by <strong>%s</strong>)"  % (edit_mode or 'update', who)
+        if edit_mode != 'delete':
+            message += u", please wait a few seconds and retry"
+        return message
+
+    def render_not_editable(self, request, edit_mode, who):
+        if who == request.user.username:
+            who = 'yourself'
+        messages.error(request, self.get_not_editable_user_message(self.object, edit_mode, who))
+        # 409 Conflict Indicates that the request could not be processed because of
+        # conflict in the request, such as an edit conflict between multiple simultaneous updates.
+        return self.render_messages(status=409)
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        current_job, who = self.get_job_for_column(self.object)
+
+        if current_job:
+            return self.render_not_editable(request, current_job.mode.hget(), who)
+
+        return super(BaseColumnEditView, self).dispatch(request, *args, **kwargs)
+
+
+class ColumnEditView(BaseColumnEditView):
+    edit_mode = 'update'
+    verb = 'updated'
+    template_name = 'front/repository/board/projects/include_column_edit.html'
+    url_name = 'project.column.edit'
+    form_class = ColumnEditForm
+
+    def get_success_url(self):
+        return self.object.get_info_url()
+
+
+class ColumnDeleteView(BaseColumnEditView):
+    edit_mode = 'delete'
+    verb = 'deleted'
+    template_name = 'front/repository/board/projects/include_column_delete.html'
+    url_name = 'project.column.delete'
+    form_class = ColumnDeleteForm

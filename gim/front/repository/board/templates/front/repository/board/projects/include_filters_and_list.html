@@ -1,6 +1,8 @@
 {% extends "front/repository/board/include_filters_and_list.html" %}{% load macros %}
 
-{% block issues-additional-data %}{{ block.super }} data-can-display-notes="{{ can_display_notes|yesno:"true,false" }}" data-create-note-url="{{ current_column.object.get_create_note_url }}"{% endblock issues-additional-data %}
+{% block issues-additional-data %}{{ block.super }} data-is-project-column="{{ current_board.object.number }}:{{ current_column.object.id }}" data-can-display-notes="{{ can_display_notes|yesno:"true,false" }}" data-create-note-url="{{ current_column.object.get_create_note_url }}"{% if current_column.object and current_column.object.github_status not in GITHUB_STATUSES.NOT_READY %} data-edit-column-url="{{ current_column.object.get_edit_url }}" data-delete-column-url="{{ current_column.object.get_delete_url }}"{% endif %}{% endblock issues-additional-data %}
+
+{% block issues-list-classes %}{{ block.super }} project-column{% endblock %}
 
 {% block issue_item %}{% if issue.is_note %}{% include "front/repository/board/projects/include_note.html" with note=issue %}{% else %}{{ block.super }}{% endif %}{% endblock %}
 

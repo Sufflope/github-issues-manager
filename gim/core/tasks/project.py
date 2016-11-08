@@ -2,6 +2,7 @@ __all__ = [
     'FetchProjects',
     'MoveCardJob',
     'CardNoteEditJob',
+    'ColumnEditJob',
 ]
 
 from random import randint
@@ -60,7 +61,7 @@ class FetchProjects(RepositoryJob):
 
 class CardJob(DjangoModelJob):
     """
-    Abstract job model for jobs based on the Project model
+    Abstract job model for jobs based on the Card model
     """
     abstract = True
     model = Card
@@ -198,7 +199,7 @@ class CardNoteEditJob(CardJob):
 
     def run(self, queue):
         """
-        Get the comment and create/update/delete it
+        Get the card and create/update/delete it
         """
         super(CardNoteEditJob, self).run(queue)
 
@@ -253,6 +254,108 @@ class CardNoteEditJob(CardJob):
                 else:
                     try:
                         card.fetch(gh, force_fetch=True)
+                    except ApiError:
+                        pass
+                return None
+
+            else:
+                raise
+
+        # now we have to update the projects
+        project.repository.fetch_all_projects(gh)
+
+        return None
+
+    def success_message_addon(self, queue, result):
+        """
+        Display the action done (created/updated/deleted)
+        """
+        return ' [%sd]' % self.mode.hget()
+
+
+class ColumnJob(DjangoModelJob):
+    """
+    Abstract job model for jobs based on the Column model
+    """
+    abstract = True
+    model = Column
+
+    @property
+    def column(self):
+        if not hasattr(self, '_column'):
+            self._column = self.object
+        return self._column
+
+    @property
+    def project(self):
+        if not hasattr(self, '_project'):
+            self._project = self.column.project
+        return self._project
+
+
+class ColumnEditJob(ColumnJob):
+    queue_name = 'edit-project-column'
+
+    mode = fields.InstanceHashField(indexable=True)
+    created_pk = fields.InstanceHashField(indexable=True)
+
+    def run(self, queue):
+        """
+        Get the column and create/update/delete it
+        """
+        super(ColumnEditJob, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        mode = self.mode.hget()
+
+        try:
+            column = self.object
+        except self.model.DoesNotExist:
+            return None
+
+        if mode == 'create':
+            column.is_new = True
+
+        project = self.project
+
+        try:
+            if mode == 'delete':
+                column.dist_delete(gh)
+            else:
+                data = {
+                    'name': column.name
+                }
+                column = column.dist_edit(gh, mode=mode, fields=data.keys(), values=data)
+                if mode == 'create':
+                    self.created_pk.hset(column.pk)
+                else:
+                    # force publish
+                    from gim.front.models import publish_update
+                    publish_update(column, 'updated', {})
+
+        except ApiError, e:
+            message = None
+
+            if e.code == 422:
+                message = u'Github refused to %s the column on the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                    mode, project.name, project.repository.full_name)
+
+            elif e.code in (401, 403):
+                tries = self.tries.hget()
+                if tries and int(tries) >= 5:
+                    message = u'You seem to not have the right to %s a column on the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                        mode, project.name, project.repository.full_name)
+
+            if message:
+                messages.error(self.gh_user, message)
+                if mode == 'create':
+                    column.delete()
+                else:
+                    try:
+                        column.fetch(gh, force_fetch=True)
                     except ApiError:
                         pass
                 return None

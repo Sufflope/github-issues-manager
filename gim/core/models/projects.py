@@ -121,6 +121,10 @@ class Column(GithubObjectWithId):
         return ['projects', 'columns', self.github_id]
 
     @property
+    def github_callable_create_identifiers(self):
+        return self.project.github_callable_identifiers_for_columns
+
+    @property
     def github_callable_identifiers_for_cards(self):
         return self.github_callable_identifiers + [
             'cards',
@@ -138,6 +142,24 @@ class Column(GithubObjectWithId):
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         super(Column, self).fetch_all(gh, force_fetch=force_fetch)
         self.fetch_cards(gh, force_fetch=force_fetch)
+
+    def defaults_create_values(self, mode):
+        values = super(Column, self).defaults_create_values(mode)
+
+        if mode == 'create':
+            # put new columns at the end
+            values.setdefault('simple', {})['position'] = self.position or \
+                  self.project.columns.aggregate(models.Max('position'))['position__max'] + 1
+
+        return values
+
+    @property
+    def repository_id(self):
+        return self.project.repository_id
+
+    @property
+    def repository(self):
+        return self.project.repository
 
 
 CARDTYPE = Choices(
@@ -211,6 +233,7 @@ class Card(GithubObjectWithId):
         values = super(Card, self).defaults_create_values(mode)
 
         if self.is_note and mode == 'create':
-            values.setdefault('simple', {})['position'] = 1
+            # put new cards at the top
+            values.setdefault('simple', {})['position'] = self.position or 1
 
         return values

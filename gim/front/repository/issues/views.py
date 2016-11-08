@@ -1651,7 +1651,7 @@ class IssueEditProjects(IssueEditFieldMixin):
 class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):
     url_name = 'issue.create'
     template_name = 'front/repository/issues/create.html'
-    ajax_only = False
+    ajax_only = True
 
     def get_form_class(self):
         """

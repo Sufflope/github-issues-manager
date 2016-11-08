@@ -11,6 +11,8 @@ $().ready(function() {
         container: null,
         $columns: $('.board-column'),
         base_url: null,
+        mode: null,
+        editable: false,
 
         selector: {
             $select: $('#board-selector'),
@@ -60,6 +62,8 @@ $().ready(function() {
         }, // Board.selector
 
         arranger: {
+            updating_ids: {},
+
             hide_column: function($column) {
                 $column.addClass('hidden');
                 Board.arranger.on_columns_rearranged();
@@ -71,9 +75,10 @@ $().ready(function() {
             }, // restore_hidden
 
             on_columns_rearranged: function() {
-                window.PanelsSwpr.update_panels_order();
+                PanelsSwapper.update_panels_order();
                 Board.lists.load_visible();
                 Board.dragger.on_columns_rearranged();
+                Board.$columns = $('.board-column');
                 Board.arranger.update_sortable();
             }, // on_columns_rearranged
 
@@ -98,13 +103,12 @@ $().ready(function() {
                     cursor: 'move',
                     tolerance: 'pointer',
                     create: Board.arranger.on_sortable_create,
-                    items: '> .board-column:not(:first-child)',
+                    items: '> .board-column.loaded[data-key]:not([data-key=__none__]):not(.edit-mode)',
                     stop: Board.arranger.on_drag_stop,
                 }).disableSelection();
             }, // prepare_sortable
 
             on_drag_stop: function(ev, ui) {
-                IssuesList.reorder();
                 Board.arranger.on_columns_rearranged();
             }, // on_drag_stop
 
@@ -112,11 +116,389 @@ $().ready(function() {
                 Board.$container.sortable('refresh');
             }, // update_sortable
 
+            exit_edit_mode: function($column) {
+                $column.children('.column-form, .loading-mask').remove();
+                $column.removeClass('edit-mode');
+                Board.arranger.update_sortable();
+            }, // exit_edit_mode
+
+            on_submit: function(ev, on_submit_done, action_name) {
+                var $form = $(this),
+                    context = FormTools.handle_form($form, ev);
+
+                context.action_name = action_name;
+
+                if (context === false) { return false; }
+
+                var $input = $form.find('input[name=name]');
+
+                if ($input.length && !$input.val().trim()) {
+                    $input.after('<div class="alert alert-error">You must enter a name</div>');
+                    $form.find('button').removeClass('loading');
+                    FormTools.enable_form($form);
+                    $input.focus();
+                    return false;
+                }
+
+                $form.closest('.board-column')[0].setAttribute('data-front-uuid', context.uuid);
+
+                FormTools.post_form_with_uuid($form, context,
+                    on_submit_done,
+                    Board.arranger.on_submit_failed
+                );
+
+            }, // on_submit
+
+            on_submit_failed: function (xhr, data) {
+                if (xhr.status == 409) {
+                    // 409 Conflict Indicates that the request could not be processed because of
+                    // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                    this.$form.find('button.submit').remove();
+                    FormTools.enable_form(this.$form);
+                    var $input = this.$form.find('input[name=name]');
+                    var msg = 'The column cannot be ' + this.action_name + 'd for now.';
+                    if (action_name != 'delete') {
+                        msg += ' Copy the name if you need, then cancel and'
+                    } else {
+                        msg += ' You may'
+                    }
+                    msg += ' retry in a few seconds.'
+                    $input.after('<div class="alert alert-error">' + msg + '</div>');
+                    return
+                }
+                FormTools.enable_form(this.$form);
+                this.$form.find('.alert').remove();
+                var $input = this.$form.find('input[name=name]');
+                $input.after('<div class="alert alert-error">We were unable to ' + this.action_name + ' this column</div>');
+                this.$form.find('button').removeClass('loading');
+                $input.focus();
+            }, // on_submit_failed
+
+            on_edit_click: function() {
+                var $column = $(this).closest('.board-column'),
+                    url = $column.find('.issues-list').data('edit-column-url');
+                    $mask = IssuesFilters.add_waiting($column),
+                    context = {$column: $column, $mask: $mask};
+
+                $column.addClass('edit-mode');
+                Board.arranger.update_sortable();
+
+                $.get(url)
+                    .done($.proxy(Board.arranger.on_edit_or_delete_loaded, context))
+                    .fail($.proxy(Board.arranger.on_edit_or_delete_load_failed, context))
+            }, // on_edit_click
+
+            on_edit_or_delete_loaded: function (data) {
+                if (!data.trim() || data == 'error') {  // error if 409 from on_edit_or_delete_load_failed
+                    Board.arranger.exit_edit_mode(this.$column);
+                    return false;
+                }
+                this.$column.prepend(data);
+                this.$mask.addClass('no-spinner');
+                if (!$(':input:focus').length) {
+                    var $input = this.$column.find('.column-form input[type=text]');
+                    if ($input.attr('readonly')) {
+                        this.$column.find('.column-form button').first().focus();
+                    } else {
+                        $input.focus();
+                        $input.select();
+                    }
+                }
+            }, // on_edit_or_delete_load_failed
+
+            on_edit_or_delete_load_failed: function (xhr, data) {
+                if (xhr.status == 409) {
+                    // 409 Conflict Indicates that the request could not be processed because of
+                    // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                    return $.proxy(Board.arranger.on_edit_or_delete_loaded, this)(data);
+                }
+                Board.arranger.exit_edit_mode(this.$column);
+                alert('Unable to retrieve the form to edit this column');
+            }, // on_edit_or_delete_load_failed
+
+            on_edit_or_delete_cancel_click: function() {
+                Board.arranger.exit_edit_mode($(this).closest('.board-column'));
+            }, // on_edit_or_delete_cancel_click
+
+            on_edit_submit: function(ev) {
+                return Board.arranger.on_submit.bind(this)(ev, Board.arranger.on_edit_submit_done, 'update');
+            }, // on_add_submit
+
+            on_edit_submit_done: function (data) {
+                var $data = $(data),
+                    name = $data.data('name'),
+                    $column = $('.board-column[data-front-uuid=' + this.uuid + ']');
+                if ($column.length) {
+                    $column.find('.issues-list-title')[0].textContent = name;
+                    Board.arranger.exit_edit_mode($column);
+                }
+            }, // on_submit_done
+
+            on_delete_click: function() {
+                var $column = $(this).closest('.board-column'),
+                    url = $column.find('.issues-list').data('delete-column-url'),
+                    $mask = $column.children('.loading-mask');
+
+                $mask.removeClass('no-spinner');
+                $column.children('.column-form').remove();
+                $.get(url)
+                    .done($.proxy(Board.arranger.on_edit_or_delete_loaded, context))
+                    .fail($.proxy(Board.arranger.on_edit_or_delete_load_failed, context))
+            },
+
+            on_delete_submit: function(ev) {
+                return Board.arranger.on_submit.bind(this)(ev, Board.arranger.on_delete_submit_done, 'delete');
+            }, // on_delete_submit
+
+            on_delete_submit_done: function (data) {
+                var $column = this.$form.closest('.board-column'),
+                    $data = $(data),
+                    key = $data.filter('.issues-list-container').data('key'),
+                    list;
+
+                try {
+                    list = $column.find('.issues-list')[0].IssuesList;
+
+                    if (list) {
+                        IssuesList.remove_list(list);
+                        delete list;
+                    }
+                } catch (e) {};
+
+                $column.empty().removeClass('create-mode').append($data);
+                Board.arranger.on_columns_rearranged();
+            }, // on_delete_submit_done
+
+            on_add_click: function() {
+                var $empty_column = $('<div class="board-column create-mode"></div>'),
+                    url = Board.$container.data('create-column-url');
+                Board.$container.append($empty_column);
+                var $mask = IssuesFilters.add_waiting($empty_column);
+
+                $.get(url)
+                    .done(function(data) {
+                        $empty_column.prepend(data);
+                        $mask.addClass('no-spinner');
+                        if (!$(':input:focus').length) {
+                            $empty_column.find('.column-form input[type=text]').focus();
+                        }
+                    })
+                    .fail(function() {
+                        alert('Unable to retrieve the form to create a new column');
+                        $empty_column.remove();
+                    });
+
+                return false;
+            }, // on_add_click
+
+            on_add_cancel_click: function() {
+                $(this).closest('.board-column').remove();
+            }, // on_add_cancel_click
+
+            on_add_submit: function(ev) {
+                return Board.arranger.on_submit.bind(this)(ev, Board.arranger.on_add_submit_done, 'create');
+            }, // on_add_submit
+
+            on_add_submit_done: function (data) {
+                var $node = this.$form.closest('.board-column'),
+                    $data = $(data),
+                    key = $data.filter('.issues-list-container').data('key');
+
+                $node.empty().removeClass('create-mode').append($data);
+                $node.data('key', key);
+                $node.attr('data-key', key);
+            }, // on_add_submit_done
+
+            subscribe_updates: function() {
+                if (Board.mode != 'project') { return; }
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.updated.is.Column',
+                    'Board__arranger__on_update_column_alert',
+                    Board.arranger.on_update_column_alert,
+                    'prefix'
+                );
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.deleted.is.Column',
+                    'Board__arranger__on_delete_column_alert',
+                    Board.arranger.on_delete_column_alert,
+                    'prefix'
+                );
+
+            }, // subscribe_updates
+
+            can_update_column_on_alert: function(method, topic, args, kwargs) {
+                if (typeof Board.arranger.updating_ids[kwargs.id] != 'undefined' || kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+                    setTimeout(function() {
+                        Board.arranger[method](topic, args, kwargs);
+                    }, 100);
+                    return false;
+                }
+                Board.arranger.updating_ids[kwargs.id] = true;
+                return true;
+            }, // can_update_column_on_alert
+
+            on_update_column_alert: function(topic, args, kwargs) {
+                if (!kwargs.model || kwargs.model != 'Column' || !kwargs.id || !kwargs.project_number) {
+                    return;
+                }
+
+                if (Board.mode != 'project' || kwargs.project_number != Board.$container.data('key')) {
+                    return;
+                }
+
+                if (!Board.arranger.can_update_column_on_alert('on_update_column_alert', topic, args, kwargs)) {
+                    return;
+                }
+
+                // find the column
+                var selector = '.board-column[data-key=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', .board-column[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $node = Board.$container.find(selector),
+                    done = false,
+                    $to_delete, list_to_refresh;
+                if ($node.length) {
+                    // we found a column
+
+                    if ($node.data('key') != kwargs.id || kwargs.is_new) {
+                        // not the same id, but it's the same front-uuid
+                        // it means it's a column freshly created and we'll update it
+                        $to_delete = $node;
+                        try {
+                            // do we already have an list here?
+                            list_to_refresh = $node.find('.issues-list-container')[0].IssuesList;
+                            if (list_to_refresh) {
+                                // yes, so we simply refresh it, and we're done
+                                list_to_refresh.refresh();
+                                $to_delete = null;
+                                done = true;
+                            }
+                        } catch (e) {}
+                    } else {
+                        // the column exist, we just change its name and we're done
+                        // we need to simulate capfirst as in the template
+                        $node.find('.issues-list-title')[0].firstChild.textContent = kwargs.name ? kwargs.name[0].toUpperCase() +  kwargs.name.substring(1) : '';
+                        done = true;
+                    }
+                }
+
+                if (!done) {
+                    // we have to get a new list
+
+                    $.get(kwargs.url + (UrlParser.parse(kwargs.url).search ? '&' : '?') + 'with-icons=1')
+                        .done(function(data) {
+                            var $data = $(data),
+                                $column = $('<div class="board-column"></div>'),
+                                list, key;
+
+                            if ($to_delete) {
+                                $to_delete.remove();
+                            }
+
+                            Board.$container.append($column);
+                            $column.append($data);
+                            list = new IssuesList($column.find('.issues-list'));
+                            key = list.$container_node.data('key');
+                            $column.attr('data-key', key);
+                            $column.data('key', key);
+                            IssuesList.add_list(list);
+                            Board.arranger.on_columns_rearranged();
+
+                        })
+                        .fail(function() {
+                            alert("An error occured while loading a new column. Please refresh the whole page.")
+                        })
+                        .always(function() {
+                            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                                UUID.set_state(kwargs.front_uuid, '');
+                            }
+                            delete Board.arranger.updating_ids[kwargs.id];
+                        });
+
+                } else {
+                    if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                        UUID.set_state(kwargs.front_uuid, '');
+                    }
+                    delete Board.arranger.updating_ids[kwargs.id];
+                }
+
+
+            }, // on_update_column_alert
+
+            on_delete_column_alert: function(topic, args, kwargs) {
+                if (!kwargs.model || kwargs.model != 'Column' || !kwargs.id || !kwargs.project_number) {
+                    return;
+                }
+
+                if (Board.mode != 'project' || kwargs.project_number != Board.$container.data('key')) {
+                    return;
+                }
+
+                if (!Board.arranger.can_update_column_on_alert('on_delete_column_alert', topic, args, kwargs)) {
+                    return;
+                }
+
+                // find the column
+                var selector = '.board-column[data-key=' + kwargs.id + ']';
+                if (kwargs.front_uuid) {
+                    selector += ', .board-column[data-front-uuid=' + kwargs.front_uuid + ']';
+                }
+                var $node = Board.$container.find(selector);
+
+                if ($node.length) {
+                    try {
+                        var list = $node.find('.issues-list')[0].IssuesList;
+                        if (list) {
+                            IssuesList.remove_list(list);
+                            delete list;
+                        }
+                    } catch (e) {}
+                    $node.remove();
+                    Board.arranger.on_columns_rearranged();
+                }
+
+                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                    UUID.set_state(kwargs.front_uuid, '');
+                }
+                delete Board.arranger.updating_ids[kwargs.id];
+
+            }, // on_delete_column_alert
+
             init: function() {
-                $('#issues-list-options-board-main a.refresh-list').parent().after('<li><a href="#" class="restore-closed-lists">Restore closed columns</a></li>');
+                if (!Board.container) { return; }
+
+                var $refresh_list_item = $('#issues-list-options-board-main a.refresh-list').parent();
+                if (Board.mode == 'project' && Board.editable) {
+                    $refresh_list_item.after(
+                        '<li><a href="#" class="add-column">Add a column</a></li>'
+                    );
+
+                    $document.on('click', '.board-column-edit', Board.arranger.on_edit_click);
+                    $document.on('click', '.column-edit-form button.btn-cancel, .column-delete-form button.btn-cancel', Board.arranger.on_edit_or_delete_cancel_click);
+                    $document.on('submit', '.column-edit-form', Board.arranger.on_edit_submit);
+
+                    $document.on('click', '.column-edit-form .btn-delete', Board.arranger.on_delete_click);
+                    $document.on('submit', '.column-delete-form', Board.arranger.on_delete_submit);
+
+                    Board.filters.$options_node.on('click', '.add-column', Ev.stop_event_decorate_dropdown(Board.arranger.on_add_click));
+                    $document.on('click', '.column-create-form button.btn-cancel', Board.arranger.on_add_cancel_click);
+                    $document.on('submit', '.column-create-form', Board.arranger.on_add_submit);
+
+                    $document.on('focus', '.column-form :input', function() {
+                        PanelsSwapper.select_panel_from_node($(this).closest('.board-column').find('.issues-list-container'));
+                    });
+                }
+
+                $refresh_list_item.after(
+                    '<li><a href="#" class="restore-closed-lists">Restore hidden columns</a></li>'
+                );
                 if (!Board.$columns.length) { return; }
                 Board.filters.$options_node.on('click', '.restore-closed-lists', Ev.stop_event_decorate_dropdown(Board.arranger.restore_hidden));
+
                 Board.arranger.prepare_sortable();
+
+                Board.arranger.subscribe_updates();
             } // init
 
         }, // Board.arranger
@@ -149,7 +531,7 @@ $().ready(function() {
                 }
 
                 Board.lists.loading = true;
-                var $columns = Board.$columns.not('.hidden, .loaded'),
+                var $columns = Board.$columns.not('.hidden, .loaded, .loading'),
                     container_left = Board.container.scrollLeft,
                     container_right = container_left + Board.container.offsetWidth;
                 for (var i = 0; i < $columns.length; i++) {
@@ -161,7 +543,7 @@ $().ready(function() {
                     $issues_list_node = $column.children(Board.lists.lists_selector);
                     $filters_node = $column.children(Board.lists.filters_selector);
                     url = $issues_list_node.children('.issues-list').data('url');
-                    $column.addClass('loaded');
+                    $column.addClass('loading');
 
                     IssuesFilters.reload_filters_and_list(url, $filters_node, $issues_list_node, true);
                 }
@@ -351,8 +733,37 @@ $().ready(function() {
                 if (!Board.dragger.activated) { return; }
                 var $list_container_node = $(this);
                 requestNextAnimationFrame(function() {
-                    var list = IssuesList.get_for_node($list_container_node);
-                    Board.dragger.prepare_list_if_empty(list);
+                    var list = IssuesList.get_for_node($list_container_node),
+                        $column = $list_container_node.closest('.board-column'),
+                        not_loaded = list.$node.hasClass('not-loaded'),
+                        front_uuid = list.$node.data('front-uuid'),
+                        key = list.$container_node.data('key'),
+                        edit_url = list.$node.data('edit-column-url'),
+                        $edit_btn = $column.find('.board-column-edit');
+
+                    $column.toggleClass('loaded', !not_loaded).toggleClass('not-loaded', not_loaded).removeClass('loading');
+
+                    if (front_uuid) {
+                        $column.attr('data-front-uuid', front_uuid);
+                    }
+
+                    $column.data('key', key);
+                    $column.attr('data-key', key);
+
+                    if (!not_loaded) {
+                        Board.dragger.prepare_list_if_empty(list);
+                        if (Board.mode == 'project' && key != '__none__') {
+                            if (edit_url && !$edit_btn.length) {
+                                $column.find('.board-column-icons').prepend(
+                                    '<a href="#" class="board-column-edit" title="Edit or delete this column"><i class="fa fa-pencil"> </i></a>'
+                                );
+                            } else if (!edit_url && $edit_btn.length) {
+                                $edit_btn.remove();
+                            }
+                        }
+                    }
+
+                    Board.$columns = $('.board-column');
                     Board.dragger.update_sortables(true);
                 });
             }, // on_column_loaded
@@ -750,7 +1161,7 @@ $().ready(function() {
                         sortable = $list.data('ui-sortable');
 
                     if (sortable) {
-                        if (sortable.board_column.hasClass('hidden')) {
+                        if (sortable.board_column.hasClass('hidden') || sortable.board_column.hasClass('not-loaded')) {
                             if (!sortable.options.disabled) {
                                 $list.sortable('disable');
                                 refresh_needed = true;
@@ -766,7 +1177,7 @@ $().ready(function() {
                     }
 
                     var $column = $list.closest('.board-column');
-                    if ($column.hasClass('hidden')) {
+                    if ($column.hasClass('hidden') || $column.hasClass('not-loaded')) {
                         continue;
                     }
                     refresh_needed = true;
@@ -971,7 +1382,7 @@ $().ready(function() {
                     .done($.proxy(Board.notes.on_edit_or_delete_loaded, {$note_node: $note_node, $link: $link}))
                     .fail($.proxy(Board.notes.on_edit_or_delete_load_failed, {$note_node: $note_node, $link: $link, text: 'edit'}));
                 return false;
-            }, // on_edit_click
+            }, // on_edit_or_delete_click
 
             on_edit_or_delete_loaded: function (data) {
                 if (!data.trim() || data == 'error') {  // error if 409 from on_edit_or_delete_load_failed
@@ -1019,7 +1430,7 @@ $().ready(function() {
 
                 var $textarea = $form.find('textarea');
 
-                if (false & $textarea.length && !$textarea.val().trim()) {
+                if ($textarea.length && !$textarea.val().trim()) {
                     $textarea.after('<div class="alert alert-error">You must enter a note</div>');
                     $form.find('button').removeClass('loading');
                     FormTools.enable_form($form);
@@ -1158,6 +1569,8 @@ $().ready(function() {
 
             if (Board.$container.length) {
                 Board.container = Board.$container[0];
+                Board.mode = Board.$container.data('mode')
+                Board.editable = Board.$container.data('editable');
             }
 
             Board.filters.init();
@@ -1169,7 +1582,7 @@ $().ready(function() {
             if (Board.container) {
                 Board.base_url = Board.$container.data('base_url');
                 Board.container.addEventListener('scroll', Board.on_scroll); // no jquery overhead
-                if (Board.$container.data('editable')) {
+                if (Board.editable) {
                     Board.dragger.init();
                 } else {
                     MessagesManager.add_messages([MessagesManager.make_message("You are only allowed to see this board.", 'info')]);
@@ -1221,7 +1634,6 @@ $().ready(function() {
         this.remove_group_original(group);
         $.proxy(Board.dragger.on_column_loaded, this.$container_node)();
     }); // IssuesList__remove_group
-
 
     IssuesList.on_before_update_card_alert = (function IssuesList_on_before_update_card_alert (topic, args, kwargs) {
         if (kwargs.model && kwargs.model == 'Card' && kwargs.id && !kwargs.issue) {

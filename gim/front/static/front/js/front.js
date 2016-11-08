@@ -1783,14 +1783,6 @@ $().ready(function() {
         return null;
     }); // IssuesList_get_index_for_node
 
-    IssuesList.reorder = (function IssuesList_reorder () {
-        var $nodes = $(IssuesList.selector), lists = [];
-        for (var i = 0; i < $nodes.length; i++) {
-            lists.push(IssuesList.get_for_node($($nodes[i])));
-        }
-        IssuesList.all = lists;
-    }); // IssuesList_reorder
-
     IssuesList.prototype.set_node = (function IssuesList__set_node ($node) {
         this.node = $node[0];
         this.node.IssuesList = this;
@@ -1817,6 +1809,26 @@ $().ready(function() {
 
         FilterManager.convert_links(this);
     }); // IssuesList__set_node
+
+    IssuesList.add_list = (function IssuesList_add_list (list) {
+        IssuesList.all.push(list);
+        PanelsSwapper.update_panels_order();
+        list.$container_node.trigger('reloaded');
+    }); // IssuesList_add_list
+
+    IssuesList.remove_list = (function IssuesList_remove_list (list) {
+        var is_current = IssuesList.current == list,
+            index = IssuesList.all.indexOf(list);
+        if (is_current) {
+            if (PanelsSwapper.go_prev_panel() === false) {
+                PanelsSwapper.go_next_panel();
+            }
+        }
+        if (index > -1) {
+            IssuesList.all.splice(index, 1);
+        }
+        PanelsSwapper.update_panels_order();
+    }); // IssuesList_remove_list
 
     IssuesList.prototype.create_empty_node = (function IssuesList__create_empty_node () {
         if (this.$empty_node.length) { return; }
@@ -1941,7 +1953,7 @@ $().ready(function() {
         }
     }); // IssuesList_subscribe_updates
 
-    IssuesList.can_update_on_alert = (function IssuesList_delay_update_alert_if_needed (issue_kwargs, method, topic, args, kwargs) {
+    IssuesList.can_update_on_alert = (function IssuesList_can_update_on_alert (issue_kwargs, method, topic, args, kwargs) {
         var js_id = issue_kwargs.js_id || issue_kwargs.id;
         if (typeof IssuesList.updating_ids[js_id] != 'undefined' || issue_kwargs.front_uuid && UUID.exists(issue_kwargs.front_uuid) && UUID.has_state(issue_kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
@@ -1951,7 +1963,7 @@ $().ready(function() {
         }
         IssuesList.updating_ids[js_id] = true;
         return true;
-    }); // IssuesList_delay_update_alert_if_needed
+    }); // IssuesList_can_update_on_alert
 
     IssuesList.on_update_card_alert = (function IssuesList_on_update_card_alert (topic, args, kwargs) {
         if (IssuesList.on_before_update_card_alert && IssuesList.on_before_update_card_alert(topic, args, kwargs)) {
@@ -2466,6 +2478,7 @@ $().ready(function() {
                 $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
                 $node.append($mask);
             } else {
+                $mask.removeClass('no-spinner');
                 $mask.show();
             }
             return $mask;
@@ -2541,7 +2554,8 @@ $().ready(function() {
                     '$issues_list_node': $issues_list_node,
                     list_index: list_index,
                     url: url,
-                    no_history: no_history
+                    no_history: no_history,
+                    fail_callback: fail_callback
                 };
 
             $.get(url)
@@ -4088,7 +4102,7 @@ $().ready(function() {
         }), // panel_activable
         select_panel_from_node: (function PanelsSwapper__select_panel_from_node ($node) {
             for (var i = 0; i < PanelsSwapper.panels.length; i++) {
-                if (PanelsSwapper.panels[i].$node == $node) {
+                if (PanelsSwapper.panels[i].$node[0] == $node[0]) {
                     PanelsSwapper.select_panel(PanelsSwapper.panels[i]);
                     return;
                 }
@@ -4146,30 +4160,20 @@ $().ready(function() {
             }
         }), // update_panel
         find_panels: (function PanelsSwapper__find_panels () {
-            var panels = [],
-                ordered_issues_lists = [];
+            var panels = [];
             // add all issues lists
-            for (var i = 0; i < IssuesList.all.length; i++) {
-                var issues_list = IssuesList.all[i],
-                    $parent = issues_list.$node.parent(),
+            var $lists = $(IssuesList.selector);
+            for (var i = 0; i < $lists.length; i++) {
+                var issues_list = IssuesList.get_for_node($($lists[i]));
+                if (!issues_list) { continue; }
+                var $parent = issues_list.$node.parent(),
                     $column = $parent.parent('.board-column'),
                     is_hidden = $column.length ? $column.hasClass('hidden') : false,
-                    flex_order = $column.length ? $column.css('order') : 0,
                     data = {$node: $parent, obj: issues_list, handlable: true};
-                flex_order = isNaN(flex_order) ? 0 : parseInt(flex_order, 10); // 0 for not flex-ordered lists
-                if (flex_order <= 0) {
-                    if (is_hidden || flex_order == -1) { // it has a flex order but we chose to hide it
-                        data.handlable = false;
-                    }
-                    panels.push(data);
-                } else {
-                    ordered_issues_lists[flex_order] = data;
+                if (is_hidden) {
+                    data.handlable = false;
                 }
-            }
-            for (var j = ordered_issues_lists.length - 1; j >= 0; j--) {
-                if (typeof ordered_issues_lists[j] !== 'undefined') {
-                    panels.unshift(ordered_issues_lists[j]);
-                }
+                panels.push(data);
             }
             // add the main issue detail if exists
             if (IssueDetail.$main_container.length) {
@@ -4185,21 +4189,26 @@ $().ready(function() {
             var dom_panels = PanelsSwapper.find_panels(),
                 ordered_panels = [];
             for (var i = 0; i < dom_panels.length; i++) {
-                var dom_panel = dom_panels[i];
+                var dom_panel = dom_panels[i],
+                    found_panel = dom_panel;
+                    found_handlable = dom_panel.handlable;
                 for (var j = 0; j < PanelsSwapper.panels.length; j++) {
                     var panel = PanelsSwapper.panels[j];
                     if (panel.$node[0] == dom_panel.$node[0]) {
-                        if (dom_panel.handlable && !panel.handlable) {
-                            PanelsSwapper.add_handler(panel);
-                        } else if (!dom_panel.handlable && panel.handlable) {
-                            PanelsSwapper.remove_handler(panel);
-                        }
-                        panel.handlable = dom_panel.handlable;
-                        panel.index = i;
-                        ordered_panels.push(panel);
+                        found_panel = panel;
+                        found_handlable = panel.handlable;
                         break;
                     }
                 }
+                if (dom_panel.handlable && !found_handlable || found_panel == dom_panel ) {
+                    PanelsSwapper.add_handler(found_panel);
+                } else if (!dom_panel.handlable && found_handlable) {
+                    PanelsSwapper.remove_handler(found_panel);
+                }
+                found_panel.handlable = dom_panel.handlable;
+                found_panel.index = i;
+                ordered_panels.push(found_panel);
+                found = true;
             }
             PanelsSwapper.panels = ordered_panels;
             if (PanelsSwapper.current_panel && !PanelsSwapper.current_panel.handlable) {
@@ -4236,7 +4245,7 @@ $().ready(function() {
 
     }; // PanelsSwapper
     PanelsSwapper.init();
-    window.PanelsSwpr = PanelsSwapper;
+    window.PanelsSwapper = PanelsSwapper;
 
 
     // select the issue given in the url's hash, or an active one in the html,

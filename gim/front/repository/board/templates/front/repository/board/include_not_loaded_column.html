@@ -1,0 +1,29 @@
+{% load frontutils %}
+{% with list_uuid=new_uuid %}
+    {# Minimal html to simulate the issues lists that will be loaded via ajax #}
+    <nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
+    </nav>
+    <section class="issues-list-container span5 with-title" data-key="{{ current_column.key }}">
+        <div class="issues-list-title{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}" title="{{ current_column.description|capfirst }}">
+            {% with default=current_column.name|capfirst %}
+            {% if current_board.mode == 'labels' and current_column.object %}
+                <span style="border-bottom-color: #{{ current_column.object.color }}">
+                {{ default }}
+                </span>
+            {% elif current_board_key == 'auto-assigned' and current_column.object %}
+                <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_column.object.full_avatar_url|avatar_size:16 }}" />
+                {{ default }}
+            {% else %}
+                {{ default }}
+            {% endif %}
+            {% endwith %}
+        </div>
+        <div id="issues-list-{{ current_column.key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ column_url_query_string|default:"" }}" data-base-url="{{ current_column.url }}"{% block issues-additional-data %}{% endblock %}></div>
+        <div class="loading-mask"><p class="empty-area">{% block inside-loading-mask %}{% endblock %}<i class="fa fa-spinner fa-spin"> </i></p></div>
+    </section>
+    <div class="board-column-icons">
+        <a href="#" class="board-column-minifier" title="Minify this column"><i class="fa fa-toggle-left"> </i></a>
+        <a href="#" class="board-column-unminifier" title="Restore this column"><i class="fa fa-toggle-right"> </i></a>
+        <a href="#" class="board-column-closer" title="Hide this column"><i class="fa fa-times"> </i></a>
+    </div>
+{% endwith %}

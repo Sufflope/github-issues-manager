@@ -2,9 +2,10 @@ from datetime import datetime
 from functools import partial
 
 from django import forms
+from django.db.models import Max
 
 from gim.front.mixins.forms import LinkedToUserFormMixin, LinkedToRepositoryFormMixin
-from gim.core.models import GITHUB_STATUS_CHOICES, Card
+from gim.core.models import GITHUB_STATUS_CHOICES, Card, Column
 from gim.front.repository.issues.forms import validate_filled_string
 
 
@@ -102,3 +103,52 @@ class CardNoteDeleteForm(LinkedToUserFormMixin, LinkedToProjectFormMixin):
     def save(self, commit=True):
         self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE
         return super(CardNoteDeleteForm, self).save(commit)
+
+
+class BaseColumnEditForm(LinkedToProjectFormMixin):
+    class Meta:
+        model = Column
+        fields = ['name', 'front_uuid', ]
+
+    def __init__(self, *args, **kwargs):
+        super(BaseColumnEditForm, self).__init__(*args, **kwargs)
+        self.fields['name'].validators = [partial(validate_filled_string, name='name')]
+        self.fields['name'].required = True
+        self.fields['name'].widget = forms.TextInput()
+
+    def save(self, commit=True):
+        if self.instance.pk:
+            self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_UPDATE
+        else:
+            self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_CREATE
+        self.instance.updated_at = datetime.utcnow()
+        if not self.instance.created_at:
+            self.instance.created_at = self.instance.updated_at
+        return super(BaseColumnEditForm, self).save(commit)
+
+
+class ColumnCreateForm(BaseColumnEditForm):
+
+    def save(self, commit=True):
+        # its a new column...
+        self.instance.is_new = True
+
+        # ...at the last position
+        self.instance.position = self.project.columns.aggregate(Max('position'))['position__max'] + 1
+
+        return super(ColumnCreateForm, self).save(commit)
+
+
+class ColumnEditForm(BaseColumnEditForm):
+    pass
+
+
+class ColumnDeleteForm(LinkedToProjectFormMixin):
+
+    class Meta:
+        model = Column
+        fields = ['front_uuid', ]
+
+    def save(self, commit=True):
+        self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE
+        return super(ColumnDeleteForm, self).save(commit)

@@ -8,6 +8,7 @@
 @import "compass/css3/images";
 @import "compass/css3/text-shadow";
 @import "compass/css3/transition";
+@import "compass/css3/user-interface";
 
 @import "components/issues_full_list";
 @import "components/issue";
@@ -72,6 +73,7 @@ body#repository_board #main-inner {
     padding: 0;
 }
 .board-column {
+    @include box-sizing(border-box);
     background: #f0f0f0;
     position: relative;
     min-width: 300px;
@@ -80,6 +82,9 @@ body#repository_board #main-inner {
     &.hidden {
         order: -1;
         display: none;
+    }
+    .board-column-edit .fa {
+        @include transform(scale(0.9))
     }
     .board-column-unminifier {
         display: none;
@@ -96,7 +101,7 @@ body#repository_board #main-inner {
         .board-column-unminifier {
             display: inline;
         }
-        &:not(.is-active) {
+        &:not(.is-active):not(.edit-mode) {
             min-width: 31px;
             width: 31px;
             .issues-filters {
@@ -124,6 +129,9 @@ body#repository_board #main-inner {
                 text-align: right;
                 transform: rotate(270deg);
                 transform-origin: right top;
+            }
+            .board-column-edit {
+                display: none;
             }
         }
     }
@@ -539,4 +547,44 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
 
 .new-notes-holder + .issues-group-issues:not(.template):not(:empty) {
     border-top: solid 2px $noteItemColor;
+}
+
+.board-column.create-mode {
+    background: #fbfbfb;
+    border-right: solid 1px #666;
+}
+.column-form {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 32;
+    input[name=name] {
+        @include box-sizing(border-box);
+        width: 100%;
+        height: 25px;
+        border: none;
+        @include border-radius(0);
+        border-bottom: solid 1px #d4d4d4;
+        text-align: center;
+        color: inherit;
+        background: #eee;
+        font-family: inherit;
+        font-weight: 600;
+        font-size: 13px;
+        @include input-placeholder {
+            color: inherit;
+            opacity: 0.5;
+        }
+        margin-bottom: 5px;
+    }
+
+    .edit-buttons {
+        @include box-sizing(border-box);
+        padding: 0 5px;
+    }
+
+    .alert {
+        margin: 0 5px 5px;
+    }
 }

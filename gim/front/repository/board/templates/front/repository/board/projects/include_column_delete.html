@@ -1,0 +1,12 @@
+<form class="column-form column-delete-form"  method="post" action="{{ column.get_delete_url}}">
+    {% csrf_token %}
+    <div><input type="text" name="name" readonly="readonly" value="{{ column.name }}"/></div>
+    <div class="row-fluid auto-align edit-buttons">
+        <div class="span9">
+            <button class="btn btn-red submit btn-loading">Confirm deletion of this column<i class='fa fa-spinner fa-spin'> </i></button>
+        </div>
+        <div class="span3">
+            <button class="btn btn-default btn-cancel" type="button">Cancel</button>
+        </div>
+    </div>
+</form>
