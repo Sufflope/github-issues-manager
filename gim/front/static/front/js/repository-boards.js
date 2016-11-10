@@ -290,7 +290,7 @@ $().ready(function() {
                         return;
                     }
                     Board.arranger.reorder();
-                }.bind(this), 100)
+                }, 100)
             }, // ask_for_reorder
 
             reorder_compare: function($column1, $column2) {
@@ -1691,7 +1691,7 @@ $().ready(function() {
 
                 if (!$group.length) {
                     group = $list[0].IssuesList.create_group(null, null, null);
-                    group.update_filtered_issues();
+                    group.ask_for_filtered_issues_update();
                     $group = group.$node;
                     $link = $group.find('.note-add-btn')
                 }
@@ -1753,7 +1753,7 @@ $().ready(function() {
 
                 group.add_issue(issue, true);
                 group.open();
-                list.reinit_quicksearch_results();
+                list.ask_for_quicksearch_results_reinit();
             }, // on_add_submit_done
 
             init: function() {
@@ -1940,7 +1940,7 @@ $().ready(function() {
                                 } else {
                                     group.$node.addClass('recent');
                                 }
-                                list.reinit_quicksearch_results();
+                                list.ask_for_quicksearch_results_reinit();
 
                                 if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
                                     $data.removeClass('recent');

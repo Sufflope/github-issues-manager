@@ -1249,8 +1249,8 @@ $().ready(function() {
             }
 
             if (same_group) {
-                list.reinit_quicksearch_results();
                 group.ask_for_reorder();
+                list.ask_for_quicksearch_results_reinit();
             }
             if (is_group_current) { group.set_current(is_group_active, true); }
             if (is_issue_active) { issue.set_current(null, null, null, true, true); }
@@ -1378,6 +1378,7 @@ $().ready(function() {
         this.collapsed = this.collapsable && !this.$issues_node.hasClass('in');
 
         this.reorder_counter = 0;
+        this.update_filtered_issues_counter = 0;
 
         var group = this;
         this.issues = $.map(this.$node.find(IssuesListIssue.selector),
@@ -1600,11 +1601,24 @@ $().ready(function() {
         this.issues = $.map(this.$node.find(IssuesListIssue.selector),
                           function(node) { return node.IssuesListIssue });
 
-        this.update_filtered_issues();
+        this.ask_for_filtered_issues_update();
         if (!dont_reorder) {
             this.ask_for_reorder();
         }
     }); // IssuesListGroup__update_issues_list
+
+    IssuesListGroup.prototype.ask_for_filtered_issues_update = (function IssuesListGroup__ask_for_filtered_issues_update () {
+        this.update_filtered_issues_counter += 1;
+        var counter = this.update_filtered_issues_counter;
+        setTimeout(function() {
+            if (counter != this.update_filtered_issues_counter) {
+                // during the way another update was asked
+                return;
+            }
+            this.update_filtered_issues();
+        }.bind(this), 100)
+
+    }); // IssuesListGroup__ask_for_filtered_issues_update
 
     IssuesListGroup.prototype.update_filtered_issues = (function IssuesListGroup__update_filtered_issues () {
         this.filtered_issues = [];
@@ -1626,8 +1640,8 @@ $().ready(function() {
         }
         issue.group = this;
         this.issues.unshift(issue);
-        this.list.reinit_quicksearch_results();
-        this.update_filtered_issues();
+        this.list.ask_for_quicksearch_results_reinit();
+        this.ask_for_filtered_issues_update();
         this.ask_for_reorder();
     }); // IssuesListGroup__add_issue
 
@@ -1642,7 +1656,7 @@ $().ready(function() {
             this.list.remove_group(this);
         } else {
             this.current_issue = null;
-            this.update_filtered_issues();
+            this.ask_for_filtered_issues_update();
         }
     }); // IssuesListGroup__remove_issue
 
@@ -1720,12 +1734,13 @@ $().ready(function() {
             list.insertBefore(node, dest);
         }
 
-        this.list.reinit_quicksearch_results();
-        this.update_filtered_issues();
+        this.list.ask_for_quicksearch_results_reinit();
+        this.ask_for_filtered_issues_update();
     }); // IssuesListGroup__reorder
 
 
     var IssuesList = (function IssuesList__constructor (node) {
+        this.reinit_quicksearch_results_counter = 0;
         this.set_node($(node));
     }); // IssuesList__constructor
     IssuesList.IssuesListIssue = IssuesListIssue;
@@ -2136,8 +2151,8 @@ $().ready(function() {
         if (!orig_group.issues.length) {
             this.remove_group(orig_group);
         } else {
-            orig_group.list.reinit_quicksearch_results();
-            orig_group.update_filtered_issues();
+            orig_group.list.ask_for_quicksearch_results_reinit();
+            orig_group.ask_for_filtered_issues_update();
         }
 
     }); // IssuesList__change_issue_group
@@ -2169,7 +2184,7 @@ $().ready(function() {
             } else if (!$containers.length) {
                 group.$node.addClass('recent');
             }
-            list.reinit_quicksearch_results();
+            list.ask_for_quicksearch_results_reinit();
 
             FilterManager.convert_links(list);
 
@@ -2439,6 +2454,18 @@ $().ready(function() {
         }
         return issue;
     }); // IssuesList__get_issue_by_id
+
+    IssuesList.prototype.ask_for_quicksearch_results_reinit = (function IssuesList__ask_for_quicksearch_results_reinit () {
+        this.reinit_quicksearch_results_counter += 1;
+        var counter = this.reinit_quicksearch_results_counter;
+        setTimeout(function() {
+            if (counter != this.reinit_quicksearch_results_counter) {
+                // during the way another reinit was asked
+                return;
+            }
+            this.reinit_quicksearch_results();
+        }.bind(this), 100)
+    }); // IssuesList__ask_for_quicksearch_results_reinit
 
     IssuesList.prototype.reinit_quicksearch_results = (function IssuesList__reinit_quicksearch_results () {
         this.init_quicksearch_events();
