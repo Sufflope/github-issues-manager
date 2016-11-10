@@ -1,8 +1,0 @@
-{% extends "front/repository/board/include_not_loaded_column.html" %}
-
-{% block issues-additional-data %}{% if current_column.object.front_uuid %} data-front-uuid="{{ current_column.object.front_uuid }}"{% endif %}{% endblock %}
-
-{% block inside-loading-mask %}
-    <span style="display: block" class="alert alert-{% if current_column.object.github_status in GITHUB_STATUSES.ALL_WAITING %}warning{% else %}important{% endif %}"
-    >{{ current_column.object.get_github_status_display }}</span>
-{% endblock %}

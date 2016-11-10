@@ -134,7 +134,7 @@ class ColumnCreateForm(BaseColumnEditForm):
         self.instance.is_new = True
 
         # ...at the last position
-        self.instance.position = self.project.columns.aggregate(Max('position'))['position__max'] + 1
+        self.instance.position = (self.project.columns.aggregate(Max('position'))['position__max'] or 0) + 1
 
         return super(ColumnCreateForm, self).save(commit)
 

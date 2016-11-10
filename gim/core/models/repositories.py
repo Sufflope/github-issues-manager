@@ -601,17 +601,15 @@ class Repository(GithubObjectWithId):
                 force_fetch = True
         now = datetime.utcnow()
         try:
-            if not self.fetch_projects(gh, force_fetch=force_fetch):
-                # we have no new/updated projects
-                return
+            self.fetch_projects(gh, force_fetch=force_fetch)
+            # we must always fetch each projects to get the order if changed
             for project in self.projects.all():
-                if force_fetch or project.fetched_at > now:
-                    if not project.fetch_columns(gh, force_fetch=force_fetch):
-                        # we have no new/updated columns
-                        continue
-                    for column in project.columns.all():
-                        if force_fetch or column.fetched_at > now:
-                            column.fetch_cards(gh, force_fetch=force_fetch)
+                if not project.fetch_columns(gh, force_fetch=force_fetch):
+                    # we have no new/updated columns
+                    continue
+                for column in project.columns.all():
+                    if force_fetch or column.fetched_at > now:
+                        column.fetch_cards(gh, force_fetch=force_fetch)
         except Exception:
             # Next time we'll refetch all. Else we won't be able to get new data if
             # the error occured for example while fetching cards: the fetch of the

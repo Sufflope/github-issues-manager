@@ -95,3 +95,11 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         ).prefetch_related(
             'columns'
         )
+
+    @cached_property
+    def projects_including_empty(self):
+        return self.repository.projects.annotate(
+            num_columns=Count('columns')
+        ).prefetch_related(
+            'columns'
+        )

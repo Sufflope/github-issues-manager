@@ -18,12 +18,12 @@
             {% endif %}
             {% endwith %}
         </div>
-        <div id="issues-list-{{ current_column.key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ column_url_query_string|default:"" }}" data-base-url="{{ current_column.url }}"{% block issues-additional-data %}{% endblock %}></div>
+        <div id="issues-list-{{ current_column.key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ column_url_query_string|default:"" }}" data-base-url="{{ current_column.url }}"{% if current_board.mode == 'project' and current_column.object %} data-position="{{ current_column.object.position }}"{% endif %}{% block issues-additional-data %}{% endblock %}></div>
         <div class="loading-mask"><p class="empty-area">{% block inside-loading-mask %}{% endblock %}<i class="fa fa-spinner fa-spin"> </i></p></div>
     </section>
     <div class="board-column-icons">
         <a href="#" class="board-column-minifier" title="Minify this column"><i class="fa fa-toggle-left"> </i></a>
         <a href="#" class="board-column-unminifier" title="Restore this column"><i class="fa fa-toggle-right"> </i></a>
-        <a href="#" class="board-column-closer" title="Hide this column"><i class="fa fa-times"> </i></a>
+        <a href="#" class="board-column-closer" title="Hide this column"><i class="fa fa-eye-slash"> </i></a>
     </div>
 {% endwith %}

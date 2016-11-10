@@ -3,6 +3,7 @@ __all__ = [
     'MoveCardJob',
     'CardNoteEditJob',
     'ColumnEditJob',
+    'ColumnMoveJob',
 ]
 
 from random import randint
@@ -373,3 +374,44 @@ class ColumnEditJob(ColumnJob):
         Display the action done (created/updated/deleted)
         """
         return ' [%sd]' % self.mode.hget()
+
+
+class ColumnMoveJob(ColumnJob):
+    queue_name = 'move-project-column'
+    permission = 'self'
+
+    def run(self, queue):
+        """
+        Move the column inside its project
+        """
+        super(ColumnMoveJob, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        try:
+            column = self.column
+        except Card.DoesNotExist:
+            # the column doesn't exist anymore, stop here
+            self.status.hset(STATUSES.CANCELED)
+            messages.error(self.gh_user, 'The project column you wanted to move seems to have been deleted')
+            return False
+
+        # get the position expected by github
+        github_position = 'first'
+        if column.position > 1:
+            sibling_column = self.project.columns.filter(position__lt=column.position).exclude(id=column.pk).order_by('-position').first()
+            if sibling_column:
+                github_position = 'after:%s' % sibling_column.github_id
+
+        # we can now move the column
+        data = {
+            'position': github_position,
+        }
+
+        column.dist_edit(gh, mode='create', fields=data.keys(), values=data,
+                         meta_base_name='moves', update_object=False)
+
+        # now we have to update the projects
+        self.project.repository.fetch_all_projects(gh)

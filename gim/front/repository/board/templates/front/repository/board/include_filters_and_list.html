@@ -20,7 +20,7 @@
         {{ default }}
     {% endif %}
     {% endwith %}
-    {% if current_repository|can_user_write:user %}
+    {% if current_repository_edit_level %}
         <i class="fa fa-sort-amount-desc{% if not can_handle_positions %} is-swiped-out{% endif %}" title="Issues dragged in this column {% if can_handle_positions %}will{% else %}won't{% endif %} have their new position saved"></i>
     {% endif %}
 {% endblock list-title-content %}
@@ -30,7 +30,7 @@
         <div class="board-column-icons">
             <a href="#" class="board-column-minifier" title="Minify this column"><i class="fa fa-toggle-left"> </i></a>
             <a href="#" class="board-column-unminifier" title="Restore this column"><i class="fa fa-toggle-right"> </i></a>
-            <a href="#" class="board-column-closer" title="Hide this column"><i class="fa fa-times"> </i></a>
+            <a href="#" class="board-column-closer" title="Hide this column"><i class="fa fa-eye-slash"> </i></a>
         </div>
     {% endif %}
 {% endblock %}

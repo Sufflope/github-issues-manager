@@ -5,7 +5,8 @@ from .views import (
     BoardMoveIssueView, BoardCanMoveIssueView,
     BoardCanMoveProjectCardView, BoardMoveProjectCardView,
     CardNoteCreateView, CardNoteView, CardNoteEditView, CardNoteDeleteView,
-    ColumnCreateView, ColumnEditView, ColumnDeleteView, ColumnInfoView
+    ColumnCreateView, ColumnEditView, ColumnDeleteView,
+    ColumnInfoView, ColumnMoveView, ColumnCanMoveView
 )
 
 urlpatterns = patterns('',
@@ -30,6 +31,10 @@ urlpatterns = patterns('',
     url(r'project/(?P<project_number>\d+)/column/(?P<column_id>\d+)/info/$', ColumnInfoView.as_view(), name=ColumnInfoView.url_name),
     url(r'project/(?P<project_number>\d+)/column/(?P<column_id>\d+)/edit/$', ColumnEditView.as_view(), name=ColumnEditView.url_name),
     url(r'project/(?P<project_number>\d+)/column/(?P<column_id>\d+)/delete/$', ColumnDeleteView.as_view(), name=ColumnDeleteView.url_name),
+
+    # project column move
+    url(r'project/(?P<project_number>\d+)/column/(?P<column_id>\d+)/can_move/$', ColumnCanMoveView.as_view(), name=ColumnCanMoveView.url_name),
+    url(r'project/(?P<project_number>\d+)/column/(?P<column_id>\d+)/move/to/$', ColumnMoveView.as_view(), name=ColumnMoveView.url_name),
 
     # card note edit
     url(r'project/(?P<project_number>\d+)/(?P<column_id>\d+)/note/add/$', CardNoteCreateView.as_view(), name=CardNoteCreateView.url_name),

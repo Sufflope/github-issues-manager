@@ -13,6 +13,10 @@ $().ready(function() {
         base_url: null,
         mode: null,
         editable: false,
+        dimensions: {
+            scrollLeftMax: 0,
+            scrollWidth: 0
+        },
 
         selector: {
             $select: $('#board-selector'),
@@ -63,6 +67,7 @@ $().ready(function() {
 
         arranger: {
             updating_ids: {},
+            reorder_counter: 0,
 
             hide_column: function($column) {
                 $column.addClass('hidden');
@@ -74,6 +79,43 @@ $().ready(function() {
                 Board.arranger.on_columns_rearranged();
             }, // restore_hidden
 
+            on_column_loaded: function () {
+                var $list_container_node = $(this);
+                requestNextAnimationFrame(function() {
+                    var list = IssuesList.get_for_node($list_container_node),
+                        $column = $list_container_node.closest('.board-column'),
+                        not_loaded = list.$node.hasClass('not-loaded'),
+                        front_uuid = list.$node.data('front-uuid'),
+                        key = list.$container_node.data('key'),
+                        edit_url = list.$node.data('edit-column-url'),
+                        $edit_btn = $column.find('.board-column-edit');
+
+                    $column.toggleClass('loaded', !not_loaded).toggleClass('not-loaded', not_loaded).removeClass('loading');
+
+                    if (front_uuid) {
+                        $column.attr('data-front-uuid', front_uuid);
+                    }
+
+                    $column.data('key', key);
+                    $column.attr('data-key', key);
+
+                    if (!not_loaded) {
+                        if (Board.mode == 'project' && Board.editable && key != '__none__') {
+                            if (edit_url && !$edit_btn.length) {
+                                $column.find('.board-column-icons').prepend(
+                                    '<a href="#" class="board-column-edit" title="Edit or delete this column"><i class="fa fa-pencil"> </i></a>'
+                                );
+                            } else if (!edit_url && $edit_btn.length) {
+                                $edit_btn.remove();
+                            }
+                        }
+                        Board.arranger.ask_for_reorder();
+                    }
+
+                    Board.$columns = $('.board-column');
+                });
+            }, // on_column_loaded
+
             on_columns_rearranged: function() {
                 PanelsSwapper.update_panels_order();
                 Board.lists.load_visible();
@@ -82,7 +124,7 @@ $().ready(function() {
                 Board.arranger.update_sortable();
             }, // on_columns_rearranged
 
-            on_sortable_create: function(ev, ui) {` `
+            on_sortable_create: function(ev, ui) {
                 var obj = $(this).data('ui-sortable');
                 obj._mouseDrag = Board.dragger._sortable_override_mouse_drag;
                 obj._isFloating = Board.arranger._sortable_override_isFloating;
@@ -104,13 +146,211 @@ $().ready(function() {
                     tolerance: 'pointer',
                     create: Board.arranger.on_sortable_create,
                     items: '> .board-column.loaded[data-key]:not([data-key=__none__]):not(.edit-mode)',
+                    start: Board.arranger.on_drag_start,
                     stop: Board.arranger.on_drag_stop,
                 }).disableSelection();
             }, // prepare_sortable
 
+            check_movable: function(sortable_node, ui_item) {
+                requestNextAnimationFrame(function() {
+                    var $column = ui_item,
+                        list = $column.find('.issues-list')[0].IssuesList,
+                        data = {csrfmiddlewaretoken: $body.data('csrf')},
+                        context = {
+                            sortable_node: sortable_node,
+                            ui_item: ui_item
+                        },
+                        url;
+
+                    if (list.$node) {
+                        url = list.$node.data('can-move-column-url');
+                    }
+
+                    if (!url) {
+                        $proxy(Board.arranger.on_check_movable_failure, context)();
+                    }
+
+                    $.post(url, data)
+                        .fail($.proxy(Board.arranger.on_check_movable_failure, context))
+                });
+            }, // check_movable
+
+            on_check_movable_failure: function(xhr, data) {
+                $(this.sortable_node).sortable('cancel');
+            }, // on_check_movable_failure
+
+            on_drag_start: function(ev, ui) {
+                if (Board.mode == 'project' && Board.editable) {
+                    Board.arranger.check_movable(this, ui.item);
+                } else {
+                    MessagesManager.add_messages([MessagesManager.make_message("Columns positions won't be saved.", 'info')]);
+                }
+            }, // on_drag_start
+
             on_drag_stop: function(ev, ui) {
+                if (Board.mode == 'project' && Board.editable) {
+                    var $column = ui.item,
+                        list = $column.find('.issues-list')[0].IssuesList,
+                        actual_position = parseInt(list.$node.data('position'), 10) || 1,
+                        $previous_column = $column.prev('.board-column'),
+                        new_position = parseInt($previous_column.length ? $previous_column.find('.issues-list').data('position') : 0, 10) || 0;
+
+                    if (new_position < actual_position) {
+                        new_position ++;
+                    }
+
+                    if (new_position != actual_position) {
+                        Board.arranger.update_column_position($column, new_position);
+                        Board.arranger.remote_move_column(list, actual_position, new_position);
+                    }
+                }
                 Board.arranger.on_columns_rearranged();
             }, // on_drag_stop
+
+            remote_move_column: function(list, actual_position, new_position) {
+                var url = list.$node.data('move-column-url'),
+                    front_uuid = UUID.generate('waiting'),
+                    data = {
+                        csrfmiddlewaretoken: $body.data('csrf'),
+                        front_uuid: front_uuid,
+                        position: new_position,
+                    },
+                    context = {
+                        list: list,
+                        actual_position: actual_position,
+                        new_position: new_position
+                    };
+
+                $.post(url, data)
+                    .done(function(data) {
+                        Board.arranger.ask_for_reorder();
+                    })
+                    .fail($.proxy(Board.arranger.on_remote_move_column_failure, context))
+                    .always(function() {UUID.set_state(front_uuid, '');});
+
+            }, // remote_move_column
+
+            on_remote_move_column_failure: function(xhr, data) {
+                var context = this;
+                if (xhr.status != 409) {
+                    MessagesManager.add_messages([MessagesManager.make_message(
+                        "We couldn't update the column's position", 'error')]);
+                }
+                Board.arranger.update_column_position(this.list.$node.closest('.board-column'), this.actual_position);
+            }, // on_remote_move_column_failure
+
+            update_column_position: function ($column, position) {
+                var list = $column.find('.issues-list')[0].IssuesList,
+                    actual_position = parseInt(list.$node.data('position'), 10) || 1,
+                    i, $column_to_move, column_to_move_position, column_list, condition, delta;
+
+                if (position == actual_position) {
+                    return;
+                }
+
+                for (i = 0; i < Board.$columns.length; i++) {
+                    $column_to_move = $(Board.$columns[i]);
+                    try {
+                        column_list = $column_to_move.find('.issues-list')[0].IssuesList;
+                        column_to_move_position = parseInt(column_list.$node.data('position'), 10);
+                    } catch (e) {
+                        continue;
+                    };
+                    if (position > actual_position) {  // going right
+                        // we move to the left all columns between the old position and the new one
+                        // excluding the old position (it's the column we move) and including the new one
+                        // (the column we move takes its place and the old one is on the left)
+                        condition = (column_to_move_position > actual_position && column_to_move_position <= position);
+                        delta = -1;
+                    } else {
+                        // we move to the right all columns between the old position and the new one
+                        // including the new position (the column we move takes its place and the old one
+                        // is on the right) and excluding the old position (it's the column we move)
+                        condition = (column_to_move_position >= position && column_to_move_position < actual_position);
+                        delta = 1;
+                    }
+                    column_to_move_position += delta;
+                    column_list.$node.data('position', column_to_move_position);
+                    column_list.$node.attr('data-position', column_to_move_position);
+                }
+
+                // and update the column
+                list.$node.data('position', position);
+                list.$node.attr('data-position', position);
+
+                Board.arranger.ask_for_reorder();
+            }, // update_column_position
+
+            ask_for_reorder: function() {
+                Board.arranger.reorder_counter += 1;
+                var counter = Board.arranger.reorder_counter;
+                setTimeout(function() {
+                    if (counter != Board.arranger.reorder_counter) {
+                        // during the way another reorder was asked
+                        return;
+                    }
+                    Board.arranger.reorder();
+                }.bind(this), 100)
+            }, // ask_for_reorder
+
+            reorder_compare: function($column1, $column2) {
+                return $column1.position - $column2.position;
+            }, // reorder_compare
+
+            reorder: function() {
+                var columns = [], mapping = {}, i, $column, position, actual_position = 0, moves = [], move, node, container = Board.$container[0], dest;
+                // get only columns with position
+                for (i = 0; i < Board.$columns.length; i++) {
+                    $column = $(Board.$columns[i]);
+                    try {
+                        position = parseInt($column.find('.issues-list')[0].IssuesList.$node.data('position'), 10);
+                    } catch (e) {
+                        position = null;
+                    };
+                    if (position) {
+                        $column.dom_position = i; // index in the container
+                        $column.actual_position = actual_position; // index in the container for only movable columns
+                        $column.position = position;  // from the column db object
+                        columns.push($column);
+                        mapping[actual_position] = i;  // to use the container child index when moving in place of this column
+                        actual_position ++;
+                    }
+                }
+                // sort them
+                columns.sort(Board.arranger.reorder_compare);
+
+                // get the moves
+                for (var i = 0; i < columns.length; i++) {
+                    $column = columns[i];
+                    if ($column.actual_position != i) {  // still at the same place
+                        moves.push({
+                            $column: $column,
+                            position: $column.actual_position,
+                            to: i
+                        });
+                    }
+                }
+                if (!moves.length) { return; }
+
+                // we can now move the columns that need to, in their position order
+                moves.sort(Board.arranger.reorder_compare);
+                for (i = 0; i < moves.length; i++) {
+                    move = moves[i];
+                    node = move.$column[0];
+                    dest = container.children[mapping[move.to]];
+                    if (node == dest) {
+                        continue;
+                    }
+                    if (move.to > move.position) {
+                        dest = dest.nextSibling; // emulate insertAfter
+                    }
+                    container.insertBefore(node, dest);
+                }
+
+                Board.update_dimensions();
+                Board.arranger.on_columns_rearranged();
+
+            }, // reorder
 
             update_sortable: function() {
                 Board.$container.sortable('refresh');
@@ -379,6 +619,10 @@ $().ready(function() {
                         // the column exist, we just change its name and we're done
                         // we need to simulate capfirst as in the template
                         $node.find('.issues-list-title')[0].firstChild.textContent = kwargs.name ? kwargs.name[0].toUpperCase() +  kwargs.name.substring(1) : '';
+                        list_to_refresh = $node.find('.issues-list-container')[0].IssuesList;
+                        list_to_refresh.$node.data('position', kwargs.position);
+                        list_to_refresh.$node.attr('data-position', kwargs.position);
+                        Board.arranger.ask_for_reorder();
                         done = true;
                     }
                 }
@@ -403,7 +647,7 @@ $().ready(function() {
                             $column.attr('data-key', key);
                             $column.data('key', key);
                             IssuesList.add_list(list);
-                            Board.arranger.on_columns_rearranged();
+                            Board.arranger.ask_for_reorder();
 
                         })
                         .fail(function() {
@@ -455,7 +699,7 @@ $().ready(function() {
                         }
                     } catch (e) {}
                     $node.remove();
-                    Board.arranger.on_columns_rearranged();
+                    Board.arranger.ask_for_reorder();
                 }
 
                 if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
@@ -593,8 +837,8 @@ $().ready(function() {
                 }
                 if (position < 0) {
                     position = 0;
-                } else if (position > Board.dragger.dimensions.scrollLeftMax) {
-                    position = Board.dragger.dimensions.scrollLeftMax;
+                } else if (position > Board.dimensions.scrollLeftMax) {
+                    position = Board.dimensions.scrollLeftMax;
                 }
                 var already_running = Board.lists.asked_scroll_to.running,
                     start = Board.container.scrollLeft;
@@ -616,6 +860,7 @@ $().ready(function() {
             init: function() {
                 if (!Board.$columns.length) { return; }
                 $document.on('reloaded', IssuesList.container_selector, Board.dragger.on_column_loaded);
+                $document.on('reloaded', IssuesList.container_selector, Board.arranger.on_column_loaded);
                 $document.on('reloaded', IssuesList.container_selector, Board.filters.on_column_loaded);
                 Board.lists.load_visible();
                 $('.board-column-closer').on('click', Ev.stop_event_decorate(Board.lists.on_closer_click));
@@ -631,10 +876,6 @@ $().ready(function() {
             activated: false,
             all_selector: '.board-column.loaded .issues-group:not(.template) .issues-group-issues',
             active_selector: '.board-column.loaded:not(.hidden) .issues-group:not(.template) .issues-group-issues',
-            dimensions: {
-                scrollLeftMax: 0,
-                scrollWidth: 0
-            },
             dragging: false,
             updating: false,
             $duplicate_hiddens: [],
@@ -734,36 +975,12 @@ $().ready(function() {
                 var $list_container_node = $(this);
                 requestNextAnimationFrame(function() {
                     var list = IssuesList.get_for_node($list_container_node),
-                        $column = $list_container_node.closest('.board-column'),
-                        not_loaded = list.$node.hasClass('not-loaded'),
-                        front_uuid = list.$node.data('front-uuid'),
-                        key = list.$container_node.data('key'),
-                        edit_url = list.$node.data('edit-column-url'),
-                        $edit_btn = $column.find('.board-column-edit');
-
-                    $column.toggleClass('loaded', !not_loaded).toggleClass('not-loaded', not_loaded).removeClass('loading');
-
-                    if (front_uuid) {
-                        $column.attr('data-front-uuid', front_uuid);
-                    }
-
-                    $column.data('key', key);
-                    $column.attr('data-key', key);
+                        not_loaded = list.$node.hasClass('not-loaded');
 
                     if (!not_loaded) {
                         Board.dragger.prepare_list_if_empty(list);
-                        if (Board.mode == 'project' && key != '__none__') {
-                            if (edit_url && !$edit_btn.length) {
-                                $column.find('.board-column-icons').prepend(
-                                    '<a href="#" class="board-column-edit" title="Edit or delete this column"><i class="fa fa-pencil"> </i></a>'
-                                );
-                            } else if (!edit_url && $edit_btn.length) {
-                                $edit_btn.remove();
-                            }
-                        }
                     }
 
-                    Board.$columns = $('.board-column');
                     Board.dragger.update_sortables(true);
                 });
             }, // on_column_loaded
@@ -771,7 +988,6 @@ $().ready(function() {
             on_columns_rearranged: function() {
                 if (!Board.dragger.activated) { return; }
                 requestNextAnimationFrame(function() {
-                    Board.dragger.update_dimensions();
                     Board.dragger.update_sortables(true);
                 });
             }, // on_columns_rearranged
@@ -825,7 +1041,7 @@ $().ready(function() {
                 //Compute the helpers position
                 this.position = this._generatePosition(event);
                 // CHANGED HERE: we don't want the helper to overflow on the right
-                this.position.left = Math.min(this.position.left, Board.dragger.dimensions.scrollWidth - this.helperProportions.width);
+                this.position.left = Math.min(this.position.left, Board.dimensions.scrollWidth - this.helperProportions.width);
 
                 this.positionAbs = this._convertPositionTo("absolute");
 
@@ -843,11 +1059,11 @@ $().ready(function() {
                             this.scrollParent[0].scrollTop = scrolled = this.scrollParent[0].scrollTop - o.scrollSpeed;
                         }
 
-                        // CHANGED HERE: added max with Board.dragger.dimensions.scrollLeftMax
+                        // CHANGED HERE: added max with Board.dimensions.scrollLeftMax
                         if((this.overflowOffset.left + this.scrollParent[0].offsetWidth) - event.pageX < o.scrollSensitivity) {
-                            this.scrollParent[0].scrollLeft = scrolled = Math.min(this.scrollParent[0].scrollLeft + o.scrollSpeed, Board.dragger.dimensions.scrollLeftMax);
+                            this.scrollParent[0].scrollLeft = scrolled = Math.min(this.scrollParent[0].scrollLeft + o.scrollSpeed, Board.dimensions.scrollLeftMax);
                         } else if(event.pageX - this.overflowOffset.left < o.scrollSensitivity) {
-                            this.scrollParent[0].scrollLeft = scrolled = Math.min(this.scrollParent[0].scrollLeft - o.scrollSpeed, Board.dragger.dimensions.scrollLeftMax);
+                            this.scrollParent[0].scrollLeft = scrolled = Math.min(this.scrollParent[0].scrollLeft - o.scrollSpeed, Board.dimensions.scrollLeftMax);
                         }
 
                     } else {
@@ -1220,14 +1436,8 @@ $().ready(function() {
                 Board.dragger.updating = false;
             }, // update_sortables
 
-            update_dimensions: function() {
-                Board.dragger.dimensions.scrollWidth = Board.$container[0].scrollWidth;
-                Board.dragger.dimensions.scrollLeftMax = Board.$container[0].scrollLeftMax || (Board.dragger.dimensions.scrollWidth -  Board.$container[0].offsetWidth);
-            }, // update_dimensions
-
             init: function() {
                 if (!Board.$columns.length) { return; }
-                Board.dragger.update_dimensions();
                 Board.dragger.activated = true;
                 // setTimeout(function() {
                 //     MessagesManager.add_messages([MessagesManager.make_message(
@@ -1564,6 +1774,11 @@ $().ready(function() {
             Board.lists.load_visible(500);
         }, //scroll
 
+        update_dimensions: function() {
+            Board.dimensions.scrollWidth = Board.$container[0].scrollWidth;
+            Board.dimensions.scrollLeftMax = Board.$container[0].scrollLeftMax || (Board.dimensions.scrollWidth -  Board.$container[0].offsetWidth);
+        }, // update_dimensions
+
         init: function() {
             HoverIssue.delay_enter = 1000;
 
@@ -1580,6 +1795,7 @@ $().ready(function() {
             Board.notes.init();
 
             if (Board.container) {
+                Board.update_dimensions();
                 Board.base_url = Board.$container.data('base_url');
                 Board.container.addEventListener('scroll', Board.on_scroll); // no jquery overhead
                 if (Board.editable) {
@@ -1604,7 +1820,7 @@ $().ready(function() {
         var $column = this.$node.closest('.board-column');
         $('.board-column.is-active').removeClass('is-active');
         $column.addClass('is-active');
-        if (!Board.dragger.dimensions.scrollLeftMax) { return; }
+        if (!Board.dimensions.scrollLeftMax) { return; }
         var column_left = $column.position().left,
             column_width = $column.width(),
             column_right = column_left + column_width,

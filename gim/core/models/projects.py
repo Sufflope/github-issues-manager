@@ -130,6 +130,12 @@ class Column(GithubObjectWithId):
             'cards',
         ]
 
+    @property
+    def github_callable_create_identifiers_for_moves(self):
+        return self.github_callable_identifiers + [
+            'moves',
+        ]
+
     def fetch_cards(self, gh, force_fetch=False, parameters=None):
         return self._fetch_many('cards', gh,
                                 defaults={
@@ -149,7 +155,7 @@ class Column(GithubObjectWithId):
         if mode == 'create':
             # put new columns at the end
             values.setdefault('simple', {})['position'] = self.position or \
-                  self.project.columns.aggregate(models.Max('position'))['position__max'] + 1
+              (self.project.columns.aggregate(models.Max('position'))['position__max'] or 0) + 1
 
         return values
 

@@ -14,7 +14,7 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 from gim.subscriptions.models import SUBSCRIPTION_STATES
 
 from gim.core.models.projects import Card, Column, Project
-from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob, ColumnEditJob
+from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob, ColumnEditJob, ColumnMoveJob
 
 from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin, WithIssueViewMixin, WithSubscribedRepositoryViewMixin, DependsOnRepositoryViewMixin, WithRepositoryViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
@@ -70,6 +70,7 @@ DEFAULT_BOARDS = OrderedDict((
 class BoardMixin(object):
 
     LIMIT_ISSUES = 30
+    raise_if_no_current_board = True
 
     def __init__(self):
         super(BoardMixin, self).__init__()
@@ -132,7 +133,11 @@ class BoardMixin(object):
 
         # Add projects
         if self.repository.has_projects():
-            for project in self.projects:
+            if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+                projects = self.projects_including_empty
+            else:
+                projects = self.projects
+            for project in projects:
                 columns = OrderedDict([
                     ('__none__', {
                         'key': '__none__',
@@ -150,7 +155,7 @@ class BoardMixin(object):
                         })
                         for column in project.columns.all()
                 ])
-                if len(columns) > 1:
+                if len(columns) > 1 or self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
                     boards['project-%d' % project.number] = {
                         'mode': 'project',
                         'key': str(project.number),
@@ -209,11 +214,15 @@ class BoardMixin(object):
     def get_boards_context(self):
         context = {'boards': self.get_boards()}
 
+
         current_board_key = self.kwargs.get('board_key')
         if current_board_key:
             current_board_key = '%s-%s' % (self.kwargs.get('board_mode'), current_board_key)
             if current_board_key not in context['boards']:
                 current_board_key = None
+
+        if self.raise_if_no_current_board and not current_board_key:
+            raise Http404('No board here')
 
         context['current_board_key'] = current_board_key
 
@@ -229,6 +238,7 @@ class BoardSelectorView(BoardMixin, BaseRepositoryView):
     name = 'Board'
     url_name = 'board-selector'
     template_name = 'front/repository/board/base.html'
+    raise_if_no_current_board = False
 
     default_qs = 'state=open'
 
@@ -813,7 +823,7 @@ class BoardProjectColumnView(BoardColumnView):
 
     def get_template_names(self):
         if self.current_column['object'].github_status in Column.GITHUB_STATUS_CHOICES.NOT_READY:
-            return 'front/repository/board/projects/include_not_loaded_column.html'
+            return 'front/repository/board/projects/include_not_ready_column.html'
 
         return super(BoardProjectColumnView, self).get_template_names()
 
@@ -1154,6 +1164,7 @@ class ColumnCreateView(ColumnEditMixin, CreateView):
 class BaseColumnEditView(ColumnEditMixin, UpdateView):
     context_object_name = 'column'
     pk_url_kwarg = 'column_id'
+    default_edit_mode = 'update'
 
     def get_object(self, queryset=None):
         """
@@ -1212,7 +1223,11 @@ class BaseColumnEditView(ColumnEditMixin, UpdateView):
         current_job, who = self.get_job_for_column(self.object)
 
         if current_job:
-            return self.render_not_editable(request, current_job.mode.hget(), who)
+            try:
+                mode = current_job.mode.hget()
+            except:
+                mode = self.default_edit_mode
+            return self.render_not_editable(request, mode, who)
 
         return super(BaseColumnEditView, self).dispatch(request, *args, **kwargs)
 
@@ -1234,3 +1249,92 @@ class ColumnDeleteView(BaseColumnEditView):
     template_name = 'front/repository/board/projects/include_column_delete.html'
     url_name = 'project.column.delete'
     form_class = ColumnDeleteForm
+
+
+class ColumnCanMoveView(BaseColumnEditView):
+    job_model = ColumnMoveJob
+    http_method_names = ['post']
+    url_name = 'project.column.can-move'
+    default_edit_mode = 'move'
+
+    def post(self, request, *args, **kwargs):
+
+        column = self.get_object()
+
+        current_job, who = self.get_job_for_column(column)
+
+        if current_job:
+            if who == self.request.user.username:
+                who = 'yourself'
+            messages.error(request, self.get_not_editable_user_message(column, 'move', who))
+            return self.render_messages(status=409)
+
+        return self.render_messages()
+
+
+class ColumnMoveView(ColumnCanMoveView):
+    url_name = 'project.column.move'
+
+    def get_success_url(self):
+        return self.object.get_info_url()
+
+    def post(self, request, *args, **kwargs):
+
+        # check if we can move the column
+        response = super(ColumnMoveView, self).post(request, *args, **kwargs)
+        if response.status_code >= 300:
+            return response
+
+        # ok we can move
+        position = self.request.POST.get('position', None)
+        if position is not None:
+            try:
+                position = int(position)
+                if position < 1:
+                    raise ValueError()
+            except ValueError:
+                return HttpResponseBadRequest()
+
+        column = self.get_object()
+        old_position = column.position
+
+        if position != old_position:
+
+            if position > old_position:  # going right
+                # we move to the left all columns between the old position and the new one
+                # excluding the old position (it's the column we move) and including the new one
+                # (the column we move takes its place and the old one is on the left)
+                to_move = column.project.columns.filter(position__gt=old_position, position__lte=position)
+                for column_to_move in to_move:
+                    column_to_move.position -= 1
+                    column_to_move.save(update_fields=['position'])
+            else:
+                # we move to the right all columns between the old position and the new one
+                # including the new position (the column we move takes its place and the old one
+                # is on the right) and excluding the old position (it's the column we move)
+                to_move = column.project.columns.filter(position__gte=position, position__lt=old_position)
+                for column_to_move in to_move:
+                    column_to_move.position += 1
+                    column_to_move.save(update_fields=['position'])
+
+            # and update the column
+            column.position = position
+            column.front_uuid = self.request.POST['front_uuid']
+            fields = ['position']
+            if column.front_uuid:
+                fields.append('front_uuid')
+            column.save(update_fields=fields)
+
+            # now we can create the job
+
+            job_kwargs = {}
+            if column.front_uuid:
+                job_kwargs = {'extra_args': {
+                    'front_uuid': column.front_uuid,
+                }}
+
+            self.job_model.add_job(column.pk,
+                                   gh=self.request.user.get_connection(),
+                                   **job_kwargs)
+
+        return HttpResponseRedirect(self.get_success_url())

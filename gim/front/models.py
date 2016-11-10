@@ -1112,6 +1112,14 @@ class _Column(Hashable, FrontEditable):
         from gim.front.repository.board.views import ColumnDeleteView
         return self.get_view_url(ColumnDeleteView.url_name)
 
+    def get_can_move_url(self):
+        from gim.front.repository.board.views import ColumnCanMoveView
+        return self.get_view_url(ColumnCanMoveView.url_name)
+
+    def get_move_url(self):
+        from gim.front.repository.board.views import ColumnMoveView
+        return self.get_view_url(ColumnMoveView.url_name)
+
     def get_create_note_url(self):
         from gim.front.repository.board.views import CardNoteCreateView
         return self.get_view_url(CardNoteCreateView.url_name)
