@@ -83,6 +83,21 @@ body#repository_board #main-inner {
         order: -1;
         display: none;
     }
+    .issues-list-title {
+        background: #f0f0f0;
+        padding-left: 21px;
+        padding-right: 4.3em;
+        @include ellipsis();
+        &:hover {
+            height: auto;
+            min-height: 20px;
+            z-index: 1;
+            white-space: normal;
+        }
+    }
+    #board-columns[data-mode=project][data-editable=true]  &:not([data-key=__none__]) .issues-list-title {
+        padding-right: 6em;
+    }
     .board-column-edit .fa {
         @include transform(scale(0.9))
     }
@@ -95,11 +110,13 @@ body#repository_board #main-inner {
         }
     }
     &.mini {
-        .board-column-minifier {
-            display: none;
-        }
-        .board-column-unminifier {
-            display: inline;
+        .board-column-icons {
+            .board-column-minifier {
+                display: none;
+            }
+            .board-column-unminifier {
+                display: inline;
+            }
         }
         &:not(.is-active):not(.edit-mode) {
             min-width: 31px;
@@ -126,12 +143,25 @@ body#repository_board #main-inner {
                 // rotated
                 left: initial;
                 right: 25px;
+                top: 45px;
                 text-align: right;
                 transform: rotate(270deg);
                 transform-origin: right top;
+                padding-right: 1em !important;
             }
-            .board-column-edit {
-                display: none;
+            .board-column-icons {
+                right: 5px;
+                a {
+                    height: 1.5em;
+                    width: auto;
+                    display: block;
+                    &.board-column-minifier {
+                        display: none;
+                    }
+                    &.board-column-edit {
+                        display: none;
+                    }
+                }
             }
         }
     }
@@ -155,9 +185,14 @@ body#repository_board #main-inner {
 .board-column-icons {
     position: absolute;
     top: 5px;
-    right: 5px;
-    .board-column-closer {
-        margin-left: 1px;
+    right: 1px;
+    z-index: 2;
+    padding-right: 5px;
+    background: inherit;
+    a {
+        display: inline-block;
+        text-align: center;
+        width: 1.5em;
     }
     .board-column.mini:not(.is-active) & {
         right: 3px;
@@ -180,7 +215,7 @@ body#repository_board #main-inner {
     }
     .fa-sort-amount-desc {
         cursor: help;
-        margin-left: 5px;
+        margin-right: 5px;
         color: $state-open-color;
         &.is-swiped-out {
             color: inherit;

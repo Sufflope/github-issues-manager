@@ -469,7 +469,7 @@ $().ready(function() {
                     name = $data.data('name'),
                     $column = $('.board-column[data-front-uuid=' + this.uuid + ']');
                 if ($column.length) {
-                    $column.find('.issues-list-title')[0].textContent = name;
+                    $column.find('.column-title').text(name);
                     Board.arranger.exit_edit_mode($column);
                 }
             }, // on_submit_done
@@ -618,7 +618,7 @@ $().ready(function() {
                     } else {
                         // the column exist, we just change its name and we're done
                         // we need to simulate capfirst as in the template
-                        $node.find('.issues-list-title')[0].firstChild.textContent = kwargs.name ? kwargs.name[0].toUpperCase() +  kwargs.name.substring(1) : '';
+                        $node.find('.column-title').text(kwargs.name ? kwargs.name[0].toUpperCase() +  kwargs.name.substring(1) : '');
                         list_to_refresh = $node.find('.issues-list-container')[0].IssuesList;
                         list_to_refresh.$node.data('position', kwargs.position);
                         list_to_refresh.$node.attr('data-position', kwargs.position);

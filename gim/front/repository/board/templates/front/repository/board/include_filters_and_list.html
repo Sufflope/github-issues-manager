@@ -8,6 +8,10 @@
 {% block list-title-classes %}{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}{% endblock list-title-classes %}
 
 {% block list-title-content %}
+    {% if current_repository_edit_level %}
+        <i class="fa fa-sort-amount-desc{% if not can_handle_positions %} is-swiped-out{% endif %}" title="Issues dragged in this column {% if can_handle_positions %}will{% else %}won't{% endif %} have their new position saved"></i>
+    {% endif %}
+    <span class="column-title">
     {% with default=block.super %}
     {% if current_board.mode == 'labels' and current_column.object %}
         <span style="border-bottom-color: #{{ current_column.object.color }}">
@@ -20,9 +24,7 @@
         {{ default }}
     {% endif %}
     {% endwith %}
-    {% if current_repository_edit_level %}
-        <i class="fa fa-sort-amount-desc{% if not can_handle_positions %} is-swiped-out{% endif %}" title="Issues dragged in this column {% if can_handle_positions %}will{% else %}won't{% endif %} have their new position saved"></i>
-    {% endif %}
+    </span>
 {% endblock list-title-content %}
 
 {% block after-main-section %}
