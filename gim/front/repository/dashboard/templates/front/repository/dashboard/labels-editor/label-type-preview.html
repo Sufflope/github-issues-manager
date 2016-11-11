@@ -9,7 +9,7 @@
     {% if matching_labels %}
         <ul class="unstyled labels">
             {% for label in matching_labels %}
-                <li title="{{ label.name }}" style="border-bottom-color: #{{ label.color }};">{{ label.typed_name }}</li>
+                <li title="{{ label.name }}" style="border-bottom-color: #{{ label.color }};">{{ label.typed_name }}</li>
             {% endfor %}
         </ul>
     {% else %}
