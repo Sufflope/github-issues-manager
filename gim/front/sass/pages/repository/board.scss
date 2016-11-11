@@ -623,3 +623,9 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
         margin: 0 5px 5px;
     }
 }
+
+#project-editor {
+    .modal-header h6 {
+        text-align: center;
+    }
+}

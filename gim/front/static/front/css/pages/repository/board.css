@@ -4709,3 +4709,8 @@ body#repository_board #main-inner {
 .column-form .alert {
   margin: 0 5px 5px;
 }
+
+/* line 628, ../../../../../sass/pages/repository/board.scss */
+#project-editor .modal-header h6 {
+  text-align: center;
+}
