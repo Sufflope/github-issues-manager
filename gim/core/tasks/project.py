@@ -4,6 +4,7 @@ __all__ = [
     'CardNoteEditJob',
     'ColumnEditJob',
     'ColumnMoveJob',
+    'ProjectEditJob',
 ]
 
 from random import randint
@@ -415,3 +416,96 @@ class ColumnMoveJob(ColumnJob):
 
         # now we have to update the projects
         self.project.repository.fetch_all_projects(gh)
+
+
+class ProjectJob(DjangoModelJob):
+    """
+    Abstract job model for jobs based on the Project model
+    """
+    abstract = True
+    model = Project
+
+    @property
+    def project(self):
+        if not hasattr(self, '_project'):
+            self._project = self.object
+        return self._project
+
+
+class ProjectEditJob(ProjectJob):
+    queue_name = 'edit-project'
+
+    mode = fields.InstanceHashField(indexable=True)
+    created_pk = fields.InstanceHashField(indexable=True)
+
+    def run(self, queue):
+        """
+        Get the project and create/update/delete it
+        """
+        super(ProjectEditJob, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        mode = self.mode.hget()
+
+        try:
+            project = self.object
+        except self.model.DoesNotExist:
+            return None
+
+        if mode == 'create':
+            project.is_new = True
+
+        try:
+            if mode == 'delete':
+                project.dist_delete(gh)
+            else:
+                data = {
+                    'name': project.name,
+                    'body': project.body
+                }
+                column = project.dist_edit(gh, mode=mode, fields=data.keys(), values=data)
+                if mode == 'create':
+                    self.created_pk.hset(column.pk)
+                else:
+                    # force publish
+                    from gim.front.models import publish_update
+                    publish_update(project, 'updated', {})
+
+        except ApiError, e:
+            message = None
+
+            if e.code == 422:
+                message = u'Github refused to %s the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                    mode, project.name, project.repository.full_name)
+
+            elif e.code in (401, 403):
+                tries = self.tries.hget()
+                if tries and int(tries) >= 5:
+                    message = u'You seem to not have the right to %s the project "<strong>%s</strong>" on <strong>%s</strong>' % (
+                        mode, project.name, project.repository.full_name)
+
+            if message:
+                messages.error(self.gh_user, message)
+                if mode == 'create':
+                    project.delete()
+                else:
+                    try:
+                        project.fetch(gh, force_fetch=True)
+                    except ApiError:
+                        pass
+                return None
+
+            else:
+                raise
+
+        message = u'The project <strong>%s</strong> was correctly %sd on <strong>%s</strong>' % (
+                                project.name, mode, project.repository.full_name)
+        messages.success(self.gh_user, message)
+
+        # now we have to update the projects
+        project.repository.fetch_all_projects(gh)
+
+        return None

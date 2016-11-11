@@ -4714,3 +4714,16 @@ body#repository_board #main-inner {
 #project-editor .modal-header h6 {
   text-align: center;
 }
+/* line 632, ../../../../../sass/pages/repository/board.scss */
+#project-editor .modal-body > .alert {
+  margin-bottom: 0;
+  text-align: center;
+}
+/* line 638, ../../../../../sass/pages/repository/board.scss */
+#project-editor:not(.edit-mode) .modal-body {
+  background: white;
+}
+/* line 642, ../../../../../sass/pages/repository/board.scss */
+#project-editor .modal-footer:empty {
+  display: none;
+}

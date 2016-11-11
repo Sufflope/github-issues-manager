@@ -4581,6 +4581,10 @@ $().ready(function() {
             }
         }), // focus_form
 
+        move_cursor_at_the_end: (function FormTools__move_cursor_at_the_end ($input) {
+            $input.val($input.val());
+        }), // move_cursor_at_the_end
+
         load_select2: (function FormTools__load_select2 (callback) {
             if (typeof $().select2 == 'undefined') {
                 var count_done = 0,
@@ -4664,10 +4668,10 @@ $().ready(function() {
             };
         }), // get_form_context_with_uuid
 
-        handle_form: (function FormTools__handle_form ($form, ev, front_uuid) {
+        handle_form: (function FormTools__handle_form ($form, ev, front_uuid, disable_form_function) {
             Ev.cancel(ev);
             if ($form.data('disabled')) { return false; }
-            FormTools.disable_form($form);
+            (disable_form_function || FormTools.disable_form)($form);
             var context = FormTools.get_form_context_with_uuid($form, front_uuid),
                 $alert = $form.find('.alert');
             $form.find('button').addClass('loading');

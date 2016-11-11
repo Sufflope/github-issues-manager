@@ -32,7 +32,7 @@ $().ready(function() {
                 var nb_columns = $option.data('columns');
                 $container.attr('title', $option.attr('title'));
                 $container.append($('<span/>').text($option.data('name')));
-                $container.append($('<span style="float: right"/>').text(nb_columns + ' columns'));
+                $container.append($('<span style="float: right"/>').text(nb_columns + ' column' + (nb_columns > 1 ? 's' : '')));
             }, // format_option
 
             format_selection: function(state, $container) {
@@ -49,6 +49,69 @@ $().ready(function() {
                 var url = $(this.options[this.selectedIndex]).data('url');
                 if (url) { window.location.href = url; }
             }, // on_change
+
+            on_update_project_alert: function(topic, args, kwargs) {
+                var is_current = (Board.mode == 'project' && kwargs.number == Board.$container.data('key'));
+
+                var selector = Board.selector.$select.data('select2');
+                if (is_current) {
+                    selector.container.find('.select2-chosen > strong').text(kwargs.name);
+                }
+                var $option = Board.selector.$select.find('option[value=project-' + kwargs.number + ']');
+
+                // create an option if it doesn't exit
+                if (!$option.length) {
+                    $option = $('<option title="Github project with all its columns"></option>');
+                    $option.attr('value', 'project-' + kwargs.number)
+                           .attr('data-url', kwargs.url)
+                           .text(kwargs.name);
+                    var $options = Board.selector.$select.find('option');
+                    var $after = null;
+                    for (var i = 0; i < $options.length; i++) {
+                        var $iter_options = $($options[i]);
+                        var value = $iter_options.attr('value');
+                        if (typeof value == 'undefined' || value == '') {
+                            $after = $iter_options;
+                            continue;
+                        }
+                        if (value.indexOf('auto-') == 0) {
+                            $after = $iter_options;
+                            continue;
+                        }
+                        if (value.indexOf('project-') == 0) {
+                            var number = parseInt(value.split('-')[1], 10);
+                            if (number < kwargs.number) {
+                                $after = $iter_options;
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+                        if (value.indexOf('labels-') == 0) {
+                            break;
+                        }
+                    }
+                    if ($after) {
+                        $after.after($option);
+                    } else {
+                        Board.selector.$select.prepend($option);
+                    }
+                }
+
+                $option.text(kwargs.name)
+                       .data('name', kwargs.name)
+                       .data('columns', kwargs.nb_columns+1 );
+
+                selector.updateResults();
+
+            }, // on_update_project_alert
+
+            update_project_columns_count: function(project_number, nb_columns) {
+                var $option = Board.selector.$select.find('option[value=project-' + project_number + ']');
+                if (!$option.length) { return; }
+                $option.data('columns', nb_columns);
+                Board.selector.$select.data('select2').updateResults();
+            }, // update_project_columns_count
 
             init: function() {
                 Board.selector.$select.select2({
@@ -122,6 +185,7 @@ $().ready(function() {
                 Board.dragger.on_columns_rearranged();
                 Board.$columns = $('.board-column');
                 Board.arranger.update_sortable();
+                Board.selector.update_project_columns_count(Board.$container.data('key'), Board.$columns.length);
             }, // on_columns_rearranged
 
             on_sortable_create: function(ev, ui) {
@@ -330,23 +394,26 @@ $().ready(function() {
                         });
                     }
                 }
-                if (!moves.length) { return; }
+                if (moves.length) {
 
-                // we can now move the columns that need to, in their position order
-                moves.sort(Board.arranger.reorder_compare);
-                for (i = 0; i < moves.length; i++) {
-                    move = moves[i];
-                    node = move.$column[0];
-                    dest = container.children[mapping[move.to]];
-                    if (node == dest) {
-                        continue;
+                    // we can now move the columns that need to, in their position order
+                    moves.sort(Board.arranger.reorder_compare);
+                    for (i = 0; i < moves.length; i++) {
+                        move = moves[i];
+                        node = move.$column[0];
+                        dest = container.children[mapping[move.to]];
+                        if (node == dest) {
+                            continue;
+                        }
+                        if (move.to > move.position) {
+                            dest = dest.nextSibling; // emulate insertAfter
+                        }
+                        container.insertBefore(node, dest);
                     }
-                    if (move.to > move.position) {
-                        dest = dest.nextSibling; // emulate insertAfter
-                    }
-                    container.insertBefore(node, dest);
+
                 }
 
+                // to do even if no changes in order
                 Board.update_dimensions();
                 Board.arranger.on_columns_rearranged();
 
@@ -363,21 +430,24 @@ $().ready(function() {
             }, // exit_edit_mode
 
             on_submit: function(ev, on_submit_done, action_name) {
-                var $form = $(this),
-                    context = FormTools.handle_form($form, ev);
+                var $form = $(this), context;
+                if ($form.data('disabled')) { return false; }
+
+                context = FormTools.handle_form($form, ev);
+                if (context === false) { return false; }
 
                 context.action_name = action_name;
 
-                if (context === false) { return false; }
+                if (action_name != 'delete') {
+                    var $input = $form.find('input[name=name]');
 
-                var $input = $form.find('input[name=name]');
-
-                if ($input.length && !$input.val().trim()) {
-                    $input.after('<div class="alert alert-error">You must enter a name</div>');
-                    $form.find('button').removeClass('loading');
-                    FormTools.enable_form($form);
-                    $input.focus();
-                    return false;
+                    if ($input.length && !$input.val().trim()) {
+                        $input.after('<div class="alert alert-error">You must enter a name</div>');
+                        $form.find('button').removeClass('loading');
+                        FormTools.enable_form($form);
+                        $input.focus();
+                        return false;
+                    }
                 }
 
                 $form.closest('.board-column')[0].setAttribute('data-front-uuid', context.uuid);
@@ -1580,6 +1650,296 @@ $().ready(function() {
 
         }, // Board.filters
 
+        project_editor: {
+            $modal: $('#project-editor'),
+            $modal_header: $('#project-editor .modal-header'),
+            $modal_body: $('#project-editor .modal-body'),
+            $modal_footer: $('#project-editor .modal-footer'),
+            updating_ids: {},
+
+            exit_edit_mode: function() {
+                Board.project_editor.$modal.removeClass('edit-mode');
+                Board.project_editor.$modal_body.empty().append(
+                    '<em>Loading project information <i class="fa fa-spinner fa-spin"> </i></em>'
+                );
+                Board.project_editor.$modal_footer.empty();
+                Board.project_editor.load_summary();
+            }, // exit_edit_mode
+
+            load_summary: function(open_when_done) {
+                $.get(Board.project_editor.$modal.data('summary-url'))
+                    .done($.proxy(Board.project_editor.on_summary_loaded, {force_open: open_when_done}))
+                    .fail(Board.project_editor.on_summary_load_failed);
+            }, // load_summary
+
+            on_summary_loaded: function(data) {
+                var $data = $(data);
+                Board.project_editor.$modal_header.empty().append($data.find('.modal-header').children());
+                Board.project_editor.$modal_body.empty().append($data.find('.modal-body').children());
+                Board.project_editor.$modal_footer.empty().append($data.find('.modal-footer').children());
+                if (this.force_open) {
+                    Board.project_editor.$modal.modal('show');
+                }
+            }, // on_summary_loaded
+
+            on_summary_load_failed: function(xhr, data) {
+                Board.project_editor.$modal_body.empty().append(
+                    '<div class="alert alert-error">We were unable to load the project information</div>'
+                );
+                Board.project_editor.$modal_footer.empty().append(
+                    '<div class="row-fluid align-right"><div class="span12"><button class="btn btn-blue btn-loading">Retry <i class="fa fa-spinner fa-spin"> </i></button></div></div>'
+                );
+                Board.project_editor.$modal_footer.find('.btn').on('click', function() {
+                    $(this).addClass('loading');
+                    Board.project_editor.load_summary();
+                });
+            }, // on_summary_load_failed
+
+            disable_form: function($form) {
+                Board.project_editor.$modal_footer.find(':button').prop('disabled', true);
+                FormTools.disable_form($form);
+            }, // disable_form
+
+            enable_form: function($form) {
+                FormTools.enable_form($form);
+                Board.project_editor.$modal_footer.find(':button').prop('disabled', false);
+            }, // enable_form
+
+            handle_form: function($form, ev, front_uuid) {
+                return FormTools.handle_form($form, ev, front_uuid, Board.project_editor.disable_form);
+            }, // handle_form
+
+            on_submit: function(ev, on_submit_done, action_name) {
+                var $form = $(this), context;
+                if ($form.data('disabled')) { return false; }
+
+                context = Board.project_editor.handle_form($form, ev);
+                if (context === false) { return false; }
+
+                Board.project_editor.$modal_footer.find('button.submit').addClass('loading');
+                Board.project_editor.$modal.find('.alert').remove();
+
+                context.action_name = action_name;
+
+                if (action_name != 'delete') {
+                    var $input = $form.find('input[name=name]');
+
+                    if ($input.length && !$input.val().trim()) {
+                        $input.after('<div class="alert alert-error">You must enter a name</div>');
+                        Board.project_editor.$modal_footer.find('button.submit').removeClass('loading');
+                        Board.project_editor.enable_form($form);
+                        $input.focus();
+                        FormTools.move_cursor_at_the_end($input);
+                        return false;
+                    }
+                }
+
+                Board.project_editor.$modal[0].setAttribute('data-front-uuid', context.uuid);
+
+                FormTools.post_form_with_uuid($form, context,
+                    on_submit_done,
+                    Board.project_editor.on_submit_failed);
+            }, // on_submit
+
+            on_submit_failed: function(xhr, data) {
+                Board.project_editor.enable_form(this.$form);
+                var msg = 'The project cannot be ' + this.action_name + 'd for now. Please retry in a few seconds';
+                Board.project_editor.$modal_body.append('<div class="alert alert-error">' + msg + '</div>');
+                Board.project_editor.$modal_footer.find('button.submit').removeClass('loading');
+                var $input = this.$form.find('input[name=name]');
+                $input.focus();
+                FormTools.move_cursor_at_the_end($input);
+                return
+            }, // on_submit_failed
+
+            on_edit_click: function() {
+                $(this).addClass('loading');
+                $.get(Board.project_editor.$modal.data('edit-url'))
+                    .done(Board.project_editor.on_edit_loaded)
+                    .fail(Board.project_editor.on_edit_load_failed);
+            }, // on_edit_click
+
+            on_edit_loaded: function(data) {
+                var $data = $(data),
+                    $edit_buttons = $data.find('.edit-buttons'),
+                    $input;
+
+                $edit_buttons.remove();
+
+                Board.project_editor.$modal.addClass('edit-mode');
+                Board.project_editor.$modal_body.empty().append($data);
+                Board.project_editor.$modal_footer.empty().append($edit_buttons);
+
+                $input =  Board.project_editor.$modal_body.find('input[name=name]');
+                $input.focus();
+                FormTools.move_cursor_at_the_end($input);
+            }, // on_edit_loaded
+
+            on_edit_load_failed: function(xhr, data) {
+                Board.project_editor.exit_edit_mode();
+                if (xhr.status != 409) {
+                    // 409 Conflict Indicates that the request could not be processed because of
+                    // conflict in the request, such as an edit conflict between multiple simultaneous updates.
+                    alert('Unable to retrieve the form to edit this project');
+                }
+            }, // on_edit_load_failed
+
+            on_edit_submit_click: function() {
+                Board.project_editor.$modal_body.find('form').trigger('submit');
+            }, // on_edit_submit_click
+
+            on_edit_submit: function(ev) {
+                return Board.project_editor.on_submit.bind(this)(ev, Board.project_editor.on_edit_submit_done, 'update');
+
+            }, // on_edit_submit
+
+            on_edit_submit_done: function(data) {
+                Board.project_editor.on_summary_loaded($(data));
+            }, // on_edit_submit_done
+
+            on_modal_hide: function(ev) {
+                if (Board.project_editor.$modal.hasClass('edit-mode')) {
+                    // disallow exit via esc if in edit mode (input has focus)
+                    if (Board.project_editor.$modal_body.find('form :input:focus').length) {
+                        ev.preventDefault();
+                    }
+                }
+            },
+
+            subscribe_updates: function() {
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.updated.is.Project',
+                    'Board__project_editor__on_update_alert',
+                    Board.project_editor.on_update_alert,
+                    'prefix'
+                );
+            }, // subscribe_updates
+
+            can_update_on_alert: function(method, topic, args, kwargs) {
+                if (typeof Board.project_editor.updating_ids[kwargs.id] != 'undefined' || kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+                    setTimeout(function() {
+                        Board.project_editor[method](topic, args, kwargs);
+                    }, 100);
+                    return false;
+                }
+                Board.project_editor.updating_ids[kwargs.id] = true;
+                return true;
+            }, // can_update_column_on_alert
+
+            on_update_alert: function(topic, args, kwargs) {
+                if (!kwargs.model || kwargs.model != 'Project' || !kwargs.id || !kwargs.number) {
+                    return;
+                }
+
+                if (!Board.project_editor.can_update_on_alert('on_update_alert', topic, args, kwargs)) {
+                    return;
+                }
+
+                var is_current = (Board.mode == 'project' && kwargs.number == Board.$container.data('key'));
+
+                if (is_current) {
+                    Board.project_editor.load_summary();
+                }
+
+                Board.selector.on_update_project_alert(topic, args, kwargs);
+
+                // update the title
+                if (is_current) {
+                    var $title = $document.find('head > title');
+                    var parts = $title.text().split(' | ');
+                    for (var i = 0; i < parts.length; i++) {
+                        if (parts[i].indexOf('Board - ') == 0) {
+                            parts[i] = 'Board - ' + kwargs.name;
+                            break;
+                        }
+                    }
+                    $title.text(parts.join(' | '));
+                }
+
+                if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
+                    var verb = kwargs.is_new ? 'created' : 'updated';
+                    if (is_current) {
+                        message = 'The current project was just ' + verb;
+                    } else {
+                        message = 'The project named "' + kwargs.name + '" was just ' + verb;
+                    }
+                    MessagesManager.add_messages([MessagesManager.make_message(message, 'info')]);
+                }
+
+                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                    UUID.set_state(kwargs.front_uuid, '');
+                }
+                delete Board.project_editor.updating_ids[kwargs.id];
+
+            }, // on_update_alert
+
+            show_modal_for_deleted: function() {
+                Board.project_editor.$modal_body.empty().append(
+                    '<div class="alert alert-error">' +
+                    "This project was just deleted. You'll be redirected to the Board home page" +
+                    '</div>'
+                );
+                Board.project_editor.$modal_footer.empty().append(
+                    '<div class="row-fluid align-left"><div class="span12"><button class="btn btn-blue" data-dismiss="modal">Ok</button></div></div>'
+                );
+                Board.project_editor.$modal.off('hide', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.on('hide', function() {
+                    window.location.href = '/' + $body.data('repository') + '/board/';
+                });
+                Board.project_editor.$modal.modal('show');
+            }, // show_modal_for_deleted
+
+            on_delete_alert: function(topic, args, kwargs) {
+                if (!kwargs.model || kwargs.model != 'Project' || !kwargs.id || !kwargs.number) {
+                    return;
+                }
+
+                if (!Board.project_editor.can_update_on_alert('on_delete_alert', topic, args, kwargs)) {
+                    return;
+                }
+
+                var is_current = (kwargs.number == Board.$container.data('key'));
+
+                if (is_current) {
+                    Board.project_editor.hide_for_deletion();
+                    Board.project_editor.show_modal_for_deleted();
+                }
+
+                Board.selector.on_delete_project_alert(topic, args, kwargs);
+
+                if (!is_current) {
+                    MessagesManager.add_messages([MessagesManager.make_message(
+                        'The project named "' + kwargs.name + '" was just deleted', 'info')]);
+                }
+
+                if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+                    UUID.set_state(kwargs.front_uuid, '');
+                }
+                delete Board.project_editor.updating_ids[kwargs.id];
+            }, // on_delete_alert
+
+            init: function() {
+                Board.project_editor.subscribe_updates();
+
+                if (Board.mode != 'project') { return; }
+
+                if (Board.project_editor.$modal.data('waiting-for-deletion')) {
+                    Board.project_editor.hide_for_deletion();
+                    Board.project_editor.$modal.modal('show');
+                }
+
+                $document.on('click', '#project-editor button.btn-edit', Board.project_editor.on_edit_click);
+                $document.on('click', '#project-editor button.btn-cancel', Board.project_editor.exit_edit_mode);
+                $document.on('click', '#project-editor button.btn-edit-submit', Board.project_editor.on_edit_submit_click);
+                $document.on('submit', '#project-editor .project-edit-form', Board.project_editor.on_edit_submit);
+                $document.on('click', '#project-editor .cancel-deletion', Board.project_editor.on_cancel_deletion);
+                $document.on('click', '#project-editor .confirm-deletion', Board.project_editor.on_confirm_deletion);
+
+                Board.project_editor.$modal.on('hide', Board.project_editor.on_modal_hide);
+            } // init
+
+        }, // project_editor
+
         notes: {
 
             on_edit_or_delete_click: function () {
@@ -1633,9 +1993,11 @@ $().ready(function() {
             }, // on_edit_or_delete_cancel_click
 
             on_submit: function (ev, is_create) {
-                var $form = $(this),
-                    front_uuid = is_create ? $form.closest('.note-item')[0].id.substr(5) : null,
-                    context = FormTools.handle_form($form, ev, front_uuid);
+                var $form = $(this), front_uuid, context;
+                if ($form.data('disabled')) { return false; }
+
+                front_uuid = is_create ? $form.closest('.note-item')[0].id.substr(5) : null,
+                context = FormTools.handle_form($form, ev, front_uuid);
                 if (context === false) { return false; }
 
                 var $textarea = $form.find('textarea');
@@ -1793,6 +2155,7 @@ $().ready(function() {
             Board.selector.init();
             Board.arranger.init();
             Board.notes.init();
+            Board.project_editor.init();
 
             if (Board.container) {
                 Board.update_dimensions();

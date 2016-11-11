@@ -1023,7 +1023,7 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
-class _Project(models.Model):
+class _Project(Hashable, FrontEditable):
     body_html = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -1038,6 +1038,20 @@ class _Project(models.Model):
 
         self.old_save(force_insert, force_update, using, update_fields)
 
+    @property
+    def hash(self):
+        """
+        Hash for this object representing its state at the current time, used to
+        know if we have to reset an issue's cache
+        """
+        return hash((self.name, ))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this project
+        """
+        return core_models.Issue.objects.filter(cards__column__project=self)
+
     def get_reverse_kwargs(self):
         """
         Return the kwargs to use for "reverse"
@@ -1051,11 +1065,28 @@ class _Project(models.Model):
     def get_view_url(self, url_name):
         return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
 
+    def get_absolute_url(self):
+        from gim.front.repository.board.views import BoardView
+        return reverse_lazy('front:repository:%s' % BoardView.url_name, kwargs={
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'board_mode': 'project',
+            'board_key': self.number,
+        }) + '?sort=position&direction=asc'
+
+    def get_summary_url(self):
+        from gim.front.repository.board.views import ProjectSummaryView
+        return self.get_view_url(ProjectSummaryView.url_name)
+
+    def get_edit_url(self):
+        from gim.front.repository.board.views import ProjectEditView
+        return self.get_view_url(ProjectEditView.url_name)
+
     def get_create_column_url(self):
         from gim.front.repository.board.views import ColumnCreateView
         return self.get_view_url(ColumnCreateView.url_name)
 
-contribute_to_model(_Project, core_models.Project, {'save'}, {'save'})
+contribute_to_model(_Project, core_models.Project, {'save', 'defaults_create_values'}, {'save'})
 
 
 class _Column(Hashable, FrontEditable):
@@ -1331,7 +1362,16 @@ PUBLISHABLE = {
             'project_number': self.project.number,
             'position': self.position,
             'name': self.name,
-            'url': self.get_absolute_url(),
+            'url': str(self.get_absolute_url()),
+        }
+    },
+    core_models.Project: {
+        'self': True,
+        'more_data': lambda self: {
+            'name': self.name,
+            'number': self.number,
+            'url': str(self.get_absolute_url()),
+            'nb_columns': self.columns.count(),
         }
     },
     # core_models.Repository: {
@@ -1552,6 +1592,7 @@ def hash_check(sender, instance, created, **kwargs):
                         core_models.Milestone,
                         core_models.LabelType,
                         core_models.Label,
+                        core_models.Project,
                         core_models.Column,
                         core_models.Card,
                         core_models.Issue

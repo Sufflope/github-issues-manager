@@ -5,7 +5,7 @@ from django import forms
 from django.db.models import Max
 
 from gim.front.mixins.forms import LinkedToUserFormMixin, LinkedToRepositoryFormMixin
-from gim.core.models import GITHUB_STATUS_CHOICES, Card, Column
+from gim.core.models import GITHUB_STATUS_CHOICES, Card, Column, Project
 from gim.front.repository.issues.forms import validate_filled_string
 
 
@@ -152,3 +152,32 @@ class ColumnDeleteForm(LinkedToProjectFormMixin):
     def save(self, commit=True):
         self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE
         return super(ColumnDeleteForm, self).save(commit)
+
+
+class BaseProjectEditForm(LinkedToRepositoryFormMixin):
+    class Meta:
+        model = Project
+        fields = ['front_uuid', 'name', 'body']
+
+    def __init__(self, *args, **kwargs):
+        super(BaseProjectEditForm, self).__init__(*args, **kwargs)
+        self.fields['name'].validators = [partial(validate_filled_string, name='name')]
+        self.fields['name'].required = True
+        self.fields['name'].widget = forms.TextInput()
+        self.fields['body'].validators = [partial(validate_filled_string, name='body')]
+        self.fields['body'].required = False
+        self.fields['body'].label = 'Description'
+
+    def save(self, commit=True):
+        if self.instance.pk:
+            self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_UPDATE
+        else:
+            self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_CREATE
+        self.instance.updated_at = datetime.utcnow()
+        if not self.instance.created_at:
+            self.instance.created_at = self.instance.updated_at
+        return super(BaseProjectEditForm, self).save(commit)
+
+
+class ProjectEditForm(BaseProjectEditForm):
+    pass

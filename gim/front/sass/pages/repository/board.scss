@@ -628,4 +628,18 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
     .modal-header h6 {
         text-align: center;
     }
+    .modal-body {
+        > .alert {
+            margin-bottom: 0;
+            text-align: center;
+        }
+    }
+    &:not(.edit-mode) {
+        .modal-body {
+            background: white;
+        }
+    }
+    .modal-footer:empty {
+        display: none;
+    }
 }

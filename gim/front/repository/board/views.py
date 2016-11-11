@@ -14,16 +14,26 @@ from django.views.generic import UpdateView, CreateView, TemplateView, DetailVie
 from gim.subscriptions.models import SUBSCRIPTION_STATES
 
 from gim.core.models.projects import Card, Column, Project
-from gim.core.tasks import IssueEditProjectsJob, MoveCardJob, CardNoteEditJob, ColumnEditJob, ColumnMoveJob
+from gim.core.tasks import (
+    IssueEditProjectsJob,
+    MoveCardJob, CardNoteEditJob,
+    ColumnEditJob, ColumnMoveJob,
+    ProjectEditJob,
+)
 
-from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin, WithIssueViewMixin, WithSubscribedRepositoryViewMixin, DependsOnRepositoryViewMixin, WithRepositoryViewMixin
+from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictionViewMixin, WithIssueViewMixin, WithSubscribedRepositoryViewMixin, DependsOnRepositoryViewMixin, WithRepositoryViewMixin, \
+    LinkedToRepositoryFormViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
 from gim.front.repository.views import BaseRepositoryView
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
     IssueEditMilestone, IssueEditState, IssueEditProjects, IssuesFilters
 
-from .forms import CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm, ColumnCreateForm, ColumnEditForm, ColumnDeleteForm
+from .forms import (
+    CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm,
+    ColumnCreateForm, ColumnEditForm, ColumnDeleteForm,
+    ProjectEditForm,
+)
 
 DEFAULT_BOARDS = OrderedDict((
     ('auto-state', {
@@ -1338,3 +1348,130 @@ class ColumnMoveView(ColumnCanMoveView):
                                    **job_kwargs)
 
         return HttpResponseRedirect(self.get_success_url())
+
+
+class ProjectSummaryView(WithAjaxRestrictionViewMixin, DependsOnRepositoryViewMixin, DetailView):
+    model = Project
+    ajax_only = True
+    http_method_names = ['get']
+    template_name = 'front/repository/board/projects/project_modal.html'
+    context_object_name = 'project'
+    slug_field = 'number'
+    slug_url_kwarg = 'project_number'
+    url_name = 'project.summary'
+
+
+class ProjectEditMixin(LinkedToRepositoryFormViewMixin):
+    model = Project
+    job_model = ProjectEditJob
+    ajax_only=True
+    http_method_names = ['get', 'post']
+    edit_mode = None
+
+    def form_valid(self, form):
+        """
+        Override the default behavior to add a job to edit the project on the
+        github side
+        """
+        response = super(ProjectEditMixin, self).form_valid(form)
+
+        job_kwargs = {}
+        if self.object.front_uuid:
+            job_kwargs = {'extra_args': {
+                'front_uuid': self.object.front_uuid,
+                'skip_reset_front_uuid': 1,
+            }}
+
+        self.job_model.add_job(self.object.pk,
+                               mode=self.edit_mode,
+                               gh=self.request.user.get_connection(),
+                               **job_kwargs)
+
+        message = u"The project <strong>%s</strong> will be updated shortly" % self.object.name
+
+        messages.success(self.request, message)
+
+        return response
+
+
+class BaseProjectEditView(ProjectEditMixin, UpdateView):
+    context_object_name = 'project'
+    slug_field = 'number'
+    slug_url_kwarg = 'project_number'
+    default_edit_mode = 'update'
+
+    def get_object(self, queryset=None):
+        """
+        Early check that the user has enough rights to edit this column
+        """
+        obj = super(BaseProjectEditView, self).get_object(queryset)
+        if self.subscription.state not in SUBSCRIPTION_STATES.WRITE_RIGHTS:
+            raise Http404
+        return obj
+
+    @classmethod
+    def get_current_job_for_project(cls, project):
+        try:
+            job = cls.job_model.collection(identifier=project.id, queued=1).instances()[0]
+        except IndexError:
+            return None
+        else:
+            return job
+
+    @classmethod
+    def get_job_for_project(cls, project):
+
+        current_job = cls.get_current_job_for_project(project)
+
+        if current_job:
+            for i in range(0, 3):
+                sleep(0.1)  # wait a little, it may be fast
+                current_job = cls.get_current_job_for_project(project)
+                if not current_job:
+                    break
+
+            if current_job:
+                who = current_job.gh_args.hget('username')
+                return current_job, who
+
+        return None, None
+
+    @classmethod
+    def get_not_editable_user_message(cls, column, edit_mode, who):
+        message = u"This project is currently being %sd (asked by <strong>%s</strong>)"  % (edit_mode or 'update', who)
+        if edit_mode != 'delete':
+            message += u", please wait a few seconds and retry"
+        return message
+
+    def render_not_editable(self, request, edit_mode, who):
+        if who == request.user.username:
+            who = 'yourself'
+        messages.error(request, self.get_not_editable_user_message(self.object, edit_mode, who))
+        # 409 Conflict Indicates that the request could not be processed because of
+        # conflict in the request, such as an edit conflict between multiple simultaneous updates.
+        return self.render_messages(status=409)
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        current_job, who = self.get_job_for_project(self.object)
+
+        if current_job:
+            try:
+                mode = current_job.mode.hget()
+            except:
+                mode = self.default_edit_mode
+            return self.render_not_editable(request, mode, who)
+
+        return super(BaseProjectEditView, self).dispatch(request, *args, **kwargs)
+
+
+class ProjectEditView(BaseProjectEditView):
+    edit_mode = 'update'
+    verb = 'updated'
+    template_name = 'front/repository/board/projects/include_project_edit.html'
+    url_name = 'project.edit'
+    form_class = ProjectEditForm
+
+    def get_success_url(self):
+        return self.object.get_summary_url()

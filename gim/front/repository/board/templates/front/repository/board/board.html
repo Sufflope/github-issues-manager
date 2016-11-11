@@ -15,7 +15,7 @@
         </div>
         {% if current_board.mode == 'project' %}
             <div class="span2">
-                <button class="btn btn-default" data-toggle="modal" data-target="#project-editor">View project details</button>
+                <a class="btn btn-default" data-toggle="modal" data-target="#project-editor">View{% if current_repository_edit_level %}/manage{% endif %} project details</a>
             </div>
         {% endif %}
         <div class="span{% if current_board.mode == 'project' %}6{% else %}8{% endif %}">
@@ -55,24 +55,6 @@
     {{ block.super }}
     {% include "front/repository/dashboard/chart_window.html" %}
     {% if current_board.mode == 'project' %}
-        <div id="project-editor" class="modal fancy hide">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
-                <h6>{{ current_board.object.name }}</h6>
-            </div>
-            <div class="modal-body">
-                <div class="project-description">
-                    {{ current_board.object.body_html|safe }}
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="row-fluid auto-align">
-
-                    <div class="span12">
-                        <button class="btn btn-default" data-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% include "front/repository/board/projects/project_modal.html" with project=current_board.object %}
     {% endif %}
 {% endblock modal-windows %}
