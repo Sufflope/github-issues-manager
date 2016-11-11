@@ -1321,7 +1321,7 @@ div.selector span {
   font-size: 16px;
   position: relative;
   top: 1px;
-  margin-left: 3px;
+  margin-left: 6px;
 }
 /* line 523, ../../../../../sass/components/_issue.scss */
 .issue-container a.issue-edit-btn.issue-edit-btn-projects {

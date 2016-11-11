@@ -5278,72 +5278,76 @@ ol.errorlist, ul.errorlist {
 .one-field-form > div input, .one-field-form > div select, .one-field-form > div textarea {
   margin: 0;
 }
-/* line 308, ../../../sass/main.scss */
+/* line 309, ../../../sass/main.scss */
+.one-field-form .small-buttons button {
+  padding: 4px 0;
+}
+/* line 313, ../../../sass/main.scss */
 .one-field-form button {
   width: 30px;
   font-size: 14px;
   margin-left: 10px;
 }
-/* line 312, ../../../sass/main.scss */
+/* line 317, ../../../sass/main.scss */
 .one-field-form button i {
   font-size: inherit;
   float: none;
   margin: 0;
 }
-/* line 318, ../../../sass/main.scss */
+/* line 323, ../../../sass/main.scss */
 .one-field-form button.btn-save i {
   color: white;
 }
-/* line 323, ../../../sass/main.scss */
+/* line 328, ../../../sass/main.scss */
 .one-field-form button.loading i:first-of-type {
   display: none;
 }
 
-/* line 331, ../../../sass/main.scss */
+/* line 336, ../../../sass/main.scss */
 .active-panel {
   border-top: solid 5px #7BC8D7 !important;
 }
 
-/* line 336, ../../../sass/main.scss */
+/* line 341, ../../../sass/main.scss */
 .sparkline-graph {
   line-height: 1px !important;
 }
 
-/* line 342, ../../../sass/main.scss */
+/* line 347, ../../../sass/main.scss */
 .add-issue-btn a {
   margin-left: 20px;
 }
 
-/* line 347, ../../../sass/main.scss */
+/* line 352, ../../../sass/main.scss */
 .fa-stack {
   color: #2c596d !important;
 }
-/* line 349, ../../../sass/main.scss */
+/* line 354, ../../../sass/main.scss */
 .fa-stack .fa-code-fork {
   color: #ccc !important;
 }
-/* line 351, ../../../sass/main.scss */
+/* line 356, ../../../sass/main.scss */
 .fa-stack .fa-code-fork ~ .fa {
   opacity: 0.8;
 }
-/* line 355, ../../../sass/main.scss */
+/* line 360, ../../../sass/main.scss */
 .fa-stack .fa-file-text-o, .fa-stack .fa-file-code-o {
   color: #ddd !important;
 }
-/* line 358, ../../../sass/main.scss */
+/* line 363, ../../../sass/main.scss */
 .fa-stack .fa-quote-left {
   color: #ddd !important;
 }
-/* line 360, ../../../sass/main.scss */
+/* line 365, ../../../sass/main.scss */
 .fa-stack .fa-quote-left ~ .fa {
   opacity: 0.8;
 }
-/* line 362, ../../../sass/main.scss */
+/* line 367, ../../../sass/main.scss */
 .fa-stack .fa-quote-left ~ .fa.fa-file-text-o, .fa-stack .fa-quote-left ~ .fa.fa-file-code-o {
   color: inherit !important;
 }
 
-/* line 370, ../../../sass/main.scss */
+/* line 375, ../../../sass/main.scss */
 .webui-popover-hover-issue {
   -moz-box-shadow: 3px 3px 15px #000;
   -webkit-box-shadow: 3px 3px 15px #000;
@@ -5355,34 +5359,34 @@ ol.errorlist, ul.errorlist {
   max-width: 40%;
   z-index: 1050;
 }
-/* line 379, ../../../sass/main.scss */
+/* line 384, ../../../sass/main.scss */
 .webui-popover-hover-issue .webui-popover-content > .empty-area {
   position: static;
   margin: 0;
   line-height: normal;
   overflow: hidden;
 }
-/* line 385, ../../../sass/main.scss */
+/* line 390, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error {
   padding: 5px;
 }
-/* line 387, ../../../sass/main.scss */
+/* line 392, ../../../sass/main.scss */
 .webui-popover-hover-issue.webui-error .alert {
   margin-bottom: 0;
 }
-/* line 392, ../../../sass/main.scss */
+/* line 397, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top {
   -moz-border-radius: 6px 6px 0 0;
   -webkit-border-radius: 6px;
   border-radius: 6px 6px 0 0;
 }
-/* line 394, ../../../sass/main.scss */
+/* line 399, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content > .area-top:after {
   -moz-border-radius: 0 6px 0 0;
   -webkit-border-radius: 0;
   border-radius: 0 6px 0 0;
 }
-/* line 398, ../../../sass/main.scss */
+/* line 403, ../../../sass/main.scss */
 .webui-popover-hover-issue .issue-content .issue-body {
   border-bottom: 0;
   -moz-border-radius: 0 0 6px 6px;
@@ -5390,12 +5394,12 @@ ol.errorlist, ul.errorlist {
   border-radius: 0 0 6px 6px;
 }
 
-/* line 405, ../../../sass/main.scss */
+/* line 410, ../../../sass/main.scss */
 .alert-warning {
   color: #8E6A47;
 }
 
-/* line 409, ../../../sass/main.scss */
+/* line 414, ../../../sass/main.scss */
 .fa-align-left.fa-rotate-90 {
   position: relative;
   left: -2px;
