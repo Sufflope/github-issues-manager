@@ -106,6 +106,13 @@ $().ready(function() {
 
             }, // on_update_project_alert
 
+            on_delete_project_alert: function(topic, args, kwargs) {
+                var $option = Board.selector.$select.find('option[value=project-' + kwargs.number + ']');
+                if (!$option.length) { return; }
+                $option.remove();
+                Board.selector.$select.data('select2').updateResults();
+            }, // on_delete_project_alert
+
             update_project_columns_count: function(project_number, nb_columns) {
                 var $option = Board.selector.$select.find('option[value=project-' + project_number + ']');
                 if (!$option.length) { return; }
@@ -1716,14 +1723,25 @@ $().ready(function() {
                 context = Board.project_editor.handle_form($form, ev);
                 if (context === false) { return false; }
 
-                Board.project_editor.$modal_footer.find('button.submit').addClass('loading');
                 Board.project_editor.$modal.find('.alert').remove();
 
                 context.action_name = action_name;
 
-                if (action_name != 'delete') {
-                    var $input = $form.find('input[name=name]');
+                var data, action;
 
+                if (action_name == 'delete') {
+
+                    Board.project_editor.$modal_footer.find('.btn-delete').addClass('loading');
+                    Board.project_editor.action_on_delete_popover('hide');
+
+                    data = [{name: 'csrfmiddlewaretoken', value: $form[0].csrfmiddlewaretoken.value}];
+                    action = $form.data('delete-url');
+
+                } else {
+
+                    Board.project_editor.$modal_footer.find('button.submit').addClass('loading');
+
+                    var $input = $form.find('input[name=name]');
                     if ($input.length && !$input.val().trim()) {
                         $input.after('<div class="alert alert-error">You must enter a name</div>');
                         Board.project_editor.$modal_footer.find('button.submit').removeClass('loading');
@@ -1732,24 +1750,36 @@ $().ready(function() {
                         FormTools.move_cursor_at_the_end($input);
                         return false;
                     }
+
                 }
 
                 Board.project_editor.$modal[0].setAttribute('data-front-uuid', context.uuid);
 
                 FormTools.post_form_with_uuid($form, context,
                     on_submit_done,
-                    Board.project_editor.on_submit_failed);
+                    Board.project_editor.on_submit_failed,
+                    data, action
+                );
             }, // on_submit
+
+            on_confirm_deletion: function(ev) {
+                var $form = Board.project_editor.$modal_body.find('form');
+                $.proxy(Board.project_editor.on_submit, $form[0])(ev,
+                    Board.project_editor.on_delete_submit_done,
+                    'delete'
+                )
+            }, // on_confirm_deletion
 
             on_submit_failed: function(xhr, data) {
                 Board.project_editor.enable_form(this.$form);
                 var msg = 'The project cannot be ' + this.action_name + 'd for now. Please retry in a few seconds';
                 Board.project_editor.$modal_body.append('<div class="alert alert-error">' + msg + '</div>');
-                Board.project_editor.$modal_footer.find('button.submit').removeClass('loading');
-                var $input = this.$form.find('input[name=name]');
-                $input.focus();
-                FormTools.move_cursor_at_the_end($input);
-                return
+                Board.project_editor.$modal_footer.find('button.loading').removeClass('loading');
+                if (this.action_name != 'delete') {
+                    var $input = this.$form.find('input[name=name]');
+                    $input.focus();
+                    FormTools.move_cursor_at_the_end($input);
+                }
             }, // on_submit_failed
 
             on_edit_click: function() {
@@ -1769,6 +1799,7 @@ $().ready(function() {
                 Board.project_editor.$modal.addClass('edit-mode');
                 Board.project_editor.$modal_body.empty().append($data);
                 Board.project_editor.$modal_footer.empty().append($edit_buttons);
+                Board.project_editor.action_on_delete_popover();  // init
 
                 $input =  Board.project_editor.$modal_body.find('input[name=name]');
                 $input.focus();
@@ -1797,6 +1828,49 @@ $().ready(function() {
                 Board.project_editor.on_summary_loaded($(data));
             }, // on_edit_submit_done
 
+            action_on_delete_popover: function(action) {
+                Board.project_editor.$modal_footer.find('.btn-delete').popover(action);
+            }, // hide_delete_popover
+
+            on_cancel_deletion: function(ev) {
+                Board.project_editor.action_on_delete_popover('hide');
+            }, // on_cancel_deletion
+
+            on_confirm_deletion: function(ev) {
+                var $form = Board.project_editor.$modal_body.find('form'), context;
+                if ($form.data('disabled')) { return false; }
+
+                context = Board.project_editor.handle_form($form, ev);
+                if (context == false) { return false;}
+
+                Board.project_editor.action_on_delete_popover('hide');
+                Board.project_editor.$modal_footer.find('.btn-delete').addClass('loading');
+                Board.project_editor.$modal.find('.alert').remove();
+
+                context.action_name = 'delete';
+
+                Board.project_editor.$modal[0].setAttribute('data-front-uuid', context.uuid);
+
+                FormTools.post_form_with_uuid($form, context,
+                    Board.project_editor.on_delete_submit_done,
+                    Board.project_editor.on_submit_failed,
+                    [{name: 'csrfmiddlewaretoken', value: $form[0].csrfmiddlewaretoken.value}],
+                    $form.data('delete-url')
+                );
+
+            }, // on_confirm_deletion
+
+            hide_for_deletion: function() {
+                IssuesFilters.add_waiting(Board.filters.$options_node);
+                IssuesFilters.add_waiting($(Board.filters.filters_selector));
+                IssuesFilters.add_waiting(Board.$container);
+            },
+
+            on_delete_submit_done: function(data) {
+                Board.project_editor.on_summary_loaded($(data));
+                Board.project_editor.hide_for_deletion();
+            }, // on_delete_submit_done
+
             on_modal_hide: function(ev) {
                 if (Board.project_editor.$modal.hasClass('edit-mode')) {
                     // disallow exit via esc if in edit mode (input has focus)
@@ -1811,6 +1885,12 @@ $().ready(function() {
                     'gim.front.Repository.' + main_repository_id + '.model.updated.is.Project',
                     'Board__project_editor__on_update_alert',
                     Board.project_editor.on_update_alert,
+                    'prefix'
+                );
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.deleted.is.Project',
+                    'Board__project_editor__on_delete_alert',
+                    Board.project_editor.on_delete_alert,
                     'prefix'
                 );
             }, // subscribe_updates

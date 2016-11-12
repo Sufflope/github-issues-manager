@@ -181,3 +181,20 @@ class BaseProjectEditForm(LinkedToRepositoryFormMixin):
 
 class ProjectEditForm(BaseProjectEditForm):
     pass
+
+
+class ProjectDeleteForm(LinkedToRepositoryFormMixin):
+
+    class Meta:
+        model = Project
+        fields = ['front_uuid', ]
+
+    def save(self, commit=True):
+
+        for column in self.instance.columns.all():
+            column.delete()
+
+        self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_DELETE
+        return super(ProjectDeleteForm, self).save(commit)
+
+

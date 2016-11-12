@@ -1082,6 +1082,10 @@ class _Project(Hashable, FrontEditable):
         from gim.front.repository.board.views import ProjectEditView
         return self.get_view_url(ProjectEditView.url_name)
 
+    def get_delete_url(self):
+        from gim.front.repository.board.views import ProjectDeleteView
+        return self.get_view_url(ProjectDeleteView.url_name)
+
     def get_create_column_url(self):
         from gim.front.repository.board.views import ColumnCreateView
         return self.get_view_url(ColumnCreateView.url_name)

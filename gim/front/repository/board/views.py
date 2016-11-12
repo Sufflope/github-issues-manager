@@ -32,7 +32,7 @@ from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, Is
 from .forms import (
     CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm,
     ColumnCreateForm, ColumnEditForm, ColumnDeleteForm,
-    ProjectEditForm,
+    ProjectEditForm, ProjectDeleteForm,
 )
 
 DEFAULT_BOARDS = OrderedDict((
@@ -849,6 +849,8 @@ class WithProjectViewMixin(WithRepositoryViewMixin):
     And finally, put the project in the context
     """
 
+    exclude_waiting_delete = True
+
     def get_project_filter_args(self, filter_root=''):
         """
         Return a dict with attribute to filter a model for a given repository's
@@ -868,9 +870,15 @@ class WithProjectViewMixin(WithRepositoryViewMixin):
         """
         Return (and cache) the project. Raise a 404 if the current user is
         not allowed to use this repository, or if the project is not found
+        or waiting for deletion
         """
+
+        queryset = Project.objects.select_related('repository__owner')
+        if self.exclude_waiting_delete:
+            queryset = queryset.exclude(github_status=Project.GITHUB_STATUS_CHOICES.WAITING_DELETE)
+
         return get_object_or_404(
-            Project.objects.select_related('repository__owner'),
+            queryset,
             **self.get_project_filter_args()
         )
 
@@ -1359,6 +1367,7 @@ class ProjectSummaryView(WithAjaxRestrictionViewMixin, DependsOnRepositoryViewMi
     slug_field = 'number'
     slug_url_kwarg = 'project_number'
     url_name = 'project.summary'
+    exclude_waiting_delete = False
 
 
 class ProjectEditMixin(LinkedToRepositoryFormViewMixin):
@@ -1475,3 +1484,15 @@ class ProjectEditView(BaseProjectEditView):
 
     def get_success_url(self):
         return self.object.get_summary_url()
+
+
+class ProjectDeleteView(BaseProjectEditView):
+    edit_mode = 'delete'
+    verb = 'deleted'
+    template_name = 'front/repository/board/projects/include_project_edit.html'
+    url_name = 'project.column.delete'
+    form_class = ProjectDeleteForm
+
+    def get_success_url(self):
+        return self.object.get_summary_url()
+

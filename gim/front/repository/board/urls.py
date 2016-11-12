@@ -7,7 +7,7 @@ from .views import (
     CardNoteCreateView, CardNoteView, CardNoteEditView, CardNoteDeleteView,
     ColumnCreateView, ColumnEditView, ColumnDeleteView,
     ColumnInfoView, ColumnMoveView, ColumnCanMoveView,
-    ProjectSummaryView, ProjectEditView,
+    ProjectSummaryView, ProjectEditView, ProjectDeleteView,
 )
 
 urlpatterns = patterns('',
@@ -19,6 +19,7 @@ urlpatterns = patterns('',
     # project edit
     url(r'project/(?P<project_number>\d+)/edit/$', ProjectEditView.as_view(), name=ProjectEditView.url_name),
     url(r'project/(?P<project_number>\d+)/summary/$', ProjectSummaryView.as_view(), name=ProjectSummaryView.url_name),
+    url(r'project/(?P<project_number>\d+)/delete/$', ProjectDeleteView.as_view(), name=ProjectDeleteView.url_name),
 
     # project column edit
     url(r'project/(?P<project_number>\d+)/column/add/$', ColumnCreateView.as_view(), name=ColumnCreateView.url_name),
