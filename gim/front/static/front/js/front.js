@@ -918,7 +918,7 @@ $().ready(function() {
             column_id_and_card_position = this.$node.data('project_' + project_number + '-position').split(':');
             this.project_positions[project_number] = {
                 'column_id': parseInt(column_id_and_card_position[0], 10),
-                'card_position': parseInt(column_id_and_card_position[1], 10),
+                'card_position': parseInt(column_id_and_card_position[1], 10)
             };
         }
     }); // IssuesListIssue__prepare
@@ -1055,11 +1055,11 @@ $().ready(function() {
         IssueDetail.display_issue(html, this.issue_ident, true);
     }); // IssuesListIssue__display_html_in_popup
 
-    IssuesListIssue.prototype.error_getting_html = (function IssuesListIssue__error_getting_html (jqXHR) {
-        IssueDetail.clear_container('error ' + jqXHR.status, false);
+    IssuesListIssue.prototype.error_getting_html = (function IssuesListIssue__error_getting_html (xhr) {
+        IssueDetail.clear_container('error ' + xhr.status, false);
     }); // IssuesListIssue__error_getting_html
 
-    IssuesListIssue.prototype.error_getting_html_in_popup = (function IssuesListIssue__error_getting_html_in_popup (jqXHR) {
+    IssuesListIssue.prototype.error_getting_html_in_popup = (function IssuesListIssue__error_getting_html_in_popup (xhr) {
         var container = IssueDetail.get_container(true);
         IssueDetail.unset_issue_waypoints(container.$node);
         container.$window.removeClass('full-screen');
@@ -1181,7 +1181,7 @@ $().ready(function() {
     }); // IssuesListIssue__remove_from_project
 
     IssuesListIssue.prototype.move_to_project_column = (function IssuesListIssue__move_to_project_column (project_number, column_id, position) {
-        var pp = this.project_positions, project_numbers_str, project_position_str, project_position_key;;
+        var pp = this.project_positions, project_numbers_str, project_position_str, project_position_key;
         if (!pp[project_number]) {
             pp[project_number] = {};
             this.project_numbers.push(project_number);
@@ -1678,13 +1678,13 @@ $().ready(function() {
             return factor * -1;
         }
         if (issue1.cached_sort_value > issue2.cached_sort_value) {
-            return factor * 1;
+            return factor;
         }
         return issue1.position - issue2.position;
     }); // IssuesListGroup__reorder_compare
 
     IssuesListGroup.prototype.ask_for_reorder = (function IssuesListGroup__ask_for_reorder () {
-        // idea from `_rearrage` in jquery-ui sortable
+        // idea from `_rearrange` in jquery-ui sortable
         this.reorder_counter += 1;
         var counter = this.reorder_counter;
         setTimeout(function() {
@@ -2522,7 +2522,7 @@ $().ready(function() {
             return IssuesFilters.reload_filters_and_list(this.href, $filters_node, $issues_list_node)
         }), // on_filter_click
         on_list_filter_click: (function IssuesFilters__on_list_filter_click_click () {
-            var $issues_list_node = $(this).closest(IssuesList.container_selector), url, $filters_node;
+            var $issues_list_node = $(this).closest(IssuesList.container_selector), $filters_node;
             if (!$issues_list_node.length && IssuesList.current) {
                 $issues_list_node = IssuesList.current.$container_node;
             }
@@ -2556,7 +2556,7 @@ $().ready(function() {
                         $alert = $container.children('.alert'),
                         $button;
                     if ($alert.length) {
-                        $button = $alert.children('.btn');
+                        $alert.children('.btn');
                         $alert.show();
                     } else {
                         $button = $('<a class="btn btn-mini btn-default" href="#">Try again</a>');
@@ -4217,7 +4217,7 @@ $().ready(function() {
                 ordered_panels = [];
             for (var i = 0; i < dom_panels.length; i++) {
                 var dom_panel = dom_panels[i],
-                    found_panel = dom_panel;
+                    found_panel = dom_panel,
                     found_handlable = dom_panel.handlable;
                 for (var j = 0; j < PanelsSwapper.panels.length; j++) {
                     var panel = PanelsSwapper.panels[j];
@@ -4235,7 +4235,6 @@ $().ready(function() {
                 found_panel.handlable = dom_panel.handlable;
                 found_panel.index = i;
                 ordered_panels.push(found_panel);
-                found = true;
             }
             PanelsSwapper.panels = ordered_panels;
             if (PanelsSwapper.current_panel && !PanelsSwapper.current_panel.handlable) {
@@ -4480,7 +4479,7 @@ $().ready(function() {
 
         add_messages: (function MessagesManager__add_messages (messages) {
             var html = MessagesManager.$node.html().trim(),
-                uniq_messages = $.grep(messages, function(message, index) {
+                unique_messages = $.grep(messages, function(message, index) {
                     if (!message) { return false; }
                     if (html && html.indexOf(message) !== -1) {
                         // The message is already displayed, so we skip it
@@ -4490,11 +4489,11 @@ $().ready(function() {
                         // the message is available at least one more time in the list, we skip it
                         return false;
                     }
-                    // uniq message, we keep it
+                    // unique_message, we keep it
                     return true;
                 });
-            if (uniq_messages.length) {
-                MessagesManager.$node.append(uniq_messages);
+            if (unique_messages.length) {
+                MessagesManager.$node.append(unique_messages);
                 MessagesManager.init_auto_hide();
             }
         }), // add_messages
@@ -4695,7 +4694,7 @@ $().ready(function() {
             if (context === false) { return false; }
             var $node = $form.closest('.issue-container');
             context.issue_ident = IssueDetail.get_issue_ident($node);
-            context.$node = $node
+            context.$node = $node;
             return context;
         }), // handle_form
 
@@ -5570,8 +5569,8 @@ $().ready(function() {
             }
 
             // we need numbers to compare
-            if (limits.min) { limits.min = parseFloat(limits.min, 10)}
-            if (limits.max) { limits.max = parseFloat(limits.max, 10)}
+            if (limits.min) { limits.min = parseFloat(limits.min)}
+            if (limits.max) { limits.max = parseFloat(limits.max)}
 
             // remove entries with boundaries already presents
             for (var i = 0; i < $entries.length; i++) {
@@ -6081,7 +6080,7 @@ $().ready(function() {
                 delete node.hover_issue_popover_trigger_parent;
             }
 
-            var $node = $(node), $target = popover.getTarget();
+            var $target = popover.getTarget();
 
             if ($target.length) {
                 if (fast) { $target.removeClass('fade'); }
@@ -6326,7 +6325,7 @@ $().ready(function() {
                 if (!IssuesList.current) { return; }
                 if (!IssuesList.current.current_group) { return; }
                 if (!IssuesList.current.current_group.current_issue) { return; }
-                var $input = $input = IssuesList.current.current_group.current_issue.$node.find(
+                var $input = IssuesList.current.current_group.current_issue.$node.find(
                     GithubNotifications.item_selector + ' input[type=checkbox][name=' + check + ']:visible');
                 if ($input.length) {
                     return GithubNotifications.toggle_check($input);
@@ -6388,7 +6387,7 @@ $().ready(function() {
                 old_date = null,
                 new_count = kwargs.count || 0,
                 new_last = kwargs.last,
-                new_date = null;
+                new_date = null,
                 to_notify = false;
 
             GithubNotifications.current_count = new_count;

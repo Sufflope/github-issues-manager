@@ -1,7 +1,7 @@
 $().ready(function() {
 
     var $document = $(document),
-        $body = $('body');
+        $body = $('body'),
         body_id = $body.attr('id'),
         main_repository_id = $body.data('repository-id');
 
@@ -218,7 +218,7 @@ $().ready(function() {
                     create: Board.arranger.on_sortable_create,
                     items: '> .board-column.loaded[data-key]:not([data-key=__none__]):not(.edit-mode)',
                     start: Board.arranger.on_drag_start,
-                    stop: Board.arranger.on_drag_stop,
+                    stop: Board.arranger.on_drag_stop
                 }).disableSelection();
             }, // prepare_sortable
 
@@ -284,7 +284,7 @@ $().ready(function() {
                     data = {
                         csrfmiddlewaretoken: $body.data('csrf'),
                         front_uuid: front_uuid,
-                        position: new_position,
+                        position: new_position
                     },
                     context = {
                         list: list,
@@ -302,7 +302,6 @@ $().ready(function() {
             }, // remote_move_column
 
             on_remote_move_column_failure: function(xhr, data) {
-                var context = this;
                 if (xhr.status != 409) {
                     MessagesManager.add_messages([MessagesManager.make_message(
                         "We couldn't update the column's position", 'error')]);
@@ -326,7 +325,7 @@ $().ready(function() {
                         column_to_move_position = parseInt(column_list.$node.data('position'), 10);
                     } catch (e) {
                         continue;
-                    };
+                    }
                     if (position > actual_position) {  // going right
                         // we move to the left all columns between the old position and the new one
                         // excluding the old position (it's the column we move) and including the new one
@@ -377,7 +376,7 @@ $().ready(function() {
                         position = parseInt($column.find('.issues-list')[0].IssuesList.$node.data('position'), 10);
                     } catch (e) {
                         position = null;
-                    };
+                    }
                     if (position) {
                         $column.dom_position = i; // index in the container
                         $column.actual_position = actual_position; // index in the container for only movable columns
@@ -479,7 +478,7 @@ $().ready(function() {
                     } else {
                         msg += ' You may'
                     }
-                    msg += ' retry in a few seconds.'
+                    msg += ' retry in a few seconds.';
                     $input.after('<div class="alert alert-error">' + msg + '</div>');
                     return
                 }
@@ -493,7 +492,7 @@ $().ready(function() {
 
             on_edit_click: function() {
                 var $column = $(this).closest('.board-column'),
-                    url = $column.find('.issues-list').data('edit-column-url');
+                    url = $column.find('.issues-list').data('edit-column-url'),
                     $mask = IssuesFilters.add_waiting($column),
                     context = {$column: $column, $mask: $mask};
 
@@ -578,9 +577,8 @@ $().ready(function() {
 
                     if (list) {
                         IssuesList.remove_list(list);
-                        delete list;
                     }
-                } catch (e) {};
+                } catch (e) {}
 
                 $column.empty().removeClass('create-mode').append($data);
                 Board.arranger.on_columns_rearranged();
@@ -728,7 +726,7 @@ $().ready(function() {
 
                         })
                         .fail(function() {
-                            alert("An error occured while loading a new column. Please refresh the whole page.")
+                            alert("An error occurred while loading a new column. Please refresh the whole page.")
                         })
                         .always(function() {
                             if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
@@ -772,7 +770,6 @@ $().ready(function() {
                         var list = $node.find('.issues-list')[0].IssuesList;
                         if (list) {
                             IssuesList.remove_list(list);
-                            delete list;
                         }
                     } catch (e) {}
                     $node.remove();
@@ -789,7 +786,7 @@ $().ready(function() {
             init: function() {
                 if (!Board.container) { return; }
 
-                var $refresh_list_item = $('#issues-list-options-board-main a.refresh-list').parent();
+                var $refresh_list_item = $('#issues-list-options-board-main').find('a.refresh-list').parent();
                 if (Board.mode == 'project' && Board.editable) {
                     $refresh_list_item.after(
                         '<li><a href="#" class="add-column">Add a column</a></li>'
@@ -893,13 +890,12 @@ $().ready(function() {
             animate_scroll_to: function() {
                 if (!Board.lists.asked_scroll_to.running) { return; }
                 Board.lists.asked_scroll_to.currentTime += Board.lists.asked_scroll_to.increment;
-                var val = Math.easeInOutQuad(
+                Board.container.scrollLeft = Math.easeInOutQuad(
                     Board.lists.asked_scroll_to.currentTime,
                     Board.lists.asked_scroll_to.start,
                     Board.lists.asked_scroll_to.change,
                     Board.lists.asked_scroll_to.duration
                 );
-                Board.container.scrollLeft = val;
                 if (Board.lists.asked_scroll_to.currentTime < Board.lists.asked_scroll_to.duration) {
                     requestNextAnimationFrame(Board.lists.animate_scroll_to);
                 } else {
@@ -955,7 +951,7 @@ $().ready(function() {
             active_selector: '.board-column.loaded:not(.hidden) .issues-group:not(.template) .issues-group-issues',
             dragging: false,
             updating: false,
-            $duplicate_hiddens: [],
+            $hidden_duplicates: [],
 
             on_drag_start: function(ev, ui) {
                 Board.dragger.dragging = true;
@@ -990,9 +986,9 @@ $().ready(function() {
                     ui_helper.height(ui_placeholder.height());
 
                     // we may have the same item in may columns (for labels for example)
-                    Board.dragger.$duplicate_hiddens = $('.board-column #' + ui_item[0].id + ':not(.ui-sortable-placeholder):not(.ui-sortable-helper)').not(ui_item[0]);
-                    if (Board.dragger.$duplicate_hiddens.length) {
-                        Board.dragger.$duplicate_hiddens.hide();
+                    Board.dragger.$hidden_duplicates = $('.board-column #' + ui_item[0].id + ':not(.ui-sortable-placeholder):not(.ui-sortable-helper)').not(ui_item[0]);
+                    if (Board.dragger.$hidden_duplicates.length) {
+                        Board.dragger.$hidden_duplicates.hide();
                     }
 
                     sortable._cacheHelperProportions();
@@ -1008,17 +1004,16 @@ $().ready(function() {
             on_drag_stop: function(ev, ui) {
                 Board.dragger.dragging = false;
 
-                for (var i = 0; i < Board.dragger.$duplicate_hiddens.length; i++) {
-                    var $item = $(Board.dragger.$duplicate_hiddens[i]);
+                for (var i = 0; i < Board.dragger.$hidden_duplicates.length; i++) {
+                    var $item = $(Board.dragger.$hidden_duplicates[i]);
                     // the item may have been removed so we check
                     if ($item.closest(document.documentElement).length) {
                         $item.show();
                     }
                 }
-                Board.dragger.$duplicate_hiddens = [];
+                Board.dragger.$hidden_duplicates = [];
 
                 Board.$container.removeClass('dragging');
-                var $list_node = ui.item.closest('.issues-list');
                 ui.item.removeClass('force-without-details');
 
                 Board.dragger.hide_empty_columns();
@@ -1073,11 +1068,11 @@ $().ready(function() {
                 var obj = $(this).data('ui-sortable');
                 obj._mouseDrag = Board.dragger._sortable_override_mouse_drag;
 
-                obj._oldRemoveCurrentsFromItems = obj._removeCurrentsFromItems
+                obj._oldRemoveCurrentsFromItems = obj._removeCurrentsFromItems;
                 obj._removeCurrentsFromItems = Board.dragger._sortable_override__removeCurrentsFromItems;
 
                 obj._oldRearrange = obj._rearrange;
-                obj._rearrange = Board.dragger._sortable_override_rearrage;
+                obj._rearrange = Board.dragger._sortable_override_rearrange;
             }, // on_sortable_create
 
             _sortable_override__removeCurrentsFromItems: function () {
@@ -1096,17 +1091,25 @@ $().ready(function() {
                     } else {
                         this.currentItemSibling = null;
                     }
-                    this.items = this.items.filter(item => item.item[0].IssuesListIssue.group.list != issue.group.list || item.item[0] == currentItem || (sibling && item.item[0].IssuesListIssue == sibling));
+                    this.items = this.items.filter(function(item) {
+                        return (
+                            item.item[0].IssuesListIssue.group.list != issue.group.list
+                            ||
+                            item.item[0] == currentItem
+                            ||
+                            (sibling && item.item[0].IssuesListIssue == sibling)
+                        );
+                    });
                 }
             }, // _sortable_override__removeCurrentsFromItems
 
-            _sortable_override_rearrage: function(event, i, a, hardRefresh) {
+            _sortable_override_rearrange: function(event, i, a, hardRefresh) {
                 if (!this.canMoveInsideSelf && this.currentItemSibling && i && i.item && i.item.length && i.item[0] == this.currentItemSibling) {
                     // We force the item to be back at its original position
                     this.direction = this.currentItemSiblingDirection == 1 ? 'down' : 'up';
                 }
                 this._oldRearrange(event, i, a, hardRefresh);
-            }, // _sortable_override_rearrage
+            }, // _sortable_override_rearrange
 
             _sortable_override_mouse_drag: function (event) {
                 // copy of _mouseDrag from jqueryUI.sortable, to not scroll more than the max of the board
@@ -1259,7 +1262,6 @@ $().ready(function() {
                         group_changed = new_group != old_group,
                         old_list = old_group.list,
                         new_list = new_group.list,
-                        list_changed = new_list != old_list,
                         was_current_issue = old_group.current_issue == issue,
                         old_list_can_handle_positions = old_list.$node.data('can-handle-positions'),
                         new_list_can_handle_positions = new_list.$node.data('can-handle-positions'),
@@ -1300,7 +1302,7 @@ $().ready(function() {
                         // we assume we are in the column of a project (old_group and new_group are project column (or issues not in the project)
                         project_number = new_list.filtered_project_number || old_list.filtered_project_number;
 
-                        pp = issue.project_positions
+                        pp = issue.project_positions;
                         if (old_list_can_handle_positions && pp[project_number] && pp[project_number].card_position) {
                             old_position = pp[project_number].card_position;
                         }
@@ -1330,7 +1332,7 @@ $().ready(function() {
                         // we do it after getting the position in the new group as both group may be the same
                         if (old_list_can_handle_positions && old_position != -1) {
                             for (i = 0; i < old_group.issues.length; i++) {
-                                pp = old_group.issues[i].project_positions
+                                pp = old_group.issues[i].project_positions;
                                 if (pp[project_number] && pp[project_number].card_position && pp[project_number].card_position >= old_position) {
                                     pp[project_number].card_position -= 1;
                                 }
@@ -1341,7 +1343,7 @@ $().ready(function() {
                         if (new_list_can_handle_positions && new_position != -1) {
                             for (i = 0; i < new_group.issues.length; i++) {
                                 if (new_group.issues[i] === issue) { continue; }
-                                pp = new_group.issues[i].project_positions
+                                pp = new_group.issues[i].project_positions;
                                 if (pp[project_number] && pp[project_number].card_position && pp[project_number].card_position >= new_position) {
                                     pp[project_number].card_position += 1;
                                 }
@@ -1391,7 +1393,7 @@ $().ready(function() {
                         old_list: old_list,
                         new_list: new_list,
                         issue: issue,
-                        position: position,
+                        position: position
                     };
                 if (position) { data.position = position; }
                 $.post(url, data)
@@ -1598,7 +1600,6 @@ $().ready(function() {
             }, // add_history
 
             on_history_pop_state: function  (state) {
-                var list, $filters_node, $issues_list_node;
                 if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
                     return false;
                 }
@@ -1649,7 +1650,7 @@ $().ready(function() {
 
                 $document.on('click', Board.filters.quicksearch_selector, Ev.cancel);
                 $document.on('quicksearch.after', Board.filters.quicksearch_selector, Board.filters.on_search);
-                $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200))
+                $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200));
 
                 Board.filters.add_history(window.location.href, true);
                 window.HistoryManager.callbacks['BoardFilters'] = Board.filters.on_history_pop_state;
@@ -1937,7 +1938,7 @@ $().ready(function() {
                 }
 
                 if (!kwargs.front_uuid || !UUID.exists(kwargs.front_uuid)) {
-                    var verb = kwargs.is_new ? 'created' : 'updated';
+                    var verb = kwargs.is_new ? 'created' : 'updated', message;
                     if (is_current) {
                         message = 'The current project was just ' + verb;
                     } else {
@@ -2076,7 +2077,7 @@ $().ready(function() {
                 var $form = $(this), front_uuid, context;
                 if ($form.data('disabled')) { return false; }
 
-                front_uuid = is_create ? $form.closest('.note-item')[0].id.substr(5) : null,
+                front_uuid = is_create ? $form.closest('.note-item')[0].id.substr(5) : null;
                 context = FormTools.handle_form($form, ev, front_uuid);
                 if (context === false) { return false; }
 
@@ -2204,7 +2205,7 @@ $().ready(function() {
                 $document.on('click', '.note-edit-btn, .note-delete-btn', Ev.stop_event_decorate(Board.notes.on_edit_or_delete_click));
                 $document.on('submit', '.note-form:not(.note-create-form)', Board.notes.on_submit);
                 $document.on('click', '.note-edit-form button[type=button], .note-delete-form button[type=button]', Board.notes.on_edit_or_delete_cancel_click);
-                $document.on('click', '.note-add-btn', Ev.stop_event_decorate(Board.notes.on_add_click))
+                $document.on('click', '.note-add-btn', Ev.stop_event_decorate(Board.notes.on_add_click));
                 $document.on('click', '.note-create-form button[type=button]', Board.notes.on_add_cancel_click);
                 $document.on('submit', '.note-create-form', Board.notes.on_add_submit);
                 $document.on('focus', '.new-notes-holder .note-item :input', function() { $(this).closest('.note-item').addClass('active');} );
@@ -2226,7 +2227,7 @@ $().ready(function() {
 
             if (Board.$container.length) {
                 Board.container = Board.$container[0];
-                Board.mode = Board.$container.data('mode')
+                Board.mode = Board.$container.data('mode');
                 Board.editable = Board.$container.data('editable');
             }
 
@@ -2317,8 +2318,8 @@ $().ready(function() {
                     continue;
                 }
 
-                project_number = list.filtered_project_number,
-                column_id = list.$container_node.data('key'),
+                project_number = list.filtered_project_number;
+                column_id = list.$container_node.data('key');
                 can_handle_note = project_number && column_id && project_number == kwargs.project_number && parseInt(column_id, 10) == kwargs.column_id;
 
 
