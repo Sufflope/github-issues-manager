@@ -889,11 +889,13 @@ $().ready(function() {
 
             on_minifier_click: function () {
                 $(this).parents('.board-column').addClass('mini');
+                Board.arranger.on_columns_rearranged();
                 return false;
             },
 
             on_unminifier_click: function () {
                 $(this).parents('.board-column').removeClass('mini');
+                Board.arranger.on_columns_rearranged();
                 return false;
             },
 
