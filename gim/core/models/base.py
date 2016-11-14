@@ -473,7 +473,7 @@ class GithubObject(models.Model):
                                 fetched_at_field=None, filter_queryset=None,
                                 last_page_field=None, last_page=None):
         """
-        For the given field name, with must be a m2m or the reverse side of
+        For the given field name, witch must be a m2m or the reverse side of
         a m2m or a fk, use the given list of ids as the lists of ids of all the
         objects that must be linked.
         Objects that were linked but not in the given list will be removed from
@@ -703,9 +703,10 @@ class GithubObject(models.Model):
 
         # update the object on our side
         return self.__class__.objects.create_or_update_from_dict(
-                                                            data=result or {},
-                                                            defaults=defaults,
-                                                            force_update=True)
+            data=result or {},
+            defaults=defaults,
+            force_update=True,
+            ignore_github_status=True)
 
 
 class GithubObjectWithId(GithubObject):

@@ -31,7 +31,8 @@ class BaseManager(models.Manager):
         """
 
         # we do not delete entries that we are waiting to be created
-        queryset = queryset.exclude(github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_CREATE)
+        if hasattr(self.model, 'GITHUB_STATUS_CHOICES'):
+            queryset = queryset.exclude(github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_CREATE)
 
         if self.model.delete_missing_after_fetch:
             queryset.delete()
@@ -232,7 +233,8 @@ class GithubObjectManager(BaseManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                             fetched_at_field='fetched_at', etag_field='etag',
-                            saved_objects=None, force_update=False, etag=None):
+                            saved_objects=None, force_update=False, etag=None,
+                            ignore_github_status=False):
         """
         Taking a dict (passed in the data argument), try to update an existing
         object that match some fields, or create a new one.
@@ -261,6 +263,11 @@ class GithubObjectManager(BaseManager):
             else:
                 if 'update' not in modes:
                     return None, False, []
+                # don't update object waiting to be updated or deleted
+                if not ignore_github_status and obj.github_status in obj.GITHUB_STATUS_CHOICES.ALL_WAITING:
+                    if not already_saved:
+                        saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
+                    return obj, True, []
                 # don't update object with old data
                 if not force_update:
                     updated_at = getattr(obj, 'updated_at', None)
@@ -373,10 +380,15 @@ class GithubObjectManager(BaseManager):
         if not obj:
             return None
 
+        continue_update = not already_saved \
+                          or getattr(obj, 'is_new', False) \
+                          or ignore_github_status \
+                          or obj.github_status not in obj.GITHUB_STATUS_CHOICES.ALL_WAITING
+
         # finally save lists now that we have an object
         for field, values in fields['many'].iteritems():
             if isinstance(values, dict):
-                # we have infos for how to create/update fields
+                # we have info for how to create/update fields
 
                 # start by updating defaults with the created/updated object
                 defaults = values.get('defaults', {})
@@ -402,7 +414,7 @@ class GithubObjectManager(BaseManager):
             # save object in the cache
             saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
 
-        if obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED:
+        if continue_update and obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED:
             obj.github_status = obj.GITHUB_STATUS_CHOICES.FETCHED
             # We pass the same updated fields as before as they may be used by the signals
             obj.save(update_fields=list(set(updated_fields).union({'github_status'})))
@@ -953,7 +965,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                                    fetched_at_field='fetched_at', etag_field='etag',
-                                   saved_objects=None, force_update=False, etag=None):
+                                   saved_objects=None, force_update=False, etag=None,
+                                   ignore_github_status=False):
         from .models import GithubUser
 
         try:
@@ -969,7 +982,7 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
 
         obj = super(CommentEntryPointManagerMixin, self)\
             .create_or_update_from_dict(data, modes, defaults, fetched_at_field, etag_field,
-                                                    saved_objects, force_update, etag)
+                                        saved_objects, force_update, etag, ignore_github_status)
 
         if not obj:
             return None
@@ -1045,13 +1058,15 @@ class CommitManager(WithRepositoryManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                                    fetched_at_field='fetched_at', etag_field='etag',
-                                   saved_objects=None, force_update=False, etag=None):
+                                   saved_objects=None, force_update=False, etag=None,
+                                   ignore_github_status=False):
         """
         In addition to the default create_or_update_from_dict, check if files
         where fetched and if not, launch a FetchCommitBySha to fetch them
         """
-        obj = super(CommitManager, self).create_or_update_from_dict(data, modes,
-                        defaults, fetched_at_field, etag_field, saved_objects, force_update, etag)
+        obj = super(CommitManager, self).create_or_update_from_dict(
+            data, modes, defaults,fetched_at_field, etag_field, saved_objects, force_update,
+            etag, ignore_github_status)
 
         # We got commits from the list of commits of a PR, so we don't have files and comments
         if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
