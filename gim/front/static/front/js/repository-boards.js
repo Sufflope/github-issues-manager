@@ -37,6 +37,9 @@ $().ready(function() {
                 $container.attr('title', $option.attr('title'));
                 $container.append($('<span/>').text($option.data('name')));
                 $container.append($('<span style="float: right"/>').text(nb_columns + ' column' + (nb_columns > 1 ? 's' : '')));
+                if ($option.data('first-of-mode')) {
+                    $container.addClass('first-of-mode');
+                }
             }, // format_option
 
             format_selection: function(state, $container) {
@@ -94,6 +97,9 @@ $().ready(function() {
                         if (value.indexOf('labels-') == 0) {
                             break;
                         }
+                    }
+                    if (!$after || $after.attr('value').indexOf('project-') != 0) {
+                        $option.attr('data-first-of-mode', 'true');
                     }
                     if ($after) {
                         $after.after($option);

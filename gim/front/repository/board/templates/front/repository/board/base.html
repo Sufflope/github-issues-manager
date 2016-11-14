@@ -24,7 +24,9 @@
                                 data-name="{{ board.name|capfirst }}"
                                 data-columns="{{ board.visible_count }}"
                                 data-url="{{ board.board_url }}"
-                                {% if current_board_key == board_key %} selected="selected"{% endif %}>
+                                {% if current_board_key == board_key %} selected="selected"{% endif %}
+                                {% ifchanged board.mode %}data-first-of-mode="true"{% endifchanged %}
+                        >
                             {% if current_board_key == board_key %}Current board: {% endif %} {{ board.name|capfirst }}
                         </option>
                     {% endfor %}

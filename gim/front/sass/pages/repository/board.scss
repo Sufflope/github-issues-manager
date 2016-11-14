@@ -317,14 +317,21 @@ body#repository_board #main-inner {
     .select2-results {
         max-height: 80%;
     }
-}
-.select2-results .select2-result-label {
-    &.labels-editor-link, &.project-creator-link {
-        border-top: 1px solid #ddd;
-        font-style: italic;
-        font-weight: bold;
-        margin-top: 3px;
-        padding-top: 6px;
+    .select2-result {
+        &:not(:first-of-type) {
+            .select2-result-label.first-of-mode {
+                border-top: 1px solid #ddd;
+            }
+        }
+        .select2-result-label {
+            &.labels-editor-link, &.project-creator-link {
+                border-top: 1px solid #ddd;
+                font-style: italic;
+                font-weight: bold;
+                margin-top: 3px;
+                padding-top: 6px;
+            }
+        }
     }
 }
 
