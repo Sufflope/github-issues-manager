@@ -2722,7 +2722,7 @@ $().ready(function() {
             return false; // stop event propagation
         }), // IssueByNumber_on_submit
         open_issue: (function IssueByNumber_open_issue (issue_ident) {
-            IssuesListIssue.open_issue(issue_ident);
+            IssuesListIssue.open_issue(issue_ident, !IssueDetail.$main_container.length);
         }), // IssueByNumber_open_issue
         init_events: (function IssueByNumber_init_events () {
             if (!IssueByNumber.$window.length) { return; }
