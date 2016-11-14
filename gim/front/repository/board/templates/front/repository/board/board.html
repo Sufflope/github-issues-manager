@@ -16,6 +16,7 @@
         {% if current_board.mode == 'project' %}
             <div class="span2">
                 <a class="btn btn-default" data-toggle="modal" data-target="#project-editor">View{% if current_repository_edit_level %}/manage{% endif %} project details</a>
+                {% if current_board.object.number %}<a class="btn btn-default" target="_blank" href="{{ current_board.object.github_url }}" title="View this project on Github"><i class="fa fa-github fa-2x"  style="font-size: 1.5em; color: #999"></i></a>{% endif %}
             </div>
         {% endif %}
         <div class="span{% if current_board.mode == 'project' %}6{% else %}8{% endif %}">

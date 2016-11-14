@@ -88,6 +88,9 @@ class Project(WithRepositoryMixin, GithubObjectWithId):
         for column in self.columns.all():
             column.fetch_cards(gh, force_fetch)
 
+    @property
+    def github_url(self):
+        return self.repository.github_url + '/projects/%s' % self.number
 
 class Column(GithubObjectWithId):
     project = models.ForeignKey(Project, related_name='columns')
