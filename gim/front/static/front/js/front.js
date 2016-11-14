@@ -178,7 +178,10 @@ $().ready(function() {
 
     // globally manage escape key to close modal
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
-        ev.which == 27 && $('.modal.in').modal('hide');
+        if (ev.which != 27) { return; }
+        var $modal = $('.modal.in');
+        if (!$modal.data('modal').options.keyboard) { return; }
+        $modal.modal('hide');
     }));
 
     var WS = {

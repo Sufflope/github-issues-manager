@@ -1,4 +1,4 @@
-<div id="project-editor" class="modal fancy hide" data-number="{{ project.number }}"{% if current_repository_edit_level %} data-summary-url="{{ project.get_summary_url }}" data-edit-url="{{ project.get_edit_url }}"{% endif %}{% if project.github_status == GITHUB_STATUSES.WAITING_DELETE %} data-waiting-for-deletion="true"{% endif %}>
+<div id="project-editor" class="modal fancy hide" {% if project.number %}data-number="{{ project.number }}"{% if current_repository_edit_level %} data-summary-url="{{ project.get_summary_url }}" data-edit-url="{{ project.get_edit_url }}"{% endif %}{% endif %}{% if project.github_status == GITHUB_STATUSES.WAITING_DELETE %} data-waiting-for-deletion="true"{% endif %}{% if project.github_status == GITHUB_STATUSES.WAITING_CREATE %} data-waiting-for-creation="true"{% endif %}{% if not project.number %} data-keyboard="false"{% endif %}>
     <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
         <h6>{{ project.name }}</h6>
@@ -13,6 +13,11 @@
         </div>
     </div>
     <div class="modal-footer">
+        {% if project.github_status == GITHUB_STATUSES.WAITING_CREATE %}
+            <div class="alert alert-info" style="text-align: center;">
+                Please wait while we create the project on the Github side.
+            </div>
+        {% endif %}
         <div class="row-fluid auto-align">
             <div class="span6">
                 {% if current_repository_edit_level %}

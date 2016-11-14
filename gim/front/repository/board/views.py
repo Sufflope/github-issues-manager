@@ -25,14 +25,14 @@ from gim.front.mixins.views import LinkedToUserFormViewMixin, WithAjaxRestrictio
     LinkedToRepositoryFormViewMixin
 from gim.front.repository.dashboard.views import LabelsEditor
 from gim.front.utils import make_querystring, forge_request
-from gim.front.repository.views import BaseRepositoryView
+from gim.front.repository.views import BaseRepositoryView, RepositoryViewMixin
 from gim.front.repository.issues.views import IssuesView, IssueEditAssignees, IssueEditLabels, \
     IssueEditMilestone, IssueEditState, IssueEditProjects, IssuesFilters
 
 from .forms import (
     CardNoteCreateForm, CardNoteDeleteForm, CardNoteEditForm,
     ColumnCreateForm, ColumnEditForm, ColumnDeleteForm,
-    ProjectEditForm, ProjectDeleteForm,
+    ProjectEditForm, ProjectDeleteForm, ProjectCreateForm
 )
 
 DEFAULT_BOARDS = OrderedDict((
@@ -80,6 +80,7 @@ DEFAULT_BOARDS = OrderedDict((
 class BoardMixin(object):
 
     LIMIT_ISSUES = 30
+    default_qs = 'state=open'
     raise_if_no_current_board = True
 
     def __init__(self):
@@ -148,6 +149,8 @@ class BoardMixin(object):
             else:
                 projects = self.projects
             for project in projects:
+                if not project.number:
+                    continue
                 columns = OrderedDict([
                     ('__none__', {
                         'key': '__none__',
@@ -249,8 +252,7 @@ class BoardSelectorView(BoardMixin, BaseRepositoryView):
     url_name = 'board-selector'
     template_name = 'front/repository/board/base.html'
     raise_if_no_current_board = False
-
-    default_qs = 'state=open'
+    auto_open_selector = True
 
     display_in_menu = True
 
@@ -270,7 +272,6 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
     filters_template_name = 'front/repository/board/include_filters.html'
     options_template_name = 'front/repository/board/include_options.html'
 
-    default_qs = 'state=open'
     display_in_menu = False
 
     def __init__(self):
@@ -1370,6 +1371,13 @@ class ProjectSummaryView(WithAjaxRestrictionViewMixin, DependsOnRepositoryViewMi
     exclude_waiting_delete = False
 
 
+class NewProjectSummaryView(ProjectSummaryView):
+    pk_url_kwarg = 'project_id'
+    slug_url_kwarg = None
+    slug_field = None
+    url_name = 'project.summary.new'
+
+
 class ProjectEditMixin(LinkedToRepositoryFormViewMixin):
     model = Project
     job_model = ProjectEditJob
@@ -1496,3 +1504,31 @@ class ProjectDeleteView(BaseProjectEditView):
     def get_success_url(self):
         return self.object.get_summary_url()
 
+
+class ProjectCreateView(ProjectEditMixin, LinkedToUserFormViewMixin, CreateView):
+    edit_mode = 'create'
+    verb = 'created'
+    template_name = 'front/repository/board/projects/include_project_create.html'
+    url_name = 'project.create'
+    form_class = ProjectCreateForm
+    context_object_name = 'project'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.is_ajax() and self.__class__ != ProjectCreateHomeView:
+            return ProjectCreateHomeView.as_view()(request, *args, **kwargs)
+        return super(ProjectCreateView, self).dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return self.object.get_summary_url()
+
+
+class ProjectCreateHomeView(ProjectCreateView, BoardMixin, RepositoryViewMixin):
+    template_name = 'front/repository/board/projects/project_create.html'
+    ajax_only = False
+    auto_open_selector = False
+    raise_if_no_current_board = False
+
+    def get_context_data(self, **kwargs):
+        context = super(ProjectCreateView, self).get_context_data(**kwargs)
+        context.update(self.get_boards_context())
+        return context

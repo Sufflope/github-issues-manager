@@ -7,19 +7,24 @@ from .views import (
     CardNoteCreateView, CardNoteView, CardNoteEditView, CardNoteDeleteView,
     ColumnCreateView, ColumnEditView, ColumnDeleteView,
     ColumnInfoView, ColumnMoveView, ColumnCanMoveView,
-    ProjectSummaryView, ProjectEditView, ProjectDeleteView,
+    NewProjectSummaryView, ProjectSummaryView,
+    ProjectEditView, ProjectDeleteView, ProjectCreateView,
 )
 
 urlpatterns = patterns('',
 
     # main views
     url(r'^$', BoardSelectorView.as_view(), name=BoardSelectorView.url_name),
-    url(r'^(?P<board_mode>auto|labels|project)/(?P<board_key>[^/]+)/$', BoardView.as_view(), name=BoardView.url_name),
 
     # project edit
+    url(r'project/add/$', ProjectCreateView.as_view(), name=ProjectCreateView.url_name),
     url(r'project/(?P<project_number>\d+)/edit/$', ProjectEditView.as_view(), name=ProjectEditView.url_name),
     url(r'project/(?P<project_number>\d+)/summary/$', ProjectSummaryView.as_view(), name=ProjectSummaryView.url_name),
+    url(r'project/new-(?P<project_id>\d+)/summary/$', NewProjectSummaryView.as_view(), name=NewProjectSummaryView.url_name),
     url(r'project/(?P<project_number>\d+)/delete/$', ProjectDeleteView.as_view(), name=ProjectDeleteView.url_name),
+
+    # main board view
+    url(r'^(?P<board_mode>auto|labels|project)/(?P<board_key>[^/]+)/$', BoardView.as_view(), name=BoardView.url_name),
 
     # project column edit
     url(r'project/(?P<project_number>\d+)/column/add/$', ColumnCreateView.as_view(), name=ColumnCreateView.url_name),

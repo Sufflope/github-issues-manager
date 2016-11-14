@@ -28,6 +28,10 @@ $().ready(function() {
                     $container.addClass('labels-editor-link');
                     value = null;
                 }
+                if (value == 'project-creator') {
+                    $container.addClass('project-creator-link');
+                    value = null;
+                }
                 if (!value) { return state.text; }
                 var nb_columns = $option.data('columns');
                 $container.attr('title', $option.attr('title'));
@@ -38,7 +42,7 @@ $().ready(function() {
             format_selection: function(state, $container) {
                 var $option = $(state.element),
                     value = $option.attr('value');
-                if (value == 'labels-editor') {
+                if (value == 'labels-editor' || value == 'project-creator') {
                     return '';
                 }
                 if (!value) { return state.text; }
@@ -128,7 +132,7 @@ $().ready(function() {
                     dropdownCssClass: 'board-selector'
                 }).on('change', Board.selector.on_change);
 
-                if (!Board.selector.$select.val()) {
+                if (Board.selector.$select.data('auto-open')) {
                     Board.selector.$select.select2('open');
                 }
             } // init
@@ -1660,23 +1664,28 @@ $().ready(function() {
 
         project_editor: {
             $modal: $('#project-editor'),
-            $modal_header: $('#project-editor .modal-header'),
-            $modal_body: $('#project-editor .modal-body'),
-            $modal_footer: $('#project-editor .modal-footer'),
+            $modal_header: null,
+            $modal_body: null,
+            $modal_footer: null,
+            create_mode: false,
             updating_ids: {},
 
             exit_edit_mode: function() {
-                Board.project_editor.$modal.removeClass('edit-mode');
-                Board.project_editor.$modal_body.empty().append(
-                    '<em>Loading project information <i class="fa fa-spinner fa-spin"> </i></em>'
-                );
-                Board.project_editor.$modal_footer.empty();
-                Board.project_editor.load_summary();
+                if (Board.project_editor.create_mode) {
+                    Board.project_editor.$modal.modal('hide');
+                } else {
+                    Board.project_editor.$modal.removeClass('edit-mode');
+                    Board.project_editor.$modal_body.empty().append(
+                        '<em>Loading project information <i class="fa fa-spinner fa-spin"> </i></em>'
+                    );
+                    Board.project_editor.$modal_footer.empty();
+                    Board.project_editor.load_summary();
+                }
             }, // exit_edit_mode
 
-            load_summary: function(open_when_done) {
+            load_summary: function() {
                 $.get(Board.project_editor.$modal.data('summary-url'))
-                    .done($.proxy(Board.project_editor.on_summary_loaded, {force_open: open_when_done}))
+                    .done(Board.project_editor.on_summary_loaded)
                     .fail(Board.project_editor.on_summary_load_failed);
             }, // load_summary
 
@@ -1685,9 +1694,6 @@ $().ready(function() {
                 Board.project_editor.$modal_header.empty().append($data.find('.modal-header').children());
                 Board.project_editor.$modal_body.empty().append($data.find('.modal-body').children());
                 Board.project_editor.$modal_footer.empty().append($data.find('.modal-footer').children());
-                if (this.force_open) {
-                    Board.project_editor.$modal.modal('show');
-                }
             }, // on_summary_loaded
 
             on_summary_load_failed: function(xhr, data) {
@@ -1826,8 +1832,24 @@ $().ready(function() {
             }, // on_edit_submit
 
             on_edit_submit_done: function(data) {
+                if (data.indexOf('<form') == 0) {
+                    $.proxy(Board.project_editor.on_submit_failed, this)({}, data);
+                    return;
+                }
                 Board.project_editor.on_summary_loaded($(data));
             }, // on_edit_submit_done
+
+            on_create_submit: function(ev) {
+                return Board.project_editor.on_submit.bind(this)(ev, Board.project_editor.on_create_submit_done, 'create');
+            }, // on_create_submit
+
+            on_create_submit_done: function(data) {
+                if (data.indexOf('<form') == 0) {
+                    $.proxy(Board.project_editor.on_submit_failed, this)({}, data);
+                    return;
+                }
+                Board.project_editor.on_summary_loaded($(data));
+            }, // on_create_submit_done
 
             action_on_delete_popover: function(action) {
                 Board.project_editor.$modal_footer.find('.btn-delete').popover(action);
@@ -1861,15 +1883,9 @@ $().ready(function() {
 
             }, // on_confirm_deletion
 
-            hide_for_deletion: function() {
-                IssuesFilters.add_waiting(Board.filters.$options_node);
-                IssuesFilters.add_waiting($(Board.filters.filters_selector));
-                IssuesFilters.add_waiting(Board.$container);
-            },
-
             on_delete_submit_done: function(data) {
                 Board.project_editor.on_summary_loaded($(data));
-                Board.project_editor.hide_for_deletion();
+                Board.deactivate();
             }, // on_delete_submit_done
 
             on_modal_hide: function(ev) {
@@ -1879,7 +1895,14 @@ $().ready(function() {
                         ev.preventDefault();
                     }
                 }
-            },
+            }, // on_modal_hide
+
+            on_modal_hidden: function(ev) {
+                if (Board.project_editor.create_mode) {
+                    $('#main').children('.empty-area').text('Please select a board');
+                    Board.selector.$select.select2('open');
+                }
+            }, // on_modal_hidden
 
             subscribe_updates: function() {
                 WS.subscribe(
@@ -1916,10 +1939,19 @@ $().ready(function() {
                     return;
                 }
 
-                var is_current = (Board.mode == 'project' && kwargs.number == Board.$container.data('key'));
+                var is_current = false;
+                if (Board.mode == 'project' && kwargs.number == Board.$container.data('key')) {
+                    is_current = true
+                } else if (Board.project_editor.create_mode && kwargs.front_uuid && kwargs.front_uuid == Board.project_editor.$modal.attr('data-front-uuid')) {
+                    is_current = true;
+                }
 
                 if (is_current) {
-                    Board.project_editor.load_summary();
+                    if (Board.project_editor.create_mode) {
+                        Board.project_editor.show_modal_for_created(kwargs.url);
+                    } else {
+                        Board.project_editor.load_summary();
+                    }
                 }
 
                 Board.selector.on_update_project_alert(topic, args, kwargs);
@@ -1954,6 +1986,27 @@ $().ready(function() {
 
             }, // on_update_alert
 
+            show_modal_for_created: function(url) {
+                var modal_ready = Board.project_editor.$modal_footer.find('.alert').length,
+                    div_alert = '<div class="alert alert-info">' + "This project was just created. You'll be redirected to its page" + '</div>';
+
+                if (!modal_ready) {
+                    Board.project_editor.$modal_body.empty().append(div_alert);
+                }
+                Board.project_editor.$modal_footer.empty().append(
+                    '<div class="row-fluid align-left"><div class="span12"><button class="btn btn-blue" data-dismiss="modal">Ok</button></div></div>'
+                );
+                if (modal_ready) {
+                    Board.project_editor.$modal_footer.prepend(div_alert);
+                }
+                Board.project_editor.$modal.off('hide.modal', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.off('hidden.modal', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.on('hidden.modal', function() {
+                    window.location.href = url;
+                });
+                Board.project_editor.$modal.modal('show');
+            }, // show_modal_for_deleted
+
             show_modal_for_deleted: function() {
                 Board.project_editor.$modal_body.empty().append(
                     '<div class="alert alert-error">' +
@@ -1963,8 +2016,9 @@ $().ready(function() {
                 Board.project_editor.$modal_footer.empty().append(
                     '<div class="row-fluid align-left"><div class="span12"><button class="btn btn-blue" data-dismiss="modal">Ok</button></div></div>'
                 );
-                Board.project_editor.$modal.off('hide', Board.project_editor.on_modal_hide);
-                Board.project_editor.$modal.on('hide', function() {
+                Board.project_editor.$modal.off('hide.modal', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.off('hidden.modal', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.on('hidden.modal', function() {
                     window.location.href = '/' + $body.data('repository') + '/board/';
                 });
                 Board.project_editor.$modal.modal('show');
@@ -1982,7 +2036,7 @@ $().ready(function() {
                 var is_current = (kwargs.number == Board.$container.data('key'));
 
                 if (is_current) {
-                    Board.project_editor.hide_for_deletion();
+                    Board.deactivate();
                     Board.project_editor.show_modal_for_deleted();
                 }
 
@@ -2002,21 +2056,41 @@ $().ready(function() {
             init: function() {
                 Board.project_editor.subscribe_updates();
 
-                if (Board.mode != 'project') { return; }
-
-                if (Board.project_editor.$modal.data('waiting-for-deletion')) {
-                    Board.project_editor.hide_for_deletion();
-                    Board.project_editor.$modal.modal('show');
+                if (!Board.project_editor.$modal.length) {
+                    return;
                 }
 
-                $document.on('click', '#project-editor button.btn-edit', Board.project_editor.on_edit_click);
-                $document.on('click', '#project-editor button.btn-cancel', Board.project_editor.exit_edit_mode);
-                $document.on('click', '#project-editor button.btn-edit-submit', Board.project_editor.on_edit_submit_click);
-                $document.on('submit', '#project-editor .project-edit-form', Board.project_editor.on_edit_submit);
-                $document.on('click', '#project-editor .cancel-deletion', Board.project_editor.on_cancel_deletion);
-                $document.on('click', '#project-editor .confirm-deletion', Board.project_editor.on_confirm_deletion);
+                Board.project_editor.$modal_header = Board.project_editor.$modal.children('.modal-header');
+                Board.project_editor.$modal_body = Board.project_editor.$modal.children('.modal-body');
+                Board.project_editor.$modal_footer = Board.project_editor.$modal.children('.modal-footer');
+                Board.project_editor.create_mode = !!Board.project_editor.$modal.data('create-mode');
 
-                Board.project_editor.$modal.on('hide', Board.project_editor.on_modal_hide);
+                if (Board.project_editor.create_mode) {
+                    Board.project_editor.$modal.one('shown.modal', function() {
+                        console.log('shown');
+                        var $input =  Board.project_editor.$modal_body.find('input[name=name]');
+                        $input.focus();
+                        FormTools.move_cursor_at_the_end($input);
+                    });
+                    Board.project_editor.$modal.modal('show');
+                    $document.on('click', '#project-editor button.btn-cancel', Board.project_editor.exit_edit_mode);
+                    $document.on('click', '#project-editor button.btn-edit-submit', Board.project_editor.on_edit_submit_click);
+                    $document.on('submit', '#project-editor .project-create-form', Board.project_editor.on_create_submit);
+                } else if (Board.mode == 'project') {
+                    if (Board.project_editor.$modal.data('waiting-for-deletion') || Board.project_editor.$modal.data('waiting-for-creation')) {
+                        Board.deactivate();
+                        Board.project_editor.$modal.modal('show');
+                    }
+                    $document.on('click', '#project-editor button.btn-edit', Board.project_editor.on_edit_click);
+                    $document.on('click', '#project-editor .cancel-deletion', Board.project_editor.on_cancel_deletion);
+                    $document.on('click', '#project-editor .confirm-deletion', Board.project_editor.on_confirm_deletion);
+                    $document.on('click', '#project-editor button.btn-cancel', Board.project_editor.exit_edit_mode);
+                    $document.on('click', '#project-editor button.btn-edit-submit', Board.project_editor.on_edit_submit_click);
+                    $document.on('submit', '#project-editor .project-edit-form', Board.project_editor.on_edit_submit);
+                }
+
+                Board.project_editor.$modal.on('hide.modal', Board.project_editor.on_modal_hide);
+                Board.project_editor.$modal.on('hidden.modal', Board.project_editor.on_modal_hidden);
             } // init
 
         }, // project_editor
@@ -2221,6 +2295,12 @@ $().ready(function() {
             Board.dimensions.scrollWidth = Board.$container[0].scrollWidth;
             Board.dimensions.scrollLeftMax = Board.$container[0].scrollLeftMax || (Board.dimensions.scrollWidth -  Board.$container[0].offsetWidth);
         }, // update_dimensions
+
+        deactivate: function() {
+            IssuesFilters.add_waiting(Board.filters.$options_node);
+            IssuesFilters.add_waiting($(Board.filters.filters_selector));
+            IssuesFilters.add_waiting(Board.$container);
+        }, // deactivate
 
         init: function() {
             HoverIssue.delay_enter = 1000;

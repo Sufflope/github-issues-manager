@@ -61,6 +61,10 @@ class Project(WithRepositoryMixin, GithubObjectWithId):
         return ['projects', self.github_id]
 
     @property
+    def github_callable_create_identifiers(self):
+        return self.repository.github_callable_identifiers_for_projects
+
+    @property
     def github_callable_identifiers_for_columns(self):
         return self.github_callable_identifiers + [
             'columns',

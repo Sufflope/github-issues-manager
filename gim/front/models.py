@@ -210,6 +210,10 @@ class _Repository(models.Model):
     def get_create_issue_url(self):
         return self.get_view_url('issue.create')
 
+    def get_create_project_url(self):
+        from gim.front.repository.board.views import ProjectCreateView
+        return self.get_view_url(ProjectCreateView.url_name)
+
     def delete(self, using=None):
         pk = self.pk
 
@@ -1075,8 +1079,15 @@ class _Project(Hashable, FrontEditable):
         }) + '?sort=position&direction=asc'
 
     def get_summary_url(self):
-        from gim.front.repository.board.views import ProjectSummaryView
-        return self.get_view_url(ProjectSummaryView.url_name)
+        if self.number:
+            from gim.front.repository.board.views import ProjectSummaryView
+            return self.get_view_url(ProjectSummaryView.url_name)
+        else:
+            from gim.front.repository.board.views import NewProjectSummaryView
+            kwargs = self.get_reverse_kwargs()
+            del kwargs['project_number']
+            kwargs['project_id'] = self.pk
+        return reverse_lazy('front:repository:%s' % NewProjectSummaryView.url_name, kwargs=kwargs)
 
     def get_edit_url(self):
         from gim.front.repository.board.views import ProjectEditView

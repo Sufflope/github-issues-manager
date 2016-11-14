@@ -198,3 +198,11 @@ class ProjectDeleteForm(LinkedToRepositoryFormMixin):
         return super(ProjectDeleteForm, self).save(commit)
 
 
+class ProjectCreateForm(LinkedToUserFormMixin, BaseProjectEditForm):
+    user_attribute = 'creator'
+
+    def save(self, commit=True):
+        # its a new column...
+        self.instance.is_new = True
+
+        return super(ProjectCreateForm, self).save(commit)
