@@ -29,6 +29,10 @@ class BaseManager(models.Manager):
         `delete_missing_after_fetch` attribute of the model is set to False,
         the `deleted` attribute of all this objects is set to True
         """
+
+        # we do not delete entries that we are waiting to be created
+        queryset = queryset.exclude(github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_CREATE)
+
         if self.model.delete_missing_after_fetch:
             queryset.delete()
         else:
