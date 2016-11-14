@@ -357,6 +357,12 @@ def group_by_filter_value(grouper, group_field):
     if isinstance(grouper, core_models.Label):
         return grouper.name
 
+    if isinstance(grouper, core_models.Project):
+        return grouper.number
+
+    if isinstance(grouper, core_models.Column):
+        return '%s:%s' % (grouper.project.number, grouper.position)
+
     return ''
 
 @register.filter
@@ -406,3 +412,7 @@ def format_int_or_float(value):
         return (u'%.2f' % value).rstrip('0').rstrip('.')
     except Exception:
         return ''
+
+@register.filter
+def filter_status_ready(queryset):
+    return [obj for obj in queryset.all() if obj.status_ready]

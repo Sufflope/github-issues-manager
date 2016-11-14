@@ -29,7 +29,7 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'description': u'why were you notified',
     }),
     ('repository', {
-        'field': 'githubnotification__repository',
+        'field': 'repository',
         'name': 'repository',
         'description': u'repository hosting the notified issue',
     }),
@@ -310,6 +310,15 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
                 context['force_hide_repositories'] = True
 
         return context
+
+    def get_select_and_prefetch_related(self, queryset, group_by):
+        select_related, prefetch_related =\
+            super(GithubNotifications, self).get_select_and_prefetch_related(queryset, group_by)
+
+        # displayed for each issue
+        select_related.append('repository__owner')
+
+        return select_related, prefetch_related
 
 
 class GithubNotificationEditView(UpdateView):

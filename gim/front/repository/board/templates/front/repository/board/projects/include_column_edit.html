@@ -1,0 +1,17 @@
+<form class="column-form column-edit-form"  method="post" action="{{ column.get_edit_url}}">
+    {% csrf_token %}
+    <div>{{ form.name }}</div>
+    <div class="row-fluid auto-align edit-buttons">
+        <div class="span6">
+            <button class="btn btn-blue submit btn-loading">Update this column <i class='fa fa-spinner fa-spin'> </i></button>
+        </div>
+        <div class="span6">
+            <button class="btn btn-default btn-cancel" type="button">Cancel</button>
+        </div>
+    </div>
+    <div class="row-fluid edit-buttons" style="margin-top: 10px; text-align: right;">
+        <div class="span12">
+            <button class="btn btn-red btn-delete" type="button">Delete this column</button>
+        </div>
+    </div>
+</form>

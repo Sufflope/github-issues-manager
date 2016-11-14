@@ -13,44 +13,29 @@
         <div class="span4">
             {{ block.super }}
         </div>
-        <div class="span8">
+        {% if current_board.mode == 'project' %}
+            <div class="span2">
+                <a class="btn btn-default" data-toggle="modal" data-target="#project-editor">View{% if current_repository_edit_level %}/manage{% endif %} project details</a>
+                {% if current_board.object.number %}<a class="btn btn-default" target="_blank" href="{{ current_board.object.github_url }}" title="View this project on Github"><i class="fa fa-github fa-2x"  style="font-size: 1.5em; color: #999"></i></a>{% endif %}
+            </div>
+        {% endif %}
+        <div class="span{% if current_board.mode == 'project' %}6{% else %}8{% endif %}">
             {% include view.options_template_name %}
         </div>
     </div>
 {% endblock board-header %}
 
 {% block board-main %}
+    {% with board_editable=current_repository|can_user_write:user %}
     {% include view.filters_template_name %}
-    <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ current_repository|can_user_write:user|lower }}">
+    <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ board_editable|lower }}" data-key="{{ current_board.key }}" data-mode="{{ current_board.mode }}"{% if current_board.mode == 'project' and board_editable %} data-create-column-url="{{ current_board.object.get_create_column_url }}"{% endif %}>
         {% for column_key, current_column in current_board.columns.items %}
-            {% with list_uuid=new_uuid %}
-        <div class="board-column{% if current_column.hidden %} hidden{% endif %}">
-            {# Minimal html to simulate the issues lists that will be loaded via ajax #}
-            <nav class="issues-filters" id="issues-filters-{{ list_uuid }}" tabindex="-1">
-            </nav>
-            <section class="issues-list-container span5 with-title" data-key="{{ column_key }}">
-                <div class="issues-list-title{% if current_board.mode == 'labels' and current_column.object %} type-label{% elif current_board_key == 'auto-assigned' and current_column.object %} type-assigned{% elif current_column.key == '__none__' %} value-none{% endif %}" title="{{ current_column.description|capfirst }}">
-                    {% with default=current_column.name|capfirst %}
-                    {% if current_board.mode == 'labels' and current_column.object %}
-                        <span style="border-bottom-color: #{{ current_column.object.color }}">
-                        {{ default }}
-                        </span>
-                    {% elif current_board_key == 'auto-assigned' and current_column.object %}
-                        <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_column.object.full_avatar_url|avatar_size:16 }}" />
-                        {{ default }}
-                    {% else %}
-                        {{ default }}
-                    {% endif %}
-                    {% endwith %}
-                </div>
-                <div id="issues-list-{{ column_key }}" class='{% block issues-list-classes %}issues-list not-loaded{% endblock %}' data-url="{{ current_column.url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_column.url }}"></div>
-                <div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>
-            </section>
-            <a href="#" class="board-column-closer" title="Close this column"><i class="fa fa-times"> </i></a>
-        </div>
-            {% endwith %}
+            <div class="board-column not-loaded{% if current_column.hidden %} hidden{% endif %}" data-key="{{ current_column.key }}">
+                {% include "front/repository/board/include_not_loaded_column.html" with column_url_query_string=view.request.META.QUERY_STRING %}
+            </div>
         {% endfor %}
     </div>
+    {% endwith %}
 {% endblock board-main %}
 
 
@@ -70,4 +55,7 @@
 {% block modal-windows %}
     {{ block.super }}
     {% include "front/repository/dashboard/chart_window.html" %}
+    {% if current_board.mode == 'project' %}
+        {% include "front/repository/board/projects/project_modal.html" with project=current_board.object %}
+    {% endif %}
 {% endblock modal-windows %}

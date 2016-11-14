@@ -1,9 +1,15 @@
 {% extends "front/issues/include_filters_and_list.html" %}
 {% load staticfiles querystring frontutils issues_tags %}
 
+{% block issues-additional-data %}{{ block.super }}{% if filtered_project %} data-filtered-project="{{ filtered_project }}"{% endif %}{% endblock issues-additional-data %}
+
 {% block group_by_name %}
     {% if issues_filter.objects.group_by_field == 'label_type_grouper' and group.grouper %}
         {{ group.grouper.typed_name }}
+    {% elif issues_filter.objects.group_by_field == 'project_grouper' and group.grouper %}
+        {{ group.grouper.name }}
+    {% elif issues_filter.objects.group_by_field == 'project_column_grouper' and group.grouper %}
+        {{ group.grouper.project.name }}: {{ group.grouper.name }}
     {% else %}
         {{ block.super }}
     {% endif %}
@@ -12,6 +18,10 @@
 {% block empty_group_by_name %}
     {% if issues_filter.objects.group_by_field == 'label_type_grouper' %}
         {{ issues_filter.objects.group_by.name }}
+    {% elif issues_filter.objects.group_by_field == 'project_grouper' %}
+        project
+    {% elif issues_filter.objects.group_by_field == 'project_column_grouper' %}
+        project column
     {% else %}
         {{ block.super }}
     {% endif %}

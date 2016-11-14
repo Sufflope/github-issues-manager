@@ -878,6 +878,10 @@ class Milestone(WithRepositoryMixin, GithubObjectWithId):
         ordering = ('-number', )
 
     @property
+    def is_open(self):
+        return self.state == 'open'
+
+    @property
     def github_url(self):
         return self.repository.github_url + '/issues?milestone=%s' % self.number
 

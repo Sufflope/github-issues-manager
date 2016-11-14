@@ -2,6 +2,7 @@
 from collections import OrderedDict
 from datetime import datetime
 import json
+from operator import attrgetter
 from time import sleep
 from urlparse import unquote, urlparse, urlunparse
 
@@ -21,7 +22,7 @@ from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              GithubNotification)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
-                                  IssueEditAssigneesJob, IssueEditLabelsJob,
+                                  IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjectsJob,
                                   IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob)
@@ -50,7 +51,7 @@ from gim.front.mixins.views import BaseIssuesView
 from gim.front.utils import make_querystring, forge_request, get_metric, get_metric_stats
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
-                    IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm,
+                    IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm, IssueProjectsForm,
                     IssueCreateForm, IssueCreateFormFull,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
@@ -65,7 +66,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
     relation = None
 
     def get_usernames(self):
-        return getattr(self.repository, self.relation).order_by('username_lower').values_list('username', flat=True)
+        return getattr(self.repository, self.relation).values_list('username', flat=True)
 
     def count_usernames(self):
         if not hasattr(self, '_count'):
@@ -140,6 +141,7 @@ class UserFilterPart(DeferrableViewPart, WithSubscribedRepositoryViewMixin, Temp
 
     def inherit_from_view(self, view):
         super(UserFilterPart, self).inherit_from_view(view)
+        self.repository = view.repository
 
 
 class IssuesFilterCreators(UserFilterPart):
@@ -186,8 +188,8 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'description': u'author of the issue',
     }),
     ('assigned', {
-        'field': 'assignees',
-        'db_field': 'assignees__username_lower',
+        'field': 'assignee',  # computed
+        'db_field': None,  # not a field: managed manually
         'name': 'assigned',
         'description': u'user assigned to the issue',
     }),
@@ -202,6 +204,25 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
         'name': 'milestone',
         'description': u'milestone the issue is in',
     }),
+    ('project', {
+        'field': 'project',  # computed
+        'db_field': None,  # not a field: managed manually
+        'name': 'project',
+        'description': u'projects with this issue',
+    }),
+    ('project_column', {
+        'field': 'project_column',  # computed
+        'db_field': None,  # not a field: managed manually
+        'name': 'project + column',
+        'description': u'column of projects with this issue',
+    }),
+]})
+
+SORT_CHOICES = dict(BaseIssuesFilters.SORT_CHOICES, **{sort[0]: sort for sort in [
+    ('position', {
+        'name': u'card position',
+        'description': u"position of the card in the project's column",
+    }),
 ]})
 
 
@@ -210,6 +231,9 @@ class IssuesFilters(BaseIssuesFilters):
     filters_template_name = 'front/repository/issues/include_filters.html'
 
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
+    SORT_CHOICES = SORT_CHOICES
+
+    allowed_in_projects = ['no', 'yes']
 
     allowed_group_by = OrderedDict(GROUP_BY_CHOICES[name] for name in [
         'state',
@@ -226,6 +250,56 @@ class IssuesFilters(BaseIssuesFilters):
         'closed_by': 'closed_by',
         'mentioned': 'user_mentions',
     }
+
+    def _get_only_project(self, qs_parts, allow_any=False, get_first=False):
+        exclude = {'__none__'}
+        if not allow_any:
+            exclude.add('__any__')
+
+        project_number = None
+        for key, value in qs_parts.items():
+            if key.startswith('project_') and value not in exclude:
+                if project_number:
+                    return None
+                project_number = key[8:]
+                if get_first:
+                    return project_number
+
+        return project_number
+
+    def _can_add_position_sorting(self, qs_parts):
+        allow_position_sorting = False
+
+        # allow position sorting when grouping by columns and filtering on issues on at least one project
+        if qs_parts.get('group_by', None) == 'project_column':
+            # if we filter only issues in any project, it's ok
+            if qs_parts.get('in_project') == 'yes':
+                allow_position_sorting = True
+            else:
+                # check if we're not filtering on only one project for issues not in this project
+                project_number = self._get_only_project(qs_parts, allow_any=True, get_first=True)
+                allow_position_sorting = project_number is not None
+        else:
+            # allow position sorting when filtering on issues in exactly one column
+            project_number = self._get_only_project(qs_parts)
+            allow_position_sorting = project_number is not None
+
+        return allow_position_sorting
+
+    def _get_sort(self, qs_parts):
+        if self._can_add_position_sorting(qs_parts):
+            self.allowed_sort = self.allowed_sort.copy()
+            self.allowed_sort['position'] = SORT_CHOICES['position'][1]
+        elif qs_parts.get('sort') == 'position':
+            # reset default sort order
+            qs_parts['direction'] = 'desc'
+
+        return super(IssuesFilters, self)._get_sort(qs_parts)
+
+    def _get_sort_field(self, sort):
+        if sort == 'position':
+            return 'cards__position'
+        return super(IssuesFilters, self)._get_sort_field(sort)
 
     def _get_milestone(self, qs_parts):
         """
@@ -245,6 +319,46 @@ class IssuesFilters(BaseIssuesFilters):
             elif milestone_number == '__none__':
                 return '__none__'
         return None
+
+    def _get_in_project(self, qs_parts):
+        """
+        Return the valid "is_pull_request" flag to use, or None
+        """
+        in_project = qs_parts.get('in_project', None)
+        if in_project in self.allowed_in_projects:
+            return True if in_project == 'yes' else False
+        return None
+
+    def _get_projects(self, qs_parts):
+        """
+        Return a dict with as key, the project and as value, one of:
+        - '__none__'
+        - '__any__'
+        - or a column of the project
+        """
+        projects_by_number = {('%s' % p.number): {
+            'project': p,
+            'columns_by_id': {('%s' % c.id): c for c in p.columns.all()}
+        } for p in self.projects}
+
+        project_filters = {}
+        for key, value in qs_parts.items():
+            if not key.startswith('project_'):
+                continue
+            project_number = key[8:]
+            if not project_number.isdigit() or project_number not in projects_by_number:
+                continue
+            project_dict = projects_by_number[project_number]
+            project = project_dict['project']
+            if project in project_filters:
+                continue
+            value = '%s' % value
+            if value in ('__none__', '__any__'):
+                project_filters[project] = value
+            elif value.isdigit() and value in project_dict['columns_by_id']:
+                project_filters[project] = project_dict['columns_by_id'][value]
+
+        return project_filters
 
     def _get_labels(self, qs_parts):
         """
@@ -339,6 +453,11 @@ class IssuesFilters(BaseIssuesFilters):
             super(IssuesFilters, self)._prepare_group_by(group_by_info, qs_parts,
                                                       qs_filters, filter_objects, order_by)
 
+        if field == 'project':
+            filter_objects['group_by_field'] = 'project_grouper'
+        elif field == 'project_column':
+            filter_objects['group_by_field'] = 'project_column_grouper'
+
     def get_filter_parts(self, qs_parts):
         query_filters, order_by, group_by, filter_objects, qs_filters =  \
             super(IssuesFilters, self).get_filter_parts(qs_parts)
@@ -368,6 +487,36 @@ class IssuesFilters(BaseIssuesFilters):
                 else:
                     qs_filters[filter_type] = user.username
                     query_filters[filter_field] = user.id
+
+        # filter by "in project"" status
+        in_project = self._get_in_project(qs_parts)
+        if in_project is not None:
+            qs_filters['in_project'] = self.allowed_in_projects[in_project]
+            filter_objects['in_project'] = in_project
+            query_filters['cards__isnull'] = not in_project
+
+        # filter by project
+        projects_query_filters = {
+            'cards__column__project__id': [],
+            'cards__column__id': [],
+            '-cards__column__project__id': [],
+        }
+        for project, column in self._get_projects(qs_parts).items():
+            project_key = 'project_%s' % project.number
+            filter_objects[project_key] = column
+            qs_filters[project_key] = column
+            if column == '__none__':
+                projects_query_filters['-cards__column__project__id'].append(project.id)
+            elif column == '__any__':
+                projects_query_filters['cards__column__project__id'].append(project.id)
+            else:
+                qs_filters[project_key] = column.id
+                projects_query_filters['cards__column__id'].append(column.id)
+
+        for projects_query_filter_key, projects_query_filter_value in  projects_query_filters.items():
+            if not projects_query_filter_value:
+                continue
+            query_filters[projects_query_filter_key] = projects_query_filter_value
 
         # now filter by labels
         label_types_to_ignore, full_label_types, labels = self._get_labels(qs_parts)
@@ -408,12 +557,25 @@ class IssuesFilters(BaseIssuesFilters):
         return query_filters, order_by, group_by, filter_objects, qs_filters
 
     def get_context_data(self, **kwargs):
+
+        if self.repository.has_projects_with_issues():
+            self.allowed_group_by = self.allowed_group_by.copy()
+            for name in ('project', 'project_column'):
+                self.allowed_group_by[name] = GROUP_BY_CHOICES[name][1]
+
         context = super(IssuesFilters, self).get_context_data(**kwargs)
 
         context.update({
             'label_types': self.label_types,
             'milestones': self.milestones,
+            'projects': self.projects,
         })
+
+        if context['issues_filter']['parts'].get('sort') == 'position' and\
+                not context['issues_filter']['parts'].get('group_by'):
+            # if no group by, we need the project at the list level, else the project will be
+            # available in each group-by, which is by column
+            context['filtered_project'] = self._get_only_project(context['issues_filter']['parts'])
 
         for user_filter_view in (IssuesFilterCreators, IssuesFilterAssigned,
                                  IssuesFilterClosers, IssuesFilterMentioned):
@@ -459,19 +621,21 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
     def base_url(self):
         return self.repository.get_view_url(self.url_name)
 
-    def select_and_prefetch_related(self, queryset, group_by):
-        if not group_by:
-            return queryset
+    def get_select_and_prefetch_related(self, queryset, group_by):
+        select_related, prefetch_related = \
+            super(IssuesView, self).get_select_and_prefetch_related(queryset, group_by)
 
-        # TODO: select/prefetch only the stuff needed for grouping
-        return queryset.select_related(
-            'repository__owner',  # default
-            'user',  # we may have a lot of different ones
-            'closed_by', 'milestone', # we should have only a few ones for each
-        ).prefetch_related(
-            'assignees',
-            'labels__label_type'
-        )
+        if group_by[0]:
+            if isinstance(group_by[0], LabelType):
+                prefetch_related.append('labels__label_type')
+            elif group_by[0] in ('project', 'project_column'):
+                prefetch_related.append('cards__column__project')
+            elif group_by[0] == 'assignee':
+                prefetch_related.append('assignees')
+            elif group_by[0] in ('user', 'closed_by', 'milestone'):
+                select_related.append(group_by[0])
+
+        return select_related, prefetch_related
 
     def get_context_data(self, **kwargs):
         """
@@ -486,7 +650,7 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                 'metric_stats': self.metric_stats,
                 'all_metrics': list(self.repository.all_metrics())
             })
-            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True))
+            context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True, milestones=self.milestones))
 
             context['can_add_issues'] = True
 
@@ -508,35 +672,90 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
                 total_count
             )
 
-        group_by_label_type = context['issues_filter']['objects'].get('group_by', None)
+        group_by = context['issues_filter']['objects'].get('group_by', None)
         group_by_attribute = context['issues_filter']['objects'].get('group_by_field', None)
-        if group_by_label_type and isinstance(group_by_label_type, LabelType) and group_by_attribute:
-
-            # regroup issues by label from the lab
+        if group_by:
             issues_dict = {}
-            for issue in issues:
-                add_to = None
 
-                for label in issue.labels.ready():  # thanks prefetch_related
-                    if label.label_type_id == group_by_label_type.id:
-                        # found a label for the wanted type, mark it and stop
-                        # checking labels for this issue
-                        add_to = label.id
-                        setattr(issue, group_by_attribute, label)
-                        break
+            if isinstance(group_by, LabelType) and group_by_attribute:
 
-                # add in a dict, with one entry for each label of the type (and one for None)
-                issues_dict.setdefault(add_to, []).append(issue)
+                # regroup issues by label from the label-type
+                for issue in issues:
+                    add_to = None
 
-            # for each label of the type, append matching issues to the final list
-            issues = []
-            label_type_labels = [None] + list(group_by_label_type.labels.ready())
-            if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
-                label_type_labels.reverse()
-            for label in label_type_labels:
-                label_id = None if label is None else label.id
-                if label_id in issues_dict:
-                    issues += issues_dict[label_id]
+                    for label in issue.labels.all():  # thanks prefetch_related
+                        if not label.status_ready:
+                            continue
+                        if label.label_type_id == group_by.id:
+                            # found a label for the wanted type, mark it and stop
+                            # checking labels for this issue
+                            add_to = label.id
+                            setattr(issue, group_by_attribute, label)
+                            break
+
+                    # add in a dict, with one entry for each label of the type (and one for None)
+                    issues_dict.setdefault(add_to, []).append(issue)
+
+                # for each label of the type, append matching issues to the final list
+                issues = []
+                label_type_labels = [None] + list(group_by.labels.ready())
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    label_type_labels.reverse()
+                for label in label_type_labels:
+                    label_id = None if label is None else label.id
+                    if label_id in issues_dict:
+                        issues += issues_dict[label_id]
+
+            elif group_by == 'assigned':
+                # regroup issues by first assignee
+                only_assignee = None
+                if isinstance(context['issues_filter']['objects'].get('assigned'), GithubUser):
+                    only_assignee = context['issues_filter']['objects']['assigned']
+                for issue in issues:
+                    if only_assignee:
+                        assignee = only_assignee
+                    else:
+                        assignees = list(issue.assignees.all())
+                        assignee = assignees[0] if assignees else None
+                    setattr(issue, group_by_attribute, assignee)
+                    issues_dict.setdefault(assignee, []).append(issue)
+                issues = []
+                objs = [None] + sorted([a for a in issues_dict if a], key=attrgetter('username_lower'))
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    objs.reverse()
+                for obj in objs:
+                    if obj in issues_dict:
+                        issues += issues_dict[obj]
+
+            elif group_by in ('project', 'project_column'):
+                # regroup issues by project
+                for issue in issues:
+                    added = False
+                    for card in issue.ordered_cards():
+                        obj = card.column
+                        if group_by == 'project':
+                            obj = obj.project
+                        added = True
+                        issues_dict.setdefault(obj.id, []).append(issue)
+                        setattr(issue, group_by_attribute, obj)
+                        break  # can only display an issue once in a list for now :-/
+                    if not added:
+                        issues_dict.setdefault(None, []).append(issue)
+
+                # for each  project, append matching issues to the final list
+                issues = []
+                objs = [None]
+                for project in self.repository.projects.all().prefetch_related('columns'):
+                    if group_by == 'project':
+                        objs.append(project)
+                    else:
+                        objs.extend(project.columns.all())
+                if context['issues_filter']['parts'].get('group_by_direction', 'asc') == 'desc':
+                    objs.reverse()
+                for obj in objs:
+                    obj_id = None if obj is None else obj.id
+                    if obj_id in issues_dict:
+                        issues += issues_dict[obj_id]
 
         return issues, total_count, limit_reached, original_queryset
 
@@ -577,11 +796,13 @@ class IssueView(WithIssueViewMixin, TemplateView):
                         and resolved_url.kwargs.get('repository_name') == self.kwargs['repository_name']:
                     if resolved_url.url_name == IssuesView.url_name:
                         return IssuesView, url_info, resolved_url
-                    from gim.front.repository.board.views import BoardColumnView, BoardView
+                    from gim.front.repository.board.views import BoardColumnView, BoardView, BoardProjectColumnView
                     if resolved_url.url_name == BoardView.url_name:
                         return BoardView, url_info, resolved_url
                     if resolved_url.url_name == BoardColumnView.url_name:
                         return BoardColumnView, url_info, resolved_url
+                    if resolved_url.url_name == BoardProjectColumnView.url_name:
+                        return BoardProjectColumnView, url_info, resolved_url
 
         return None, None, None
 
@@ -1200,13 +1421,17 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
         return self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS
 
     def after_form_valid(self, form):
-        value = self.get_final_value(form.cleaned_data[self.field])
+        do_something, value = self.get_final_value(form)
 
-        self.job_model.add_job(self.object.pk,
-                          gh=self.request.user.get_connection(),
-                          value=value)
+        if do_something:
+            self.job_model.add_job(self.object.pk,
+                                   gh=self.request.user.get_connection(),
+                                   value=value)
+            message = self.get_success_user_message(self.object)
+        else:
+            message = self.get_nothing_changed_user_message(self.object)
 
-        messages.success(self.request, self.get_success_user_message(self.object))
+        messages.success(self.request, message)
 
     def form_valid(self, form):
         """
@@ -1219,11 +1444,13 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
 
         return response
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github
         """
-        return value
+        value = form.cleaned_data[self.field]
+        return True, value
 
     def form_invalid(self, form):
         return self.render_form_errors_as_messages(form, show_fields=False)
@@ -1231,6 +1458,10 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     def get_success_user_message(self, issue):
         return u"""The <strong>%s</strong> for the %s <strong>#%d</strong> will
                 be updated shortly""" % (self.field, issue.type, issue.number)
+
+    def get_nothing_changed_user_message(self, issue):
+        return u"""Nothing changed about the <strong>%s</strong> for the %s <strong>#%d</strong>""" % (
+            self.field, issue.type, issue.number)
 
     def get_context_data(self, **kwargs):
         context = super(IssueEditFieldMixin, self).get_context_data(**kwargs)
@@ -1288,7 +1519,7 @@ class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):
     def render_not_editable(self, request, who):
         if who == request.user.username:
             who = 'yourself'
-        messages.warning(request, self.get_not_editable_user_message(self.object, who))
+        messages.error(request, self.get_not_editable_user_message(self.object, who))
         # 409 Conflict Indicates that the request could not be processed because of
         # conflict in the request, such as an edit conflict between multiple simultaneous updates.
         return self.render_messages(status=409)
@@ -1346,11 +1577,13 @@ class IssueEditMilestone(IssueEditFieldMixin):
     form_class = IssueMilestoneForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github
         """
-        return value.number if value else ''
+        value = form.cleaned_data[self.field]
+        return True, value.number if value else ''
 
 
 class IssueEditAssignees(IssueEditFieldMixin):
@@ -1360,13 +1593,15 @@ class IssueEditAssignees(IssueEditFieldMixin):
     form_class = IssueAssigneesForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github. We encode the list of
-        usernames as json to be stored in the job single field
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github. We encode the list of usernames as json to be stored in the
+        job single field
         """
+        value = form.cleaned_data[self.field]
         usernames = [u.username for u in value] if value else []
-        return json.dumps(usernames)
+        return True, json.dumps(usernames)
 
 
 class IssueEditLabels(IssueEditFieldMixin):
@@ -1376,13 +1611,15 @@ class IssueEditLabels(IssueEditFieldMixin):
     form_class = IssueLabelsForm
     author_allowed = False
 
-    def get_final_value(self, value):
+    def get_final_value(self, form):
         """
-        Return the value that will be pushed to github. We encode the list of
-        labels as json to be stored in the job single field
+        Return a boolean indicating if we have to update something (always True here) and the value
+        that will be pushed to github. We encode the list of labels as json to be stored in the job
+        single field
         """
+        value = form.cleaned_data[self.field]
         labels = [l.name for l in value] if value else []
-        return json.dumps(labels)
+        return True, json.dumps(labels)
 
     @classmethod
     def get_not_editable_user_message(cls, issue, who):
@@ -1392,10 +1629,29 @@ class IssueEditLabels(IssueEditFieldMixin):
                                     cls.field, issue.type, issue.number, who)
 
 
+class IssueEditProjects(IssueEditFieldMixin):
+    field = 'projects'
+    job_model = IssueEditProjectsJob
+    url_name = 'issue.edit.projects'
+    form_class = IssueProjectsForm
+    author_allowed = False
+
+    def get_final_value(self, form):
+        """
+        Return a boolean indicating if we have to update something and the values to use to update
+        the github side, ie a dict with `remove_from_columns`, `add_to_columns`,
+        `move_between_columns` entries.
+        We encode this dict as json to be stored in the job single field
+        """
+        value = form.cleaned_data['columns']
+        data = getattr(self.object, '_columns_to_update', {})
+        return bool(data), json.dumps(data)
+
+
 class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, CreateView):
     url_name = 'issue.create'
     template_name = 'front/repository/issues/create.html'
-    ajax_only = False
+    ajax_only = True
 
     def get_form_class(self):
         """
@@ -1466,10 +1722,10 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
             queryset = self.get_queryset()
 
         pk = self.kwargs['comment_pk']
-        object = None
+        obj = None
 
         try:
-            object = queryset.get(pk=pk)
+            obj = queryset.get(pk=pk)
         except self.model.DoesNotExist:
             # maybe the object was deleted and recreated by dist_edit
             try:
@@ -1481,14 +1737,14 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
                 while to_wait > 0:
                     created_pk = job.created_pk.hget()
                     if created_pk:
-                        object = queryset.get(pk=created_pk)
+                        obj = queryset.get(pk=created_pk)
                         break
                     sleep(0.1)
 
-        if not object:
+        if not obj:
             raise Http404("No comment found matching the query")
 
-        return object
+        return obj
 
 
 class IssueCommentView(BaseIssueCommentView):

@@ -1,0 +1,24 @@
+<form class="fill-up project-form project-create-form"  method="post" action="{{ current_repository.get_create_project_url}}">
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+
+    {% for field in form %}
+        {% if field.name != 'front_uuid' %}
+            <div class="field-{{ field.name }}">
+                {{ field.label_tag }}
+                {{ field.errors }}
+                {{ field }}
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    <div class="row-fluid auto-align edit-buttons">
+        <div class="span6">
+            <button class="btn btn-blue submit btn-edit-submit btn-loading">Create this project <i class='fa fa-spinner fa-spin'> </i></button>
+        </div>
+        <div class="span6">
+            <button class="btn btn-default btn-cancel" type="button">Cancel</button>
+        </div>
+    </div>
+</form>

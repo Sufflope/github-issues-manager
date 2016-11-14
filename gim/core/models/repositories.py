@@ -64,6 +64,8 @@ class Repository(GithubObjectWithId):
     has_commit_statuses = models.BooleanField(default=False)
     main_metric = models.OneToOneField('LabelType', blank=True, null=True, related_name='+',
                                         on_delete=models.SET_NULL)
+    projects_fetched_at = models.DateTimeField(blank=True, null=True)
+    projects_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = RepositoryManager()
 
@@ -577,6 +579,45 @@ class Repository(GithubObjectWithId):
                                 force_fetch=force_fetch,
                                 max_pages=max_pages)
 
+    @property
+    def github_callable_identifiers_for_projects(self):
+        return self.github_callable_identifiers + [
+            'projects',
+        ]
+
+    def fetch_projects(self, gh, force_fetch=False, parameters=None, max_pages=None):
+        return self._fetch_many('projects', gh,
+                                defaults={
+                                    'fk': {'repository': self},
+                                    'related': {'*': {'fk': {'repository': self}}},
+                                },
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                max_pages=None)  # we need them all to get all the positions
+
+    def fetch_all_projects(self, gh, force_fetch=False):
+        if not force_fetch:
+            if not self.projects_fetched_at:
+                force_fetch = True
+        now = datetime.utcnow()
+        try:
+            self.fetch_projects(gh, force_fetch=force_fetch)
+            # we must always fetch each projects to get the order if changed
+            for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                if not project.fetch_columns(gh, force_fetch=force_fetch):
+                    # we have no new/updated columns
+                    continue
+                for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                    if force_fetch or column.fetched_at > now:
+                        column.fetch_cards(gh, force_fetch=force_fetch)
+        except Exception:
+            # Next time we'll refetch all. Else we won't be able to get new data if
+            # the error occured for example while fetching cards: the fetch of the
+            # project would have returned 304, so no more fetch
+            self.projects_fetched_at = None
+            self.save(update_fields=['projects_fetched_at'])
+            raise
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -602,6 +643,8 @@ class Repository(GithubObjectWithId):
             FirstFetchStep2.add_job(self.id, gh=gh)
         else:
             self.fetch_all_step2(gh, force_fetch)
+            from gim.core.tasks.project import FetchProjects
+            FetchProjects.add_job(self.id)
             from gim.core.tasks.repository import FetchUnmergedPullRequests
             FetchUnmergedPullRequests.add_job(self.id, priority=-15, gh=gh, delayed_for=60*60*3)  # 3 hours
 
@@ -611,6 +654,9 @@ class Repository(GithubObjectWithId):
 
     def fetch_all_step2(self, gh, force_fetch=False, start_page=None,
                         max_pages=None, to_ignore=None, issues_state=None):
+
+        # projects are fetched separately
+
         if not to_ignore:
             to_ignore = set()
 
@@ -640,3 +686,10 @@ class Repository(GithubObjectWithId):
             counts['commit_comments'] = self.fetch_commit_comments(**kwargs)
 
         return counts
+
+    def has_projects(self):
+        return self.projects.exists()
+
+    def has_projects_with_issues(self):
+        from .projects import CARDTYPE
+        return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()

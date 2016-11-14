@@ -86,7 +86,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
 
     class Meta:
         app_label = 'core'
-        ordering = ('username', )
+        ordering = ('username_lower', )
 
     def must_be_fetched(self):
         return not self.fetched_at or self.full_name is None
@@ -697,8 +697,8 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
         return self.fetch(gh=gh, defaults=defaults, force_fetch=force_fetch,
                                     parameters=parameters, meta_base_name='subscription')
 
-    def defaults_create_values(self):
-        defaults = super(GithubNotification, self).defaults_create_values()
+    def defaults_create_values(self, mode):
+        defaults = super(GithubNotification, self).defaults_create_values(mode)
         defaults.setdefault('simple', {}).setdefault('thread_id', self.thread_id)
         if self.repository:
             defaults.setdefault('fk', {}).setdefault('repository', self.repository)

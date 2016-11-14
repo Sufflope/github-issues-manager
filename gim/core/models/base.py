@@ -21,6 +21,7 @@ from ..ghpool import (
     prepare_fetch_headers,
 )
 from ..managers import MODE_ALL, GithubObjectManager
+from ..utils import SavedObjects
 
 
 class MinDateRaised(Exception):
@@ -99,6 +100,10 @@ class GithubObject(models.Model):
     @cached_property
     def model_name(self):
         return self.__class__.__name__
+
+    @property
+    def status_ready(self):
+        return self.github_status not in GITHUB_STATUS_CHOICES.NOT_READY
 
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None,
               github_api_version=None):
@@ -196,6 +201,8 @@ class GithubObject(models.Model):
         if modes is None:
             modes = MODE_ALL
 
+        saved_objects = SavedObjects()
+
         if parameters is None:
             parameters = {}
         first_response_headers = parameters.pop('response_headers', {})
@@ -271,6 +278,7 @@ class GithubObject(models.Model):
                     response_headers=response_headers,
                     min_date=min_date,
                     force_update=force_fetch,
+                    saved_objects=saved_objects,
                 )
 
             except ApiNotFoundError:
@@ -293,6 +301,12 @@ class GithubObject(models.Model):
 
             if not page_objs:
                 # no fetched objects, we're done
+                last_page_ok -= 1
+                return None, etag, last_page_ok
+
+            if len(objs) and page_objs[0] == objs[0]:
+                # we fetched a second page but we may have the same data if github
+                # doesn't support pagination for this endpoint
                 last_page_ok -= 1
                 return None, etag, last_page_ok
 
@@ -459,7 +473,7 @@ class GithubObject(models.Model):
                                 fetched_at_field=None, filter_queryset=None,
                                 last_page_field=None, last_page=None):
         """
-        For the given field name, with must be a m2m or the reverse side of
+        For the given field name, witch must be a m2m or the reverse side of
         a m2m or a fk, use the given list of ids as the lists of ids of all the
         objects that must be linked.
         Objects that were linked but not in the given list will be removed from
@@ -590,21 +604,25 @@ class GithubObject(models.Model):
         # return count of added and removed data
         return count
 
-    def dist_delete(self, gh):
+    def dist_delete(self, gh, github_api_version=None):
         """
         Delete the object on the github side, then delete it on our side.
         """
         identifiers = self.github_callable_identifiers
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
-        gh_callable.delete()
-        self.delete()
+        request_headers = prepare_fetch_headers(
+            version=github_api_version or self.github_api_version,
+        )
+        gh_callable.delete(request_headers=request_headers)
+        if self.pk:
+            self.delete()
 
-    def defaults_create_values(self):
+    def defaults_create_values(self, mode):
         """Default values to use to update data got from github"""
         return {}
 
     def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None,
-                  update_method='patch', github_api_version=None):
+                  update_method='patch', github_api_version=None, update_object=True):
         """
         Edit the object on the github side. Mode can be 'create' or 'update' to
         do the matching action on Github.
@@ -669,22 +687,26 @@ class GithubObject(models.Model):
             version=github_api_version or self.github_api_version,
         )
 
-        # make the request and get fresh data for the object
+        # make the request and get fresh data for the object if asked
         result = method(request_headers=request_headers, **data)
 
+        if not update_object:
+            return self
+
         # get defaults to update the data with fresh data we just got
-        defaults = self.defaults_create_values()
+        defaults = self.defaults_create_values(mode)
 
         # if we are in create mode, we delete the object to recreate it with
         # the data we just got
-        if mode == 'create':
+        if mode == 'create' and self.pk:
             self.delete()
 
         # update the object on our side
         return self.__class__.objects.create_or_update_from_dict(
-                                                            data=result or {},
-                                                            defaults=defaults,
-                                                            force_update=True)
+            data=result or {},
+            defaults=defaults,
+            force_update=True,
+            ignore_github_status=True)
 
 
 class GithubObjectWithId(GithubObject):

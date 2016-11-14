@@ -4,14 +4,28 @@
     {% if current_board_key != 'auto-state' %}{{ block.super }}{% endif %}
 {% endblock filter-state %}
 
+{% block filter-pr-first %}{% if current_board_key == 'auto-state' %} new-accordion-part{% endif %}{% endblock %}
+
 {% block filter-assigned %}
     {% if current_board_key != 'auto-assigned' %}{{ block.super }}{% endif %}
 {% endblock filter-assigned %}
 
 {% block filter-milestone %}
-    {% if current_board_key != 'auto-milestone' %}{{ block.super }}{% endif %}
+    {% if current_board_key != 'auto-all-milestones' and current_board_key != 'auto-open-milestones' %}{{ block.super }}{% endif %}
 {% endblock filter-milestone %}
 
 {% block filter-label_type %}
     {% if current_board.mode != 'labels' or label_type.name != current_board.name %}{{ block.super }}{% endif %}
 {% endblock filter-label_type %}
+
+{% block filter-label_type-first %}{% if current_board.mode == 'labels' %}{% ifchanged label_type.repository %} new-accordion-part{% endifchanged %}{% else %}{{ block.super }}{% endif %}{% endblock filter-label_type-first %}
+
+{% block filter-in_project %}
+    {% if current_board.mode != 'project' %}{{ block.super }}{% endif %}
+{% endblock %}
+
+{% block filter-project %}
+    {% if current_board.mode != 'project' or project.number != current_board.object.number %}{{ block.super }}{% endif %}
+{% endblock %}
+
+{% block filter-project-first %}{% if current_board.mode == 'project' %}{% ifchanged project.repository %} new-accordion-part{% endifchanged %}{% else %}{{ block.super }}{% endif %}{% endblock filter-project-first %}
