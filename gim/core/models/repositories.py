@@ -603,11 +603,11 @@ class Repository(GithubObjectWithId):
         try:
             self.fetch_projects(gh, force_fetch=force_fetch)
             # we must always fetch each projects to get the order if changed
-            for project in self.projects.all():
+            for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
                 if not project.fetch_columns(gh, force_fetch=force_fetch):
                     # we have no new/updated columns
                     continue
-                for column in project.columns.all():
+                for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
                     if force_fetch or column.fetched_at > now:
                         column.fetch_cards(gh, force_fetch=force_fetch)
         except Exception:
