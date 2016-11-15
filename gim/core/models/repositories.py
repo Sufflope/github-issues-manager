@@ -609,7 +609,12 @@ class Repository(GithubObjectWithId):
                     continue
                 for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
                     if force_fetch or column.fetched_at > now:
-                        column.fetch_cards(gh, force_fetch=force_fetch)
+                        try:
+                            column.fetch_cards(gh, force_fetch=force_fetch)
+                        except ApiError:
+                            # Currently Github raise a 500 when asking for the second page of cards
+                            # We want to continue to fetch cards of other columns
+                            pass
         except Exception:
             # Next time we'll refetch all. Else we won't be able to get new data if
             # the error occured for example while fetching cards: the fetch of the
