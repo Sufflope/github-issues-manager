@@ -8,12 +8,14 @@
 {% block issue_item %}{% if issue.is_note %}{% include "front/repository/board/projects/include_note.html" with note=issue %}{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% macro note_add_btn %}
-    <li class="note-add-btn" title="Add a note in this column">
-        <span class="fa-stack fa-lg">
-          <i class="fa fa-file-o fa-stack-1x"></i>
-          <i class="fa fa-plus fa-stack-1x"></i>
-        </span>
-    </li>
+    {% if current_repository_edit_level %}
+        <li class="note-add-btn" title="Add a note in this column">
+            <span class="fa-stack fa-lg">
+              <i class="fa fa-file-o fa-stack-1x"></i>
+              <i class="fa fa-plus fa-stack-1x"></i>
+            </span>
+        </li>
+    {% endif %}
 {% endmacro %}
 
 {% block no_group_by_name %}{{ block.super }}{% if can_display_notes %} and notes{% endif %}{% endblock %}

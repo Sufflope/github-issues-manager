@@ -54,11 +54,17 @@ class FetchProjects(RepositoryJob):
             ))
             raise
 
+        return self.repository.projects.count()
+
     def on_success(self, queue, result):
         """
-        Go fetch again in 1mn +- 15
+        Go fetch again in 1mn +- 15 if we have projects.
+        If not, the job will be called again on the next whole
+        update of the repository
         """
-        self.clone(delayed_for=int(60 * .75) + randint(0, 30 * 1))
+
+        if result:  # count of projects
+            self.clone(delayed_for=int(60 * .75) + randint(0, 30 * 1))
 
 
 class CardJob(DjangoModelJob):
