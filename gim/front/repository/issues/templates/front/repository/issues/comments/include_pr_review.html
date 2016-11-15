@@ -1,5 +1,5 @@
 {% load spaceless_except_pre frontutils %}{% spaceless_except_pre %}
-{% with entry_points=current_issue.get_sorted_entry_points number_str=current_issue.number|slugify %}{% with id_prefix='issue-'|concat:number_str nb_entry_points=entry_points|length %}
+{% with entry_points=current_issue.get_sorted_entry_points %}{% with id_prefix='issue-'|concat:current_issue.pk nb_entry_points=entry_points|length %}
     <div class="content review-header">
         <strong>{{ current_issue.pr_comments_count }} comment{{ current_issue.pr_comments_count|pluralize }}</strong>
         on

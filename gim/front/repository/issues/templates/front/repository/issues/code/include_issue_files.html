@@ -1,3 +1,2 @@
-{% load frontutils %}{% with number_str=current_issue.number|slugify %}
-    {% include "front/repository/issues/code/include_files.html" with files=current_issue.files_with_comments_count id_prefix='issue-'|concat:number_str nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions %}
-{% endwith %}
+{% load frontutils %}
+{% include "front/repository/issues/code/include_files.html" with files=current_issue.files_with_comments_count id_prefix='issue-'|concat:current_issue.pk nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions %}
