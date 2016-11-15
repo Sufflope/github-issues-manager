@@ -66,6 +66,20 @@ class Queue(LimpydQueue):
 
         return queues
 
+    def get_requeue_delayed_lock_key(self):
+        return self.make_key(
+            self._name,
+            self.pk.get(),
+            "requeue_all_delayed_ready_jobs",
+        )
+
+    def requeue_delayed_lock_key_exists(self):
+        return self.connection.exists(self.get_requeue_delayed_lock_key())
+
+    def clear_requeue_delayed_lock_key(self):
+        self.connection.delete(self.get_requeue_delayed_lock_key())
+
+
 class Error(LimpydError):
     namespace = NAMESPACE
 
@@ -73,6 +87,13 @@ class Error(LimpydError):
     # they are set by json.dumps
     gh_request = fields.InstanceHashField()
     gh_response = fields.InstanceHashField()
+
+    def get_job(self):
+        """Return the job that generated this error"""
+        from . import utils
+        job_model = utils.get_job_model_for_name(self.queue_name.hget())
+        return job_model.get(pk=self.job_pk.hget())
+
 
 
 class Worker(LimpydWorker):
