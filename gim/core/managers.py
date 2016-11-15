@@ -1,18 +1,17 @@
-
 import logging
 import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
-from django.db import models, IntegrityError
-from django.db.models import Q
 from django.contrib.auth.models import UserManager
 from django.contrib.contenttypes.models import ContentType
+from django.db import models, IntegrityError
 from django.db.models import FieldDoesNotExist
+from django.db.models import Max, Q
 
-from gim.core.utils import queryset_iterator
 from .ghpool import Connection, ApiError
+from .utils import queryset_iterator, SavedObjects
 
 MODE_CREATE = {'create'}
 MODE_UPDATE = {'update'}
@@ -20,19 +19,6 @@ MODE_ALL = MODE_CREATE | MODE_UPDATE
 
 
 logger = logging.getLogger('django')
-
-
-class SavedObjects(dict):
-    """
-    A simple dict with two helpers to get/set saved objects during a fetch, to
-    avoid getting/setting them many time from/to the database
-    """
-
-    def get_object(self, model, filters):
-        return self[model][tuple(sorted(filters.items()))]
-
-    def set_object(self, model, filters, obj, saved=False):
-        self.setdefault(model, {})[tuple(sorted(filters.items()))] = obj
 
 
 class BaseManager(models.Manager):
@@ -43,6 +29,11 @@ class BaseManager(models.Manager):
         `delete_missing_after_fetch` attribute of the model is set to False,
         the `deleted` attribute of all this objects is set to True
         """
+
+        # we do not delete entries that we are waiting to be created
+        if hasattr(self.model, 'GITHUB_STATUS_CHOICES'):
+            queryset = queryset.exclude(github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_CREATE)
+
         if self.model.delete_missing_after_fetch:
             queryset.delete()
         else:
@@ -94,7 +85,8 @@ class GithubObjectManager(BaseManager):
                         response_headers=None, min_date=None,
                         fetched_at_field='fetched_at',
                         etag_field='etag',
-                        force_update=False):
+                        force_update=False,
+                        saved_objects=None):
         """
         Trying to get data for the model related to this manager, by using
         identifiers to generate the API call. gh is the connection to use.
@@ -103,6 +95,9 @@ class GithubObjectManager(BaseManager):
         if you got a list from github, and we assume that the list is ordered by
         this field, descending)
         """
+
+        if saved_objects is None:
+            saved_objects = SavedObjects()
 
         if response_headers is None:
             response_headers = {}
@@ -117,7 +112,7 @@ class GithubObjectManager(BaseManager):
         if isinstance(data, list):
             result = self.create_or_update_from_list(data, modes, defaults,
                         min_date=min_date, fetched_at_field=fetched_at_field,
-                        saved_objects=SavedObjects(), force_update=force_update)
+                        saved_objects=saved_objects, force_update=force_update)
         else:
             etag = response_headers.get('etag') or None
             if etag and '""' in etag:
@@ -125,7 +120,7 @@ class GithubObjectManager(BaseManager):
             result = self.create_or_update_from_dict(data, modes, defaults,
                                             fetched_at_field=fetched_at_field,
                                             etag_field=etag_field,
-                                            saved_objects=SavedObjects(),
+                                            saved_objects=saved_objects,
                                             force_update=force_update,
                                             etag=etag)
             if not result:
@@ -238,7 +233,8 @@ class GithubObjectManager(BaseManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                             fetched_at_field='fetched_at', etag_field='etag',
-                            saved_objects=None, force_update=False, etag=None):
+                            saved_objects=None, force_update=False, etag=None,
+                            ignore_github_status=False):
         """
         Taking a dict (passed in the data argument), try to update an existing
         object that match some fields, or create a new one.
@@ -267,6 +263,11 @@ class GithubObjectManager(BaseManager):
             else:
                 if 'update' not in modes:
                     return None, False, []
+                # don't update object waiting to be updated or deleted
+                if not ignore_github_status and obj.github_status in obj.GITHUB_STATUS_CHOICES.ALL_WAITING:
+                    if not already_saved:
+                        saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
+                    return obj, True, []
                 # don't update object with old data
                 if not force_update:
                     updated_at = getattr(obj, 'updated_at', None)
@@ -379,10 +380,15 @@ class GithubObjectManager(BaseManager):
         if not obj:
             return None
 
+        continue_update = not already_saved \
+                          or getattr(obj, 'is_new', False) \
+                          or ignore_github_status \
+                          or obj.github_status not in obj.GITHUB_STATUS_CHOICES.ALL_WAITING
+
         # finally save lists now that we have an object
         for field, values in fields['many'].iteritems():
             if isinstance(values, dict):
-                # we have infos for how to create/update fields
+                # we have info for how to create/update fields
 
                 # start by updating defaults with the created/updated object
                 defaults = values.get('defaults', {})
@@ -408,7 +414,7 @@ class GithubObjectManager(BaseManager):
             # save object in the cache
             saved_objects.set_object(self.model, self.get_filters_from_identifiers(fields), obj)
 
-        if obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED:
+        if continue_update and obj.github_status != obj.GITHUB_STATUS_CHOICES.FETCHED:
             obj.github_status = obj.GITHUB_STATUS_CHOICES.FETCHED
             # We pass the same updated fields as before as they may be used by the signals
             obj.save(update_fields=list(set(updated_fields).union({'github_status'})))
@@ -539,6 +545,8 @@ class WithRepositoryManager(GithubObjectManager):
     repository belongs the object.
     """
 
+    repository_url_field = 'url'
+
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
         """
         In addition to the default get_object_fields_from_dict, try to guess the
@@ -547,7 +555,7 @@ class WithRepositoryManager(GithubObjectManager):
         """
         from .models import Repository
 
-        url = data.get('url')
+        url = data.get(self.repository_url_field)
 
         fields = super(WithRepositoryManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
@@ -957,7 +965,8 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                                    fetched_at_field='fetched_at', etag_field='etag',
-                                   saved_objects=None, force_update=False, etag=None):
+                                   saved_objects=None, force_update=False, etag=None,
+                                   ignore_github_status=False):
         from .models import GithubUser
 
         try:
@@ -973,7 +982,7 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
 
         obj = super(CommentEntryPointManagerMixin, self)\
             .create_or_update_from_dict(data, modes, defaults, fetched_at_field, etag_field,
-                                                    saved_objects, force_update, etag)
+                                        saved_objects, force_update, etag, ignore_github_status)
 
         if not obj:
             return None
@@ -1049,13 +1058,15 @@ class CommitManager(WithRepositoryManager):
 
     def create_or_update_from_dict(self, data, modes=MODE_ALL, defaults=None,
                                    fetched_at_field='fetched_at', etag_field='etag',
-                                   saved_objects=None, force_update=False, etag=None):
+                                   saved_objects=None, force_update=False, etag=None,
+                                   ignore_github_status=False):
         """
         In addition to the default create_or_update_from_dict, check if files
         where fetched and if not, launch a FetchCommitBySha to fetch them
         """
-        obj = super(CommitManager, self).create_or_update_from_dict(data, modes,
-                        defaults, fetched_at_field, etag_field, saved_objects, force_update, etag)
+        obj = super(CommitManager, self).create_or_update_from_dict(
+            data, modes, defaults,fetched_at_field, etag_field, saved_objects, force_update,
+            etag, ignore_github_status)
 
         # We got commits from the list of commits of a PR, so we don't have files and comments
         if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
@@ -1586,3 +1597,227 @@ class MentionManager(models.Manager):
             self.set_for_commit_comment,
             users_cache
         )
+
+
+class ProjectManager(WithRepositoryManager):
+    repository_url_field = 'owner_url'
+    project_finder_by_number = re.compile('^https?://api\.github\.com/repos/(?:[^/]+/[^/]+)/projects/(?P<number>\d+)(?:/|$)')
+    project_finder_by_id = re.compile('^https?://api\.github\.com/projects/(?P<github_id>\d+)(?:/|$)')
+
+    def get_number_from_url(self, url):
+        """
+        Taking an url, try to return the number of a project, or None.
+        """
+        if not url:
+            return None
+        match = self.project_finder_by_number.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('number', None)
+
+    def get_github_id_from_url(self, url):
+        """
+        Taking an url, try to return the github_id of a project, or None.
+        """
+        if not url:
+            return None
+        match = self.project_finder_by_id.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('github_id', None)
+
+    def get_by_repository_and_number(self, repository, number):
+        """
+        Taking a repository instance and a project number, try to return the
+        matching project. or None if no one is found.
+        """
+        if not repository or not number:
+            return None
+        try:
+            return self.get(repository_id=repository.id, number=number)
+        except self.model.DoesNotExist:
+            return None
+
+    def get_by_github_id(self, github_id):
+        """
+        Taking a project github_id, try to return the
+        matching project. or None if no one is found.
+        """
+        if not github_id:
+            return None
+        try:
+            return self.get(github_id=github_id)
+        except self.model.DoesNotExist:
+            return None
+
+    def get_by_url(self, url, repository=None):
+        """
+        Taking an url, try to return the matching project by finding its github id, or
+        its repository by its path and a project number, then fetching the project from the db.
+        Return None if no Project if found.
+        """
+        github_id = self.get_github_id_from_url(url)
+        if github_id:
+            return self.get_by_github_id(github_id)
+
+        if not repository:
+            from .models import Repository
+            repository = Repository.objects.get_by_url(url)
+        if not repository:
+            return None
+        number = self.get_number_from_url(url)
+        return self.get_by_repository_and_number(repository, number)
+
+
+class ColumnManager(GithubObjectManager):
+
+    column_finder = re.compile('^https?://api\.github\.com/projects/columns/(?P<id>\d+)(?:/|$)')
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+        """
+        In addition to the default get_object_fields_from_dict, try to guess the
+        project the objects belongs to, from the url found in the data given
+        by the github api. Only set if the project is found.
+        And finally get the position from the context and increment it.
+        """
+        from .models import Column, Project
+
+        # we need a project
+        project = defaults.get('fk', {}).get('project')
+        if not project:
+            url = data.get('project_url')
+            if url:
+                project = Project.objects.get_by_url(url)
+                defaults.setdefault('fk', {})['project'] = project
+
+        if not project:
+            # no project found, don't save the object !
+            return None
+
+        if 'position' not in data and hasattr(saved_objects, 'context'):
+            position_key = 'project#%s:column-position' % project.github_id
+            position = saved_objects.context.get(position_key, 0) + 1
+            data['position'] = saved_objects.context[position_key] = position
+        else:
+            # do we have this column  positioned?
+            try:
+                project.columns.get(github_id=data['id'], position__isnull=False)
+            except Column.DoesNotExist:
+                # we don't have it so we'll put it at the end
+                last_position = project.columns.exclude(github_id=data['id']).aggregate(Max('position'))['position__max']
+                data['position'] = last_position + 1 if last_position else 1
+
+        fields = super(ColumnManager, self).get_object_fields_from_dict(
+                                                data, defaults, saved_objects)
+        if not fields:
+            return None
+
+        return fields
+
+    def get_github_id_from_url(self, url):
+        """
+        Taking an url, try to return the github_id of a column, or None.
+        """
+        if not url:
+            return None
+        match = self.column_finder.match(url)
+        if not match:
+            return None
+        return match.groupdict().get('id', None)
+
+    def get_by_github_id(self, github_id):
+        """
+        Taking a project instance and a column id, try to return the
+        matching column. or None if no one is found.
+        """
+        if not github_id:
+            return None
+        try:
+            return self.get(github_id=github_id)
+        except self.model.DoesNotExist:
+            return None
+
+    def get_by_url(self, url, project=None):
+        """
+        Taking an url, try to return the matching column by finding the project
+        by its path, and a column github_id, and then fetching the column from the db.
+        Return None if no Issue if found.
+        """
+        github_id = self.get_github_id_from_url(url)
+        return self.get_by_github_id(github_id)
+
+
+class CardIssueNotAvailable(ValueError):
+    def __init__(self, repository_id, issue_number):
+        self.repository_id = repository_id
+        self.issue_number = issue_number
+        super(CardIssueNotAvailable, self).__init__(
+            'Issue %s:%s not yet available' % (repository_id, issue_number)
+        )
+
+
+class CardManager(GithubObjectManager):
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+        """
+        In addition to the default get_object_fields_from_dict, try to guess the
+        column the objects belongs to, from the url found in the data given
+        by the github api. Only set if the column is found.
+        """
+        from .models import Card, Column, Issue
+
+        # we need a column
+        column = defaults.get('fk', {}).get('column')
+        if not column:
+            url = data.get('column_url')
+            if url:
+                column = Column.objects.get_by_url(url)
+
+        if not column:
+            # no column found, don't save the object !
+            return None
+
+        issue_url = data.get('content_url')
+        is_issue_expected = issue_url and not data.get('note')
+
+        # we may have an issue
+        issue = defaults.get('fk', {}).get('issue')
+        if not issue:
+            url = issue_url
+            if url:
+                issue = Issue.objects.get_by_url(url)
+
+        if 'position' not in data and 'position' not in defaults.get('simple', {}):
+            if hasattr(saved_objects, 'context'):
+                position_key = 'column#%s:card-position' % column.github_id
+                position = saved_objects.context.get(position_key, 0) + 1
+                data['position'] = saved_objects.context[position_key] = position
+            else:
+                # do we have the card, and in this column, positioned?
+                try:
+                    column.cards.get(github_id=data['id'], position__isnull=False)
+                except Card.DoesNotExist:
+                    # we don't have it so we'll put it at the end
+                    last_position = column.cards.exclude(github_id=data['id']).aggregate(Max('position'))['position__max']
+                    data['position'] = last_position + 1 if last_position else 1
+
+        fields = super(CardManager, self).get_object_fields_from_dict(
+                                                data, defaults, saved_objects)
+        if not fields:
+            return None
+
+        if not fields['fk'].get('column'):
+            fields['fk']['column'] = column
+
+        if is_issue_expected and not fields['fk'].get('issue'):
+            if not issue:
+                raise CardIssueNotAvailable(
+                    fields['fk']['column'].project.repository_id,
+                    Issue.objects.get_number_from_url(issue_url)
+                )
+
+            fields['fk']['issue'] = issue
+
+        fields['simple']['type'] = Card.CARDTYPE.ISSUE if fields['fk'].get('issue') else Card.CARDTYPE.NOTE
+
+        return fields

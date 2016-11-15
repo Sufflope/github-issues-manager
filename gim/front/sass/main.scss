@@ -211,6 +211,11 @@ body > header .brand:hover #HW_badge.HW_softHidden {
     right: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 31;
+    &.no-spinner {
+        .fa-spinner {
+            display: none;
+        }
+    }
 }
 
 // big empty area with big text light colored
@@ -298,6 +303,11 @@ ol, ul {
         display: inline-block;
         input, select, textarea {
             margin: 0;
+        }
+    }
+    .small-buttons {
+        button {
+            padding: 4px 0;
         }
     }
     button {
@@ -399,6 +409,11 @@ ol, ul {
 
 .alert-warning {
     color: #8E6A47;
+}
+
+.fa-align-left.fa-rotate-90 {
+    position: relative;
+    left: -2px;
 }
 
 

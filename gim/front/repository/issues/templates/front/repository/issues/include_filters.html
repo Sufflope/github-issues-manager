@@ -6,7 +6,7 @@
     {% block default_filters %}
     {% with current_url=view.request.path|concat:'?'|concat:view.request.META.QUERY_STRING %}
 
-        <li class="accordion-group dark-nav">
+        <li class="accordion-group dark-nav new-accordion-part">
             <span class="glow"></span>
             <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#default-filters-{{ list_uuid }}">
                 Default filters
@@ -90,7 +90,7 @@
 {% block after_common_filters %}
     {% block filter-milestone %}
     {# The milestones #}
-    {% if milestones|length %}
+        {% if milestones|length %}
             <li class="accordion-group dark-nav">
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.objects.milestone %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-milestone-{{ list_uuid }}">
@@ -127,58 +127,130 @@
         {% endif %}
     {% endblock filter-milestone %}
 
+    {% block filter-projects %}
+    {# The projects and their columns #}
+    {% if projects|length %}
+        {# projects: in a project or not #}
+        {% if projects|length > 1 %}
+            {% block filter-in_project %}
+            <li class="accordion-group dark-nav new-accordion-part">
+                <span class="glow"></span>
+                <a class="accordion-toggle collapsed{% if issues_filter.parts.in_project %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-in_project-{{ list_uuid }}">
+                    In a project
+                    <i class="fa fa-caret-right"></i>
+                    {% if issues_filter.parts.in_project %}
+                            <span class="selection">{{ issues_filter.parts.in_project }}</span>
+                        </a>
+                        <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "in_project" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                    {% endif %}
+                </a>
+                <ul id="filter-in_project-{{ list_uuid }}" class="collapse">
+                    {% for in_project in view.allowed_in_projects %}
+                        <li{% if issues_filter.parts.in_project == in_project %} class="active"{% endif %}>
+                            <a href="{{ current_issues_url }}{% toggle_in_querystring "in_project" in_project %}">{{ in_project|capfirst }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endblock filter-in_project %}
+        {% endif %}
+        {% for project in projects %}
+            {% block filter-project %}
+                {% with project_key='project_'|concat:project.number columns=project.columns.all %}{% with filter_object=issues_filter.objects|dict_item:project_key %}
+                    <li class="accordion-group dark-nav{% block filter-project-first %}{% if forloop.first and projects|length == 1 %} new-accordion-part{% endif %}{% endblock filter-project-first %}">
+                        <span class="glow"></span>
+                        <a class="accordion-toggle collapsed{% if filter_object %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-{{ project_key }}-{{ list_uuid }}">
+                            {{ project.name }}
+                            <i class="fa fa-caret-right"></i>
+                            {% if filter_object %}
+                                    <span class="selection">
+                                        {% if filter_object == '__none__' %}
+                                            (&nbsp;Not in&nbsp;the project )
+                                        {% elif filter_object == '__any__' %}
+                                            (&nbsp;In&nbsp;the project )
+                                        {% else %}
+                                            {{ filter_object.name }}
+                                        {% endif %}
+                                    </span>
+                                </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring project_key %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                            {% endif %}
+                        </a>
+                        <ul id="filter-{{ project_key }}-{{ list_uuid }}" class="collapse">
+                            <li{% if filter_object == "__none__" %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring project_key "__none__" %}">(&nbsp;Not in&nbsp;the project )</a>
+                            </li>
+                            <li{% if filter_object == "__any__" %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring project_key "__any__" %}">(&nbsp;In&nbsp;the project )</a>
+                            </li>
+                            {% if columns|length > 10 %}
+                                <li>
+                                    {% include "front/include_quicksearch.html" with target="#filter-"|concat:project_key|concat:"-"|concat:list_uuid|concat:" li.column" only %}
+                                </li>
+                            {% endif %}
+                            {% for column in columns %}
+                                <li class="column{% if filter_object.id == column.id %} active{% endif %}">
+                                    <a href="{{ current_issues_url }}{% toggle_in_querystring project_key column.id %}">{{ column.name }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endwith %}{% endwith %}
+            {% endblock filter-project %}
+        {% endfor %}
+    {% endif %}
+    {% endblock filter-projects %}
+
     {% block filter-label_types %}
     {# The different label-types #}
     {% for label_type in label_types %}
         {% block filter-label_type %}
-        {% with label_type.labels.ready as label_type_labels %}
-            {% if label_type_labels|length %}
-                {% attributes_for_list label_type_labels "name" as label_names %}
-                {% with unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}{% with label_names=label_names|append:unset|append:set current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
-                <li class="accordion-group dark-nav">
-                    <span class="glow"></span>
-                    <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
-                        {{ label_type.name }}
-                        <i class="fa fa-caret-right"></i>
-                            {% if current_label_for_label_type %}
-                                {% if current_label_for_label_type == '__none__' %}
-                                        <span class="selection">(&nbsp;Not set&nbsp;)</span>
-                                        </a>
-                                    <a class="clear-filter" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" title="Clear this filter"><i class="fa fa-times"> </i>
-                                {% elif current_label_for_label_type == '__any__' %}
-                                        <span class="selection">(&nbsp;Set&nbsp;)</span>
-                                        </a>
-                                    <a class="clear-filter" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" title="Clear this filter"><i class="fa fa-times"> </i>
-                                {% else %}
-                                        <span class="selection">{{ current_label_for_label_type.typed_name }}</span>
-                                        </a>
-                                    <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "labels" current_label_for_label_type.name  %}" title="Clear this filter"><i class="fa fa-times"> </i>
-                                {% endif %}
+        {% with label_type_labels=label_type.labels|filter_status_ready unset=label_type.name|concat:":__none__" set=label_type.name|concat:":__any__" %}
+            {% attributes_for_list label_type_labels "name" as label_names %}
+            {% with label_names=label_names|append:unset|append:set current_label_for_label_type=issues_filter.objects.current_label_types|dict_item:label_type.id %}
+            <li class="accordion-group dark-nav{% block filter-label_type-first %}{% if forloop.first %} new-accordion-part{% endif %}{% endblock filter-label_type-first %}">
+                <span class="glow"></span>
+                <a class="accordion-toggle collapsed{% if current_label_for_label_type %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-label-type-{{ label_type.id }}-{{ list_uuid }}">
+                    {{ label_type.name }}
+                    <i class="fa fa-caret-right"></i>
+                        {% if current_label_for_label_type %}
+                            {% if current_label_for_label_type == '__none__' %}
+                                    <span class="selection">(&nbsp;Not set&nbsp;)</span>
+                                    </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                            {% elif current_label_for_label_type == '__any__' %}
+                                    <span class="selection">(&nbsp;Set&nbsp;)</span>
+                                    </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                            {% else %}
+                                    <span class="selection">{{ current_label_for_label_type.typed_name }}</span>
+                                    </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "labels" current_label_for_label_type.name  %}" title="Clear this filter"><i class="fa fa-times"> </i>
                             {% endif %}
-                    </a>
-                    <ul id="filter-label-type-{{ label_type.id }}-{{ list_uuid }}" class="collapse filter-labels">
-                        <li{% if current_label_for_label_type == '__none__' %} class="active"{% endif %}>
-                            <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}">(&nbsp;Not set&nbsp;)</a>
-                        </li>
-                        <li{% if current_label_for_label_type == '__any__' %} class="active"{% endif %}>
-                            <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}">(&nbsp;Set&nbsp;)</a>
-                        </li>
-                        {% if label_type_labels|length > 10 %}
-                            <li>
-                                {% include "front/include_quicksearch.html" with target="#filter-label-type-"|concat:label_type.id|concat:"-"|concat:list_uuid|concat:" li.typed_label" only %}
-                            </li>
                         {% endif %}
-                        {% for label in label_type_labels %}
-                            <li class="typed_label{% if label.name in issues_filter.parts.labels %} active{% endif %}">
-                                <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" label.name remove_values=label_names %}" title="{{ label.name }}">
-                                    <span style="border-bottom-color: #{{ label.color }}">{{ label.typed_name }}</span>
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </li>
-                {% endwith %}{% endwith %}
-            {% endif %}
+                </a>
+                <ul id="filter-label-type-{{ label_type.id }}-{{ list_uuid }}" class="collapse filter-labels">
+                    <li{% if current_label_for_label_type == '__none__' %} class="active"{% endif %}>
+                        <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" unset remove_values=label_names %}">(&nbsp;Not set&nbsp;)</a>
+                    </li>
+                    <li{% if current_label_for_label_type == '__any__' %} class="active"{% endif %}>
+                        <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" set remove_values=label_names %}">(&nbsp;Set&nbsp;)</a>
+                    </li>
+                    {% if label_type_labels|length > 10 %}
+                        <li>
+                            {% include "front/include_quicksearch.html" with target="#filter-label-type-"|concat:label_type.id|concat:"-"|concat:list_uuid|concat:" li.typed_label" only %}
+                        </li>
+                    {% endif %}
+                    {% for label in label_type_labels %}
+                        <li class="typed_label{% if label.name in issues_filter.parts.labels %} active{% endif %}">
+                            <a href="{{ current_issues_url }}{% toggle_one_from_querystring "labels" label.name remove_values=label_names %}" title="{{ label.name }}">
+                                <span style="border-bottom-color: #{{ label.color }}">{{ label.typed_name }}</span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endwith %}
         {% endwith %}
         {% endblock filter-label_type %}
     {% endfor %}
@@ -188,7 +260,7 @@
     {# Simple labels #}
     {% with untyped_labels=current_repository.untyped_labels.all %}
         {% if untyped_labels|length %}
-            <li class="accordion-group dark-nav">
+            <li class="accordion-group dark-nav new-accordion-part">
                 <span class="glow"></span>
                 <a class="accordion-toggle collapsed{% if issues_filter.objects.current_labels %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-labels-{{ list_uuid }}">
                     Labels

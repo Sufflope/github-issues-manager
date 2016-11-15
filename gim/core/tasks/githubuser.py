@@ -22,7 +22,7 @@ from limpyd import fields
 
 from gim.core.managers import MODE_UPDATE
 from gim.core.models import GithubNotification, GithubUser
-from gim.github import ApiNotFoundError
+from gim.github import ApiNotFoundError, ApiError
 
 from .base import DjangoModelJob, Job
 from .utils import update_user_related_stuff
@@ -261,6 +261,10 @@ class FinalizeGithubNotification(GithubNotificationJob):
             # it may be the case when the notification happened because the user belongs to an org
             # and in this case there is no subscription
             pass
+        except ApiError as e:
+            if getattr(e, 'code', None) in (401, 403):
+                # another case I cannot identify...
+                pass
 
         # Fetch the repository
         try:

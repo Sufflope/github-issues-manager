@@ -1,4 +1,5 @@
 from django.core.urlresolvers import reverse_lazy
+from django.db.models import Count
 from django.utils.decorators import classonlymethod
 from django.utils.functional import cached_property
 from django.views.generic import DetailView
@@ -6,7 +7,44 @@ from django.views.generic import DetailView
 from gim.front.mixins.views import SubscribedRepositoryViewMixin, WithSubscribedRepositoriesViewMixin
 
 
-class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedRepositoryViewMixin, DetailView):
+class RepositoryViewMixin(WithSubscribedRepositoriesViewMixin, SubscribedRepositoryViewMixin):
+
+    @cached_property
+    def label_types(self):
+        return self.repository.label_types.annotate(
+            num_labels=Count('labels')
+        ).filter(
+            num_labels__gt=0
+        ).prefetch_related(
+            'labels'
+        ).order_by(
+            'name'
+        )
+
+    @cached_property
+    def milestones(self):
+        return self.repository.milestones.all()
+
+    @cached_property
+    def projects(self):
+        return self.repository.projects.annotate(
+            num_columns=Count('columns')
+        ).filter(
+            num_columns__gt=0
+        ).prefetch_related(
+            'columns'
+        )
+
+    @cached_property
+    def projects_including_empty(self):
+        return self.repository.projects.annotate(
+            num_columns=Count('columns')
+        ).prefetch_related(
+            'columns'
+        )
+
+
+class BaseRepositoryView(RepositoryViewMixin, DetailView):
     # details vue attributes
     template_name = 'front/repository/base.html'
 
@@ -68,11 +106,3 @@ class BaseRepositoryView(WithSubscribedRepositoriesViewMixin, SubscribedReposito
         context['repository_main_views'] = repo_main_views
 
         return context
-
-    @cached_property
-    def label_types(self):
-        return self.repository.label_types.all().prefetch_related('labels').order_by('name')
-
-    @cached_property
-    def milestones(self):
-        return self.repository.milestones.all()

@@ -14,7 +14,7 @@
         <div class="span12">
             <div class="area-top">
                 {% block board-header %}
-                    <select id="board-selector" autocomplete="off">
+                    <select id="board-selector" autocomplete="off" data-auto-open="{{ view.auto_open_selector|yesno:"true,false" }}">
                     {% if not current_board_key %}
                         <option></option>
                     {% endif %}
@@ -24,12 +24,15 @@
                                 data-name="{{ board.name|capfirst }}"
                                 data-columns="{{ board.visible_count }}"
                                 data-url="{{ board.board_url }}"
-                                {% if current_board_key == board_key %} selected="selected"{% endif %}>
+                                {% if current_board_key == board_key %} selected="selected"{% endif %}
+                                {% ifchanged board.mode %}data-first-of-mode="true"{% endifchanged %}
+                        >
                             {% if current_board_key == board_key %}Current board: {% endif %} {{ board.name|capfirst }}
                         </option>
                     {% endfor %}
                     {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
                         <option value="labels-editor" data-url="{{ labels_editor_url }}">Edit boards from groups of labels</option>
+                        <option value="project-creator" data-url="{{ current_repository.get_create_project_url }}">Create a project</option>
                     {% endif %}
                     </select>
                 {% endblock board-header %}

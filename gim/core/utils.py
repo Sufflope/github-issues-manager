@@ -120,3 +120,20 @@ def cached_method(func):
             inst._memoized_values[key] = func(*args)
         return inst._memoized_values[key]
     return wrapper
+
+
+class SavedObjects(dict):
+    """
+    A simple dict with two helpers to get/set saved objects during a fetch, to
+    avoid getting/setting them many time from/to the database
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.context = kwargs.pop('context', {})
+        super(SavedObjects, self).__init__(*args, **kwargs)
+
+    def get_object(self, model, filters):
+        return self[model][tuple(sorted(filters.items()))]
+
+    def set_object(self, model, filters, obj, saved=False):
+        self.setdefault(model, {})[tuple(sorted(filters.items()))] = obj

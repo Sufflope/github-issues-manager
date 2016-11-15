@@ -1,0 +1,12 @@
+<form class="column-form column-create-form"  method="post" action="{{ current_project.get_create_column_url }}">
+    {% csrf_token %}
+    <div><input type="text" name="name" placeholder="Enter a column name" /></div>
+    <div class="row-fluid auto-align edit-buttons">
+        <div class="span6">
+            <button class="btn btn-blue submit btn-loading">Add a column <i class='fa fa-spinner fa-spin'> </i></button>
+        </div>
+        <div class="span6">
+            <button class="btn btn-default btn-cancel" type="button">Cancel</button>
+        </div>
+    </div>
+</form>

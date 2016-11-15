@@ -418,9 +418,13 @@ class FirstFetchStep2(RepositoryJob):
             self.clone(delayed_for=60, **kwargs)
 
         else:
+            repository = self.object
             # got nothing, it's the end, add a job to do future fetches
             self.last_one.hset(1)
-            FetchForUpdate.add_job(self.object.id, gh=self.gh)
+            FetchForUpdate.add_job(repository.id, gh=self.gh)
+            # and also to fetch projects independently
+            from .project import FetchProjects
+            FetchProjects.add_job(repository.id)
 
     def success_message_addon(self, queue, result):
         msg = ' [%s]' % (', '.join(['%s=%s' % (k, v) for k, v in result.iteritems()]))

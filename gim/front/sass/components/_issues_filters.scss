@@ -53,12 +53,12 @@ $sidebar-toggler-width: 22px;
         padding: 0 {
             left: 5px;
         }
-        line-height: 10px;
+        line-height: 15px;
         font-weight: normal;
     }
     a.clear-filter {
         position: absolute;
-        top: 22px;
+        top: 25px;
         left: 10px;
         padding: 0 !important;
         margin: 0;
@@ -71,6 +71,15 @@ $sidebar-toggler-width: 22px;
     .deferred {
         li {
             padding: 0 5px 0 20px;
+        }
+    }
+    .new-accordion-part {
+        border-top: solid 1px #2a3037;
+    }
+    li.accordion-group:last-of-type {
+        border-bottom: solid 1px #2a3037;
+        & > a:after {
+            display: none;
         }
     }
     .quicksearch-widget {

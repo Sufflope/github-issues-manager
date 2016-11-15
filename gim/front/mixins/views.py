@@ -279,6 +279,7 @@ class WithRepositoryViewMixin(object):
         context = super(WithRepositoryViewMixin, self).get_context_data(**kwargs)
         context['current_repository'] = self.repository
         context['current_subscription'] = self.subscription
+        context['current_repository_edit_level'] = 'full' if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS else None
         return context
 
     @cached_property
@@ -665,7 +666,8 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
         qs_filters['group_by'] = qs_parts['group_by']
         filter_objects['group_by'] = qs_parts['group_by']
         filter_objects['group_by_field'] = field
-        order_by.append('%s%s' % ('-' if direction == 'desc' else '', db_field))
+        if db_field:
+            order_by.append('%s%s' % ('-' if direction == 'desc' else '', db_field))
 
     def get_filter_parts(self, qs_parts):
 
@@ -735,9 +737,11 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
 
 
 class BaseIssuesView(object):
-    # subclasses must inherit from a subclass of BaseIssuesFilters
+    # subclasses must also inherit from a subclass of BaseIssuesFilters
 
     LIMIT_ISSUES = 300
+    LIMIT_ISSUES_TOLERANCE = 5
+    MIN_FILTER_KEYS = 2
 
     filters_and_list_template_name = 'front/issues/include_filters_and_list.html'
     options_template_name = 'front/issues/include_options.html'
@@ -806,8 +810,17 @@ class BaseIssuesView(object):
 
         return queryset
 
+    def get_select_and_prefetch_related(self, queryset, group_by):
+        # by default we add nothing, we expect issues to be already rendered in cache
+        return [], []
+
     def select_and_prefetch_related(self, queryset, group_by):
-        return queryset.select_related('repository__owner')
+        select_related, prefetch_related = self.get_select_and_prefetch_related(queryset, group_by)
+        if select_related:
+            queryset = queryset.select_related(*select_related)
+        if prefetch_related:
+            queryset = queryset.prefetch_related(*prefetch_related)
+        return queryset
 
     @cached_property
     def base_url(self):
@@ -828,6 +841,7 @@ class BaseIssuesView(object):
                 'list_uuid': self.list_uuid,
                 'current_issues_url': self.base_url,
                 'can_show_shortcuts': True,
+                'no_limit': self.request.GET.get('limit') == 'no',
             })
 
             context['issues'], context['issues_count'], context['limit_reached'], __ =\
@@ -848,7 +862,7 @@ class BaseIssuesView(object):
         if not issues_count:
             return [], 0, False, original_queryset
 
-        if self.request.GET.get('limit') != 'no' and issues_count > self.LIMIT_ISSUES + 5:  # tolerance
+        if not context['no_limit'] and issues_count > self.LIMIT_ISSUES + self.LIMIT_ISSUES_TOLERANCE:
             issues_count = self.LIMIT_ISSUES
             issues = issues[:self.LIMIT_ISSUES]
             limit_reached = True

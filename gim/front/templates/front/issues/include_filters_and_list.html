@@ -4,8 +4,14 @@
         {{ view.allowed_group_by|dict_item:issues_filter.objects.group_by|dict_item:'name'|lower }}
     {% endblock %}
 {% endmacro %}
+{% macro no_group_by_name %}{% block no_group_by_name %}issues{% endblock %}{% endmacro %}
 {% macro issue_item %}{% block issue_item %}{% inject_repository_in_issue_item current_repository issue.repository force_hide=force_hide_repositories force_show=force_show_repositories %}{% issue_cache None issue_item issue.pk issue.saved_hash %}{% include "front/repository/issues/include_issue_item.html" with issue=issue %}{% endissue_cache %}{% end_inject_repository_in_issue_item %}{% endblock %}{% endmacro %}
 {% static 'front/img/default-avatar.png' as default_avatar %}
+{% macro issues_group_toolbar count %}
+    {% block issues-group-toolbar %}
+        <li><span class="label label-inverse issues-count">{{ count }}</span></li>
+    {% endblock %}
+{% endmacro %}
 
 {% include view.filters_template_name %}
 <section class="issues-list-container span5{% if list_key %} with-title{% endif %}"{% if list_key %} data-key="{{ list_key }}"{% endif %}>
@@ -14,10 +20,10 @@
     {% endif %}
     {% include view.options_template_name %}
     {% include "front/issues/include_quicksearch.html" %}
-    <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}">
+    <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}" data-sort-field="{{ issues_filter.parts.sort }}" data-sort-direction="{{ issues_filter.parts.direction }}"{% block issues-additional-data %}{% endblock issues-additional-data %}>
         {% if not issues_count %}
             <div class="alert alert-info no-issues">
-                No issues to display.
+                {% block no-issues %}No issues to display.{% endblock %}
             </div>
         {% else %}
             {% block issues-list-top %}{% endblock %}
@@ -59,9 +65,9 @@
                 {% else %}
                     <div class='box issues-group'>
                         <a class="box-header" href='#'>
-                            <span class="title">{% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues</span>
+                            <span class="title">{% if issues_filter.parts.keys|length > view.MIN_FILTER_KEYS %}Filtered{% else %}All{% endif %} {% usemacro no_group_by_name %}</span>
                             <ul class="unstyled box-toolbar">
-                                <li><span class="label label-inverse issues-count">{{ group.list|length }}</span></li>
+                                {% usemacro issues_group_toolbar group.list|length %}
                             </ul>
                         </a>
                         <ul class="unstyled box-content issues-group-issues">
@@ -77,14 +83,15 @@
                     {% if issues_filter.objects.group_by_field %}
                         No {% usemacro empty_group_by_name %}
                     {% else %}
-                        {% if issues_filter.parts.keys|length > 2 %}Filtered{% else %}All{% endif %} issues
+                        {% if issues_filter.parts.keys|length > view.MIN_FILTER_KEYS %}Filtered{% else %}All{% endif %} {% usemacro no_group_by_name %}
                     {% endif %}
                 </span>
                 <ul class="unstyled box-toolbar">
-                    <li><span class="label label-inverse issues-count">1</span></li>
+                    {% usemacro issues_group_toolbar 1 %}
                 </ul>
             </a>
             <ul class="unstyled box-content issues-group-issues collapse" id="group_by-list-template"></ul>
         </div>
     </div>
 </section>
+{% block after-main-section %}{% endblock %}

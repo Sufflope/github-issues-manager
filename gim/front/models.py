@@ -38,8 +38,10 @@ from gim.ws import publisher
 thread_data = local()
 
 
-def html_content(self, body_field='body'):
-    html = getattr(self, '%s_html' % body_field, None)
+def html_content(self, body_field='body', force=False):
+    html = None
+    if not force:
+        html = getattr(self, '%s_html' % body_field, None)
     if html is None:
         html = markdown(getattr(self, body_field),
                         extensions=[
@@ -57,8 +59,8 @@ class FrontEditable(models.Model):
     class Meta:
         abstract = True
 
-    def defaults_create_values(self):
-        values = self.old_defaults_create_values()
+    def defaults_create_values(self, mode):
+        values = self.old_defaults_create_values(mode)
         values.setdefault('simple', {})['front_uuid'] = self.front_uuid
         if hasattr(self, 'is_new'):
             values['simple']['is_new'] = self.is_new
@@ -103,7 +105,12 @@ class Hashable(object):
 
 
 class _GithubUser(Hashable, models.Model):
-    AVATAR_START = re.compile('^https?://\d+\.')
+    AVATAR_STARTS = [
+        # 0.gravatar.com => gravatar.com
+        (re.compile('^(https?://)\d+\.'), r'\1'),
+        # avatars0.githubusercontent.com => avatars.githubusercontent.com
+        (re.compile('^(https?://[^\.]+)\d+\.'), r'\1.'),
+    ]
 
     class Meta:
         abstract = True
@@ -126,12 +133,19 @@ class _GithubUser(Hashable, models.Model):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        # we remove the subdomain of the gravatar url that may change between
-        # requests to the github api for the same user with the save avatar
-        # (https://0.gravatar...,  https://1.gravatar...)
+
         avatar_url = ''
+
         if self.avatar_url:
-            avatar_url = self.AVATAR_START.sub('', self.avatar_url, count=1)
+            avatar_url = self.avatar_url
+
+            # if we have a number at the end of the subdomain, we remove it because it may
+            # change between requests to the github api for the same user with the save avatar
+            for regex, repl in self.AVATAR_STARTS:
+                if regex.match(avatar_url):
+                    avatar_url = regex.sub(repl, avatar_url, count=1)
+                    break
+
         return hash((self.username, avatar_url, ))
 
     def get_related_issues(self):
@@ -195,6 +209,10 @@ class _Repository(models.Model):
 
     def get_create_issue_url(self):
         return self.get_view_url('issue.create')
+
+    def get_create_project_url(self):
+        from gim.front.repository.board.views import ProjectCreateView
+        return self.get_view_url(ProjectCreateView.url_name)
 
     def delete(self, using=None):
         pk = self.pk
@@ -449,13 +467,13 @@ class _Issue(Hashable, FrontEditable):
                                    .values_list('author_name', flat=True)))
 
     @property
-    def hash(self):
+    def hash_values(self):
         """
         Hash for this issue representing its state at the current time, used to
         know if we have to reset its cache
         """
 
-        hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request')
+        hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
         if self.is_pull_request:
             hashable_fields += ('base_sha', 'head_sha', 'merged')
             if self.state == 'open' and not self.merged:
@@ -468,13 +486,18 @@ class _Issue(Hashable, FrontEditable):
             self.milestone_id,
             self.total_comments_count or 0,
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
+            ','.join(sorted(['%s:%s' % c for c in self.cards.values_list('column_id', 'position')]))
         )
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
             hash_values += (commits_part, )
 
-        return hash(hash_values)
+        return hash_values
+
+    @property
+    def hash(self):
+        return hash(self.hash_values)
 
     def update_saved_hash(self):
         """
@@ -507,7 +530,7 @@ class _Issue(Hashable, FrontEditable):
         ).select_related(
             'repository__owner', 'user', 'created_by', 'closed_by', 'milestone'
         ).prefetch_related(
-            'assignees', 'labels__label_type'
+            'assignees', 'labels__label_type', 'cards__column__project'
         )[0]
 
         context = Context({
@@ -651,6 +674,37 @@ class _Issue(Hashable, FrontEditable):
             if hasattr(self, '_repository_cache'):
                 notification._repository_cache = self._repository_cache
             notification.publish()
+
+    def ordered_cards(self):
+        """Order card by project/column, using prefetched info if present"""
+
+        need_fetch = True
+
+        if hasattr(self, '_prefetched_objects_cache') and 'cards' in self._prefetched_objects_cache:
+            # cards are already prefetched
+            need_fetch = False
+            for card in self._prefetched_objects_cache['cards']:
+                try:
+                    card._column_cache._project_cache
+                except AttributeError:
+                    # column or project not in cache
+                    need_fetch = True
+                    break
+
+            if not need_fetch:
+                return sorted(
+                    self._prefetched_objects_cache['cards'],
+                    key=lambda card: (card.column.project.number, card.column.position)
+                )
+
+        if not hasattr(self, '_prefetched_objects_cache'):
+            self._prefetched_objects_cache = {}
+        self._prefetched_objects_cache['cards'] =  list(self.cards.select_related(
+            'column__project'
+        ).order_by(
+            'column__project__number'
+        ))
+        return self._prefetched_objects_cache['cards']
 
 contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
@@ -973,6 +1027,212 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
+class _Project(Hashable, FrontEditable):
+    body_html = models.TextField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        if not update_fields or 'body' in update_fields:
+            self.body_html = html_content(self) if self.body else ''
+            if update_fields:
+                update_fields.append('body_html')
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+    @property
+    def hash(self):
+        """
+        Hash for this object representing its state at the current time, used to
+        know if we have to reset an issue's cache
+        """
+        return hash((self.name, ))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this project
+        """
+        return core_models.Issue.objects.filter(cards__column__project=self)
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'project_number': self.number,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.board.views import BoardView
+        return reverse_lazy('front:repository:%s' % BoardView.url_name, kwargs={
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'board_mode': 'project',
+            'board_key': self.number,
+        }) + '?sort=position&direction=asc'
+
+    def get_summary_url(self):
+        if self.number:
+            from gim.front.repository.board.views import ProjectSummaryView
+            return self.get_view_url(ProjectSummaryView.url_name)
+        else:
+            from gim.front.repository.board.views import NewProjectSummaryView
+            kwargs = self.get_reverse_kwargs()
+            del kwargs['project_number']
+            kwargs['project_id'] = self.pk
+        return reverse_lazy('front:repository:%s' % NewProjectSummaryView.url_name, kwargs=kwargs)
+
+    def get_edit_url(self):
+        from gim.front.repository.board.views import ProjectEditView
+        return self.get_view_url(ProjectEditView.url_name)
+
+    def get_delete_url(self):
+        from gim.front.repository.board.views import ProjectDeleteView
+        return self.get_view_url(ProjectDeleteView.url_name)
+
+    def get_create_column_url(self):
+        from gim.front.repository.board.views import ColumnCreateView
+        return self.get_view_url(ColumnCreateView.url_name)
+
+contribute_to_model(_Project, core_models.Project, {'save', 'defaults_create_values'}, {'save'})
+
+
+class _Column(Hashable, FrontEditable):
+    class Meta:
+        abstract = True
+
+    @property
+    def hash(self):
+        """
+        Hash for this object representing its state at the current time, used to
+        know if we have to reset an issue's cache
+        """
+        return hash((self.name, self.position, ))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this column
+        """
+        return core_models.Issue.objects.filter(cards__column=self)
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.project.repository.owner.username,
+            'repository_name': self.project.repository.name,
+            'project_number': self.project.number,
+            'column_id': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.board.views import BoardProjectColumnView
+        return reverse_lazy('front:repository:%s' % BoardProjectColumnView.url_name, kwargs={
+            'owner_username': self.project.repository.owner.username,
+            'repository_name': self.project.repository.name,
+            'board_mode': 'project',
+            'board_key': self.project.number,
+            'column_key': self.pk,
+        }) + '?sort=position&direction=asc'
+
+    def get_edit_url(self):
+        from gim.front.repository.board.views import ColumnEditView
+        return self.get_view_url(ColumnEditView.url_name)
+
+    def get_info_url(self):
+        from gim.front.repository.board.views import ColumnInfoView
+        return self.get_view_url(ColumnInfoView.url_name)
+
+    def get_delete_url(self):
+        from gim.front.repository.board.views import ColumnDeleteView
+        return self.get_view_url(ColumnDeleteView.url_name)
+
+    def get_can_move_url(self):
+        from gim.front.repository.board.views import ColumnCanMoveView
+        return self.get_view_url(ColumnCanMoveView.url_name)
+
+    def get_move_url(self):
+        from gim.front.repository.board.views import ColumnMoveView
+        return self.get_view_url(ColumnMoveView.url_name)
+
+    def get_create_note_url(self):
+        from gim.front.repository.board.views import CardNoteCreateView
+        return self.get_view_url(CardNoteCreateView.url_name)
+
+contribute_to_model(_Column, core_models.Column, {'defaults_create_values'})
+
+
+class _Card(Hashable, FrontEditable):
+    note_html = models.TextField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        if self.type == self.CARDTYPE.NOTE:
+            if not update_fields or 'note' in update_fields:
+                self.note_html = html_content(self, 'note', force=True) if self.note else ''
+                if update_fields:
+                    update_fields.append('note_html')
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+    @property
+    def hash(self):
+        """
+        Hash for this object representing its state at the current time, used to
+        know if we have to reset an issue's cache
+        """
+        return hash((self.column_id, self.position, ))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this card (ie only one!)
+        """
+        return core_models.Issue.objects.filter(cards=self)
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'project_number': self.column.project.number,
+            'card_pk': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.board.views import CardNoteView
+        return self.get_view_url(CardNoteView.url_name)
+
+    def get_edit_url(self):
+        from gim.front.repository.board.views import CardNoteEditView
+        return self.get_view_url(CardNoteEditView.url_name)
+
+    def get_delete_url(self):
+        from gim.front.repository.board.views import CardNoteDeleteView
+        return self.get_view_url(CardNoteDeleteView.url_name)
+
+
+contribute_to_model(_Card, core_models.Card, {'save', 'defaults_create_values'}, {'save'})
+
+
 class Hash(lmodel.RedisModel):
 
     database = get_main_limpyd_database()
@@ -1092,6 +1352,43 @@ PUBLISHABLE = {
         'pre_publish_action': lambda self: setattr(self, 'signal_hash_changed', self.hash_changed()),
         'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
     },
+    core_models.Card: {
+        'self': True,
+        'pre_publish_action': lambda self: setattr(self.issue, 'signal_hash_changed', self.issue.hash_changed()) if self.issue_id else None,
+        'more_data': lambda self: {
+            'project_number': self.column.project.number,
+            'column_id': self.column_id,
+            'position': self.position,
+            'url': self.get_absolute_url(),
+            'issue': {  # used by the front if the issue needs to be fetched when the card changed, for example a change of column
+                        # model and front_uuid will be set by the front
+                'id': self.issue.id,
+                'url': str(self.issue.get_websocket_data_url()),
+                'hash': self.issue.saved_hash,
+                'is_new': getattr(self.issue, 'is_new', False),
+                'is_pr': self.issue.is_pull_request,
+                'number': self.issue.number,
+            } if self.issue_id else None,
+        }
+    },
+    core_models.Column: {
+        'self': True,
+        'more_data': lambda self: {
+            'project_number': self.project.number,
+            'position': self.position,
+            'name': self.name,
+            'url': str(self.get_absolute_url()),
+        }
+    },
+    core_models.Project: {
+        'self': True,
+        'more_data': lambda self: {
+            'name': self.name,
+            'number': self.number,
+            'url': str(self.get_absolute_url()),
+            'nb_columns': self.columns.count(),
+        }
+    },
     # core_models.Repository: {
     #     'self': True,
     # },
@@ -1111,6 +1408,16 @@ def publish_update(instance, message_type, extra_data=None):
 
     if conf.get('pre_publish_action'):
         conf['pre_publish_action'](instance)
+
+    # try:
+    #     from pprint import pformat
+    #     extra_data['hashable_values'] = pformat(instance.hash_values)
+    # except Exception:
+    #     pass
+    # try:
+    #     extra_data["github_status"] = instance.get_github_status_display()
+    # except Exception:
+    #     pass
 
     base_data = {
         'model': str(instance.model_name),
@@ -1226,7 +1533,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
         return
 
     # That we got from github
-    if getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
+    if not getattr(instance, 'skip_status_check_to_publish', False) and \
+            getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
     # Only if we didn't specifically say to not publish
@@ -1258,6 +1566,8 @@ def publish_github_updated(sender, instance, created, **kwargs):
     extra_data = {}
     if created or getattr(instance, 'is_new', False):
         extra_data['is_new'] = True
+
+    # extra_data['updated_fields'] = list(update_fields or [])
 
     publish_update(instance, 'updated', extra_data)
 
@@ -1297,6 +1607,9 @@ def hash_check(sender, instance, created, **kwargs):
                         core_models.Milestone,
                         core_models.LabelType,
                         core_models.Label,
+                        core_models.Project,
+                        core_models.Column,
+                        core_models.Card,
                         core_models.Issue
                       )):
         return

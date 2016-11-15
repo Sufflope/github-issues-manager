@@ -134,6 +134,10 @@ nav.issues-list-options .dropdown-toggle .caret {
     }
     .issues-group {
         @include box-shadow(0 2px 2px #ccc);
+        .box-toolbar {
+            position: relative;
+            top: 1px;
+        }
         &:first-child .box-header {
             border-top: 0;
         }
@@ -154,8 +158,15 @@ nav.issues-list-options .dropdown-toggle .caret {
         margin-top: -5px;
     }
 
-    .no-issues, .too-many-issues {
-        text-align: center;
+    .alert {
+        &.no-issues, &.too-many-issues {
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        &.too-many-issues {
+            line-height: 18px;
+        }
     }
 
 } // .issues-list
@@ -286,6 +297,8 @@ nav.issues-list-options .dropdown-toggle .caret {
 .issue-item {
     padding: 5px;
     padding-top: 0;
+    margin: 0;
+    list-style-type: none;
     position: relative;
     min-height: 80px;
     color: $body-text-color;
@@ -324,7 +337,11 @@ nav.issues-list-options .dropdown-toggle .caret {
             color: inherit;
         }
     }
-    .issue-item-pull-request, .issue-item-milestone, .issue-item-times, .issue-item-repository {
+    .issue-item-pull-request,
+    .issue-item-milestone,
+    .issue-item-project-column,
+    .issue-item-times,
+    .issue-item-repository {
         @include text-shadow(0 1px rgba(#fff, 0.5));
     }
     .issue-item-pull-request {
@@ -340,12 +357,16 @@ nav.issues-list-options .dropdown-toggle .caret {
             font-size: 14px;
         }
     }
-    .issue-item-milestone {
+    .issue-item-milestone-and-project-columns {
         margin-left: 50px;
         margin-right: 95px;
+    }
+    .issue-item-milestone,
+    .issue-item-project-columns {
         padding: 0;
         overflow: hidden;
-        a {
+        display: inline-block;
+        > span {
             font-weight: bold;
             display: inline-block;
             padding: 1px 5px 2px;
@@ -354,8 +375,15 @@ nav.issues-list-options .dropdown-toggle .caret {
         }
         i {
             position: relative;
-            top: 2px;
+            top: 1px;
             margin-right: 5px;
+        }
+    }
+    .issue-item-project-columns > span {
+        margin-left: 3px;
+        font-weight: normal;
+        strong {
+            font-weight: bold;
         }
     }
     .issue-item-times {
@@ -417,6 +445,7 @@ nav.issues-list-options .dropdown-toggle .caret {
     .issue-item-labels {
         @extend %issue-labels;
         padding-right: 5px;
+        display: inline;
     }
     @extend %issue-state-marker;
 

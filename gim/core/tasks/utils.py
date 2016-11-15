@@ -169,19 +169,105 @@ def requeue_halted_jobs(dry_run=False):
     """
     Requeue all jobs that were halted but still in running state
     """
+
     for JobModel in get_job_models():
-        running_jobs = list(JobModel.collection(queued=1, status=STATUSES.RUNNING).instances())
-        for job in running_jobs:
-            priority = int(job.priority.hget() or 0)
+
+        running_job_ids = list(JobModel.collection(queued=1, status=STATUSES.RUNNING))
+        for job_id in running_job_ids:
+
+            try:
+                job = JobModel.get(job_id)
+            except JobModel.DoesNotExist:
+                continue
+
             if job.ident in (job.queue.waiting.lmembers() + job.queue.delayed.zmembers()):
                 # ignore job if already waiting or delayed
                 continue
+
+            priority = int(job.priority.hget() or 0)
+
             if dry_run:
                 print('Halted: %s (%s)' % (job.ident, priority))
             else:
                 job.status.hset(STATUSES.WAITING)
                 job.queue.enqueue_job(job)
                 print('Requeued: %s (%s)' % (job.ident, priority))
+
+
+def requeue_unqueued_waiting_jobs(dry_run=False):
+    """
+    Requeue all jobs that are marked as waiting but not in a waiting queue
+    """
+
+    for JobModel in get_job_models():
+        waiting_job_ids = list(JobModel.collection(queued=1, status=STATUSES.WAITING))
+        queues = Queue.collection(name=JobModel.queue_name).instances()
+
+        for job_id in waiting_job_ids:
+
+            try:
+                job = JobModel.get(job_id)
+            except JobModel.DoesNotExist:
+                continue
+
+            if job.ident in job.queue.waiting.lmembers():
+                continue
+
+            found = False
+            for queue in queues:
+                if job.ident in queue.waiting.lmembers():
+                    found = True
+                    break
+
+            if not found:
+                # one more check
+                if job.status.hget() == STATUSES.WAITING and job.ident not in job.queue.waiting.lmembers():
+
+                    priority = int(job.priority.hget() or 0)
+
+                    if dry_run:
+                        print('Not queued: %s (%s)' % (job.ident, priority))
+                    else:
+                        job.queue.enqueue_job(job)
+                        print('Requeued: %s (%s)' % (job.ident, priority))
+
+
+def requeue_unqueued_delayed_jobs(dry_run=False):
+    """
+    Requeue all jobs that are marked as delayed but not in a delayed queue
+    """
+
+    for JobModel in get_job_models():
+        delayed_job_ids = list(JobModel.collection(queued=1, status=STATUSES.DELAYED))
+        queues = Queue.collection(name=JobModel.queue_name).instances()
+
+        for job_id in delayed_job_ids:
+
+            try:
+                job = JobModel.get(job_id)
+            except JobModel.DoesNotExist:
+                continue
+
+            if job.ident in job.queue.delayed.zmembers():
+                continue
+
+            found = False
+            for queue in queues:
+                if job.ident in queue.delayed.zmembers():
+                    found = True
+                    break
+
+            if not found:
+                # one more check
+                if job.status.hget() == STATUSES.DELAYED and job.ident not in job.queue.delayed.zmembers():
+
+                    priority = int(job.priority.hget() or 0)
+
+                    if dry_run:
+                        print('Not queued: %s (%s)' % (job.ident, priority))
+                    else:
+                        job.queue.delay_job(job, job.delayed_until.hget())
+                        print('Requeued: %s (%s)' % (job.ident, priority))
 
 
 def get_last_error_for_job(job, index=0, date=None):
@@ -203,6 +289,17 @@ def get_last_error_for_job_model(job_model, index=0, date=None):
         date = datetime.utcnow().strftime('%Y-%m-%d')
     job_model_repr = '%s.%s' % (job_model.__module__, job_model.__name__)
     return Error.collection(job_model_repr=job_model_repr).filter(date=date).sort(by='-time', alpha=True).instances()[index]
+
+
+def get_last_errors_for_job_model(job_model, count=10, date=None):
+    """
+    Return some of the last (or last-index if index is given) errors for the given job model,
+    for the given date (use today if not given)
+    """
+    if not date:
+        date = datetime.utcnow().strftime('%Y-%m-%d')
+    job_model_repr = '%s.%s' % (job_model.__module__, job_model.__name__)
+    return Error.collection(job_model_repr=job_model_repr).filter(date=date).sort(by='-time', alpha=True).instances()[:count]
 
 
 def requeue_job(job, priority=0):

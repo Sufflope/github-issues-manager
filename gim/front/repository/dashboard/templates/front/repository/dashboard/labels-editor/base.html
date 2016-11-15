@@ -2,7 +2,7 @@
 {% load staticfiles %}
 
 {% block extra_css %}
-    {{ block.super }}
+    {{ block.super }}
     <link href="{% static "front/css/select.2.css" %}" rel="stylesheet">
     <link href="{% static "front/css/spectrum.css" %}" rel="stylesheet">
     <link href="{% static "front/css/pages/repository/dashboard-editor.css" %}" rel="stylesheet">
@@ -67,7 +67,7 @@
         </div>
     </div>{# #label-type-edit-form #}
 
-    <div id="label-edit-form" class="hide" data-edit-url="{{ base_label_edit_url }}" data-delete-url="{{ base_label_delete_url }}" data-create-url="{{ label_create_url }}">
+    <div id="label-edit-form" class="hide" data-edit-url="{{ base_label_edit_url }}" data-delete-url="{{ base_label_delete_url }}" data-create-url="{{ label_create_url }}">
         <form method="post" class="fill-up label-edit-form hide-order hide-note" data-id="%(id)s">
             {% csrf_token %}
             <input name='label_type' type='hidden' value="%(label_type_id)s" />
