@@ -66,6 +66,10 @@ class CommentEditJob(IssueCommentJob):
                 if mode == 'create':
                     self.created_pk.hset(comment.pk)
                     delta = 1
+                else:
+                    # force publish
+                    from gim.front.models import publish_update
+                    publish_update(comment, 'updated', {})
 
         except ApiError, e:
             message = None
