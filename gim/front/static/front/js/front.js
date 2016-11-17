@@ -1025,7 +1025,7 @@ $().ready(function() {
     }); // IssuesListIssue__set_current
 
     IssuesListIssue.prototype.get_html_and_display = (function IssuesListIssue__get_html_and_display (url, force_popup, force_load, no_loading) {
-        if (!this.$link.length) {
+        if (!url && !this.$link.length) {
             return;
         }
         var container = IssueDetail.get_container_waiting_for_issue(this.issue_ident, force_popup, force_load);
