@@ -430,6 +430,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             count = sum(
                 self.related_commits
                     .exclude(deleted=True)
+                    .exclude(commit__comments_count__isnull=True)
                     .values_list('commit__comments_count', flat=True)
             )
         else:

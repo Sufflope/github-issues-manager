@@ -199,7 +199,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         if parameters:
             final_parameters.update(parameters)
 
-        return self._fetch_many('commit_comments', gh,
+        result = self._fetch_many('commit_comments', gh,
                                 defaults={
                                     'fk': {
                                         'commit': self,
@@ -214,6 +214,11 @@ class Commit(WithRepositoryMixin, GithubObject):
                                 },
                                 parameters=final_parameters,
                                 force_fetch=force_fetch)
+
+        self.comments_count = self.commit_comments.count()
+        self.save(update_fields=['comments_count'])
+
+        return result
 
     def fetch_commit_statuses(self, gh, force_fetch=False, parameters=None, refetch_for_pending=False):
         final_parameters = {
