@@ -15,7 +15,7 @@ from limpyd_jobs.utils import compute_delayed_until
 from async_messages import messages
 
 from gim.core.models import IssueComment, PullRequestComment, Commit, CommitComment
-from gim.core.ghpool import ApiError
+from gim.core.ghpool import ApiError, ApiNotFoundError
 
 from .base import DjangoModelJob
 
@@ -59,7 +59,12 @@ class CommentEditJob(IssueCommentJob):
         delta = 0
         try:
             if mode == 'delete':
-                comment.dist_delete(gh)
+                try:
+                    comment.dist_delete(gh)
+                except ApiNotFoundError:
+                    # already deleted?
+                    if comment.pk:
+                        comment.delete()
                 delta = -1
             else:
                 comment = comment.dist_edit(mode=mode, gh=gh)
