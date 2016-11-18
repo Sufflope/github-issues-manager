@@ -982,7 +982,7 @@ class CommentEntryPointManagerMixin(GithubObjectManager):
 
         obj = super(CommentEntryPointManagerMixin, self)\
             .create_or_update_from_dict(data, modes, defaults, fetched_at_field, etag_field,
-                                        saved_objects, force_update, etag, ignore_github_status)
+                                        saved_objects, force_update, etag, ignore_github_status=True)
 
         if not obj:
             return None

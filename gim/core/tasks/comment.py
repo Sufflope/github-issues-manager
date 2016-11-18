@@ -15,7 +15,7 @@ from limpyd_jobs.utils import compute_delayed_until
 from async_messages import messages
 
 from gim.core.models import IssueComment, PullRequestComment, Commit, CommitComment
-from gim.core.ghpool import ApiError
+from gim.core.ghpool import ApiError, ApiNotFoundError
 
 from .base import DjangoModelJob
 
@@ -59,13 +59,22 @@ class CommentEditJob(IssueCommentJob):
         delta = 0
         try:
             if mode == 'delete':
-                comment.dist_delete(gh)
+                try:
+                    comment.dist_delete(gh)
+                except ApiNotFoundError:
+                    # already deleted?
+                    if comment.pk:
+                        comment.delete()
                 delta = -1
             else:
                 comment = comment.dist_edit(mode=mode, gh=gh)
                 if mode == 'create':
                     self.created_pk.hset(comment.pk)
                     delta = 1
+                else:
+                    # force publish
+                    from gim.front.models import publish_update
+                    publish_update(comment, 'updated', {})
 
         except ApiError, e:
             message = None
@@ -114,7 +123,7 @@ class IssueCommentEditJob(CommentEditJob):
             issue = obj.issue
             for key, value in self.extra_args.hgetall().items():
                 setattr(issue, key, value)
-            issue.comments_count += delta
+            issue.comments_count = (issue.comments_count or 0) + delta
             issue.save(update_fields=['comments_count'])
 
 
@@ -127,7 +136,7 @@ class PullRequestCommentEditJob(CommentEditJob):
             issue = obj.issue
             for key, value in self.extra_args.hgetall().items():
                 setattr(issue, key, value)
-            issue.pr_comments_count += delta
+            issue.pr_comments_count = (issue.pr_comments_count or 0) + delta
             issue.save(update_fields=['pr_comments_count'])
 
 
@@ -142,7 +151,7 @@ class CommitCommentEditJob(CommentEditJob):
         if delta:
             # Update the commit
             commit = obj.commit
-            commit.comments_count += delta
+            commit.comments_count = (commit.comments_count or 0) + delta
             commit.save(update_fields=['comments_count'], skip_update_issues=True)
 
             # Update all related issues
