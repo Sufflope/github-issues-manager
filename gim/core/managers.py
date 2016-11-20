@@ -248,6 +248,14 @@ class GithubObjectManager(BaseManager):
             saved_objects = SavedObjects()
 
         def _create_or_update(obj=None):
+            # abort if locally deleted
+            from gim.core.limpyd_models import DeletedInstance
+            from gim.core.models.base import GithubObjectWithId
+            if issubclass(self.model, GithubObjectWithId):
+                github_id = fields.get('simple', {}).get('github_id')
+                if github_id and DeletedInstance.exist_for_model_and_id(self.model, github_id):
+                    return None, False, []
+
             # get or create a new object
             to_create = False
             if obj:

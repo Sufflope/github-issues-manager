@@ -10,6 +10,7 @@ JobRegistry = JobRegistry()
 from .comment import *
 from .commit import *
 from .event import *
+from .general import *
 from .githubuser import *
 from .issue import *
 from .label import *

@@ -1,4 +1,3 @@
-from django.utils.functional import cached_property
 
 __all__ = [
     'GITHUB_STATUS_CHOICES',
@@ -11,9 +10,11 @@ from math import ceil
 from urlparse import urlsplit, parse_qs
 
 from django.db import models, DatabaseError
+from django.utils.functional import cached_property
 
 from extended_choices import Choices
 
+from gim.core.limpyd_models import DeletedInstance
 from ..ghpool import (
     ApiError,
     ApiNotFoundError,
@@ -615,6 +616,7 @@ class GithubObject(models.Model):
         )
         gh_callable.delete(request_headers=request_headers)
         if self.pk:
+            DeletedInstance.create_for_instance(self)
             self.delete()
 
     def defaults_create_values(self, mode):

@@ -2,12 +2,13 @@ from datetime import datetime, timedelta
 import json
 from random import choice
 
+from django.db.models import get_model
+
 from limpyd import model as lmodel, fields as lfields
 from limpyd.contrib.collection import ExtendedCollectionManager
 from limpyd_jobs.utils import datetime_to_score
 
 from gim.core import get_main_limpyd_database
-from gim.core.models import GithubUser
 
 
 class Token(lmodel.RedisModel):
@@ -39,6 +40,7 @@ class Token(lmodel.RedisModel):
     @property
     def user(self):
         if not hasattr(self, '_user'):
+            from gim.core.models import GithubUser
             self._user = GithubUser.objects.get(username=self.username.hget())
         return self._user
 
@@ -267,3 +269,107 @@ class Token(lmodel.RedisModel):
         from .ghpool import Connection
         username, token = self.hmget('username', 'token')
         return Connection.get(username=username, access_token=token)
+
+
+class DeletedInstance(lmodel.RedisModel):
+    """Keep a reference to each instance of GithubObjectWithId that where dist-deleted
+
+    We need this to avoid retrieving back from Github the deleted elements, for example
+    if a list of elements was fetched at the same time of the delete, we may have the
+    element back.
+    So we'll use this model to store them and ignore them from Github.
+
+    """
+
+    database = get_main_limpyd_database()
+    collection_manager = ExtendedCollectionManager
+
+    ident = lfields.InstanceHashField(indexable=True, unique=True)
+    timestamp = lfields.InstanceHashField(indexable=True)
+
+    @staticmethod
+    def get_ident_for_model_and_id(model, github_id):
+        return '%s.%s.%s' % (
+            model._meta.app_label,
+            model._meta.model_name,
+            github_id,
+        )
+
+    @classmethod
+    def get_for_model_and_id(cls, model, github_id):
+        return cls.get(ident=cls.get_ident_for_model_and_id(model, github_id))
+
+    @classmethod
+    def get_for_instance(cls, instance):
+        return cls.get_for_model_and_id(instance.__class__, instance.github_id)
+
+    @classmethod
+    def exist_for_model_and_id(cls, model, github_id):
+        return cls.exists(ident=cls.get_ident_for_model_and_id(model, github_id))
+
+    @classmethod
+    def exist_for_instance(cls, instance):
+        return cls.exist_for_model_and_id(instance.__class__, instance.github_id)
+
+    @classmethod
+    def create_for_model_and_id(cls, model, github_id):
+        instance, created = cls.get_or_connect(ident=cls.get_ident_for_model_and_id(model, github_id))
+        if created:
+            instance.timestamp.hset(datetime_to_score(datetime.utcnow()))
+        return instance
+
+    @classmethod
+    def create_for_instance(cls, instance):
+        return cls.create_for_model_and_id(instance.__class__, instance.github_id)
+
+    @classmethod
+    def clear_old(cls, older_than_seconds=3600):
+        """Remove the entries that are older than the given number of seconds"""
+
+        min_timestamp = datetime_to_score(datetime.utcnow()) - older_than_seconds
+
+        to_delete = []
+        count = 0
+        for instance in cls.collection().instances():
+            count += 1
+            timestamp = instance.timestamp.hget()
+            try:
+                timestamp = float(timestamp)
+            except ValueError:
+                to_delete.append(instance)
+                continue
+
+            if timestamp < min_timestamp:
+                to_delete.append(instance)
+
+        for instance in to_delete:
+            instance.delete()
+
+        print('Deleted %s "deleted instances" on %s.' % (len(to_delete), count))
+
+    def get_instance(self):
+        app_label, model_name, github_id = self.ident.hget()
+        try:
+            model = get_model(app_label, model_name)
+        except Exception:
+            return None
+        try:
+            return model.objects.get(github_id=github_id)
+        except model.DoesNotExist():
+            return None
+
+    @classmethod
+    def manage_undeleted(cls):
+        """Delete all instances existing in the database that should not"""
+
+        count_total = 0
+        count_deleted = 0
+
+        for limpyd_instance in cls.collection().instances():
+            count_total += 1
+            instance = limpyd_instance.get_instance()
+            if instance:
+                count_deleted +=1
+                instance.delete()
+
+        print('Deleted %s instances on %s.' % (count_deleted, count_total))
