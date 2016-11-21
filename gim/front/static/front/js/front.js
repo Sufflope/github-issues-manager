@@ -3473,6 +3473,54 @@ $().ready(function() {
             IssueDetail.highlight_on_scroll($target);
         }), // scroll_in_review
 
+        toggle_locally_reviewed_file: (function IssueDetail__toggle_locally_reviewed_file ($file_node, reviewed) {
+            var $button = $file_node.find('.locally-reviewed'),
+                $icon = $button.find('.fa'),
+                $content = $file_node.children('.box-content'),
+                pos = $file_node.data('pos'),
+                $files_list = $file_node.closest('.tab-pane').find('.code-files-list'),
+                $file_title, $check_in_list;
+
+            $button.toggleClass('is-reviewed', reviewed)
+                   .toggleClass('is-not-reviewed', !reviewed);
+
+            $icon.toggleClass('fa-check-square-o', reviewed)
+                 .toggleClass('fa-square-o', !reviewed);
+
+            $content.toggleClass('is-reviewed', reviewed)
+                    .collapse(reviewed ? 'hide' : 'show');
+
+            if ($files_list.length) {
+                $file_title = $files_list.find('tr:nth-child('+ pos +') td:nth-child(2) a');
+                $check_in_list = $file_title.find('.fa-check');
+                if ($file_title.length) {
+                    if (reviewed) {
+                        if (!$check_in_list.length) {
+                            $file_title.append('<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>');
+                        }
+                    } else {
+                        $check_in_list.remove();
+                    }
+                }
+            }
+
+        }), // toggle_locally_reviewed_file
+
+        on_toggle_locally_reviewed_file_click: (function IssueDetail__on_toggle_locally_reviewed_file_click () {
+            var $button = $(this),
+                $file_node = $button.closest('.code-file'),
+                was_reviewed = $button.hasClass('is-reviewed'),
+                url = $button.data('url').replace('%s', was_reviewed ? 'unset' : 'set');
+
+            IssueDetail.toggle_locally_reviewed_file($file_node, !was_reviewed);
+            $.post(url,  {csrfmiddlewaretoken: $body.data('csrf')})
+                .done(function(data) {
+                    IssueDetail.toggle_locally_reviewed_file($file_node, data.reviewed);
+                });
+
+            return false;
+        }), // on_toggle_locally_reviewed_file_click
+
         before_load_tab: (function IssueDetail__before_load_tab (ev) {
             if (!ev.relatedTarget) { return; }
             var $previous_tab = $(ev.relatedTarget),
@@ -4102,6 +4150,8 @@ $().ready(function() {
             $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-commit-statuses .box-content', IssueDetail.on_statuses_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
+            $document.on('click', '.locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
 
         }) // init
     }; // IssueDetail

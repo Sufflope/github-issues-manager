@@ -1008,8 +1008,11 @@ $repo-name-height: 20px;
                 line-height: normal;
                 padding: 0;
                 margin: 0;
+                margin-left: 8px;
                 float: none;
+                display: inline-block;
                 &:first-of-type {
+                    display: block;
                     margin-bottom: 3px;
                     li:first-of-type {
                         margin-right: 3px;
@@ -1018,14 +1021,35 @@ $repo-name-height: 20px;
                 a.btn {
                     display: block;
                 }
+                .locally-reviewed {
+                    span {
+                        margin-left: 1ex;
+                        font-weight: normal;
+                    }
+
+                    &.is-reviewed {
+                        .fa {
+                            color: $state-open-color;
+                        }
+                    }
+                    &.is-not-reviewed {
+                        span {
+                            text-decoration: line-through;
+                        }
+                    }
+                }
             }
         }
         & > .box-content.collapse.in {
             position: static;
         }
-        .title span {
-            display: block;
-            font-weight: normal;
+        .title {
+            float: none;
+            @include word-break(break-all);
+            span {
+                display: block;
+                font-weight: normal;
+            }
         }
         .no-diff {
             color: $light-text-color;
@@ -1351,7 +1375,7 @@ $repo-name-height: 20px;
         }
         table {
             margin-bottom: 0;
-            table-layout: fixed;
+            table-layout: auto;
         }
         tr {
             @extend %active-background;
@@ -1369,7 +1393,23 @@ $repo-name-height: 20px;
                 color: #7fb3d4;
             }
         }
+        td:nth-child(2) {
+            word-wrap: break-word;
+            @include word-break(break-all);
+            a {
+                word-wrap: break-word;
+                @include word-break(break-all);
+            }
+            .fa-check {
+                color: $state-open-color;
+                font-size: 10px;
+                display: inline;
+            }
+        }
         td:last-of-type {
+            width: min-content;
+            width: -moz-min-content;
+            width: -webkit-min-content;
             text-align: right;
             li {
                 margin-left: 4px;

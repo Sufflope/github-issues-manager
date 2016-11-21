@@ -1,10 +1,20 @@
+import json
+
 from django.core.urlresolvers import reverse_lazy
 from django.db.models import Count
+from django.http import HttpResponse
 from django.utils.decorators import classonlymethod
 from django.utils.functional import cached_property
-from django.views.generic import DetailView
+from django.views.generic import DetailView, UpdateView
 
-from gim.front.mixins.views import SubscribedRepositoryViewMixin, WithSubscribedRepositoriesViewMixin
+from gim.core.models import CommitFile, PullRequestFile
+
+from gim.front.mixins.views import (
+    DependsOnRepositoryViewMixin,
+    SubscribedRepositoryViewMixin,
+    WithAjaxRestrictionViewMixin,
+    WithSubscribedRepositoriesViewMixin,
+)
 
 
 class RepositoryViewMixin(WithSubscribedRepositoriesViewMixin, SubscribedRepositoryViewMixin):
@@ -106,3 +116,36 @@ class BaseRepositoryView(RepositoryViewMixin, DetailView):
         context['repository_main_views'] = repo_main_views
 
         return context
+
+
+class ToggleLocallyReviewedFileMixin(WithAjaxRestrictionViewMixin, DependsOnRepositoryViewMixin, UpdateView):
+    url_base_name = '%s.toggle-locally-reviewed'
+    pk_url_kwarg = 'file_pk'
+    http_method_names = ['post']
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        to_set = kwargs['set_or_unset'] == 'set'
+
+        if to_set:
+            self.object.mark_locally_reviewed_by_user(self.request.user)
+        else:
+            self.object.unmark_locally_reviewed_by_user(self.request.user)
+
+        return HttpResponse(
+            json.dumps({
+                'reviewed': self.object.is_locally_reviewed_by_user(self.request.user)
+            }),
+            content_type='application/json',
+        )
+
+
+class ToggleLocallyReviewedCommitFile(ToggleLocallyReviewedFileMixin):
+    url_name = ToggleLocallyReviewedFileMixin.url_base_name % 'commit-file'
+    model = CommitFile
+
+
+class ToggleLocallyReviewedPullRequestFile(ToggleLocallyReviewedFileMixin):
+    url_name = ToggleLocallyReviewedFileMixin.url_base_name % 'pr-file'
+    model = PullRequestFile

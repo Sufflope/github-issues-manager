@@ -660,13 +660,13 @@ class _Issue(Hashable, FrontEditable):
                             .values_list('entry_point__path', flat=True)
         )
 
-    @cached_property
-    def files_with_comments_count(self):
+    def files_enhanced_for_user(self, user):
         counts = self._comments_count_by_path
-        files = []
-        for file in self.files.all():
+        files = list(self.files.all())
+        for file in files:
+            file.repository = self.repository
             file.nb_comments = counts.get(file.path, 0)
-            files.append(file)
+            file.reviewed_locally = file.is_locally_reviewed_by_user(user)
         return files
 
     def publish_notifications(self):
@@ -861,13 +861,13 @@ class _Commit(models.Model):
                                 .values_list('entry_point__path', flat=True)
         )
 
-    @cached_property
-    def files_with_comments_count(self):
+    def files_enhanced_for_user(self, user):
         counts = self._comments_count_by_path
-        files = []
-        for file in self.files.all():
+        files = list(self.files.all())
+        for file in files:
+            file.repository = self.repository
             file.nb_comments = counts.get(file.path, 0)
-            files.append(file)
+            file.reviewed_locally = file.is_locally_reviewed_by_user(user)
         return files
 
     @cached_property

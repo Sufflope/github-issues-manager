@@ -1,2 +1,2 @@
-{% load frontutils %}
-{% include "front/repository/issues/code/include_files.html" with files=current_issue.files_with_comments_count id_prefix='issue-'|concat:current_issue.pk nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions %}
+{% load frontutils repository_tags %}
+{% include "front/repository/issues/code/include_files.html" with files=current_issue|files_enhanced_for_user:view.request.user id_prefix='issue-'|concat:current_issue.pk nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions %}

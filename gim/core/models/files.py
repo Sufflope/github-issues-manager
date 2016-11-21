@@ -1,9 +1,13 @@
+
 __all__ = [
     'CommitFile',
+    'LocalReviewedFile',
     'PullRequestFile',
 ]
 
-from django.db import models
+import hashlib
+
+from django.db import models, IntegrityError
 from django.utils.functional import cached_property
 
 from ..managers import (
@@ -22,6 +26,21 @@ from .mixins import (
 )
 
 
+class LocalReviewedFile(models.Model):
+
+    repository = models.ForeignKey('Repository', related_name='local_reviewed_files')
+    author = models.ForeignKey('GithubUser', related_name='local_reviewed_files')
+    path = models.TextField(blank=True, null=True)
+    patch_sha = models.CharField(max_length=40)
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'core'
+        unique_together = [
+            ('repository', 'author', 'path', 'patch_sha'),
+        ]
+
+
 class FileMixin(models.Model):
     path = models.TextField(blank=True, null=True, db_index=True)
     status = models.CharField(max_length=32, blank=True, null=True)
@@ -29,6 +48,7 @@ class FileMixin(models.Model):
     nb_deletions = models.PositiveIntegerField(blank=True, null=True)
     patch = models.TextField(blank=True, null=True)
     sha = models.CharField(max_length=40, blank=True, null=True, db_index=True)
+    patch_sha = models.CharField(max_length=40, blank=True, null=True)
 
     github_matching = dict(GithubObject.github_matching)
     github_matching.update({
@@ -39,6 +59,70 @@ class FileMixin(models.Model):
 
     class Meta:
         abstract = True
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        patch_sha = None
+        if self.patch:
+            try:
+                patch_sha = hashlib.sha1(
+                    '\n'.join(
+                        '@@' if l.startswith('@@') else l
+                        for l in self.patch.encode('utf-8').split('\n')
+                    )
+                ).hexdigest()
+            except:
+                # ignore patch sha that cannot be computed
+                pass
+
+        if patch_sha != self.patch_sha:
+            self.patch_sha = patch_sha
+            if update_fields and 'patch_sha' not in update_fields:
+                update_fields = list(update_fields) + ['patch_sha']
+
+        super(FileMixin, self).save(force_insert, force_update, using, update_fields)
+
+    def get_locally_reviewed_filters_for_user(self, user):
+        return {
+            'repository': self.repository,
+            'author': user,
+            'path': self.path,
+            'patch_sha': self.patch_sha,
+        }
+
+    def is_locally_reviewed_by_user(self, user):
+        if not self.patch_sha:
+            return None
+
+        return LocalReviewedFile.objects.filter(
+            **self.get_locally_reviewed_filters_for_user(user)
+        ).exists()
+
+    def mark_locally_reviewed_by_user(self, user):
+        if not self.patch_sha:
+            return False
+
+        try:
+            LocalReviewedFile.objects.create(
+                **self.get_locally_reviewed_filters_for_user(user)
+            )
+        except IntegrityError:
+            return False
+
+        return True
+
+    def unmark_locally_reviewed_by_user(self, user):
+        if not self.patch_sha:
+            return False
+
+        try:
+            LocalReviewedFile.objects.get(
+                **self.get_locally_reviewed_filters_for_user(user)
+            ).delete()
+        except LocalReviewedFile.DoesNotExist:
+            return False
+        else:
+            return True
 
 
 class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):
