@@ -125,6 +125,7 @@ class ActivityManager(object):
                     float(str(dat).replace('-', '').replace(' ', '').replace(':', ''))
                 )
             for pk, dat in values
+            if pk and dat
         )
 
     @classmethod
