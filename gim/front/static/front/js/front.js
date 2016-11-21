@@ -3822,7 +3822,7 @@ $().ready(function() {
                 number = issue_ident.number.toString();
             if (number.indexOf('pk-') == -1) {
                 $.ajax({
-                    url: '/' + issue_ident.repository + '/issues/ask-fetch/' + number + '/',
+                    url: '/' + issue_ident.repository + '/issues/' + number + '/ask-fetch/',
                     type: 'POST',
                     headers: {
                         'X-CSRFToken': $body.data('csrf')
