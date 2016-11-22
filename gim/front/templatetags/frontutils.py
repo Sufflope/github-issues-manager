@@ -213,28 +213,28 @@ DIFF_LINE_TYPES = {
 }
 
 
-@register.filter
-def parse_diff(diff, reduce=False):
+def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
     if not diff or not diff.startswith('@@'):
         return []
 
-    # split hunks
-    parts = []
-    for l in diff.split('\n'):
-        if l.startswith('@@'):
-            parts.append([])
-        parts[-1].append(l)
+    from gim.core.models import LocallyReviewedHunk
+    hunks = LocallyReviewedHunk.split_patch_into_hunks(diff, as_strings=False)
 
     results = []
     position = 0
 
     if reduce:
-        parts = parts[-1:]
+        hunks = hunks[-1:]
 
     # parse each hunk
-    for part in parts:
-        diff = whatthepatch.parse_patch(part).next()  # only one file = only one diff
-        result = [['comment', u'…', u'…', part[0], position]]
+    for hunk_index, hunk in enumerate(hunks):
+        hunk_sha = None
+        is_reviewed = None
+        if hunk_shas:
+            hunk_sha = hunk_shas[hunk_index]
+            is_reviewed = hunk_shas_reviewed and hunk_shas_reviewed.get(hunk_sha, False)
+        result = [['comment', u'…', u'…', hunk[0], position, hunk_sha, is_reviewed]]
+        diff = whatthepatch.parse_patch(hunk).next()  # only one file = only one diff
         for old, new, text in diff.changes:
             position += 1
             mode = ' ' if old and new else '-' if old else '+'
@@ -244,6 +244,8 @@ def parse_diff(diff, reduce=False):
                 new or '',
                 mode + text,
                 position,
+                hunk_sha,
+                is_reviewed,
             ])
         position += 1
         if reduce:
@@ -252,6 +254,16 @@ def parse_diff(diff, reduce=False):
         results.append(result)
 
     return chain.from_iterable(results)
+
+
+@register.filter
+def parse_diff(diff, reduce=False):
+    return _parse_diff(diff, reduce)
+
+
+@register.filter
+def parse_diff_for_file(file, reduce=False):
+    return _parse_diff(file.patch, reduce, file.hunk_shas, file.reviewed_hunks_locally)
 
 
 @register.filter

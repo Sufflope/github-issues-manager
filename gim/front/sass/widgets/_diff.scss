@@ -1,3 +1,5 @@
+@import "mixin_helpers";
+
 table.diff tbody {
     tr:not(.diff-comments) {
         white-space: pre;
@@ -5,35 +7,61 @@ table.diff tbody {
         font-family: $monoFontFamily;
         color: #333;
         border: none;
-        &.comment{
-            background: #F8F8FF;
+        &.is-reviewed {
+            background: #FAFAFE;
             color: #999;
             td.line-number {
-                background-color: #F3F3FF;
                 border-color: #E4E4FF;
-                text-align: center;
+            }
+        }
+        &.comment{
+            @include box-header-aspect;
+            border-top: 1px solid #E6E6E6;
+            font-weight: normal;
+            &:first-child {
+                border-top: none;
+            }
+            td {
+                padding-top: 3px;
+                padding-bottom: 1px;
             }
         }
         &.added {
-            background: #DDFFDD;
+            background: #CEFFCE;
             td.line-number {
-                background-color: #CEFFCE;
-                border-color: #B4E2B4;
+                border-right-color: #B4E2B4;
             }
             .highlight {
                 background-color: #AAFFAA;
                 color: #000;
             }
+            &.is-reviewed {
+                background-color: #F0FFF0;
+                td.line-number {
+                    border-right-color: #DAF1DA;
+                }
+                .highlight {
+                    background-color: #D6FFD6;
+                }
+            }
         }
         &.removed {
-            background: #FFDDDD;
-            td {
-                background-color: #F7C8C8;
-                border-color: #E9AEAE;
+            background: #F7C8C8;
+            td.line-number {
+                border-right-color: #E9AEAE;
             }
             .highlight {
                 background-color: #FFAAAA;
                 color: #000;
+            }
+            &.is-reviewed {
+                background-color: #FDF2F2;
+                td.line-number {
+                    border-right-color: #F4D7D7;
+                }
+                .highlight {
+                    background-color: #FFDBDB;
+                }
             }
         }
         td {
@@ -45,10 +73,11 @@ table.diff tbody {
             &.line-number {
                 width: 8px;  // size of the "..." cells
                 text-align: right;
-                color: rgba(0, 0, 0, 0.3);
+                color: #B3B3B3;
                 border-right: {
                     style: solid;
                     width: 1px;
+                    color: #CDCDCD;
                 }
                 > span {
                     display: none;
@@ -67,9 +96,29 @@ table.diff tbody {
                     cursor: pointer;
                     display: none;
                 }
+                .locally-reviewed {
+                    position: absolute;
+                    right: 18px;
+                    margin-top: -2px;
+                    span {
+                        margin-left: 1ex;
+                        font-weight: normal;
+                    }
+
+                    &.is-reviewed {
+                        .fa {
+                            color: $state-open-color;
+                        }
+                    }
+                    &.is-not-reviewed {
+                        span {
+                            text-decoration: line-through;
+                        }
+                    }
+                }
             }
         } // td
-        &:hover {
+        &:hover:not(.comment) {
             background: $table-row-hover-background-color !important;
             td {
                 background: transparent !important;

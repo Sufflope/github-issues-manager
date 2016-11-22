@@ -385,7 +385,23 @@ class _Milestone(Hashable, FrontEditable):
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
 
-class _Issue(Hashable, FrontEditable):
+class WithFiles(object):
+
+    def files_enhanced_for_user(self, user):
+        counts = self._comments_count_by_path
+
+        files = list(self.files.all())
+
+        for file in files:
+            file.repository = self.repository
+            file.nb_comments = counts.get(file.path, 0)
+            file.reviewed_hunks_locally = file.get_hunks_locally_reviewed_by_user(user)
+            file.reviewed_locally = all(file.reviewed_hunks_locally.values())
+
+        return files
+
+
+class _Issue(WithFiles, Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -660,15 +676,6 @@ class _Issue(Hashable, FrontEditable):
                             .values_list('entry_point__path', flat=True)
         )
 
-    def files_enhanced_for_user(self, user):
-        counts = self._comments_count_by_path
-        files = list(self.files.all())
-        for file in files:
-            file.repository = self.repository
-            file.nb_comments = counts.get(file.path, 0)
-            file.reviewed_locally = file.is_locally_reviewed_by_user(user)
-        return files
-
     def publish_notifications(self):
         for notification in self.github_notifications.select_related('user').all():
             if hasattr(self, '_repository_cache'):
@@ -829,7 +836,7 @@ class GroupedCommits(GroupedItems):
             }
 
 
-class _Commit(models.Model):
+class _Commit(WithFiles, models.Model):
     class Meta:
         abstract = True
 
@@ -860,15 +867,6 @@ class _Commit(models.Model):
             self.commit_comments.select_related('entry_point')
                                 .values_list('entry_point__path', flat=True)
         )
-
-    def files_enhanced_for_user(self, user):
-        counts = self._comments_count_by_path
-        files = list(self.files.all())
-        for file in files:
-            file.repository = self.repository
-            file.nb_comments = counts.get(file.path, 0)
-            file.reviewed_locally = file.is_locally_reviewed_by_user(user)
-        return files
 
     @cached_property
     def count_global_comments(self):

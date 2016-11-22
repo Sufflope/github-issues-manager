@@ -77,7 +77,7 @@
     </div>
 </div>
 <ul class="unstyled chat-box timeline issue-activity">
-{% for file in files %}
+{% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url:view.request.user %}
     <li>
         <div class="box code-file" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
             <div class="box-header" data-toggle="collapse" data-target="#code-file-{{ file.id }}-content" title="Click to collapse/expand">
@@ -90,7 +90,7 @@
                     </li>
                     {% if file.reviewed_locally != None %}
                         <li>
-                            <button class="btn btn-mini btn-default locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ file|file_toggle_locally_reviewed_url:view.request.user }}">
+                            <button class="btn btn-mini btn-default locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ toggle_locally_reviewed_url }}">
                                 <i class="fa fa-{% if file.reviewed_locally %}check-{% endif %}square-o"> </i>
                                 <span>Reviewed</span></button>
                         </li>
@@ -107,7 +107,7 @@
             <div class="box-content collapse {% if file.reviewed_locally %}is-reviewed{% else %}in{% endif %}" id="code-file-{{ file.id }}-content">
                 {% if file.patch %}
                     <div class="box-section code-diff">
-                        {% include "front/repository/issues/code/include_diff.html" with parsed_diff=file.patch|parse_diff entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree %}
+                        {% include "front/repository/issues/code/include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url %}
                     </div>
                 {% else %}
                     <div class="box-section no-diff">
@@ -125,7 +125,7 @@
             </div>
         </div>
     </li>
-{% endfor %}
+{% endwith %}{% endfor %}
 </ul>
 {% if view.request.is_ajax and nb_changed_files > 1 %}
     <script data-cfasync="false" type="text/javascript">

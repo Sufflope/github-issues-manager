@@ -127,16 +127,23 @@ class ToggleLocallyReviewedFileMixin(WithAjaxRestrictionViewMixin, DependsOnRepo
         self.object = self.get_object()
 
         to_set = kwargs['set_or_unset'] == 'set'
+        hunk_sha = kwargs.get('hunk_sha')
 
         if to_set:
-            self.object.mark_locally_reviewed_by_user(self.request.user)
+
+            self.object.mark_locally_reviewed_by_user(self.request.user, hunk_sha)
         else:
-            self.object.unmark_locally_reviewed_by_user(self.request.user)
+            self.object.unmark_locally_reviewed_by_user(self.request.user, hunk_sha)
+
+        response = {
+            'reviewed': self.object.is_locally_reviewed_by_user(self.request.user, hunk_sha)
+        }
+
+        if hunk_sha:
+            response['file_reviewed'] = self.object.is_locally_reviewed_by_user(self.request.user)
 
         return HttpResponse(
-            json.dumps({
-                'reviewed': self.object.is_locally_reviewed_by_user(self.request.user)
-            }),
+            json.dumps(response),
             content_type='application/json',
         )
 
