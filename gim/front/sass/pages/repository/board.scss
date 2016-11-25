@@ -240,7 +240,7 @@ body#repository_board #main-inner {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+    left: - ($sidebar-width + $sidebar-width-small-screen - $sidebar-toggler-width-small-screen);
     z-index: 31;
     @include transition(transform 0.35s);
     .filters-toggler {
@@ -258,11 +258,11 @@ body#repository_board #main-inner {
         opacity: 0;
     }
     &.open, &:hover, &:focus {
-        @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+        @include transform(translateX($sidebar-width + $sidebar-width-small-screen - $sidebar-toggler-width-small-screen));
         .filters-toggler {
             opacity: 0;
-            width: $sidebar-toggler-width;
-            @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+            width: $sidebar-toggler-width-small-screen;
+            @include transform(translateX(-($sidebar-width-small-screen - $sidebar-toggler-width-small-screen)));
         }
         .primary-sidebar {
             opacity: 1;
@@ -280,7 +280,7 @@ body#repository_board #main-inner {
 // hide filters sidebar in small width screens
 @media (max-width: 1023px) {
     #board-columns {
-        left: ($sidebar-toggler-width - 1px);
+        left: ($sidebar-toggler-width-small-screen - 1px);
     }
     #issues-filters-board-main {
         .filters-toggler {
@@ -288,7 +288,7 @@ body#repository_board #main-inner {
             z-index: 34;
             padding-top: 5px;
         }
-        left: - ($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width);
+        left: - ($sidebar-width + $sidebar-width-small-screen - $sidebar-toggler-width-small-screen);
         z-index: 32;
         @include transition(transform 0.35s);
         .primary-sidebar {
@@ -296,11 +296,11 @@ body#repository_board #main-inner {
             opacity: 0;
         }
         &.open, &:hover, &:focus {
-            @include transform(translateX($sidebar-width + $sidebar-hidden-width - $sidebar-toggler-width));
+            @include transform(translateX($sidebar-width + $sidebar-width-small-screen - $sidebar-toggler-width-small-screen));
             .filters-toggler {
                 opacity: 0;
-                width: $sidebar-toggler-width;
-                @include transform(translateX(-($sidebar-hidden-width - $sidebar-toggler-width)));
+                width: $sidebar-toggler-width-small-screen;
+                @include transform(translateX(-($sidebar-width-small-screen - $sidebar-toggler-width-small-screen)));
             }
             .primary-sidebar {
                 opacity: 1;

@@ -1,0 +1,68 @@
+{% load frontutils %}
+<li>
+    <div class="box pr-entry-point{% if not entry_point.position %} outdated{% endif %}" tabindex="-1">
+        <div class="box-header" data-toggle="collapse" data-target="#{{ id_prefix }}-{{ entry_point.id }}" title="Click to collapse/expand">
+            <div class="title">
+                <span class="path">{{ entry_point.path }}</span>
+                <span class="subtitle">
+                    <strong>{{ entry_point.user.username }}</strong> started a discussion in a{% if not entry_point.position %}n <strong class="outdated">outdated</strong>{% endif %} diff
+                </span>
+            </div>
+            <ul class="unstyled review-info">
+                <li>
+                    <span>
+                        <span class="label label-blue" title="{{ entry_point.nb_comments }} comment{{ entry_point.nb_comments|pluralize }}"><i class="fa fa-comments-o"></i> {{ entry_point.nb_comments }}</span>
+                    </span>
+                </li>
+                <li>
+                    {% if not entry_point.updated_at or entry_point.created_at == entry_point.updated_at %}
+                        <span class="time" title="{{ entry_point.created_at|date:"DATETIME_FORMAT" }}">
+                            <i class="fa fa-clock-o"></i>
+                            {{ entry_point.created_at|ago }}
+                        </span>
+                    {% else %}
+                        <span class="time" title="Created on {{ entry_point.created_at|date:"DATETIME_FORMAT" }}, updated on  {{ entry_point.last_created|date:"DATETIME_FORMAT" }}">
+                            <i class="fa fa-clock-o"></i>
+                            {{ entry_point.created_at|ago:True }}
+                            <i class="fa fa-caret-right"></i>
+                            {{ entry_point.last_created|ago:True }}
+                        </span>
+                    {% endif %}
+                </li>
+            </ul>
+            <ul class="box-toolbar">
+                {% with first_comment=entry_point.comments.all.first %}
+                    {% if first_comment and first_comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
+                        {% with github_url=first_comment.github_url %}
+                            <li class="toolbar-link">
+                                <a href="{{ github_url }}" target='_blank' title="View comment thread on Github">
+                                    <span><i class="fa fa-comments-o"> </i> View on <i class="fa fa-github"> </i></span>
+                                </a>
+                            </li>
+                        {% endwith %}
+                    {% endif %}
+                {% endwith %}
+
+                {% with github_file_url=entry_point.github_url %}
+                    {% if github_file_url %}
+                        <li class="toolbar-link">
+                            <a href="{{ github_file_url }}" target='_blank' title="View file @{{ entry_point.commit_sha|short_sha }} on Github">
+                                <span><i class="fa fa-github"> </i> @{{ entry_point.commit_sha|short_sha }}</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endwith %}
+            </ul>
+        </div>
+        <div class="box-content collapse{% if entry_point.position %} in{% endif %}" id="{{ id_prefix }}-{{ entry_point.id }}">
+            <div class="box-section code-diff">
+                {% include "front/repository/issues/code/include_diff.html" with parsed_diff=entry_point.diff_hunk|parse_diff:True entry_points=entry_point|set_in_dict:'last-position' path=entry_point.path sha=entry_point.original_commit_sha can_add_new_entry_point=False %}
+            </div>
+            {% if not entry_point.position %}
+                <div class="box-section outdated">
+                    Note: these comments are related to outdated code, which has been updated since they were posted.
+               </div>
+            {% endif %}
+        </div>
+    </div>
+</li>

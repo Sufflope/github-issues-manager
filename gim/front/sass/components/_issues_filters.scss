@@ -1,7 +1,3 @@
-$sidebar-width: 160px;
-$sidebar-hidden-width: 50px;
-$sidebar-toggler-width: 22px;
-
 .issues-filters {
     background: #11161A;
     width: $sidebar-width;
@@ -12,8 +8,8 @@ $sidebar-toggler-width: 22px;
         display: none;
         position: absolute;
         top: 0;
-        right: - $sidebar-hidden-width;
-        width: $sidebar-hidden-width;
+        right: - $sidebar-width-small-screen;
+        width: $sidebar-width-small-screen;
         bottom: 0;
         padding: 1px 5px 0 5px;
         color: white;

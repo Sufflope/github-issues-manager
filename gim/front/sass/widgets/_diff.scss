@@ -1,131 +1,226 @@
 @import "mixin_helpers";
+@import "mixins";
 
-table.diff tbody {
-    tr:not(.diff-comments) {
+// 30 for margin out of the issue-activity
+// 2 for border of code-file
+// 30 for padding of the td
+// 13 for the sidebar (vw includes sidebar)
+// 1 to manage the strange way calc manages rounding :-/
+$space-around-code-comments: (15px * 2 + 1px * 2 + 15px * 2 + $scrollbar-width + 1px);
+
+.diff-hunk-header {
+    .box & {
+        @include display-flex;
+        .title {
+            @include flex(1);
+            white-space: nowrap;
+            font-family: $monoFontFamily;
+            font-weight: normal;
+            font-size: 13px;
+            padding: 2px 10px;
+            height: 19px;
+            overflow: hidden;
+            float: none;
+        }
+        .box-toolbar {
+            float: none;
+            li.toolbar-link {
+                font-size: 11px;
+                line-height: 22px;
+                a {
+                    @include box-sizing(border-box);
+                    width: 9em;
+                    height: 22px;
+                    line-height: 22px;
+                    text-align: center;
+                }
+            }
+        }
+        .locally-reviewed {
+            font-size: 11px;
+            span {
+                margin-left: 1ex;
+                font-weight: normal;
+            }
+            .fa {
+                font-size: 11px !important;
+            }
+            &.is-reviewed {
+                .fa {
+                    color: $state-open-color;
+                }
+            }
+            &.is-not-reviewed {
+                span {
+                    text-decoration: line-through;
+                }
+            }
+        }
+
+    }
+
+    .diff-hunk-content.collapse:not(.in) + & {
+        border-top: none;
+    }
+}
+
+.diff-hunk-content {
+    overflow: auto !important;
+}
+
+table.table-normal.diff {
+    tbody tr:not(.diff-comments) {
         white-space: pre;
         background: white;
         font-family: $monoFontFamily;
         color: #333;
         border: none;
-        &.is-reviewed {
-            background: #FAFAFE;
-            color: #999;
-            td.line-number {
-                border-color: #E4E4FF;
-            }
-        }
-        &.comment{
-            @include box-header-aspect;
-            border-top: 1px solid #E6E6E6;
-            font-weight: normal;
-            &:first-child {
-                border-top: none;
-            }
-            td {
-                padding-top: 3px;
-                padding-bottom: 1px;
-            }
-        }
-        &.added {
-            background: #CEFFCE;
-            td.line-number {
-                border-right-color: #B4E2B4;
-            }
-            .highlight {
-                background-color: #AAFFAA;
-                color: #000;
-            }
-            &.is-reviewed {
-                background-color: #F0FFF0;
-                td.line-number {
-                    border-right-color: #DAF1DA;
-                }
-                .highlight {
-                    background-color: #D6FFD6;
-                }
-            }
-        }
-        &.removed {
-            background: #F7C8C8;
-            td.line-number {
-                border-right-color: #E9AEAE;
-            }
-            .highlight {
-                background-color: #FFAAAA;
-                color: #000;
-            }
-            &.is-reviewed {
-                background-color: #FDF2F2;
-                td.line-number {
-                    border-right-color: #F4D7D7;
-                }
-                .highlight {
-                    background-color: #FFDBDB;
-                }
-            }
-        }
         td {
             border: none;
             line-height: 20px;
             min-height: 20px;
             padding: 1px 5px;
             background: transparent;
-            &.line-number {
-                width: 8px;  // size of the "..." cells
-                text-align: right;
-                color: #B3B3B3;
-                border-right: {
-                    style: solid;
-                    width: 1px;
-                    color: #CDCDCD;
-                }
-                > span {
-                    display: none;
-                }
-                &:before {
-                    content: attr(data-line-number);
-                }
-            }
-            &.code {
-                vertical-align: baseline;
-                .btn-comment {
-                    position: absolute;
-                    left: 0;
-                    padding: 1px;
-                    padding-right: 4px;
-                    cursor: pointer;
-                    display: none;
-                }
-                .locally-reviewed {
-                    position: absolute;
-                    right: 18px;
-                    margin-top: -2px;
-                    span {
-                        margin-left: 1ex;
-                        font-weight: normal;
+            text-align: left;
+            font-weight: normal;
+        }
+    }
+    tbody {
+        tr {
+            &:not(.diff-comments) {
+                &.is-reviewed {
+                    background: #FAFAFE;
+                    color: #999;
+                    td.line-number {
+                        border-color: #E4E4FF;
                     }
-
+                }
+                &.added {
+                    background: #CEFFCE;
+                    td.line-number {
+                        border-right-color: #B4E2B4;
+                    }
+                    .highlight {
+                        background-color: #AAFFAA;
+                        color: #000;
+                    }
                     &.is-reviewed {
-                        .fa {
-                            color: $state-open-color;
+                        background-color: #F0FFF0;
+                        td.line-number {
+                            border-right-color: #DAF1DA;
+                        }
+                        .highlight {
+                            background-color: #D6FFD6;
                         }
                     }
-                    &.is-not-reviewed {
-                        span {
-                            text-decoration: line-through;
+                }
+                &.removed {
+                    background: #F7C8C8;
+                    td.line-number {
+                        border-right-color: #E9AEAE;
+                    }
+                    .highlight {
+                        background-color: #FFAAAA;
+                        color: #000;
+                    }
+                    &.is-reviewed {
+                        background-color: #FDF2F2;
+                        td.line-number {
+                            border-right-color: #F4D7D7;
+                        }
+                        .highlight {
+                            background-color: #FFDBDB;
+                        }
+                    }
+                }
+                &:hover {
+                    background: $table-row-hover-background-color !important;
+                    td {
+                        background: transparent !important;
+                        &.code .btn-comment {
+                            display: inline-block;
+                        }
+                    }
+                }
+                td {
+                    &.line-number {
+                        width: 8px;  // size of the "..." cells
+                        text-align: right;
+                        color: #B3B3B3;
+                        border-right: solid 1px #CDCDCD;
+                        > span {
+                            display: none;
+                        }
+                        &:before {
+                            content: attr(data-line-number);
+                        }
+                    }
+                    &.code {
+                        vertical-align: baseline;
+                        .btn-comment {
+                            position: absolute;
+                            left: 0;
+                            padding: 1px;
+                            padding-right: 4px;
+                            cursor: pointer;
+                            display: none;
                         }
                     }
                 }
             }
-        } // td
-        &:hover:not(.comment) {
-            background: $table-row-hover-background-color !important;
-            td {
-                background: transparent !important;
-                &.code .btn-comment {
-                    display: inline-block;
+            &.diff-comments {
+                td {
+                    overflow: visible;
+                    border-top: solid 1px #CDCDCD;
+                    border-bottom: solid 1px #CDCDCD;
+                    padding: 15px;
+                }
+                &:last-child {
+                    td {
+                        border-bottom: none;
+                    }
+                }
+                .code-comments {
+                    padding: 0;
+                    margin: 0;
+                    border-top: none;
+                    .issue-comment:first-child {
+                        margin-top: 0;
+                    }
+                    .comment-create-placeholder {
+                        margin-bottom: 0;
+                    }
+                    @include calc(width, '#{$main-issue-container-width / 100} * (100vw - #{$sidebar-width}) - #{$space-around-code-comments}');
+                    #modal-issue-view & {
+                        @include calc(width, '#{$modal-width-small} - #{$modal-borders-width} - #{$space-around-code-comments}');
+                    }
+                    .issue-container.big-issue & {
+                        @include calc(width, '100vw - #{$file-list-width} - #{$space-around-code-comments}');
+                        #modal-issue-view & {
+                            @include calc(width, '#{$modal-width / 1%}vw - #{$modal-borders-width} - #{$file-list-width} - #{$space-around-code-comments}');
+                        }
+                    }
+                    // no files list in review comments tab
+                    .issue-container.big-issue .issue-review & {
+                        @include calc(width, '100vw - #{$space-around-code-comments}');
+                        #modal-issue-view & {
+                            @include calc(width, '#{$modal-width / 1%}vw - #{$modal-borders-width} - #{$space-around-code-comments}');
+                        }
+                    }
                 }
             }
         }
-    } // tr
+    }
+}
+
+@media (max-width: 1023px) {
+    table.table-normal.diff tbody tr.diff-comments .code-comments {
+        @include calc(width, '#{$main-issue-container-width-small-screen / 100} * (100vw - #{$sidebar-toggler-width-small-screen}) - #{$space-around-code-comments}');
+        .issue-container.big-issue & {
+            @include calc(width, '100vw - #{$space-around-code-comments}');
+            #modal-issue-view & {
+                @include calc(width, '#{$modal-width / 1%}vw - #{$space-around-code-comments}');
+            }
+        }
+    }
 }

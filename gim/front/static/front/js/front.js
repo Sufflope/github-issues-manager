@@ -2899,6 +2899,10 @@ $().ready(function() {
             $tab_pane.find('.code-files-list-container').waypoint('unsticky');
         }), // unset_tab_files_waypoints
 
+        unset_tab_review_waypoints: (function IssueDetail__unset_tab_review_waypoints ($tab_pane) {
+            $tab_pane.find('.review-header').waypoint('unsticky');
+        }), // unset_tab_review_waypoints
+
         reload_waypoints: (function IssueDetail__reload_waypoints($node) {
             IssueDetail.unset_tabs_waypoints($node);
             IssueDetail.set_tabs_waypoints($node);
@@ -2910,6 +2914,7 @@ $().ready(function() {
             var $review_tab_pane = $($node.find('.pr-review-tab:not(.template) a').attr('href'));
             if ($review_tab_pane.length && $review_tab_pane.data('review-loaded')) {
                 IssueDetail.unset_tab_review_waypoints($review_tab_pane);
+                IssueDetail.set_tab_review_waypoints($review_tab_pane);
             }
         }), // IssueDetail__reload_waypoints
 
@@ -3343,7 +3348,7 @@ $().ready(function() {
             var $files_list_container = $tab_pane.find('.code-files-list-container'),
                 $files_list = $tab_pane.find('.code-files-list'),
                 comments = IssueDetail.visible_files_comments($tab_pane),
-                current, comment, $comment, $file_node, file_pos, index;
+                current, comment, $comment, $file_node, file_pos, index, $hunk_node;
             if (!comments.length) { return; }
 
             current = $files_list_container.data('active-comment');
@@ -3384,6 +3389,12 @@ $().ready(function() {
             $file_node = $comment.closest('.code-file');
             $files_list_container.data('active-comment', comment);
             IssueDetail.set_active_file($tab_pane, $file_node.data('pos'), false);
+
+            // open collapsed hunk and file
+            $file_node.children('.box-content').addClass('in');
+            $hunk_node = $comment.closest('.diff-hunk-content');
+            $hunk_node.addClass('in');
+
             IssueDetail.scroll_in_files_list($node, $tab_pane, $comment, -50);  // -20=margin, -30 = 2 previous diff lines
             $comment.focus();
             $tab_pane.find('.go-to-previous-file-comment').parent().toggleClass('disabled', index < 1);
@@ -3473,13 +3484,13 @@ $().ready(function() {
             IssueDetail.highlight_on_scroll($target);
         }), // scroll_in_review
 
-        toggle_locally_reviewed_file: (function IssueDetail__toggle_locally_reviewed_file ($file_node, reviewed, toggle_chunks) {
-            var $button = $file_node.find('.box-toolbar .locally-reviewed'),
+        toggle_locally_reviewed_file: (function IssueDetail__toggle_locally_reviewed_file ($file_node, reviewed, toggle_hunks) {
+            var $button = $file_node.find('.box-toolbar .locally-reviewed').first(),
                 $icon = $button.find('.fa'),
                 $content = $file_node.children('.box-content'),
                 pos = $file_node.data('pos'),
                 $files_list = $file_node.closest('.tab-pane').find('.code-files-list'),
-                $file_title, $check_in_list, $hunk_buttons, i, $hunk_button, $hunk_tr;
+                $file_title, $check_in_list, $hunk_headers, i, $hunk_header;
 
             $button.toggleClass('is-reviewed', reviewed)
                    .toggleClass('is-not-reviewed', !reviewed);
@@ -3490,8 +3501,12 @@ $().ready(function() {
             $content.toggleClass('is-reviewed', reviewed);
             if (reviewed) {
                 $content.collapse('hide')
-            } else if ($content.data('collapse')) {
-                $content.collapse('show');
+            } else {
+                if ($content.data('collapse')) {
+                    $content.collapse('show');
+                } else {
+                    $content.addClass('in');
+                }
             }
 
             if ($files_list.length) {
@@ -3508,12 +3523,11 @@ $().ready(function() {
                 }
             }
 
-            if (toggle_chunks) {
-                $hunk_buttons = $file_node.find('tr.comment .locally-reviewed');
-                for (i = 0; i < $hunk_buttons.length; i++) {
-                    $hunk_button = $($hunk_buttons[i]);
-                    $hunk_tr = $hunk_button.closest('tr');
-                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $hunk_button, $hunk_tr.data('hunk-sha'), reviewed);
+            if (toggle_hunks) {
+                $hunk_headers = $file_node.find('.diff-hunk-header');
+                for (i = 0; i < $hunk_headers                                                                                                                .length; i++) {
+                    $hunk_header = $($hunk_headers[i]);
+                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $hunk_header.find('.locally-reviewed'), $hunk_header.data('hunk-sha'), reviewed);
                 }
             }
 
@@ -3539,7 +3553,7 @@ $().ready(function() {
 
         toggle_locally_reviewed_hunk: (function IssueDetail__toggle_locally_reviewed_hunk ($file_node, $button, hunk_sha, reviewed) {
             var $icon = $button.find('.fa'),
-                 $lines = $file_node.find('tr[data-hunk-sha=' + hunk_sha + ']');
+                $content = $button.closest('.diff-hunk-header').next();
 
             $button.toggleClass('is-reviewed', reviewed)
                    .toggleClass('is-not-reviewed', !reviewed);
@@ -3547,24 +3561,31 @@ $().ready(function() {
             $icon.toggleClass('fa-check-square-o', reviewed)
                  .toggleClass('fa-square-o', !reviewed);
 
-            $lines.toggleClass('is-reviewed', reviewed);
+            $content.toggleClass('is-reviewed', reviewed);
+            if (reviewed) {
+                $content.collapse('hide')
+            } else {
+                if ($content.data('collapse')) {
+                    $content.collapse('show');
+                } else {
+                    $content.addClass('in');
+                }
+            }
 
         }), // toggle_locally_reviewed_hunk
 
         on_toggle_locally_reviewed_hunk_click: (function IssueDetail__on_toggle_locally_reviewed_hunk_click () {
             var $button = $(this),
                 $file_node = $button.closest('.code-file'),
-                hunk_sha = $button.closest('tr').data('hunk-sha'),
+                hunk_sha = $button.closest('.diff-hunk-header').data('hunk-sha'),
                 was_reviewed = $button.hasClass('is-reviewed'),
                 url = $button.data('url').replace('%s', was_reviewed ? 'unset' : 'set');
 
             IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, !was_reviewed);
             $.post(url,  {csrfmiddlewaretoken: $body.data('csrf')})
                 .done(function(data) {
+                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, data.reviewed);
                     IssueDetail.toggle_locally_reviewed_file($file_node, data.file_reviewed);
-                    if (!data.file_reviewed) {
-                        IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, data.reviewed, true);
-                    }
                 })
                 .fail(function() {
                     IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, was_reviewed);
@@ -3939,8 +3960,15 @@ $().ready(function() {
                 $node = $link.closest('.issue-container');
             $node.one('loaded.tab.issue-files', function() {
                 var $tab_pane = $node.find('.tab-pane.active'),
-                    $comment_node = $node.find('.issue-files .issue-comment[data-url="' + url + '"]');
+                    $comment_node = $node.find('.issue-files .issue-comment[data-url="' + url + '"]'),
+                    $hunk_node, $file_node;
                 if ($comment_node.length) {
+                    // open collapsed hunk and file
+                    $hunk_node = $comment_node.closest('.diff-hunk-content');
+                    $file_node = $hunk_node.closest('.code-diff').parent();
+                    $hunk_node.addClass('in');
+                    $file_node.addClass('in');
+                    // compute positioning
                     var relative_position = -20;  // some margin
                     if (IssueDetail.is_modal($node)) {
                         var $container = $comment_node.closest('.code-comments');
@@ -3952,6 +3980,7 @@ $().ready(function() {
                 }
             });
             IssueDetail.select_files_tab(PanelsSwapper.current_panel);
+            return false;
         }), // on_link_to_diff_comment
 
         on_link_to_review_comment: (function IssueDetail__on_link_to_review_comment () {
@@ -3962,7 +3991,7 @@ $().ready(function() {
                 var $comment_node = $node.find(css_filter).first();
                 if (!$comment_node.length) {
                     alert('This comment was not found, maybe a bug ;)');
-                    return;
+                    return false;
                 }
                 var do_scroll = function() {
                     var $tab_pane = $node.find('.tab-pane.active'),
@@ -3984,6 +4013,7 @@ $().ready(function() {
                 }
             });
             IssueDetail.select_review_tab(PanelsSwapper.current_panel);
+            return false;
         }), // on_link_to_review_comment
 
         on_deleted_commits_toggle_change: (function IssueDetail__on_deleted_commits_toggle_change () {
@@ -4204,8 +4234,8 @@ $().ready(function() {
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
 
-            $document.on('click', '.code-file .box-toolbar .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
-            $document.on('click', '.code-diff .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_hunk_click));
+            $document.on('click', '.code-file > .box-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
+            $document.on('click', '.code-diff .diff-hunk-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_hunk_click));
 
         }) // init
     }; // IssueDetail
@@ -4943,46 +4973,37 @@ $().ready(function() {
         // CREATE A NEW ENTRY POINT
         on_new_entry_point_click: (function IssueEditor__on_new_entry_point_click () {
             var $tr = $(this).closest('tr'),
-                $table = $tr.closest('table'),
-                is_last_line = $tr.is(':last-of-type'),
-                $entry_point, $textarea, $new_table, path, sha, position, $issue, $box, $new_table_box;
+                $tr_comments = $tr.next('.diff-comments'),
+                $textarea, $table, $issue, $comment_box;
+
             // check if already an entry-point
-            if (is_last_line) {
-                $entry_point = $tr.closest('.code-diff').next('.code-comments');
-                if ($entry_point.length) {
-                    // check if we already have a textarea
-                    $textarea = $entry_point.find('textarea');
-                    if ($textarea.length) {
-                        $textarea.focus();
-                    } else {
-                        // no textarea, click on the button to create one
-                        $entry_point.find('.comment-create-placeholder button').click();
-                    }
-                    return false;
+            if ($tr_comments.length) {
+                // check if we already have a textarea
+                $textarea = $tr_comments.find('textarea');
+                if ($textarea.length) {
+                    $textarea.focus();
+                } else {
+                    // no textarea, click on the button to create one
+                    $tr_comments.find('.comment-create-placeholder button').click();
                 }
+                return false;
             }
-            $issue = $table.closest('.issue-container');
+
             // we need to create an entry point
+            $table = $tr.closest('table');
+            $issue = $table.closest('.issue-container');
             path = $table.data('path');
             sha = $table.data('sha');
             position = $tr.data('position');
-            if (!is_last_line) {
-                // start by making room, by moving all next lines in a new table
-                $new_table = $('<table><tbody/></table>').addClass($table[0].className);
-                $new_table.data({path: path, sha: sha});
-                $new_table.children('tbody').append($tr.nextAll('tr'));
-                $new_table_box = $issue.find('.code-diff.template').clone().removeClass('template').removeAttr('style');
-                $new_table_box.append($new_table);
-                $table.parent().after($new_table_box);
-            }
-            // create a box for the entry-point
-            $box = $issue.find('.code-comments.template').clone().removeClass('template').removeAttr('style');
-            var $comment_box = IssueEditor.create_comment_form_from_template($table, $issue);
+
+            // create a tr for the entry-point
+            $tr_comments = $issue.find('.code-comments-template tr.diff-comments').clone();
+            $comment_box = IssueEditor.create_comment_form_from_template($table, $issue);
             $comment_box.$form.prepend('<input type="hidden" name="path" value="' + path + '"/>' +
                                        '<input type="hidden" name="sha" value="' + sha + '"/>' +
                                        '<input type="hidden" name="position" value="' + position + '"/>');
-            $box.find('ul').append($comment_box.$node);
-            $table.parent().after($box);
+            $tr_comments.find('ul').append($comment_box.$node);
+            $tr.after($tr_comments);
             $comment_box.$textarea.focus();
 
         }), // on_new_entry_point_click
@@ -4990,6 +5011,7 @@ $().ready(function() {
         // CANCEL/DELETE COMMENTS
         remove_comment: (function IssueEditor__remove_comment ($li) {
 
+            // if many ones
             if ($li.length > 1) {
                 $li.each(function() {
                     IssueEditor.remove_comment($(this));
@@ -5000,33 +5022,26 @@ $().ready(function() {
             var $form = $li.find('form'),
                 removed = false,
                 $placeholder = $li.prev('.comment-create-placeholder'),
-                $pr_parent = $li.parents('.code-comments');
+                $tr_comments = $li.closest('tr.diff-comments');
 
             FormTools.disable_form($form);
 
-            // it's an answer to a previous PR comment
+            // it's a non submitted answer to a previous PR comment
             if ($placeholder.length) {
                 $li.remove();
-                removed = true
+                removed = true;
             }
 
             // it's in a pr entry point
-            if ($pr_parent.length) {
+            if ($tr_comments.length) {
                 if (!removed) {
                     $li.remove();
                     removed = true;
                 }
                 // Do we have other comments
-                if (!$pr_parent.find('.issue-comment').length) {
+                if (!$tr_comments.find('.issue-comment').length) {
                     // If no we can remove the entry point
-                    var $prev = $pr_parent.prev();
-                    var $next = $pr_parent.next();
-                    $pr_parent.remove();
-                    if ($next.length) {
-                        // combine the two block
-                        $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
-                        $next.remove();
-                    }
+                    $tr_comments.remove();
                     return false;
                 }
             }
@@ -6585,6 +6600,11 @@ $().ready(function() {
     HistoryManager.init();
     window.HistoryManager = HistoryManager;
 
+    // disable clicking on disabled item
+    $document.on('click', '.disabled, [disabled], .disabled > *, [disabled] > *', function(e) {
+        Ev.cancel(e);
+    });
+
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {
         $(this).css('height', 'auto');
@@ -6593,6 +6613,14 @@ $().ready(function() {
     // if a link is on a collapse header, deactivate the collapse on click
     $document.on('click', '[data-toggle=collapse] a:not([href=#])', function(ev) {
         ev.stopPropagation();
+    });
+    // if a link is a collapse header, deactivate the real click
+    $document.on('click', 'a[data-toggle=collapse]', function(ev) {
+        ev.preventDefault();
+    });
+    // if a link is "fake" and in a collapse header, deactivate the real click
+    $document.on('click', '[data-toggle=collapse] a[href=#]', function(ev) {
+        ev.preventDefault();
     });
 
 });

@@ -1,22 +1,49 @@
 {% load frontutils %}
-    <table class="table table-normal diff" data-path="{{ path }}" data-sha="{{ sha }}">
-        {% for class, old, new, code, position, hunk_sha, hunk_reviewed in parsed_diff %}{% spaceless %}
-            <tr class="{{ class }}{% if hunk_reviewed %} is-reviewed{% endif %}" data-position="{{ position }}"{% if hunk_sha %} data-hunk-sha="{{ hunk_sha }}"{% endif %}>
-                {% if class != 'comment' %}
-                    <td class="line-number" data-line-number="{{ old }}"><span>{{ old }}</span></td>
-                    <td class="line-number" data-line-number="{{ new }}"><span>{{ new }}</span></td>
-                {% endif %}
-                <td class="code"{% if class == 'comment' %} colspan="3"{% endif %}>{% if class != 'comment' %}<span class="label label-blue btn-comment" title="Comment this line"><i class="fa fa-comment"></i></span>{% endif %}{{ code }}{% if class == 'comment' and hunk_sha and hunk_reviewed != None %}<button class="btn btn-mini btn-default locally-reviewed is-{{ hunk_reviewed|yesno:",not-" }}reviewed" title="By marking a hunk as reviewed, the diff will be dimmed until it changes" data-url="{{ toggle_locally_reviewed_url }}{{ hunk_sha }}/"><i class="fa fa-{% if hunk_reviewed %}check-{% endif %}square-o"> </i> <span>Reviewed</span></button>{% endif %}</td>
-            </tr>
-            {% endspaceless %}
-            {% if entry_points and position in entry_points %}
-                {% with entry_point=entry_points|dict_item:position %}
-    </table>
-</div>
-{% include "front/repository/issues/comments/include_code_comments.html" with comments=entry_point.comments.all classes="collapse in" %}
-<div class="box-section code-diff">
-    <table class="table table-normal diff" data-path="{{ path }}" data-sha="{{ sha }}">
-                {% endwith %}
+{% for class, old, new, code, position, hunk_sha, hunk_reviewed in parsed_diff %}
+    {% if class == 'comment' %}
+        {% if not forloop.first %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+        <div class="box-header diff-hunk-header{% if hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}
+"{% endif %}>
+            <div class="title">{{ code }}</div>
+            {% if hunk_sha and hunk_reviewed != None %}
+                <ul class="box-toolbar">
+                    <li class="toolbar-link">
+                        <a class="locally-reviewed is-{{ hunk_reviewed|yesno:",not-" }}reviewed" title="By marking a hunk as reviewed, the diff will be dimmed until it changes" data-url="{{ toggle_locally_reviewed_url }}{{ hunk_sha }}/">
+                            <i class="fa fa-{% if hunk_reviewed %}check-{% endif %}square-o"> </i>
+                            <span>Reviewed</span>
+                        </a>
+                    </li>
+                </ul>
             {% endif %}
-        {% endfor %}
-    </table>
+        </div>
+        <div class="diff-hunk-content{% if hunk_sha %} collapse {% if hunk_reviewed %}is-reviewed{% else %}in{% endif %}{% endif %}"{% if hunk_sha %}  data-hunk-sha="{{ hunk_sha }}"{% endif %}>
+            <table class="table table-normal diff" data-path="{{ path }}" data-sha="{{ sha }}">
+                <tbody{% if hunk_reviewed %} class="is-reviewed"{% endif %}>
+    {% else %}{% spaceless %}
+        <tr class="{{ class }}" data-position="{{ position }}">
+            <td class="line-number" data-line-number="{{ old }}"><span>{{ old }}</span></td>
+            <td class="line-number" data-line-number="{{ new }}"><span>{{ new }}</span></td>
+            <td class="code">{% if can_add_new_entry_point %}<span class="label label-blue btn-comment" title="Comment this line"><i class="fa fa-comment"></i></span>{% endif %}{{ code }}</td>
+        {% endspaceless %}</tr>
+    {% endif %}
+    {% if entry_points %}
+        {% if position in entry_points %}
+            {% with entry_point=entry_points|dict_item:position %}
+                {% include "front/repository/issues/comments/include_code_comments.html" with comments=entry_point.comments.all surround=True include_create_form=True classes="collapse in" %}
+            {% endwith %}
+        {% elif forloop.last and 'last-position' in entry_points %}
+            {% with entry_point=entry_points|dict_item:'last-position' %}
+                {% include "front/repository/issues/comments/include_code_comments.html" with comments=entry_point.comments.all surround=True include_create_form=True classes="" with_link_to_diff=entry_point.position %}
+            {% endwith %}
+        {% endif %}
+    {% endif %}
+    {% if forloop.last %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endfor %}

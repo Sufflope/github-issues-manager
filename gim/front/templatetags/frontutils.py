@@ -428,3 +428,8 @@ def format_int_or_float(value):
 @register.filter
 def filter_status_ready(queryset):
     return [obj for obj in queryset.all() if obj.status_ready]
+
+
+@register.filter
+def set_in_dict(value, key):
+    return {key: value}

@@ -41,7 +41,17 @@
                 </div>
             {% endif %}
         </nav>
-        {% if nb_changed_files > 1 %}<a href="#" title="Click to toogle the list of files" class="files-list-summary" data-toggle="collapse" data-target="#{{ id_prefix }}-files-list">{% endif %}<strong>{{ nb_changed_files }} file{{ nb_changed_files|pluralize }} changed</strong> with <strong>{{ nb_additions }} addition{{ nb_additions|pluralize }}</strong> and <strong>{{ nb_deletions }} deletion{{ nb_deletions|pluralize }}</strong>{% if nb_changed_files > 1 %}&nbsp;&nbsp;<i class="fa fa-sort"></i></a>{% endif %}
+        <a href="#" class="files-list-summary"{% if nb_changed_files > 1 %} title="Click to toogle the list of files" data-toggle="collapse" data-target="#{{ id_prefix }}-files-list"{% else %} onclick="Ev.cancel"{% endif %}>
+            <strong>{{ nb_changed_files }} file{{ nb_changed_files|pluralize }} changed</strong>
+            with <strong>{{ nb_additions }} addition{{ nb_additions|pluralize }}</strong>
+             and <strong>{{ nb_deletions }} </strong>
+            <nobr>
+                <strong>deletion{{ nb_deletions|pluralize }}</strong>
+                {% if nb_changed_files > 1 %}
+                     <i class="fa fa-sort"></i>
+                {% endif %}
+            </nobr>
+        </a>
     </div>
     <div class="collapse in code-files-list" id="{{ id_prefix }}-files-list">
         <table class="table table-condensed">
@@ -81,33 +91,44 @@
     <li>
         <div class="box code-file" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
             <div class="box-header" data-toggle="collapse" data-target="#code-file-{{ file.id }}-content" title="Click to collapse/expand">
-                <ul class="box-toolbar">
-                    <li>
+                <div class="title">
+                    <a href="#" id="code-file-{{ file.id }}" class="path">{{ file.path }}</a>
+                    <span class="subtitle">
+                        <span class="status-{{ file.status }}">
+                            <i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% else %}file-o{% endif %}"> </i>
+                        </span>
+                        {{ file.status }}
                         <ul class="unstyled">
                             <li class="label label-green" title="{{ file.nb_additions }} addition{{ file.nb_additions|pluralize }}"><i class="fa fa-plus"></i> {{ file.nb_additions }}</li>
                             <li class="label label-red" title="{{ file.nb_deletions }} deletion{{ file.nb_deletions|pluralize }}"><i class="fa fa-minus"></i> {{ file.nb_deletions }}</li>
+                            {% if file.nb_comments %}
+                                <li class="label label-blue" title="{{ file.nb_comments }} comment{{ file.nb_comments|pluralize }}"><i class="fa fa-comments-o"></i> {{ file.nb_comments }}</li>
+                            {% endif %}
                         </ul>
-                    </li>
+                    </span>
+                </div>
+                <ul class="box-toolbar">
                     {% if file.reviewed_locally != None %}
-                        <li>
-                            <button class="btn btn-mini btn-default locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ toggle_locally_reviewed_url }}">
-                                <i class="fa fa-{% if file.reviewed_locally %}check-{% endif %}square-o"> </i>
-                                <span>Reviewed</span></button>
+                        <li class="toolbar-link">
+                            <a class="locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ toggle_locally_reviewed_url }}">
+                                <span>
+                                    <i class="fa fa-{% if file.reviewed_locally %}check-{% endif %}square-o"> </i>
+                                    <span>Reviewed</span>
+                                </span>
+                            </a>
                         </li>
                     {% endif %}
-                    <li>
-                        <a href="{{ file.github_url }}" target='_blank' class="btn btn-mini btn-default" title="View file @{{ file.tree|short_sha }}">@{{ file.tree|short_sha }}</a>
+                    <li class="toolbar-link">
+                        <a href="{{ file.github_url }}" target='_blank' title="View file @{{ file.tree|short_sha }} on Github">
+                            <span><i class="fa fa-github"> </i> @{{ file.tree|short_sha }}</span>
+                        </a>
                     </li>
                 </ul>
-                <div class="title">
-                    <a href="#" id="code-file-{{ file.id }}" class="path">{{ file.path }}</a>
-                    <span>{{ file.status }}</span>
-                </div>
             </div>
             <div class="box-content collapse {% if file.reviewed_locally %}is-reviewed{% else %}in{% endif %}" id="code-file-{{ file.id }}-content">
                 {% if file.patch %}
                     <div class="box-section code-diff">
-                        {% include "front/repository/issues/code/include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url %}
+                        {% include "front/repository/issues/code/include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url can_add_new_entry_point=True %}
                     </div>
                 {% else %}
                     <div class="box-section no-diff">
