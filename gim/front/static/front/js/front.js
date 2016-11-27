@@ -3595,6 +3595,45 @@ $().ready(function() {
 
         }), // on_toggle_locally_reviewed_hunk_click
 
+        visible_files: (function IssueDetail__visible_files($tab_pane) {
+            var $links = $tab_pane.find('.code-files-list tr:not(.hidden):not([data-pos=999999]) a'),
+                i, $reviewed_button, files = [];
+
+            if ($links.length) {
+                for (i = 0; i < $links.length; i++) {
+                    files.push($($($links[i]).attr('href')));
+                }
+            }
+
+            return files;
+        }),
+
+        set_or_unset_all_visible_reviewed_status: (function IssueDetail__set_or_unset_all_visible_reviewed_status (trigger, mark_reviewed) {
+            var $files = IssueDetail.visible_files($(trigger).closest('.tab-pane')),
+                i, $reviewed_button, is_reviewed;
+
+            if ($files.length) {
+                mark_reviewed = !!mark_reviewed;
+                for (i = 0; i < $files.length; i++) {
+                    $reviewed_button = $files[i].children('.box-header').find('.locally-reviewed');
+                    is_reviewed = !!$reviewed_button.hasClass('is-reviewed');
+                    if (mark_reviewed != is_reviewed) {
+                        IssueDetail.on_toggle_locally_reviewed_file_click.bind($reviewed_button[0])();
+                    }
+                }
+            }
+
+            return false;
+        }), // set_or_unset_all_visible_reviewed_status
+
+        mark_all_visible_as_reviewed: (function IssueDetail__mark_all_visible_as_reviewed() {
+            return IssueDetail.set_or_unset_all_visible_reviewed_status(this, true);
+        }), // mark_all_visible_as_reviewed
+
+        mark_all_visible_as_not_reviewed: (function IssueDetail__mark_all_visible_as_not_reviewed() {
+            return IssueDetail.set_or_unset_all_visible_reviewed_status(this, false);
+        }), // mark_all_visible_as_not_reviewed
+
         before_load_tab: (function IssueDetail__before_load_tab (ev) {
             if (!ev.relatedTarget) { return; }
             var $previous_tab = $(ev.relatedTarget),
@@ -4218,6 +4257,8 @@ $().ready(function() {
             $document.on('click', 'li:not(.disabled) a.go-to-previous-file-comment', Ev.stop_event_decorate(IssueDetail.go_to_previous_file_comment));
             $document.on('click', 'li:not(.disabled) a.go-to-next-file-comment', Ev.stop_event_decorate(IssueDetail.go_to_next_file_comment));
             $document.on('click', '.go-to-global-comments', Ev.stop_event_decorate_dropdown(IssueDetail.go_to_global_comments, '.btn-group'));
+            $document.on('click', '.mark-visible-as-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_reviewed, '.btn-group'));
+            $document.on('click', '.mark-visible-as-not-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_not_reviewed, '.btn-group'));
             jwerty.key('p/k', IssueDetail.on_files_list_key_event('go_to_previous_file'));
             jwerty.key('n/j', IssueDetail.on_files_list_key_event('go_to_next_file'));
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));

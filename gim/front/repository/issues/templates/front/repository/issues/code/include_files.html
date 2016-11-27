@@ -21,17 +21,24 @@
                             --><li class="horizontal-2 disabled"><a href="#" class="go-to-previous-file"><i class="fa fa-chevron-up fa-fw" title="Previous file"> </i></a></li><!--
                             --><li class="horizontal-2"><a href="#" class="go-to-next-file"><i class="fa fa-chevron-down fa-fw" title="Next file"> </i></a></li>
                         {% endif %}
-                        {% if nb_changed_files > 1 and entry_points_dict|length%}
-                            <li class="divider"></li>
-                        {% endif %}
                         {% if entry_points_dict|length %}
+                            {% if nb_changed_files > 1 %}
+                                <li class="divider"></li>
+                            {% endif %}
                             <li class="horizontal-4 disabled"><a href='#'>Comments:</a></li><!--
                             --><li class="horizontal-4"><a data-toggle="collapse" data-target="#{{ id_prefix }}-files .code-file .code-comments.collapse" title="Open/close all comments" href="#">Toggle</a></li><!--
                             --><li class="horizontal-2"><a href="#" class="go-to-previous-file-comment"><i class="fa fa-chevron-up fa-fw" title="Previous commented line"> </i></a></li><li class="horizontal-2"><a href="#" class="go-to-next-file-comment"><!--
                             --><i class="fa fa-chevron-down fa-fw" title="Next commented line"> </i></a></li>
                         {% endif %}
-                        {% if with_non_files_comments %}
+                        {% if nb_changed_files > 1 %}
                             <li class="divider"></li>
+                            <li><a href="#" class="mark-visible-as-reviewed">Mark all filtered files as reviewed</a></li>
+                            <li><a href="#" class="mark-visible-as-not-reviewed">Mark all filtered files as not reviewed</a></li>
+                        {% endif %}
+                        {% if with_non_files_comments %}
+                            {%  if nb_changed_files > 1 or entry_points_dict|length %}
+                                <li class="divider"></li>
+                            {% endif %}
                             <li><a href="#" class="go-to-global-comments" title="Go to the end of files to see global comments on this commit">
                                 Global comments
                                 <span class="label label-blue pull-right" title="{{ nb_non_files_comments }} comment{{ nb_non_files_comments|pluralize }}"><i class="fa fa-comments-o"></i> {{ nb_non_files_comments }}</span>
