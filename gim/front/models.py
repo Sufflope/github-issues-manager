@@ -388,7 +388,7 @@ contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'
 class WithFiles(object):
 
     def files_enhanced_for_user(self, user):
-        counts = self._comments_count_by_path
+        counts = self.comments_count_by_path
 
         files = list(self.files.all())
 
@@ -670,10 +670,15 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         return html_content(self)
 
     @cached_property
-    def _comments_count_by_path(self):
+    def comments_count_by_path(self):
         return Counter(
-            self.pr_comments.select_related('entry_point')
-                            .values_list('entry_point__path', flat=True)
+            self.pr_comments.filter(
+                entry_point__position__isnull=False
+            ).select_related(
+                'entry_point'
+            ).values_list(
+                'entry_point__path', flat=True
+            )
         )
 
     def publish_notifications(self):
@@ -854,23 +859,36 @@ class _Commit(WithFiles, models.Model):
     @property
     def all_entry_points(self):
         if not hasattr(self, '_all_entry_points'):
-            self._all_entry_points = list(self.commit_comments_entry_points
-                                .annotate(nb_comments=models.Count('comments'))  # cannot exclude wating_deleted for now
-                                .filter(nb_comments__gt=0)
-                                .select_related('user', 'repository__owner')
-                                .prefetch_related('comments__user'))
+            self._all_entry_points = list(
+                self.commit_comments_entry_points.annotate(
+                    nb_comments=models.Count('comments')  # cannot exclude waiting_deleted for now
+                ).filter(
+                    nb_comments__gt=0
+                ).select_related(
+                    'user', 'repository__owner'
+                ).prefetch_related(
+                    'comments__user'
+                )
+            )
         return self._all_entry_points
 
     @cached_property
-    def _comments_count_by_path(self):
+    def comments_count_by_path(self):
         return Counter(
-            self.commit_comments.select_related('entry_point')
-                                .values_list('entry_point__path', flat=True)
+            self.commit_comments.filter(
+                models.Q(entry_point__position__isnull=False)
+                |
+                models.Q(entry_point__path__isnull=True)
+            ).select_related(
+                'entry_point'
+            ).values_list(
+                'entry_point__path', flat=True
+            )
         )
 
     @cached_property
     def count_global_comments(self):
-        return self._comments_count_by_path.get(None, 0)
+        return self.comments_count_by_path.get(None, 0)
 
     @cached_property
     def real_author_name(self):

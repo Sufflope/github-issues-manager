@@ -433,3 +433,16 @@ def filter_status_ready(queryset):
 @register.filter
 def set_in_dict(value, key):
     return {key: value}
+
+
+@register.filter(name='sum')
+def _sum(values):
+    return sum(values)
+
+
+@register.filter
+def values(dict_like):
+    # useful with counters because we cannot pass `()` and for the counter
+    # it's then an empty entries and return 0, instead of KeyError to let django
+    # try to call `values`
+    return dict_like.values()

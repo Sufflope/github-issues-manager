@@ -46,6 +46,11 @@
                             Files changed
                             <span class="label label-blue">
                                 <span title="{{ current_issue.nb_changed_files }} changed file{{ current_issue.nb_changed_files|pluralize }}"><i class="fa fa-file-o"></i> {{ current_issue.nb_changed_files }}</span>
+                                {% with nb_comments=current_issue.comments_count_by_path|values|sum %}
+                                    {% if nb_comments %}
+                                        <span title="{{ nb_comments }} non-outdated comment{{ nb_comments|pluralize }} on this ull request"><i class="fa fa-comments-o"></i> {{ nb_comments }}</span>
+                                    {% endif %}
+                                {% endwith %}
                             </span>
                         </a>
                     </li>
