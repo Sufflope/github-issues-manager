@@ -836,9 +836,6 @@ $repo-name-height: 20px;
         .issue-activity {
             margin-left: $file-list-width;
         }
-        table.diff tr:not(.diff-comments) td.code span {
-            left: $file-list-width;
-        }
     }
 }
 

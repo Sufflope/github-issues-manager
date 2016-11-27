@@ -5003,24 +5003,23 @@ table.table-normal.diff tbody tr:not(.diff-comments) td.code {
 /* line 160, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr:not(.diff-comments) td.code .btn-comment {
   position: absolute;
-  left: 0;
-  padding: 1px;
-  padding-right: 4px;
+  left: 1px;
+  padding: 3px 6px;
   cursor: pointer;
   display: none;
 }
-/* line 172, ../../../sass/widgets/_diff.scss */
+/* line 171, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr.diff-comments td {
   overflow: visible;
   border-top: solid 1px #CDCDCD;
   border-bottom: solid 1px #CDCDCD;
   padding: 15px;
 }
-/* line 179, ../../../sass/widgets/_diff.scss */
+/* line 178, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr.diff-comments:last-child td {
   border-bottom: none;
 }
-/* line 183, ../../../sass/widgets/_diff.scss */
+/* line 182, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr.diff-comments .code-comments {
   padding: 0;
   margin: 0;
@@ -5030,43 +5029,43 @@ table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -webkit-calc(0.58333 * (100vw - 160px) - 78px);
   width: calc(0.58333 * (100vw - 160px) - 78px);
 }
-/* line 187, ../../../sass/widgets/_diff.scss */
+/* line 186, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr.diff-comments .code-comments .issue-comment:first-child {
   margin-top: 0;
 }
-/* line 190, ../../../sass/widgets/_diff.scss */
+/* line 189, ../../../sass/widgets/_diff.scss */
 table.table-normal.diff tbody tr.diff-comments .code-comments .comment-create-placeholder {
   margin-bottom: 0;
 }
-/* line 194, ../../../sass/widgets/_diff.scss */
+/* line 193, ../../../sass/widgets/_diff.scss */
 #modal-issue-view table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -moz-calc(560px - 2px - 78px);
   width: -o-calc(560px - 2px - 78px);
   width: -webkit-calc(560px - 2px - 78px);
   width: calc(560px - 2px - 78px);
 }
-/* line 197, ../../../sass/widgets/_diff.scss */
+/* line 196, ../../../sass/widgets/_diff.scss */
 .issue-container.big-issue table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -moz-calc(100vw - 400px - 78px);
   width: -o-calc(100vw - 400px - 78px);
   width: -webkit-calc(100vw - 400px - 78px);
   width: calc(100vw - 400px - 78px);
 }
-/* line 199, ../../../sass/widgets/_diff.scss */
+/* line 198, ../../../sass/widgets/_diff.scss */
 #modal-issue-view .issue-container.big-issue table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -moz-calc(90vw - 2px - 400px - 78px);
   width: -o-calc(90vw - 2px - 400px - 78px);
   width: -webkit-calc(90vw - 2px - 400px - 78px);
   width: calc(90vw - 2px - 400px - 78px);
 }
-/* line 204, ../../../sass/widgets/_diff.scss */
+/* line 203, ../../../sass/widgets/_diff.scss */
 .issue-container.big-issue .issue-review table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -moz-calc(100vw - 78px);
   width: -o-calc(100vw - 78px);
   width: -webkit-calc(100vw - 78px);
   width: calc(100vw - 78px);
 }
-/* line 206, ../../../sass/widgets/_diff.scss */
+/* line 205, ../../../sass/widgets/_diff.scss */
 #modal-issue-view .issue-container.big-issue .issue-review table.table-normal.diff tbody tr.diff-comments .code-comments {
   width: -moz-calc(90vw - 2px - 78px);
   width: -o-calc(90vw - 2px - 78px);
@@ -5075,21 +5074,21 @@ table.table-normal.diff tbody tr.diff-comments .code-comments .comment-create-pl
 }
 
 @media (max-width: 1023px) {
-  /* line 217, ../../../sass/widgets/_diff.scss */
+  /* line 216, ../../../sass/widgets/_diff.scss */
   table.table-normal.diff tbody tr.diff-comments .code-comments {
     width: -moz-calc(0.66667 * (100vw - 22px) - 78px);
     width: -o-calc(0.66667 * (100vw - 22px) - 78px);
     width: -webkit-calc(0.66667 * (100vw - 22px) - 78px);
     width: calc(0.66667 * (100vw - 22px) - 78px);
   }
-  /* line 219, ../../../sass/widgets/_diff.scss */
+  /* line 218, ../../../sass/widgets/_diff.scss */
   .issue-container.big-issue table.table-normal.diff tbody tr.diff-comments .code-comments {
     width: -moz-calc(100vw - 78px);
     width: -o-calc(100vw - 78px);
     width: -webkit-calc(100vw - 78px);
     width: calc(100vw - 78px);
   }
-  /* line 221, ../../../sass/widgets/_diff.scss */
+  /* line 220, ../../../sass/widgets/_diff.scss */
   #modal-issue-view .issue-container.big-issue table.table-normal.diff tbody tr.diff-comments .code-comments {
     width: -moz-calc(90vw - 78px);
     width: -o-calc(90vw - 78px);
