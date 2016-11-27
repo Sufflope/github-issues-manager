@@ -22,6 +22,12 @@ $space-around-code-comments: (15px * 2 + 1px * 2 + 15px * 2 + $scrollbar-width +
             overflow: hidden;
             float: none;
         }
+        .hunk-info {
+            .label {
+                font-size: 10px;
+                padding-top: 1px;
+            }
+        }
         .box-toolbar {
             float: none;
             li.toolbar-link {
@@ -33,6 +39,9 @@ $space-around-code-comments: (15px * 2 + 1px * 2 + 15px * 2 + $scrollbar-width +
                     height: 22px;
                     line-height: 22px;
                     text-align: center;
+                }
+                &:first-child {
+                    margin-left: 3px !important;
                 }
             }
         }

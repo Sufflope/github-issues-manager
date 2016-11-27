@@ -253,7 +253,8 @@ def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
 
         results.append(result)
 
-    return chain.from_iterable(results)
+    # as a list, not an iterable because the list is consumed twice!
+    return list(chain.from_iterable(results))
 
 
 @register.filter
@@ -264,6 +265,47 @@ def parse_diff(diff, reduce=False):
 @register.filter
 def parse_diff_for_file(file, reduce=False):
     return _parse_diff(file.patch, reduce, file.hunk_shas, file.reviewed_hunks_locally)
+
+
+@register.filter
+def count_comments_by_hunk_position(diff, entry_points_by_position):
+    if not entry_points_by_position:
+        return {}
+
+    hunks_by_position = {
+        line[4]: {
+            'count': 0,
+            'last_position': None
+        }
+        for line
+        in diff
+        if line[0] == 'comment' and line[4] != 'last-position'
+    }
+    if not hunks_by_position:
+        return {}
+
+    hunks_positions = sorted(hunks_by_position.keys())
+    for index, position in enumerate(hunks_positions):
+        try:
+            next_pos = hunks_positions[index + 1]
+        except IndexError:
+            hunks_by_position[position]['last_position'] = diff[-1][4]
+        else:
+            hunks_by_position[position]['last_position'] = next_pos - 1
+
+    all_hunks = list(hunks_by_position.items())
+
+    for entry_point_position, entry_point in entry_points_by_position.iteritems():
+        for hunk_position, hunk in all_hunks:
+            if hunk_position < entry_point_position <= hunk['last_position']:
+                hunk['count'] += len(entry_point.comments.all())  # .all is now cached for the use in the template
+                break
+
+    return {
+        position: hunk['count']
+        for position, hunk
+        in hunks_by_position.items()
+    }
 
 
 @register.filter

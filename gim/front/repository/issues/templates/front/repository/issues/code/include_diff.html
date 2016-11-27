@@ -1,4 +1,5 @@
 {% load frontutils %}
+{% with comments_count_by_hunk_position=parsed_diff|count_comments_by_hunk_position:entry_points %}
 {% for class, old, new, code, position, hunk_sha, hunk_reviewed in parsed_diff %}
     {% if class == 'comment' %}
         {% if not forloop.first %}
@@ -9,6 +10,13 @@
         <div class="box-header diff-hunk-header{% if hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}
 "{% endif %}>
             <div class="title">{{ code }}</div>
+            {% with nb_comments=comments_count_by_hunk_position|dict_item:position %}
+                {% if nb_comments %}
+                <span class="hunk-info">
+                    <span class="label label-blue" title="{{ nb_comments }} comment{{ nb_comments|pluralize }}"><i class="fa fa-comments-o"></i> {{ nb_comments }}</span>
+                </span>
+                {% endif %}
+            {% endwith %}
             {% if hunk_sha and hunk_reviewed != None %}
                 <ul class="box-toolbar">
                     <li class="toolbar-link">
@@ -47,3 +55,4 @@
         </div>
     {% endif %}
 {% endfor %}
+{% endwith %}
