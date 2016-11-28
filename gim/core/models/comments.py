@@ -382,6 +382,52 @@ class CommitCommentEntryPoint(CommentEntryPointMixin):
         else:
             return self.repository.github_url + '/commit/%s#all_commit_comments' % self.commit_sha
 
+    def compose_diff_hunk(self):
+        if not self.position:
+            return None
+
+        from .files import CommitFile
+
+        try:
+            commit_file = self.commit.files.get(path=self.path)
+        except CommitFile.MultipleObjectsReturned:
+            # if many entries (it can happen, yes) sort by status to have "added" before "removed"
+            # example: https://github.com/jekyll/jekyll/commit/6940a0e11a7f73ef41276e2aafdf0b5934cd0785
+            commit_file = self.commit.files.order_by('status').filter(path=self.path).first()
+        except CommitFile.DoesNotExist:
+            return None
+
+        lines = commit_file.patch.split('\n')
+
+        position = self.position
+        hunk_lines = []
+
+        while position >= 0:
+            try:
+                line = lines[position]
+            except IndexError:
+                return None
+
+            hunk_lines.append(line)
+
+            if line.startswith(u'@@'):
+                break
+
+            position -= 1
+
+        return u'\n'.join(reversed(hunk_lines))
+
+    def update_diff_hunk(self):
+        if not self.position:
+            return False
+
+        old_diff_hunk = self.diff_hunk
+        self.diff_hunk = self.compose_diff_hunk()
+        if self.diff_hunk == old_diff_hunk:
+            return False
+        self.save(update_fields=['diff_hunk'])
+        return True
+
     def save(self, *args, **kwargs):
         """
         Try to get the commit if not set, using the sha, or ask for it to be
