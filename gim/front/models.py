@@ -385,7 +385,23 @@ class _Milestone(Hashable, FrontEditable):
 contribute_to_model(_Milestone, core_models.Milestone, {'defaults_create_values'})
 
 
-class _Issue(Hashable, FrontEditable):
+class WithFiles(object):
+
+    def files_enhanced_for_user(self, user):
+        counts = self.comments_count_by_path
+
+        files = list(self.files.all())
+
+        for file in files:
+            file.repository = self.repository
+            file.nb_comments = counts.get(file.path, 0)
+            file.reviewed_hunks_locally = file.get_hunks_locally_reviewed_by_user(user)
+            file.reviewed_locally = all(file.reviewed_hunks_locally.values())
+
+        return files
+
+
+class _Issue(WithFiles, Hashable, FrontEditable):
     class Meta:
         abstract = True
 
@@ -541,11 +557,16 @@ class _Issue(Hashable, FrontEditable):
         loader.get_template(template).render(context)
 
     @cached_method
-    def all_commits(self, include_deleted):
-        qs = self.related_commits.select_related('commit__author',
-                                                 'commit__committer',
-                                                 'commit__repository__owner'
-                                ).order_by('commit__authored_at', 'commit__committed_at')
+    def all_commits(self, include_deleted, sort=True):
+        qs = self.related_commits.select_related(
+            'commit__author', 'commit__committer', 'commit__repository__owner'
+        )
+
+        if sort:
+            qs = qs.order_by(
+               'commit__authored_at', 'commit__committed_at'
+            )
+
         if not include_deleted:
             qs = qs.filter(deleted=False)
 
@@ -559,12 +580,46 @@ class _Issue(Hashable, FrontEditable):
     @property
     def all_entry_points(self):
         if not hasattr(self, '_all_entry_points'):
-            self._all_entry_points = list(self.pr_comments_entry_points
-                                .annotate(nb_comments=models.Count('comments'))
-                                .filter(nb_comments__gt=0)
-                                .select_related('user', 'repository__owner')
-                                .prefetch_related('comments__user'))
+            self._all_entry_points = list(
+                self.pr_comments_entry_points.annotate(
+                    nb_comments=models.Count('comments')
+                ).filter(
+                    nb_comments__gt=0
+                ).select_related(
+                    'user', 'repository__owner'
+                ).prefetch_related(
+                    'comments__user'
+                )
+            )
         return self._all_entry_points
+
+    @property
+    def all_commit_entry_points(self):
+        if not hasattr(self, '_all_commit_entry_points'):
+
+            commits = self.all_commits(True, False)  # only args for cache_method
+            commits_by_pk = {commit.pk: commit for commit in commits}
+
+            self._all_commit_entry_points = list(
+                core_models.CommitCommentEntryPoint.objects.filter(
+                    commit__id__in=commits_by_pk.keys()
+                ).annotate(
+                    nb_comments=models.Count('comments')
+                ).filter(
+                    nb_comments__gt=0
+                ).select_related(
+                    'user', 'repository__owner',
+                ).prefetch_related(
+                    'comments__user'
+                )
+            )
+
+            # cache commit for each entry point, using the ones got from
+            # `all_commits`, that include the `relation_deleted` attribute
+            for entry_point in self._all_commit_entry_points:
+                entry_point._commit_cache = commits_by_pk[entry_point.commit_id]
+
+        return self._all_commit_entry_points
 
     def get_activity(self):
         """
@@ -628,6 +683,12 @@ class _Issue(Hashable, FrontEditable):
             entry_point.last_created = list(entry_point.comments.all())[-1].created_at
         return sorted(self.all_entry_points, key=attrgetter('last_created'))
 
+    def get_sorted_entry_points_including_commits(self):
+        for entry_points in [self.all_entry_points, self.all_commit_entry_points]:
+            for entry_point in entry_points:
+                entry_point.last_created = list(entry_point.comments.all())[-1].created_at
+        return sorted(self.all_entry_points + self.all_commit_entry_points, key=attrgetter('last_created'))
+
     def get_commits_per_day(self, include_deleted=False):
         if not self.is_pull_request:
             return []
@@ -654,20 +715,16 @@ class _Issue(Hashable, FrontEditable):
         return html_content(self)
 
     @cached_property
-    def _comments_count_by_path(self):
+    def comments_count_by_path(self):
         return Counter(
-            self.pr_comments.select_related('entry_point')
-                            .values_list('entry_point__path', flat=True)
+            self.pr_comments.filter(
+                entry_point__position__isnull=False
+            ).select_related(
+                'entry_point'
+            ).values_list(
+                'entry_point__path', flat=True
+            )
         )
-
-    @cached_property
-    def files_with_comments_count(self):
-        counts = self._comments_count_by_path
-        files = []
-        for file in self.files.all():
-            file.nb_comments = counts.get(file.path, 0)
-            files.append(file)
-        return files
 
     def publish_notifications(self):
         for notification in self.github_notifications.select_related('user').all():
@@ -829,7 +886,7 @@ class GroupedCommits(GroupedItems):
             }
 
 
-class _Commit(models.Model):
+class _Commit(WithFiles, models.Model):
     class Meta:
         abstract = True
 
@@ -847,32 +904,36 @@ class _Commit(models.Model):
     @property
     def all_entry_points(self):
         if not hasattr(self, '_all_entry_points'):
-            self._all_entry_points = list(self.commit_comments_entry_points
-                                .annotate(nb_comments=models.Count('comments'))  # cannot exclude wating_deleted for now
-                                .filter(nb_comments__gt=0)
-                                .select_related('user', 'repository__owner')
-                                .prefetch_related('comments__user'))
+            self._all_entry_points = list(
+                self.commit_comments_entry_points.annotate(
+                    nb_comments=models.Count('comments')  # cannot exclude waiting_deleted for now
+                ).filter(
+                    nb_comments__gt=0
+                ).select_related(
+                    'user', 'repository__owner'
+                ).prefetch_related(
+                    'comments__user'
+                )
+            )
         return self._all_entry_points
 
     @cached_property
-    def _comments_count_by_path(self):
+    def comments_count_by_path(self):
         return Counter(
-            self.commit_comments.select_related('entry_point')
-                                .values_list('entry_point__path', flat=True)
+            self.commit_comments.filter(
+                models.Q(entry_point__position__isnull=False)
+                |
+                models.Q(entry_point__path__isnull=True)
+            ).select_related(
+                'entry_point'
+            ).values_list(
+                'entry_point__path', flat=True
+            )
         )
 
     @cached_property
-    def files_with_comments_count(self):
-        counts = self._comments_count_by_path
-        files = []
-        for file in self.files.all():
-            file.nb_comments = counts.get(file.path, 0)
-            files.append(file)
-        return files
-
-    @cached_property
     def count_global_comments(self):
-        return self._comments_count_by_path.get(None, 0)
+        return self.comments_count_by_path.get(None, 0)
 
     @cached_property
     def real_author_name(self):

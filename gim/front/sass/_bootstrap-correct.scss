@@ -81,6 +81,11 @@ $arrows: top, right, left, bottom;
     }
 }
 
+// include borders in modal width
+.modal {
+    @include box-sizing(border-box);
+}
+
 // augment modal max height
 .modal-body {
     max-height: 500px;
@@ -88,7 +93,7 @@ $arrows: top, right, left, bottom;
 
 // full-screen mode for modals
 .modal.full-screen {
-    width: 90% !important;
+    width: $modal-width !important;
     height: 90% !important;
     left: 5% !important;
     margin: 0 !important;

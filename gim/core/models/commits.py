@@ -152,6 +152,9 @@ class Commit(WithRepositoryMixin, GithubObject):
             from gim.core.models import Mention
             Mention.objects.set_for_commit(self)
 
+        for entry_point in self.commit_comments_entry_points.filter(diff_hunk__isnull=True):
+            entry_point.update_diff_hunk()
+
     def delete(self, using=None):
         from gim.core.models import Mention
         Mention.objects.set_for_commit(self, forced_users=[])
@@ -344,6 +347,7 @@ class Commit(WithRepositoryMixin, GithubObject):
     @property
     def last_status_constant(self):
         return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.last_status).constant
+
 
 class IssueCommits(models.Model):
     """

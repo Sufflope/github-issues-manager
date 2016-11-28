@@ -1,13 +1,13 @@
 @import "ceaser-easing";
 @import "bootstrap/variables";
 @import "compass/css3/box-sizing";
-@import "bootstrap-correct";
 @import "gim_variables";
+@import "bootstrap-correct";
 @import "widgets/avatar";
 @import "widgets/markdown";
 @import "widgets/repos_switcher";
-@import "widgets/diff";
 @import "core-admin-widgets";
+@import "widgets/diff";
 
 del {
     text-decoration: line-through;
