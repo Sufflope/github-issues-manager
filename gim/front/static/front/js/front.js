@@ -2899,6 +2899,10 @@ $().ready(function() {
             $tab_pane.find('.code-files-list-container').waypoint('unsticky');
         }), // unset_tab_files_waypoints
 
+        unset_tab_review_waypoints: (function IssueDetail__unset_tab_review_waypoints ($tab_pane) {
+            $tab_pane.find('.review-header').waypoint('unsticky');
+        }), // unset_tab_review_waypoints
+
         reload_waypoints: (function IssueDetail__reload_waypoints($node) {
             IssueDetail.unset_tabs_waypoints($node);
             IssueDetail.set_tabs_waypoints($node);
@@ -2910,6 +2914,7 @@ $().ready(function() {
             var $review_tab_pane = $($node.find('.pr-review-tab:not(.template) a').attr('href'));
             if ($review_tab_pane.length && $review_tab_pane.data('review-loaded')) {
                 IssueDetail.unset_tab_review_waypoints($review_tab_pane);
+                IssueDetail.set_tab_review_waypoints($review_tab_pane);
             }
         }), // IssueDetail__reload_waypoints
 
@@ -3193,7 +3198,7 @@ $().ready(function() {
         }), // scroll_in_files_list
 
         highlight_on_scroll: (function IssueDetail__highlight_on_scroll($target, delay) {
-            if (typeof delay == 'undefined') { delay = 700; }
+            if (typeof delay == 'undefined') { delay = 1500; }
             $target.addClass('scroll-highlight');
             setTimeout(function() { $target.removeClass('scroll-highlight'); }, delay);
         }), // highlight_on_scroll
@@ -3343,7 +3348,7 @@ $().ready(function() {
             var $files_list_container = $tab_pane.find('.code-files-list-container'),
                 $files_list = $tab_pane.find('.code-files-list'),
                 comments = IssueDetail.visible_files_comments($tab_pane),
-                current, comment, $comment, $file_node, file_pos, index;
+                current, comment, $comment, $file_node, file_pos, index, $hunk_node;
             if (!comments.length) { return; }
 
             current = $files_list_container.data('active-comment');
@@ -3384,6 +3389,12 @@ $().ready(function() {
             $file_node = $comment.closest('.code-file');
             $files_list_container.data('active-comment', comment);
             IssueDetail.set_active_file($tab_pane, $file_node.data('pos'), false);
+
+            // open collapsed hunk and file
+            $file_node.children('.box-content').addClass('in');
+            $hunk_node = $comment.closest('.diff-hunk-content');
+            $hunk_node.addClass('in');
+
             IssueDetail.scroll_in_files_list($node, $tab_pane, $comment, -50);  // -20=margin, -30 = 2 previous diff lines
             $comment.focus();
             $tab_pane.find('.go-to-previous-file-comment').parent().toggleClass('disabled', index < 1);
@@ -3472,6 +3483,156 @@ $().ready(function() {
 
             IssueDetail.highlight_on_scroll($target);
         }), // scroll_in_review
+
+        toggle_locally_reviewed_file: (function IssueDetail__toggle_locally_reviewed_file ($file_node, reviewed, toggle_hunks) {
+            var $button = $file_node.find('.box-toolbar .locally-reviewed').first(),
+                $icon = $button.find('.fa'),
+                $content = $file_node.children('.box-content'),
+                pos = $file_node.data('pos'),
+                $files_list = $file_node.closest('.tab-pane').find('.code-files-list'),
+                $file_title, $check_in_list, $hunk_headers, i, $hunk_header;
+
+            $button.toggleClass('is-reviewed', reviewed)
+                   .toggleClass('is-not-reviewed', !reviewed);
+
+            $icon.toggleClass('fa-check-square-o', reviewed)
+                 .toggleClass('fa-square-o', !reviewed);
+
+            $content.toggleClass('is-reviewed', reviewed);
+            if (reviewed) {
+                $content.collapse('hide')
+            } else {
+                if ($content.data('collapse')) {
+                    $content.collapse('show');
+                } else {
+                    $content.addClass('in');
+                }
+            }
+
+            if ($files_list.length) {
+                $file_title = $files_list.find('tr:nth-child('+ pos +') td:nth-child(2) a');
+                $check_in_list = $file_title.find('.fa-check');
+                if ($file_title.length) {
+                    if (reviewed) {
+                        if (!$check_in_list.length) {
+                            $file_title.append('<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>');
+                        }
+                    } else {
+                        $check_in_list.remove();
+                    }
+                }
+            }
+
+            if (toggle_hunks) {
+                $hunk_headers = $file_node.find('.diff-hunk-header');
+                for (i = 0; i < $hunk_headers                                                                                                                .length; i++) {
+                    $hunk_header = $($hunk_headers[i]);
+                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $hunk_header.find('.locally-reviewed'), $hunk_header.data('hunk-sha'), reviewed);
+                }
+            }
+
+        }), // toggle_locally_reviewed_file
+
+        on_toggle_locally_reviewed_file_click: (function IssueDetail__on_toggle_locally_reviewed_file_click () {
+            var $button = $(this),
+                $file_node = $button.closest('.code-file'),
+                was_reviewed = $button.hasClass('is-reviewed'),
+                url = $button.data('url').replace('%s', was_reviewed ? 'unset' : 'set');
+
+            IssueDetail.toggle_locally_reviewed_file($file_node, !was_reviewed);
+            $.post(url,  {csrfmiddlewaretoken: $body.data('csrf')})
+                .done(function(data) {
+                    IssueDetail.toggle_locally_reviewed_file($file_node, data.reviewed, true);
+                })
+                .fail(function() {
+                    IssueDetail.toggle_locally_reviewed_file($file_node, was_reviewed);
+                });
+
+            return false;
+        }), // on_toggle_locally_reviewed_file_click
+
+        toggle_locally_reviewed_hunk: (function IssueDetail__toggle_locally_reviewed_hunk ($file_node, $button, hunk_sha, reviewed) {
+            var $icon = $button.find('.fa'),
+                $content = $button.closest('.diff-hunk-header').next();
+
+            $button.toggleClass('is-reviewed', reviewed)
+                   .toggleClass('is-not-reviewed', !reviewed);
+
+            $icon.toggleClass('fa-check-square-o', reviewed)
+                 .toggleClass('fa-square-o', !reviewed);
+
+            $content.toggleClass('is-reviewed', reviewed);
+            if (reviewed) {
+                $content.collapse('hide')
+            } else {
+                if ($content.data('collapse')) {
+                    $content.collapse('show');
+                } else {
+                    $content.addClass('in');
+                }
+            }
+
+        }), // toggle_locally_reviewed_hunk
+
+        on_toggle_locally_reviewed_hunk_click: (function IssueDetail__on_toggle_locally_reviewed_hunk_click () {
+            var $button = $(this),
+                $file_node = $button.closest('.code-file'),
+                hunk_sha = $button.closest('.diff-hunk-header').data('hunk-sha'),
+                was_reviewed = $button.hasClass('is-reviewed'),
+                url = $button.data('url').replace('%s', was_reviewed ? 'unset' : 'set');
+
+            IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, !was_reviewed);
+            $.post(url,  {csrfmiddlewaretoken: $body.data('csrf')})
+                .done(function(data) {
+                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, data.reviewed);
+                    IssueDetail.toggle_locally_reviewed_file($file_node, data.file_reviewed);
+                })
+                .fail(function() {
+                    IssueDetail.toggle_locally_reviewed_hunk($file_node, $button, hunk_sha, was_reviewed);
+                });
+
+            return false;
+
+        }), // on_toggle_locally_reviewed_hunk_click
+
+        visible_files: (function IssueDetail__visible_files($tab_pane) {
+            var $links = $tab_pane.find('.code-files-list tr:not(.hidden):not([data-pos=999999]) a'),
+                i, $reviewed_button, files = [];
+
+            if ($links.length) {
+                for (i = 0; i < $links.length; i++) {
+                    files.push($($($links[i]).attr('href')));
+                }
+            }
+
+            return files;
+        }),
+
+        set_or_unset_all_visible_reviewed_status: (function IssueDetail__set_or_unset_all_visible_reviewed_status (trigger, mark_reviewed) {
+            var $files = IssueDetail.visible_files($(trigger).closest('.tab-pane')),
+                i, $reviewed_button, is_reviewed;
+
+            if ($files.length) {
+                mark_reviewed = !!mark_reviewed;
+                for (i = 0; i < $files.length; i++) {
+                    $reviewed_button = $files[i].children('.box-header').find('.locally-reviewed');
+                    is_reviewed = !!$reviewed_button.hasClass('is-reviewed');
+                    if (mark_reviewed != is_reviewed) {
+                        IssueDetail.on_toggle_locally_reviewed_file_click.bind($reviewed_button[0])();
+                    }
+                }
+            }
+
+            return false;
+        }), // set_or_unset_all_visible_reviewed_status
+
+        mark_all_visible_as_reviewed: (function IssueDetail__mark_all_visible_as_reviewed() {
+            return IssueDetail.set_or_unset_all_visible_reviewed_status(this, true);
+        }), // mark_all_visible_as_reviewed
+
+        mark_all_visible_as_not_reviewed: (function IssueDetail__mark_all_visible_as_not_reviewed() {
+            return IssueDetail.set_or_unset_all_visible_reviewed_status(this, false);
+        }), // mark_all_visible_as_not_reviewed
 
         before_load_tab: (function IssueDetail__before_load_tab (ev) {
             if (!ev.relatedTarget) { return; }
@@ -3822,7 +3983,7 @@ $().ready(function() {
                 number = issue_ident.number.toString();
             if (number.indexOf('pk-') == -1) {
                 $.ajax({
-                    url: '/' + issue_ident.repository + '/issues/ask-fetch/' + number + '/',
+                    url: '/' + issue_ident.repository + '/issues/' + number + '/ask-fetch/',
                     type: 'POST',
                     headers: {
                         'X-CSRFToken': $body.data('csrf')
@@ -3832,26 +3993,72 @@ $().ready(function() {
             return false;
         }), // force_refresh
 
-        on_link_to_diff_comment: (function IssueDetail__on_link_to_diff_comment () {
-            var $link = $(this),
-                url = $link.closest('.issue-comment').data('url'),
-                $node = $link.closest('.issue-container');
-            $node.one('loaded.tab.issue-files', function() {
-                var $tab_pane = $node.find('.tab-pane.active'),
-                    $comment_node = $node.find('.issue-files .issue-comment[data-url="' + url + '"]');
-                if ($comment_node.length) {
+        go_to_diff_comment: (function IssueDetail__go_to_diff_comment ($issue_node, tab_name, comment_url, not_found_message) {
+            var $tab_pane = $issue_node.find('.tab-pane.' + tab_name),
+                $comment_node = $tab_pane.find('.issue-comment[data-url="' + comment_url + '"]'),
+                $hunk_node, $file_node;
+            if ($comment_node.length) {
+                IssueDetail.select_tab(PanelsSwapper.get_panel_for_node($issue_node), tab_name);
+                // open collapsed hunk and file
+                $hunk_node = $comment_node.closest('.diff-hunk-content');
+                $file_node = $hunk_node.closest('.code-diff').parent();
+                $hunk_node.addClass('in');
+                $file_node.addClass('in');
+                // wait for tab to be shown
+                setTimeout(function() {
+                    // compute positioning
                     var relative_position = -20;  // some margin
-                    if (IssueDetail.is_modal($node)) {
+                    if (IssueDetail.is_modal($issue_node)) {
                         var $container = $comment_node.closest('.code-comments');
                         relative_position += $container.position().top;
                     }
-                    IssueDetail.scroll_in_files_list($node, $tab_pane, $comment_node, relative_position);
-                } else {
-                    alert('This comment is not linked to active code anymore');
-                }
+                    // and go!
+                    IssueDetail.scroll_in_files_list($issue_node, $tab_pane, $comment_node, relative_position);
+                }, 100);
+            } else {
+                alert(not_found_message);
+            }
+        }), // go_to_diff_comment
+
+        on_link_to_diff_comment: (function IssueDetail__on_link_to_diff_comment () {
+            var $link = $(this),
+                comment_url = $link.attr('href'),
+                $issue_node = $link.closest('.issue-container');
+
+            if (!comment_url || comment_url == '#') {
+                comment_url = $link.closest('.issue-comment').data('url')
+            }
+
+            $issue_node.one('loaded.tab.issue-files', function() {
+                IssueDetail.go_to_diff_comment($issue_node, 'issue-files', comment_url, 'This comment is not linked to active code anymore');
             });
+
             IssueDetail.select_files_tab(PanelsSwapper.current_panel);
+            return false;
         }), // on_link_to_diff_comment
+
+        on_link_to_commit_diff_comment: (function IssueDetail__on_link_to_commit_diff_comment () {
+            var $link = $(this),
+                $entry_point = $link.closest('.pr-entry-point'),
+                comment_url = $link.attr('href'),
+                tab_name = 'commit-' + $entry_point.data('sha'),
+                $issue_node = $link.closest('.issue-container');
+
+            if (!comment_url || comment_url == '#') {
+                comment_url = $link.closest('.issue-comment').data('url')
+            }
+
+            if (!$entry_point.length || !comment_url) {
+                alert('There is a problem trying to open this commit');
+            }
+
+            $issue_node.one('loaded.tab.' + tab_name, function() {
+                IssueDetail.go_to_diff_comment($issue_node, tab_name, comment_url, 'This comment could not be found');
+            });
+
+            IssueDetail.on_commit_click({target: this});
+            return false
+        }), // on_link_to_commit_diff_comment
 
         on_link_to_review_comment: (function IssueDetail__on_link_to_review_comment () {
             var $button = $(this),
@@ -3861,7 +4068,7 @@ $().ready(function() {
                 var $comment_node = $node.find(css_filter).first();
                 if (!$comment_node.length) {
                     alert('This comment was not found, maybe a bug ;)');
-                    return;
+                    return false;
                 }
                 var do_scroll = function() {
                     var $tab_pane = $node.find('.tab-pane.active'),
@@ -3883,6 +4090,7 @@ $().ready(function() {
                 }
             });
             IssueDetail.select_review_tab(PanelsSwapper.current_panel);
+            return false;
         }), // on_link_to_review_comment
 
         on_deleted_commits_toggle_change: (function IssueDetail__on_deleted_commits_toggle_change () {
@@ -3913,8 +4121,10 @@ $().ready(function() {
             sha = $holder.data('sha');
             tab_name = 'commit-' + sha;
 
+
             // if the tab does not exists, create it
             if (!$node.find('.' + tab_name + '-tab').length) {
+
                 var $tab_template = $node.find('.commit-tab.template'),
                     $tab = $tab_template.clone(),
                     $tab_pane_template = $node.find('.commit-files.template'),
@@ -3951,7 +4161,8 @@ $().ready(function() {
                         .attr('id', tab_name + '-files')
                         .attr('style', null)
                         .data('url', $holder.data('url'))
-                        .data('comment-url', $holder.data('comment-url'));
+                        .data('comment-url', $holder.data('comment-url'))
+                        .data('tab', tab_name);
 
                 // add the content
                 $tab_pane.insertBefore($tab_pane_template);
@@ -4055,6 +4266,7 @@ $().ready(function() {
 
             // link from PR comment in "review" tab to same entry in "files changed" tab
             $document.on('click', '.go-to-diff-link', Ev.stop_event_decorate(IssueDetail.on_link_to_diff_comment));
+            $document.on('click', '.go-to-commit-diff-link', Ev.stop_event_decorate(IssueDetail.on_link_to_commit_diff_comment));
 
             // link from PR comment group in "discussion" tab to first entry "files changed" tab
             $document.on('click', '.go-to-review-link', Ev.stop_event_decorate(IssueDetail.on_link_to_review_comment));
@@ -4087,6 +4299,8 @@ $().ready(function() {
             $document.on('click', 'li:not(.disabled) a.go-to-previous-file-comment', Ev.stop_event_decorate(IssueDetail.go_to_previous_file_comment));
             $document.on('click', 'li:not(.disabled) a.go-to-next-file-comment', Ev.stop_event_decorate(IssueDetail.go_to_next_file_comment));
             $document.on('click', '.go-to-global-comments', Ev.stop_event_decorate_dropdown(IssueDetail.go_to_global_comments, '.btn-group'));
+            $document.on('click', '.mark-visible-as-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_reviewed, '.btn-group'));
+            $document.on('click', '.mark-visible-as-not-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_not_reviewed, '.btn-group'));
             jwerty.key('p/k', IssueDetail.on_files_list_key_event('go_to_previous_file'));
             jwerty.key('n/j', IssueDetail.on_files_list_key_event('go_to_next_file'));
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));
@@ -4102,6 +4316,9 @@ $().ready(function() {
             $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-commit-statuses .box-content', IssueDetail.on_statuses_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
+            $document.on('click', '.code-file > .box-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
+            $document.on('click', '.code-diff .diff-hunk-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_hunk_click));
 
         }) // init
     }; // IssueDetail
@@ -4130,12 +4347,17 @@ $().ready(function() {
         panel_activable: (function PanelsSwapper__panel_activable (panel) {
             return (panel && (!panel.obj.panel_activable || panel.obj.panel_activable(panel)));
         }), // panel_activable
-        select_panel_from_node: (function PanelsSwapper__select_panel_from_node ($node) {
+        get_panel_for_node: (function PanelsSwapper__get_panel_for_node($node) {
             for (var i = 0; i < PanelsSwapper.panels.length; i++) {
                 if (PanelsSwapper.panels[i].$node[0] == $node[0]) {
-                    PanelsSwapper.select_panel(PanelsSwapper.panels[i]);
-                    return;
+                    return PanelsSwapper.panels[i];
                 }
+            }
+        }), // get_panel_for_node
+        select_panel_from_node: (function PanelsSwapper__select_panel_from_node ($node) {
+            var panel = PanelsSwapper.get_panel_for_node($node);
+            if (panel) {
+                PanelsSwapper.select_panel(panel);
             }
         }), // select_panel_from_node
         select_panel: (function PanelsSwapper__select_panel (panel) {
@@ -4839,46 +5061,37 @@ $().ready(function() {
         // CREATE A NEW ENTRY POINT
         on_new_entry_point_click: (function IssueEditor__on_new_entry_point_click () {
             var $tr = $(this).closest('tr'),
-                $table = $tr.closest('table'),
-                is_last_line = $tr.is(':last-of-type'),
-                $entry_point, $textarea, $new_table, path, sha, position, $issue, $box, $new_table_box;
+                $tr_comments = $tr.next('.diff-comments'),
+                $textarea, $table, $issue, $comment_box;
+
             // check if already an entry-point
-            if (is_last_line) {
-                $entry_point = $tr.closest('.code-diff').next('.code-comments');
-                if ($entry_point.length) {
-                    // check if we already have a textarea
-                    $textarea = $entry_point.find('textarea');
-                    if ($textarea.length) {
-                        $textarea.focus();
-                    } else {
-                        // no textarea, click on the button to create one
-                        $entry_point.find('.comment-create-placeholder button').click();
-                    }
-                    return false;
+            if ($tr_comments.length) {
+                // check if we already have a textarea
+                $textarea = $tr_comments.find('textarea');
+                if ($textarea.length) {
+                    $textarea.focus();
+                } else {
+                    // no textarea, click on the button to create one
+                    $tr_comments.find('.comment-create-placeholder button').click();
                 }
+                return false;
             }
-            $issue = $table.closest('.issue-container');
+
             // we need to create an entry point
+            $table = $tr.closest('table');
+            $issue = $table.closest('.issue-container');
             path = $table.data('path');
             sha = $table.data('sha');
             position = $tr.data('position');
-            if (!is_last_line) {
-                // start by making room, by moving all next lines in a new table
-                $new_table = $('<table><tbody/></table>').addClass($table[0].className);
-                $new_table.data({path: path, sha: sha});
-                $new_table.children('tbody').append($tr.nextAll('tr'));
-                $new_table_box = $issue.find('.code-diff.template').clone().removeClass('template').removeAttr('style');
-                $new_table_box.append($new_table);
-                $table.parent().after($new_table_box);
-            }
-            // create a box for the entry-point
-            $box = $issue.find('.code-comments.template').clone().removeClass('template').removeAttr('style');
-            var $comment_box = IssueEditor.create_comment_form_from_template($table, $issue);
+
+            // create a tr for the entry-point
+            $tr_comments = $issue.find('.code-comments-template tr.diff-comments').clone();
+            $comment_box = IssueEditor.create_comment_form_from_template($table, $issue);
             $comment_box.$form.prepend('<input type="hidden" name="path" value="' + path + '"/>' +
                                        '<input type="hidden" name="sha" value="' + sha + '"/>' +
                                        '<input type="hidden" name="position" value="' + position + '"/>');
-            $box.find('ul').append($comment_box.$node);
-            $table.parent().after($box);
+            $tr_comments.find('ul').append($comment_box.$node);
+            $tr.after($tr_comments);
             $comment_box.$textarea.focus();
 
         }), // on_new_entry_point_click
@@ -4886,6 +5099,7 @@ $().ready(function() {
         // CANCEL/DELETE COMMENTS
         remove_comment: (function IssueEditor__remove_comment ($li) {
 
+            // if many ones
             if ($li.length > 1) {
                 $li.each(function() {
                     IssueEditor.remove_comment($(this));
@@ -4896,33 +5110,26 @@ $().ready(function() {
             var $form = $li.find('form'),
                 removed = false,
                 $placeholder = $li.prev('.comment-create-placeholder'),
-                $pr_parent = $li.parents('.code-comments');
+                $tr_comments = $li.closest('tr.diff-comments');
 
             FormTools.disable_form($form);
 
-            // it's an answer to a previous PR comment
+            // it's a non submitted answer to a previous PR comment
             if ($placeholder.length) {
                 $li.remove();
-                removed = true
+                removed = true;
             }
 
             // it's in a pr entry point
-            if ($pr_parent.length) {
+            if ($tr_comments.length) {
                 if (!removed) {
                     $li.remove();
                     removed = true;
                 }
                 // Do we have other comments
-                if (!$pr_parent.find('.issue-comment').length) {
+                if (!$tr_comments.find('.issue-comment').length) {
                     // If no we can remove the entry point
-                    var $prev = $pr_parent.prev();
-                    var $next = $pr_parent.next();
-                    $pr_parent.remove();
-                    if ($next.length) {
-                        // combine the two block
-                        $prev.find('> table > tbody').append($next.find('> table > tbody > tr'));
-                        $next.remove();
-                    }
+                    $tr_comments.remove();
                     return false;
                 }
             }
@@ -6481,6 +6688,11 @@ $().ready(function() {
     HistoryManager.init();
     window.HistoryManager = HistoryManager;
 
+    // disable clicking on disabled item
+    $document.on('click', '.disabled, [disabled], .disabled > *, [disabled] > *', function(e) {
+        Ev.cancel(e);
+    });
+
     // if there is a collapse inside another, we don't want fixed heights, so always remove them
     $document.on('shown.collapse', '.collapse', function() {
         $(this).css('height', 'auto');
@@ -6489,6 +6701,14 @@ $().ready(function() {
     // if a link is on a collapse header, deactivate the collapse on click
     $document.on('click', '[data-toggle=collapse] a:not([href=#])', function(ev) {
         ev.stopPropagation();
+    });
+    // if a link is a collapse header, deactivate the real click
+    $document.on('click', 'a[data-toggle=collapse]', function(ev) {
+        ev.preventDefault();
+    });
+    // if a link is "fake" and in a collapse header, deactivate the real click
+    $document.on('click', '[data-toggle=collapse] a[href=#]', function(ev) {
+        ev.preventDefault();
     });
 
 });

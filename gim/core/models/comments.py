@@ -8,6 +8,7 @@ __all__ = [
 
 import re
 
+from django.conf import settings
 from django.db import models
 
 from ..managers import (
@@ -225,6 +226,34 @@ class CommentEntryPointMixin(GithubObject):
             self.update_starting_point(save=False)
         super(CommentEntryPointMixin, self).save(*args, **kwargs)
 
+    @property
+    def github_file_url(self):
+        if not self.commit_sha:
+            return None
+        if not self.path:
+            return None
+        url = self.repository.github_url + '/blob/%s/%s' % (self.commit_sha, self.path)
+        if self.position:
+            url += '#L%s' % self.position
+        return url
+
+    @property
+    def github_url(self):
+        first_comment = self.comments.all().first()
+        if first_comment and first_comment.github_status not in first_comment.GITHUB_STATUS_CHOICES.ALL_WAITING:
+            return first_comment.github_url
+
+        return None
+
+    def get_diff_hunk(self):
+        if self.diff_hunk:
+            return self.diff_hunk
+        return u'@@ -1,0 +1,0 @@ EMPTY DIFF\n- %s was not able to retrieve this diff :(' % settings.BRAND_SHORT_NAME
+
+    @property
+    def is_outdated(self):
+        return self.position is None
+
 
 class PullRequestCommentEntryPoint(CommentEntryPointMixin):
     repository = models.ForeignKey('Repository', related_name='pr_comments_entry_points')
@@ -261,15 +290,6 @@ class PullRequestCommentEntryPoint(CommentEntryPointMixin):
 
     def __unicode__(self):
         return u'Entry point on PR #%d' % self.issue.number
-
-    @property
-    def github_url(self):
-        if not self.commit_sha:
-            return None
-        url = self.repository.github_url + '/blob/%s/%s' % (self.commit_sha, self.path)
-        if self.position:
-            url += '#L%s' % self.position
-        return url
 
 
 class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
@@ -374,13 +394,65 @@ class CommitCommentEntryPoint(CommentEntryPointMixin):
         return u'Entry point on commit #%s' % self.commit_sha
 
     @property
-    def github_url(self):
-        if not self.commit_sha:
+    def github_file_url(self):
+        if not self.commit_sha and self.commit_id:
+            self.commit_sha = self.commit.sha
+        return super(CommitCommentEntryPoint, self).github_file_url
+
+    def get_diff_hunk(self):
+        if not self.path:
+            count_comments = len(self.comments.all())
+            return u'@@ -1,0 +1,0 @@ WHOLE COMMIT COMMENT%s\n- %s related to the whole commit' % (
+                'S' if count_comments > 1 else '',
+                'These comments are' if count_comments > 1 else 'This comment is'
+            )
+        return super(CommitCommentEntryPoint, self).get_diff_hunk()
+
+    def compose_diff_hunk(self):
+        if not self.position:
             return None
-        if self.path:
-            return self.comments.github_url
-        else:
-            return self.repository.github_url + '/commit/%s#all_commit_comments' % self.commit_sha
+
+        from .files import CommitFile
+
+        try:
+            commit_file = self.commit.files.get(path=self.path)
+        except CommitFile.MultipleObjectsReturned:
+            # if many entries (it can happen, yes) sort by status to have "added" before "removed"
+            # example: https://github.com/jekyll/jekyll/commit/6940a0e11a7f73ef41276e2aafdf0b5934cd0785
+            commit_file = self.commit.files.order_by('status').filter(path=self.path).first()
+        except CommitFile.DoesNotExist:
+            return None
+
+        lines = commit_file.patch.split('\n')
+
+        position = self.position
+        hunk_lines = []
+
+        while position >= 0:
+            try:
+                line = lines[position]
+            except IndexError:
+                return None
+
+            hunk_lines.append(line)
+
+            if line.startswith(u'@@'):
+                break
+
+            position -= 1
+
+        return u'\n'.join(reversed(hunk_lines))
+
+    def update_diff_hunk(self):
+        if not self.position:
+            return False
+
+        old_diff_hunk = self.diff_hunk
+        self.diff_hunk = self.compose_diff_hunk()
+        if self.diff_hunk == old_diff_hunk:
+            return False
+        self.save(update_fields=['diff_hunk'])
+        return True
 
     def save(self, *args, **kwargs):
         """
@@ -396,6 +468,12 @@ class CommitCommentEntryPoint(CommentEntryPointMixin):
                                      fetch_comments=1)
 
         super(CommitCommentEntryPoint, self).save(*args, **kwargs)
+
+    @property
+    def is_outdated(self):
+        if self.commit_id:
+            return getattr(self.commit, 'relation_deleted', False)
+        return super(CommitCommentEntryPoint, self).is_outdated
 
 
 class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):

@@ -7,12 +7,14 @@ from itertools import groupby, chain
 from datetime import datetime
 import time
 import re
+
 import whatthepatch
 
 from pytimeago.english import english as english_ago
 from pytimeago.english_short import english_short as english_short_ago
 
 from django import template
+from django.conf import settings
 from django.template import TemplateSyntaxError
 
 register = template.Library()
@@ -213,28 +215,32 @@ DIFF_LINE_TYPES = {
 }
 
 
-@register.filter
-def parse_diff(diff, reduce=False):
-    if not diff or not diff.startswith('@@'):
-        return []
+def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
 
-    # split hunks
-    parts = []
-    for l in diff.split('\n'):
-        if l.startswith('@@'):
-            parts.append([])
-        parts[-1].append(l)
+    if not diff or diff == 'u\n':
+        diff = u'@@ -1,0 +1,0 @@ EMPTY DIFF\n- %s was not able to retrieve this diff :(' % settings.BRAND_SHORT_NAME
+
+    if not diff.startswith(u'@@'):
+        diff = u'@@ -1,0 +1,0 @@\n' + diff
+
+    from gim.core.models import LocallyReviewedHunk
+    hunks = LocallyReviewedHunk.split_patch_into_hunks(diff, as_strings=False)
 
     results = []
     position = 0
 
     if reduce:
-        parts = parts[-1:]
+        hunks = hunks[-1:]
 
     # parse each hunk
-    for part in parts:
-        diff = whatthepatch.parse_patch(part).next()  # only one file = only one diff
-        result = [['comment', u'…', u'…', part[0], position]]
+    for hunk_index, hunk in enumerate(hunks):
+        hunk_sha = None
+        is_reviewed = None
+        if hunk_shas:
+            hunk_sha = hunk_shas[hunk_index]
+            is_reviewed = hunk_shas_reviewed and hunk_shas_reviewed.get(hunk_sha, False)
+        result = [['comment', u'…', u'…', hunk[0], position, hunk_sha, is_reviewed]]
+        diff = whatthepatch.parse_patch(hunk).next()  # only one file = only one diff
         for old, new, text in diff.changes:
             position += 1
             mode = ' ' if old and new else '-' if old else '+'
@@ -244,6 +250,8 @@ def parse_diff(diff, reduce=False):
                 new or '',
                 mode + text,
                 position,
+                hunk_sha,
+                is_reviewed,
             ])
         position += 1
         if reduce:
@@ -251,7 +259,59 @@ def parse_diff(diff, reduce=False):
 
         results.append(result)
 
-    return chain.from_iterable(results)
+    # as a list, not an iterable because the list is consumed twice!
+    return list(chain.from_iterable(results))
+
+
+@register.filter
+def parse_diff(diff, reduce=False):
+    return _parse_diff(diff, reduce)
+
+
+@register.filter
+def parse_diff_for_file(file, reduce=False):
+    return _parse_diff(file.patch, reduce, file.hunk_shas, file.reviewed_hunks_locally)
+
+
+@register.filter
+def count_comments_by_hunk_position(diff, entry_points_by_position):
+    if not entry_points_by_position:
+        return {}
+
+    hunks_by_position = {
+        line[4]: {
+            'count': 0,
+            'last_position': None
+        }
+        for line
+        in diff
+        if line[0] == 'comment' and line[4] != 'last-position'
+    }
+    if not hunks_by_position:
+        return {}
+
+    hunks_positions = sorted(hunks_by_position.keys())
+    for index, position in enumerate(hunks_positions):
+        try:
+            next_pos = hunks_positions[index + 1]
+        except IndexError:
+            hunks_by_position[position]['last_position'] = diff[-1][4]
+        else:
+            hunks_by_position[position]['last_position'] = next_pos - 1
+
+    all_hunks = list(hunks_by_position.items())
+
+    for entry_point_position, entry_point in entry_points_by_position.iteritems():
+        for hunk_position, hunk in all_hunks:
+            if hunk_position < entry_point_position <= hunk['last_position']:
+                hunk['count'] += len(entry_point.comments.all())  # .all is now cached for the use in the template
+                break
+
+    return {
+        position: hunk['count']
+        for position, hunk
+        in hunks_by_position.items()
+    }
 
 
 @register.filter
@@ -416,3 +476,31 @@ def format_int_or_float(value):
 @register.filter
 def filter_status_ready(queryset):
     return [obj for obj in queryset.all() if obj.status_ready]
+
+
+@register.filter
+def set_in_dict(value, key):
+    return {key: value}
+
+
+@register.filter(name='sum')
+def _sum(values):
+    return sum(values)
+
+
+@register.filter
+def values(dict_like):
+    # useful with counters because we cannot pass `()` and for the counter
+    # it's then an empty entries and return 0, instead of KeyError to let django
+    # try to call `values`
+    return dict_like.values()
+
+
+@register.filter(name='is')
+def _is(value, comparison):
+    return value is comparison
+
+
+@register.filter
+def get_absolute_url_for_issue(obj, issue):
+    return obj.get_absolute_url_for_issue(issue)

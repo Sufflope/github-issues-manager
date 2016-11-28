@@ -1,9 +1,11 @@
 <div class="content">
+    <span>
     <strong>{{ current_issue.nb_commits }} commit{{ current_issue.nb_commits|pluralize }}</strong>
     {% with nb_authors=current_issue.nb_authors %}
         from
         <strong>{{ nb_authors }} author{{ nb_authors|pluralize }}</strong>
     {% endwith %}
+    </span>
     {% if current_issue.nb_deleted_commits %}
         <label class='deleted-commits-toggler'>
             <input type='checkbox' />
