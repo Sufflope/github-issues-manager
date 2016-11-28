@@ -183,11 +183,6 @@ table.table-normal.diff {
                     border-bottom: solid 1px #CDCDCD;
                     padding: 15px;
                 }
-                &:last-child {
-                    td {
-                        border-bottom: none;
-                    }
-                }
                 .code-comments {
                     padding: 0;
                     margin: 0;
@@ -213,6 +208,17 @@ table.table-normal.diff {
                         @include calc(width, '100vw - #{$space-around-code-comments}');
                         #modal-issue-view & {
                             @include calc(width, '#{$modal-width / 1%}vw - #{$modal-borders-width} - #{$space-around-code-comments}');
+                        }
+                    }
+                }
+                &:last-child {
+                    td {
+                        border-bottom: none;
+                        .code-comments .comment-create-placeholder {
+                            margin-bottom: 50px;
+                            .pr-entry-point.outdated:not(.is-commit) & {
+                                margin-bottom: 30px;
+                            }
                         }
                     }
                 }

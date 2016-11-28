@@ -7,12 +7,14 @@ from itertools import groupby, chain
 from datetime import datetime
 import time
 import re
+
 import whatthepatch
 
 from pytimeago.english import english as english_ago
 from pytimeago.english_short import english_short as english_short_ago
 
 from django import template
+from django.conf import settings
 from django.template import TemplateSyntaxError
 
 register = template.Library()
@@ -214,8 +216,12 @@ DIFF_LINE_TYPES = {
 
 
 def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
-    if not diff or not diff.startswith('@@'):
-        return []
+
+    if not diff or diff == 'u\n':
+        diff = u'@@ -1,0 +1,0 @@ EMPTY DIFF\n- %s was not able to retrieve this diff :(' % settings.BRAND_SHORT_NAME
+
+    if not diff.startswith(u'@@'):
+        diff = u'@@ -1,0 +1,0 @@\n' + diff
 
     from gim.core.models import LocallyReviewedHunk
     hunks = LocallyReviewedHunk.split_patch_into_hunks(diff, as_strings=False)
@@ -488,3 +494,13 @@ def values(dict_like):
     # it's then an empty entries and return 0, instead of KeyError to let django
     # try to call `values`
     return dict_like.values()
+
+
+@register.filter(name='is')
+def _is(value, comparison):
+    return value is comparison
+
+
+@register.filter
+def get_absolute_url_for_issue(obj, issue):
+    return obj.get_absolute_url_for_issue(issue)

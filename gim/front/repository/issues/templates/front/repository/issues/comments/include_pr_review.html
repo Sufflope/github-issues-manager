@@ -1,5 +1,5 @@
 {% load spaceless_except_pre frontutils %}{% spaceless_except_pre %}
-{% with entry_points=current_issue.get_sorted_entry_points %}{% with id_prefix='issue-'|concat:current_issue.pk nb_entry_points=entry_points|length %}
+{% with entry_points=current_issue.get_sorted_entry_points_including_commits %}{% with id_prefix='issue-'|concat:current_issue.pk nb_entry_points=entry_points|length %}
     <div class="content review-header">
         <nav>
             {% if nb_entry_points > 1 %}
@@ -16,7 +16,9 @@
             {% endif %}
         </nav>
         <span>
-            <strong>{{ current_issue.pr_comments_count }} comment{{ current_issue.pr_comments_count|pluralize }}</strong>
+            {% with total_comments_count=current_issue.pr_comments_count|add:current_issue.commits_comments_count %}
+                <strong>{{ total_comments_count }} comment{{ total_comments_count|pluralize }}</strong>
+            {% endwith %}
             on
             <strong>{{ nb_entry_points }} part{{ nb_entry_points|pluralize }}</strong>
             being discussed

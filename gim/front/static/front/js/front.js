@@ -3198,7 +3198,7 @@ $().ready(function() {
         }), // scroll_in_files_list
 
         highlight_on_scroll: (function IssueDetail__highlight_on_scroll($target, delay) {
-            if (typeof delay == 'undefined') { delay = 700; }
+            if (typeof delay == 'undefined') { delay = 1500; }
             $target.addClass('scroll-highlight');
             setTimeout(function() { $target.removeClass('scroll-highlight'); }, delay);
         }), // highlight_on_scroll
@@ -3993,34 +3993,72 @@ $().ready(function() {
             return false;
         }), // force_refresh
 
-        on_link_to_diff_comment: (function IssueDetail__on_link_to_diff_comment () {
-            var $link = $(this),
-                url = $link.closest('.issue-comment').data('url'),
-                $node = $link.closest('.issue-container');
-            $node.one('loaded.tab.issue-files', function() {
-                var $tab_pane = $node.find('.tab-pane.active'),
-                    $comment_node = $node.find('.issue-files .issue-comment[data-url="' + url + '"]'),
-                    $hunk_node, $file_node;
-                if ($comment_node.length) {
-                    // open collapsed hunk and file
-                    $hunk_node = $comment_node.closest('.diff-hunk-content');
-                    $file_node = $hunk_node.closest('.code-diff').parent();
-                    $hunk_node.addClass('in');
-                    $file_node.addClass('in');
+        go_to_diff_comment: (function IssueDetail__go_to_diff_comment ($issue_node, tab_name, comment_url, not_found_message) {
+            var $tab_pane = $issue_node.find('.tab-pane.' + tab_name),
+                $comment_node = $tab_pane.find('.issue-comment[data-url="' + comment_url + '"]'),
+                $hunk_node, $file_node;
+            if ($comment_node.length) {
+                IssueDetail.select_tab(PanelsSwapper.get_panel_for_node($issue_node), tab_name);
+                // open collapsed hunk and file
+                $hunk_node = $comment_node.closest('.diff-hunk-content');
+                $file_node = $hunk_node.closest('.code-diff').parent();
+                $hunk_node.addClass('in');
+                $file_node.addClass('in');
+                // wait for tab to be shown
+                setTimeout(function() {
                     // compute positioning
                     var relative_position = -20;  // some margin
-                    if (IssueDetail.is_modal($node)) {
+                    if (IssueDetail.is_modal($issue_node)) {
                         var $container = $comment_node.closest('.code-comments');
                         relative_position += $container.position().top;
                     }
-                    IssueDetail.scroll_in_files_list($node, $tab_pane, $comment_node, relative_position);
-                } else {
-                    alert('This comment is not linked to active code anymore');
-                }
+                    // and go!
+                    IssueDetail.scroll_in_files_list($issue_node, $tab_pane, $comment_node, relative_position);
+                }, 100);
+            } else {
+                alert(not_found_message);
+            }
+        }), // go_to_diff_comment
+
+        on_link_to_diff_comment: (function IssueDetail__on_link_to_diff_comment () {
+            var $link = $(this),
+                comment_url = $link.attr('href'),
+                $issue_node = $link.closest('.issue-container');
+
+            if (!comment_url || comment_url == '#') {
+                comment_url = $link.closest('.issue-comment').data('url')
+            }
+
+            $issue_node.one('loaded.tab.issue-files', function() {
+                IssueDetail.go_to_diff_comment($issue_node, 'issue-files', comment_url, 'This comment is not linked to active code anymore');
             });
+
             IssueDetail.select_files_tab(PanelsSwapper.current_panel);
             return false;
         }), // on_link_to_diff_comment
+
+        on_link_to_commit_diff_comment: (function IssueDetail__on_link_to_commit_diff_comment () {
+            var $link = $(this),
+                $entry_point = $link.closest('.pr-entry-point'),
+                comment_url = $link.attr('href'),
+                tab_name = 'commit-' + $entry_point.data('sha'),
+                $issue_node = $link.closest('.issue-container');
+
+            if (!comment_url || comment_url == '#') {
+                comment_url = $link.closest('.issue-comment').data('url')
+            }
+
+            if (!$entry_point.length || !comment_url) {
+                alert('There is a problem trying to open this commit');
+            }
+
+            $issue_node.one('loaded.tab.' + tab_name, function() {
+                IssueDetail.go_to_diff_comment($issue_node, tab_name, comment_url, 'This comment could not be found');
+            });
+
+            IssueDetail.on_commit_click({target: this});
+            return false
+        }), // on_link_to_commit_diff_comment
 
         on_link_to_review_comment: (function IssueDetail__on_link_to_review_comment () {
             var $button = $(this),
@@ -4083,8 +4121,10 @@ $().ready(function() {
             sha = $holder.data('sha');
             tab_name = 'commit-' + sha;
 
+
             // if the tab does not exists, create it
             if (!$node.find('.' + tab_name + '-tab').length) {
+
                 var $tab_template = $node.find('.commit-tab.template'),
                     $tab = $tab_template.clone(),
                     $tab_pane_template = $node.find('.commit-files.template'),
@@ -4121,7 +4161,8 @@ $().ready(function() {
                         .attr('id', tab_name + '-files')
                         .attr('style', null)
                         .data('url', $holder.data('url'))
-                        .data('comment-url', $holder.data('comment-url'));
+                        .data('comment-url', $holder.data('comment-url'))
+                        .data('tab', tab_name);
 
                 // add the content
                 $tab_pane.insertBefore($tab_pane_template);
@@ -4225,6 +4266,7 @@ $().ready(function() {
 
             // link from PR comment in "review" tab to same entry in "files changed" tab
             $document.on('click', '.go-to-diff-link', Ev.stop_event_decorate(IssueDetail.on_link_to_diff_comment));
+            $document.on('click', '.go-to-commit-diff-link', Ev.stop_event_decorate(IssueDetail.on_link_to_commit_diff_comment));
 
             // link from PR comment group in "discussion" tab to first entry "files changed" tab
             $document.on('click', '.go-to-review-link', Ev.stop_event_decorate(IssueDetail.on_link_to_review_comment));
@@ -4305,12 +4347,17 @@ $().ready(function() {
         panel_activable: (function PanelsSwapper__panel_activable (panel) {
             return (panel && (!panel.obj.panel_activable || panel.obj.panel_activable(panel)));
         }), // panel_activable
-        select_panel_from_node: (function PanelsSwapper__select_panel_from_node ($node) {
+        get_panel_for_node: (function PanelsSwapper__get_panel_for_node($node) {
             for (var i = 0; i < PanelsSwapper.panels.length; i++) {
                 if (PanelsSwapper.panels[i].$node[0] == $node[0]) {
-                    PanelsSwapper.select_panel(PanelsSwapper.panels[i]);
-                    return;
+                    return PanelsSwapper.panels[i];
                 }
+            }
+        }), // get_panel_for_node
+        select_panel_from_node: (function PanelsSwapper__select_panel_from_node ($node) {
+            var panel = PanelsSwapper.get_panel_for_node($node);
+            if (panel) {
+                PanelsSwapper.select_panel(panel);
             }
         }), // select_panel_from_node
         select_panel: (function PanelsSwapper__select_panel (panel) {

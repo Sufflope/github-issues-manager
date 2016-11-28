@@ -1,11 +1,21 @@
 {% load frontutils %}
-<li>
-    <div class="box pr-entry-point{% if not entry_point.position %} outdated{% endif %}" tabindex="-1">
+{% with is_outdated=entry_point.is_outdated %}<li>
+    <div class="box pr-entry-point{% if entry_point.commit_id %} is-commit{% endif %}{% if is_outdated %} outdated{% endif %}{% if entry_point.commit_id %} commit-link-holder{% endif %}" tabindex="-1"{% if entry_point.commit_id %}{% with replace_sha='0000000000000000000000000000000000000000:'|concat:entry_point.commit.sha %}data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ entry_point.repository_id }}" data-sha="{{ entry_point.commit.sha }}" data-url="{{ current_issue.ajax_commit_base_url|replace:replace_sha }}" data-comment-url="{{ current_issue.commit_comment_create_url|replace:replace_sha }}" data-comments-count="{{ entry_point.commit.comments_count|default:0 }}" data-files-count="{{ entry_point.commit.nb_changed_files }}"{% endwith %}{% endif %}>
         <div class="box-header" data-toggle="collapse" data-target="#{{ id_prefix }}-{{ entry_point.id }}" title="Click to collapse/expand">
             <div class="title">
                 <span class="path">{{ entry_point.path }}</span>
                 <span class="subtitle">
-                    <strong>{{ entry_point.user.username }}</strong> started a discussion in a{% if not entry_point.position %}n <strong class="outdated">outdated</strong>{% endif %} diff
+                    <strong>{{ entry_point.user.username }}</strong>
+                    started a discussion in
+                    {% if is_outdated %}
+                        an <strong class="outdated">outdated</strong>
+                    {% else %}
+                        a
+                    {% endif %}
+                    diff
+                    {% if entry_point.commit_id %}
+                        (in commit <a href="{{ commit.github_url }}" target='_blank' title="View commit with comments" class="commit-link">{{ entry_point.commit.sha|short_sha }})</a>
+                    {% endif %}
                 </span>
             </div>
             <ul class="unstyled review-info">
@@ -31,38 +41,53 @@
                 </li>
             </ul>
             <ul class="box-toolbar">
+
                 {% with first_comment=entry_point.comments.all.first %}
-                    {% if first_comment and first_comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
-                        {% with github_url=first_comment.github_url %}
-                            <li class="toolbar-link">
-                                <a href="{{ github_url }}" target='_blank' title="View comment thread on Github">
-                                    <span><i class="fa fa-comments-o"> </i> View on <i class="fa fa-github"> </i></span>
-                                </a>
-                            </li>
-                        {% endwith %}
+                    {% if entry_point.commit_id %}
+                        <li class="toolbar-link">
+                            <a href="{{ first_comment|get_absolute_url_for_issue:current_issue }}" class="go-to-commit-diff-link" target='_blank' title="View in commit tab">
+                                <span>View <i class="fa fa-comments-o"> </i> on <i class="fa fa-file-o"> </i></span>
+                            </a>
+                        </li>
+                    {% elif not is_outdated %}
+                        <li class="toolbar-link">
+                            <a href="{{ first_comment.get_absolute_url }}" class="go-to-diff-link" target='_blank' title='View in "Files changed" tab'>
+                                <span>View <i class="fa fa-comments-o"> </i> on <i class="fa fa-file-o"> </i></span>
+                            </a>
+                        </li>
                     {% endif %}
                 {% endwith %}
 
-                {% with github_file_url=entry_point.github_url %}
+                {% with github_url=entry_point.github_url %}
+                    {% if github_url %}
+                        <li class="toolbar-link">
+                            <a href="{{ github_url }}" target='_blank' title="View comment thread on Github">
+                                <span>View <i class="fa fa-comments-o"> </i> on <i class="fa fa-github"> </i></span>
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endwith %}
+
+                {% with github_file_url=entry_point.github_file_url %}
                     {% if github_file_url %}
                         <li class="toolbar-link">
                             <a href="{{ github_file_url }}" target='_blank' title="View file @{{ entry_point.commit_sha|short_sha }} on Github">
-                                <span><i class="fa fa-github"> </i> @{{ entry_point.commit_sha|short_sha }}</span>
+                                <span>@{{ entry_point.commit_sha|short_sha }} <i class="fa fa-github"> </i></span>
                             </a>
                         </li>
                     {% endif %}
                 {% endwith %}
             </ul>
         </div>
-        <div class="box-content collapse{% if entry_point.position %} in{% endif %}" id="{{ id_prefix }}-{{ entry_point.id }}">
+        <div class="box-content collapse{% if not is_outdated %} in{% endif %}" id="{{ id_prefix }}-{{ entry_point.id }}">
             <div class="box-section code-diff">
-                {% include "front/repository/issues/code/include_diff.html" with parsed_diff=entry_point.diff_hunk|parse_diff:True entry_points=entry_point|set_in_dict:'last-position' path=entry_point.path sha=entry_point.original_commit_sha can_add_new_entry_point=False %}
+                {% include "front/repository/issues/code/include_diff.html" with parsed_diff=entry_point.get_diff_hunk|parse_diff:True entry_points=entry_point|set_in_dict:'last-position' path=entry_point.path sha=entry_point.original_commit_sha can_add_new_entry_point=False %}
             </div>
-            {% if not entry_point.position %}
+            {% if is_outdated %}
                 <div class="box-section outdated">
                     Note: these comments are related to outdated code, which has been updated since they were posted.
                </div>
             {% endif %}
         </div>
     </div>
-</li>
+</li>{% endwith %}

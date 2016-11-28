@@ -979,6 +979,7 @@ $repo-name-height: 20px;
                         text-align: center;
                         @include box-sizing(border-box);
                         width: 9em;
+                        min-height: 2.5em;
                         @include flex(1);
                         @include display-flex;
                         @include flex-direction(column);

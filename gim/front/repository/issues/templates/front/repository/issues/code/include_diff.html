@@ -45,7 +45,7 @@
             {% endwith %}
         {% elif forloop.last and 'last-position' in entry_points %}
             {% with entry_point=entry_points|dict_item:'last-position' %}
-                {% include "front/repository/issues/comments/include_code_comments.html" with comments=entry_point.comments.all surround=True include_create_form=True classes="" with_link_to_diff=entry_point.position %}
+                {% include "front/repository/issues/comments/include_code_comments.html" with comments=entry_point.comments.all surround=True include_create_form=True classes="" with_link_to_diff=entry_point.commit_id|default:entry_point.position %}
             {% endwith %}
         {% endif %}
     {% endif %}

@@ -129,7 +129,7 @@ p.state-closed {
 
 %scroll-highlight {
     outline: solid rgba($active-color-r, $active-color-g, $active-color-b, 0) 2px;
-    @include transition(outline 0.7s ease);
+    @include transition(outline 1.5s ease);
     &.scroll-highlight {
         outline: solid $active-color 2px;
     }
