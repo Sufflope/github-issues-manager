@@ -126,6 +126,7 @@ $().ready(function() {
             if (typeof klass === 'undefined') { klass = '.dropdown'; }
             var decorator = function(e) {
                 var dropdown = $(e.target).closest(klass);
+                $('.dropdown-backdrop').remove();
                 if (dropdown.hasClass('open')) {
                     dropdown.children('.dropdown-toggle').dropdown('toggle');
                 }
