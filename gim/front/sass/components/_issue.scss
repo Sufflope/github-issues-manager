@@ -780,7 +780,7 @@ $repo-name-height: 20px;
 @media (min-width: 1023px) {
     .issue-container.big-issue .code-files {
         position: relative;
-        min-height: 85px;
+        min-height: 245px;
         .files-list-sticky-wrapper {
             height: auto !important;
         }
@@ -1056,6 +1056,9 @@ $repo-name-height: 20px;
             color: $light-text-color;
             background: white;
             padding: 10px;
+        }
+        .hide-reviewed &.is-reviewed {
+            display: none;
         }
     } // .code-file
 
@@ -1494,6 +1497,9 @@ $repo-name-height: 20px;
                 border-bottom: 1px solid #DDD;
             }
         }
+    }
+    &.hide-reviewed .code-files-list tr.is-reviewed {
+        display: none;
     }
     .empty-area {
         position: static;
