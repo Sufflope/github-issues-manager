@@ -126,6 +126,7 @@ $().ready(function() {
             if (typeof klass === 'undefined') { klass = '.dropdown'; }
             var decorator = function(e) {
                 var dropdown = $(e.target).closest(klass);
+                $('.dropdown-backdrop').remove();
                 if (dropdown.hasClass('open')) {
                     dropdown.children('.dropdown-toggle').dropdown('toggle');
                 }
@@ -3227,12 +3228,17 @@ $().ready(function() {
             IssueDetail.set_active_file($tab_pane, $file_node.data('pos'), false);
         }), // on_file_mouseenter
 
+        get_visible_file_selector: (function IssueDetail__get_visible_files_selector ($tab_pane) {
+            var reviewed_hidden = $tab_pane.hasClass('hide-reviewed');
+            return reviewed_hidden ? 'tr:not(.hidden):not(.is-reviewed)' : 'tr:not(.hidden)';
+        }), // get_visible_file_selector
+
         go_to_previous_file: (function IssueDetail__go_to_previous_file () {
             var $node = $(this).closest('.issue-container'),
                 $tab_pane = $node.find('.tab-pane.active'),
                 $files_list = $tab_pane.find('.code-files-list'),
                 $current_line = $files_list.find('tr.active'),
-                $line = $current_line.prevAll('tr:not(.hidden)').first();
+                $line = $current_line.prevAll(IssueDetail.get_visible_file_selector($tab_pane)).first();
             if ($line.length) {
                 $line.find('a').click();
             }
@@ -3244,7 +3250,7 @@ $().ready(function() {
                 $tab_pane = $node.find('.tab-pane.active'),
                 $files_list = $tab_pane.find('.code-files-list'),
                 $current_line = $files_list.find('tr.active'),
-                $line = $current_line.nextAll('tr:not(.hidden)').first();
+                $line = $current_line.nextAll(IssueDetail.get_visible_file_selector($tab_pane)).first();
             if ($line.length) {
                 $line.find('a').click();
             }
@@ -3252,17 +3258,12 @@ $().ready(function() {
         }), // go_to_next_file
 
         on_files_filter_done: (function IssueDetail__on_files_filter_done () {
-            var $tab_pane = $(this).closest('.tab-pane');
-            if (!$tab_pane.find('.files-tab.active').length) { return; }
-            var $files_list = $tab_pane.find('.code-files-list'),
-                $first_link = $files_list.find('tr:not(.hidden) a').first();
-            if (($first_link).length) {
-                $first_link.trigger({type: 'click', no_file_focus: true});
-            }
+            IssueDetail.ensure_visible_file_active($(this).closest('.tab-pane'), true);
         }), // on_files_filter_done
 
         set_active_file: (function IssueDetail__set_active_file ($tab_pane, pos, reset_active_comment) {
             var $files_list = $tab_pane.find('.code-files-list'),
+                selector = IssueDetail.get_visible_file_selector($tab_pane),
                 $line;
             if (!$files_list.length) { return; }
             if (pos == '999999') {
@@ -3273,8 +3274,8 @@ $().ready(function() {
             $files_list.find('tr.active').removeClass('active');
             $line.addClass('active');
             IssueDetail.set_active_file_visible($tab_pane, $files_list, $line);
-            $tab_pane.find('.go-to-previous-file').parent().toggleClass('disabled', $line.prevAll('tr:not(.hidden)').length === 0);
-            $tab_pane.find('.go-to-next-file').parent().toggleClass('disabled', $line.nextAll('tr:not(.hidden)').length === 0);
+            $tab_pane.find('.go-to-previous-file').parent().toggleClass('disabled', $line.prevAll(selector).length === 0);
+            $tab_pane.find('.go-to-next-file').parent().toggleClass('disabled', $line.nextAll(selector).length === 0);
             if (reset_active_comment) {
                 $files_list.closest('.code-files-list-container').data('active-comment', null);
                 $tab_pane.find('.go-to-previous-file-comment, .go-to-next-file-comment').parent().removeClass('disabled');
@@ -3317,7 +3318,7 @@ $().ready(function() {
         visible_files_comments: (function IssueDetail__visible_files_comments ($tab_pane) {
             var $files_list = $tab_pane.find('.code-files-list');
             if ($files_list.length) {
-                return $files_list.find('tr:not(.hidden) a')
+                return $files_list.find(IssueDetail.get_visible_file_selector($tab_pane) + ' a')
                             .toArray()
                             .reduce(function(groups, file_link) {
                                 return groups.concat($(
@@ -3490,7 +3491,7 @@ $().ready(function() {
                 $content = $file_node.children('.box-content'),
                 pos = $file_node.data('pos'),
                 $files_list = $file_node.closest('.tab-pane').find('.code-files-list'),
-                $file_title, $check_in_list, $hunk_headers, i, $hunk_header;
+                $file_line, $file_title, $check_in_list, $hunk_headers, i, $hunk_header;
 
             $button.toggleClass('is-reviewed', reviewed)
                    .toggleClass('is-not-reviewed', !reviewed);
@@ -3498,6 +3499,7 @@ $().ready(function() {
             $icon.toggleClass('fa-check-square-o', reviewed)
                  .toggleClass('fa-square-o', !reviewed);
 
+            $file_node.toggleClass('is-reviewed', reviewed);
             $content.toggleClass('is-reviewed', reviewed);
             if (reviewed) {
                 $content.collapse('hide')
@@ -3510,9 +3512,11 @@ $().ready(function() {
             }
 
             if ($files_list.length) {
-                $file_title = $files_list.find('tr:nth-child('+ pos +') td:nth-child(2) a');
-                $check_in_list = $file_title.find('.fa-check');
-                if ($file_title.length) {
+                $file_line = $files_list.find('tr:nth-child('+ pos +')');
+                if ($file_line.length) {
+                    $file_line.toggleClass('is-reviewed', reviewed);
+                    $file_title = $file_line.children('td:nth-child(2)').find('a');
+                    $check_in_list = $file_title.find('.fa-check');
                     if (reviewed) {
                         if (!$check_in_list.length) {
                             $file_title.append('<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>');
@@ -3525,11 +3529,13 @@ $().ready(function() {
 
             if (toggle_hunks) {
                 $hunk_headers = $file_node.find('.diff-hunk-header');
-                for (i = 0; i < $hunk_headers                                                                                                                .length; i++) {
+                for (i = 0; i < $hunk_headers.length; i++) {
                     $hunk_header = $($hunk_headers[i]);
                     IssueDetail.toggle_locally_reviewed_hunk($file_node, $hunk_header.find('.locally-reviewed'), $hunk_header.data('hunk-sha'), reviewed);
                 }
             }
+
+            IssueDetail.ensure_visible_file_active($file_node.closest('.tab-pane'), true);
 
         }), // toggle_locally_reviewed_file
 
@@ -3596,8 +3602,8 @@ $().ready(function() {
         }), // on_toggle_locally_reviewed_hunk_click
 
         visible_files: (function IssueDetail__visible_files($tab_pane) {
-            var $links = $tab_pane.find('.code-files-list tr:not(.hidden):not([data-pos=999999]) a'),
-                i, $reviewed_button, files = [];
+            var $links = $tab_pane.find('.code-files-list ' + IssueDetail.get_visible_file_selector($tab_pane) + ':not([data-pos=999999]) a'),
+                i, files = [];
 
             if ($links.length) {
                 for (i = 0; i < $links.length; i++) {
@@ -3633,6 +3639,48 @@ $().ready(function() {
         mark_all_visible_as_not_reviewed: (function IssueDetail__mark_all_visible_as_not_reviewed() {
             return IssueDetail.set_or_unset_all_visible_reviewed_status(this, false);
         }), // mark_all_visible_as_not_reviewed
+
+        ensure_visible_file_active: (function IssueDetail__ensure_visible_file_active ($tab_pane, no_file_focus) {
+            var $files_list = $tab_pane.find('.code-files-list'),
+                $active_file = $files_list.find('tr.active'),
+                selector = IssueDetail.get_visible_file_selector($tab_pane),
+                $file_to_active;
+
+            if ($active_file.length) {
+                if (!$active_file.is(selector)) {
+                    $file_to_active = $active_file.nextAll(selector).first();
+                    if (!$file_to_active.length) {
+                        $file_to_active = $active_file.prevAll(selector).first();
+                    }
+                }
+            } else {
+                $file_to_active = $files_list.find(selector).first();
+            }
+
+            if ($file_to_active && $file_to_active.length) {
+                setTimeout(function() {
+                    $file_to_active.find('a').trigger({type: 'click', no_file_focus: !!no_file_focus});
+                }, 100);
+            }
+
+        }), // ensure_visible_file_active
+
+        toggle_reviewed: (function IssueDetail_toggle_reviewed() {
+            var $link = $(this),
+                $code_files_node = $link.closest('.code-files'),
+                $icon = $link.find('.fa'),
+                was_hidden = $icon.hasClass('fa-square-o'),
+                now_hidden = !was_hidden;
+
+            $code_files_node.toggleClass('hide-reviewed', now_hidden);
+
+            $icon.toggleClass('fa-check-square-o', !now_hidden)
+                 .toggleClass('fa-square-o', now_hidden);
+
+            IssueDetail.ensure_visible_file_active($code_files_node.closest('.tab-pane'));
+
+           return false;
+        }), // toggle_reviewed
 
         before_load_tab: (function IssueDetail__before_load_tab (ev) {
             if (!ev.relatedTarget) { return; }
@@ -4301,6 +4349,7 @@ $().ready(function() {
             $document.on('click', '.go-to-global-comments', Ev.stop_event_decorate_dropdown(IssueDetail.go_to_global_comments, '.btn-group'));
             $document.on('click', '.mark-visible-as-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_reviewed, '.btn-group'));
             $document.on('click', '.mark-visible-as-not-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.mark_all_visible_as_not_reviewed, '.btn-group'));
+            $document.on('click', '.toggle-reviewed', Ev.stop_event_decorate_dropdown(IssueDetail.toggle_reviewed, '.btn-group'));
             jwerty.key('p/k', IssueDetail.on_files_list_key_event('go_to_previous_file'));
             jwerty.key('n/j', IssueDetail.on_files_list_key_event('go_to_next_file'));
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));

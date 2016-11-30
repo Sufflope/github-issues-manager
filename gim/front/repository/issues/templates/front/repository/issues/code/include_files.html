@@ -32,6 +32,7 @@
                         {% endif %}
                         {% if nb_changed_files > 1 %}
                             <li class="divider"></li>
+                            <li><a href="#" class="toggle-reviewed"><i class="fa fa-check-square-o"> </i> Show reviewed files</a></li>
                             <li><a href="#" class="mark-visible-as-reviewed">Mark all filtered files as reviewed</a></li>
                             <li><a href="#" class="mark-visible-as-not-reviewed">Mark all filtered files as not reviewed</a></li>
                         {% endif %}
@@ -63,7 +64,7 @@
     <div class="collapse in code-files-list" id="{{ id_prefix }}-files-list">
         <table class="table table-condensed">
         {% for file in files %}
-            <tr{% if forloop.first %} class="active"{% endif %} data-pos="{{ forloop.counter }}">
+            <tr class="{% if forloop.first %} active{% endif %}{% if file.reviewed_locally %} is-reviewed{% endif %}" data-pos="{{ forloop.counter }}">
                 <td class="status-{{ file.status }}"><i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% else %}file-o{% endif %}"> </i></td>
                 <td title="{{ file.path }}">
                     <a class="path" href="#code-file-{{ file.id }}-target">{{ file.path|split:'/'|join:'/<wbr/>' }}&nbsp;{% if file.reviewed_locally %}<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>{% endif %}</a>
@@ -96,7 +97,7 @@
 <ul class="unstyled chat-box timeline issue-activity">
 {% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url:view.request.user %}
     <li>
-        <div class="box code-file" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
+        <div class="box code-file{% if file.reviewed_locally %} is-reviewed{% endif %}" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
             <div class="box-header" data-toggle="collapse" data-target="#code-file-{{ file.id }}-content" title="Click to collapse/expand">
                 <div class="title">
                     <a href="#" id="code-file-{{ file.id }}" class="path">{{ file.path }}</a>
