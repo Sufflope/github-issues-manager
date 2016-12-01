@@ -549,7 +549,7 @@
       }
 
       this.$element[dimension](0)
-      this.transition('addClass', $.Event('show'), 'shown')
+      this.transition('addClass', $.Event('show.collapse'), 'shown.collapse')
       $.support.transition && this.$element[dimension](this.$element[0][scroll])
     }
 
@@ -558,7 +558,7 @@
       if (this.transitioning || !this.$element.hasClass('in')) return
       dimension = this.dimension()
       this.reset(this.$element[dimension]())
-      this.transition('removeClass', $.Event('hide'), 'hidden')
+      this.transition('removeClass', $.Event('hide.collapse'), 'hidden.collapse')
       this.$element[dimension](0)
     }
 
@@ -578,7 +578,7 @@
   , transition: function (method, startEvent, completeEvent) {
       var that = this
         , complete = function () {
-            if (startEvent.type == 'show') that.reset()
+            if (startEvent.type == 'show.collapse') that.reset()
             that.transitioning = 0
             that.$element.trigger(completeEvent)
           }
@@ -868,7 +868,7 @@
 
     , show: function () {
         var that = this
-          , e = $.Event('show')
+          , e = $.Event('show.modal')
 
         this.$element.trigger(e)
 
@@ -898,8 +898,8 @@
           that.enforceFocus()
 
           transition ?
-            that.$element.one($.support.transition.end, function () { that.$element.focus().trigger('shown') }) :
-            that.$element.focus().trigger('shown')
+            that.$element.one($.support.transition.end, function () { that.$element.focus().trigger('shown.modal') }) :
+            that.$element.focus().trigger('shown.modal')
 
         })
       }
@@ -909,7 +909,7 @@
 
         var that = this
 
-        e = $.Event('hide')
+        e = $.Event('hide.modal')
 
         this.$element.trigger(e)
 
@@ -968,7 +968,7 @@
         this.$element.hide()
         this.backdrop(function () {
           that.removeBackdrop()
-          that.$element.trigger('hidden')
+          that.$element.trigger('hidden.modal')
         })
       }
 
@@ -1064,7 +1064,7 @@
 
     $target
       .modal(option)
-      .one('hide', function () {
+      .one('hide.modal', function () {
         $this.focus()
       })
   })
@@ -1190,7 +1190,7 @@
         , actualHeight
         , placement
         , tp
-        , e = $.Event('show')
+        , e = $.Event('show.tooltip')
 
       if (this.hasContent() && this.enabled) {
         this.$element.trigger(e)
@@ -1233,7 +1233,7 @@
         }
 
         this.applyPlacement(tp, placement)
-        this.$element.trigger('shown')
+        this.$element.trigger('shown.tooltip')
       }
     }
 
@@ -1295,7 +1295,7 @@
   , hide: function () {
       var that = this
         , $tip = this.tip()
-        , e = $.Event('hide')
+        , e = $.Event('hide.tooltip')
 
       this.$element.trigger(e)
       if (e.isDefaultPrevented()) return
@@ -1317,7 +1317,7 @@
         removeWithAnimation() :
         $tip.detach()
 
-      this.$element.trigger('hidden')
+      this.$element.trigger('hidden.tooltip')
 
       return this
     }
@@ -1759,7 +1759,7 @@
 
       previous = $ul.find('.active:last a')[0]
 
-      e = $.Event('show', {
+      e = $.Event('show.tab', {
         relatedTarget: previous
       })
 
@@ -1772,7 +1772,7 @@
       this.activate($this.parent('li'), $ul)
       this.activate($target, $target.parent(), function () {
         $this.trigger({
-          type: 'shown'
+          type: 'shown.tab'
         , relatedTarget: previous
         })
       })
