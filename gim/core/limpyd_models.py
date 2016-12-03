@@ -9,6 +9,7 @@ from limpyd.contrib.collection import ExtendedCollectionManager
 from limpyd_jobs.utils import datetime_to_score
 
 from gim.core import get_main_limpyd_database
+from gim.github import ApiError
 
 
 class Token(lmodel.RedisModel):
@@ -30,6 +31,7 @@ class Token(lmodel.RedisModel):
     last_call_ko = lfields.InstanceHashField()  # last github call that was an error
     errors = lfields.SortedSetField()  # will store all errors
     unavailabilities = lfields.SortedSetField()  # will store all queries that set the token as unavailable
+    can_access_graphql_api = lfields.InstanceHashField(indexable=True)  # if the user can access the githup graphql api
 
     repos_admin = lfields.SetField(indexable=True)
     repos_push = lfields.SetField(indexable=True)
@@ -214,10 +216,12 @@ class Token(lmodel.RedisModel):
                 token.repos_pull.sadd(*repos_pull)
 
     @classmethod
-    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining'):
+    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining', with_graphql=None):
         collection = cls.collection(valid_scopes=1)
         if available:
             collection = collection.filter(available=1)
+        if with_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
         if permission == 'admin':
             collection.filter(repos_admin=repository_pk)
         elif permission == 'push':
@@ -235,10 +239,12 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def get_one(cls, available=True, sort_by='-rate_limit_remaining'):
+    def get_one(cls, available=True, sort_by='-rate_limit_remaining', with_graphql=None):
         collection = cls.collection(valid_scopes=1)
         if available:
             collection = collection.filter(available=1)
+        if with_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
         try:
             if sort_by is None:
                 token = choice(collection.instances())
@@ -250,10 +256,12 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining'):
+    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining', with_graphql=None):
         collection = cls.collection(username=username, valid_scopes=1)
         if available:
             collection = collection.filter(available=1)
+        if with_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
         try:
             if sort_by is None:
                 token = choice(collection.instances())
@@ -269,6 +277,21 @@ class Token(lmodel.RedisModel):
         from .ghpool import Connection
         username, token = self.hmget('username', 'token')
         return Connection.get(username=username, access_token=token)
+
+    def check_graphql_access(self):
+        try:
+            self.gh.graphql.post(query="query{ viewer { login }}")
+        except ApiError:
+            self.can_access_graphql_api.hset(0)
+            return False
+        else:
+            self.can_access_graphql_api.hset(1)
+            return True
+
+    @classmethod
+    def check_graphql_accesses(cls):
+        for token in cls.collection().instances():
+            token.check_graphql_access()
 
 
 class DeletedInstance(lmodel.RedisModel):

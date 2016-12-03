@@ -449,8 +449,10 @@ def requeue_all_repositories():
 
 
 def requeue_all_users():
-    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications
+    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications, CheckGraphQLAccesses
 
     for user in GithubUser.objects.filter(token__isnull=False):
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
+
+    CheckGraphQLAccesses.add_job(None)
