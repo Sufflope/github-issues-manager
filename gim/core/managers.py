@@ -1829,3 +1829,38 @@ class CardManager(GithubObjectManager):
         fields['simple']['type'] = Card.CARDTYPE.ISSUE if fields['fk'].get('issue') else Card.CARDTYPE.NOTE
 
         return fields
+
+
+class ProtectedBranchManager(WithRepositoryManager):
+
+    repository_url_field = 'protection_url'
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+
+        # convert data tree to usable data
+        if data.get('protection_url'):  # we're from the list of branches
+            # we want only protected branches
+            if not data.get('protected', False):
+                return None
+
+            # but we do nothing more, we let the fetch of individual branch protection info do the rest
+
+        else:  # we're from a single branch
+            data['protection_url'] = data.pop('url')  # to find the repository
+
+            required_status_checks = data.pop('required_status_checks', {})
+            if required_status_checks:
+                data['require_status_check'] = True
+                data['require_status_check_include_admins'] = required_status_checks.get('include_admins', False)
+                data['require_up_to_date'] = required_status_checks.get('strict', False)
+            else:
+                data['require_status_check'] = data['require_status_check_include_admins'] = data['require_up_to_date'] = False
+
+            required_pull_request_reviews = data.pop('required_pull_request_reviews', {})
+            if required_pull_request_reviews:
+                data['require_approved_review'] = True
+                data['require_approved_review_include_admins'] = required_pull_request_reviews.get('include_admins', False)
+            else:
+                data['require_approved_review'] = data['require_approved_review_include_admins'] = False
+
+        return super(ProtectedBranchManager, self).get_object_fields_from_dict(data, defaults, saved_objects)

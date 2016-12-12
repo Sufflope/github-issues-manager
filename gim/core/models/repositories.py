@@ -1,5 +1,6 @@
 __all__ = [
     'Repository',
+    'ProtectedBranch',
 ]
 
 from datetime import datetime, timedelta
@@ -14,13 +15,17 @@ from ..ghpool import (
     ApiNotFoundError,
 )
 
+from ..limpyd_models import Token
+
 from ..managers import (
     MODE_ALL,
     MODE_UPDATE,
     RepositoryManager,
+    ProtectedBranchManager,
 )
 
 from .base import (
+    GithubObject,
     GithubObjectWithId,
 )
 
@@ -67,6 +72,8 @@ class Repository(GithubObjectWithId):
                                         on_delete=models.SET_NULL)
     projects_fetched_at = models.DateTimeField(blank=True, null=True)
     projects_etag = models.CharField(max_length=64, blank=True, null=True)
+    protected_branches_fetched_at = models.DateTimeField(blank=True, null=True)
+    protected_branches_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = RepositoryManager()
 
@@ -624,6 +631,48 @@ class Repository(GithubObjectWithId):
             self.save(update_fields=['projects_fetched_at'])
             raise
 
+    @property
+    def github_callable_identifiers_for_protected_branches(self):
+        return self.github_callable_identifiers + [
+            'branches',
+        ]
+
+    def fetch_protected_branches(self, gh, force_fetch=False, parameters=None, max_pages=None):
+        if parameters is None:
+            parameters = {}
+        parameters['protected'] = 1
+        return self._fetch_many('protected_branches', gh,
+                                defaults={
+                                    'fk': {'repository': self},
+                                    'related': {'*': {'fk': {'repository': self}}},
+                                },
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                max_pages=None)  # we need them all to get all the positions
+
+    def fetch_all_protected_branches(self, gh, force_fetch=False):
+        # only admins can fetch protected branches :(
+        token = Token.get_for_gh(gh)
+        if not token.repos_admin.sismember(self.pk):
+            token = Token.get_one_for_repository(self.pk, 'admin')
+            if token:
+                gh = token.gh
+            else:
+                return
+
+        if not force_fetch:
+            if not self.protected_branches_fetched_at:
+                force_fetch = True
+        try:
+            self.fetch_protected_branches(gh, force_fetch=force_fetch)
+            for branch in self.protected_branches.all():
+                branch.fetch_all(gh, force_fetch=force_fetch)
+        except Exception:
+            # Next time we'll refetch all. Else we won't be able to get new data
+            self.protected_branches_fetched_at = None
+            self.save(update_fields=['protected_branches_fetched_at'])
+            raise
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -642,6 +691,7 @@ class Repository(GithubObjectWithId):
         two_steps = bool(kwargs.get('two_steps', False))
 
         self.fetch_minimal(gh, force_fetch=force_fetch)
+        self.fetch_all_protected_branches(gh, force_fetch=force_fetch)
 
         if two_steps:
             self.fetch_issues(gh, force_fetch=force_fetch, state='open')
@@ -701,3 +751,51 @@ class Repository(GithubObjectWithId):
     def has_projects_with_issues(self):
         from .projects import CARDTYPE
         return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
+
+
+class ProtectedBranch(GithubObject):
+    repository = models.ForeignKey('Repository', related_name='protected_branches')
+    name = models.TextField(db_index=True)
+    require_status_check = models.BooleanField(default=False)
+    require_status_check_include_admins = models.BooleanField(default=False)
+    require_up_to_date = models.BooleanField(default=False)
+    require_approved_review = models.BooleanField(default=False)
+    require_approved_review_include_admins = models.BooleanField(default=False)
+    etag = models.CharField(max_length=64, blank=True, null=True)
+
+    github_api_version = 'loki-preview'
+    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'name': 'name'}
+
+    objects = ProtectedBranchManager()
+
+    class Meta:
+        app_label = 'core'
+
+    def __unicode__(self):
+        return u'%s' % self.name
+
+    @property
+    def github_callable_identifiers(self):
+        return self.repository.github_callable_identifiers_for_protected_branches + [
+            self.name,
+            'protection',
+        ]
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None, github_api_version=None):
+        if defaults is None:
+            defaults = {}
+        if not defaults.get('fk', {}):
+            defaults['fk'] = {}
+        if not defaults.get('repository'):
+            defaults['fk']['repository'] = self.repository
+        if not defaults.get('simple', {}):
+            defaults['simple'] = {}
+        if not defaults['simple'].get('name'):
+            defaults['simple']['name'] = self.name
+
+        try:
+            return super(ProtectedBranch, self).fetch(gh, defaults, force_fetch, parameters, meta_base_name, github_api_version)
+        except ApiNotFoundError:
+            # the branch is not protected anymore
+            self.delete()
+        return None
