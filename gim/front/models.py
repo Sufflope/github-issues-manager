@@ -491,7 +491,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
         if self.is_pull_request:
-            hashable_fields += ('base_sha', 'head_sha', 'merged')
+            hashable_fields += ('base_sha', 'head_sha', 'merged', 'last_head_status')
             if self.state == 'open' and not self.merged:
                 hashable_fields += ('mergeable', 'mergeable_state')
 
