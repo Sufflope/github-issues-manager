@@ -407,9 +407,10 @@ nav.issues-list-options .dropdown-toggle .caret {
     .issue-item-checks {
         display: inline-block;
         white-space: nowrap;
-        > i {
+        i {
             width: 1.1em;
             text-align: center;
+            line-height: 20px;
         }
     }
     .news-content {

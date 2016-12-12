@@ -63,38 +63,40 @@
                 {% if issue.is_pull_request %}
                     {% if issue.state == 'open' %}
                         {% if issue.is_mergeable %}
-                            <i class="fa fa-check text-open" title="Mergeable"> </i>
+                            <a href="" class="js-filter-trigger" title="Mergeable" data-filter="mergeable:yes"><i class="fa fa-check text-open"> </i></a>
                         {% else %}
-                            <i class="fa fa-times text-closed" title="Not mergeable"> </i>
+                            <a href="" class="js-filter-trigger" title="Not mergeable" data-filter="mergeable:no"><i class="fa fa-times text-closed"> </i></a>
                         {% endif %}
                     {% else %}
                         {% if issue.merged %}
-                            <i class="fa fa-check text-open" title="Merged"> </i>
+                            <a href="" class="js-filter-trigger" title="Merged" data-filter="merged:yes"><i class="fa fa-check text-open"> </i></a>
                         {% else %}
-                            <i class="fa fa-times text-closed" title="Not merged"> </i>
+                            <a href="" class="js-filter-trigger" title="Not merged" data-filter="merged:no"><i class="fa fa-times text-closed"> </i></a>
                         {% endif %}
                     {% endif %}
                     {% if issue.last_head_status %}
                         {% with status=issue.last_head_status STATUS_CHOICES=issue.GITHUB_COMMIT_STATUS_CHOICES %}
                             {% if status == STATUS_CHOICES.SUCCESS %}
-                                <i class="fa fa-check text-open" title="All checks passed"> </i>
-                            {% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}
-                                <i class="fa fa-times text-closed" title="Some checks failed"> </i>
+                                <a href="" class="js-filter-trigger" title="All checks passed" data-filter="checks:success"><i class="fa fa-check text-open"> </i></a>
+                            {% elif status == STATUS_CHOICES.FAILURE %}
+                                <a href="" class="js-filter-trigger" title="Some checks failed" data-filter="checks:failure"><i class="fa fa-times text-closed"> </i></a>
+                            {% elif status == STATUS_CHOICES.ERROR %}
+                                <a href="" class="js-filter-trigger" title="Some checks are in error" data-filter="checks:error"><i class="fa fa-times text-closed"> </i></a>
                             {% else %}
-                                <i class="fa fa-spinner fa-spin text-warning" title="Checks are running"> </i>
+                                <a href="" class="js-filter-trigger" title="Checks are running" data-filter="checks:pending"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
                             {% endif %}
                         {% endwith %}
                     {% elif issue.repository.has_commit_statuses %}
-                        <i class="fa fa-spinner fa-spin text-warning" title="Waiting for checks"> </i>
+                        <a href="" class="js-filter-trigger" title="Waiting for checks" data-filter="checks:nothing"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
                     {% endif %}
                     {% if issue.repository.pr_reviews_activated %}
                         {% with status=issue.pr_review_state %}
                             {% if status == 'APPROVED' %}
-                                <i class="fa fa-check text-open" title="Review approved"> </i>
+                                <a href="" class="js-filter-trigger" title="Review approved" data-filter="review:approved"><i class="fa fa-check text-open"> </i></a>
                             {% elif status == 'CHANGES_REQUESTED' %}
-                                <i class="fa fa-times text-closed" title="Changes requested"> </i>
+                                <a href="" class="js-filter-trigger" title="Changes requested" data-filter="review:changes_requested"><i class="fa fa-times text-closed"> </i></a>
                             {% elif issue.pr_review_required %}
-                                <i class="fa fa-spinner fa-spin text-warning" title="Waiting for review"> </i>
+                                <a href="" class="js-filter-trigger" title="Waiting for review" data-filter="review:unset"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
                             {% endif %}
                         {% endwith %}
                     {% endif %}

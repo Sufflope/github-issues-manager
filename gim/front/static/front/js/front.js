@@ -778,6 +778,22 @@ $().ready(function() {
                 'on': 'Click to display only pull requests',
                 'off': 'Click to stop displaying only pull requests'
             },
+            merged: {
+                'on': 'Click to display only merged pull requests',
+                'off': 'Click to stop displaying only merged pull requests'
+            },
+            mergeable: {
+                'on': 'Click to display only mergeable pull requests',
+                'off': 'Click to stop displaying only mergeable pull requests'
+            },
+            checks: {
+                'on': 'Click to display only pull requests with this checks status',
+                'off': 'Click to stop displaying only pull requests with this checks status'
+            },
+            review: {
+                'on': 'Click to display only pull requests with this review status',
+                'off': 'Click to stop displaying only pull requests with this review status'
+            },
             milestone: {
                 'on': 'Click to filter on this milestone',
                 'off': 'Click to stop filtering on this milestone'
@@ -831,6 +847,10 @@ $().ready(function() {
                         value = (key == 'project' ? '__any__' : parts[1]);
                         key = 'project_' + parts[0];
                     case 'pr':
+                    case 'merged':
+                    case 'mergeable':
+                    case 'checks':
+                    case 'review':
                     case 'milestone':
                     case 'created_by':
                     case 'assigned':
