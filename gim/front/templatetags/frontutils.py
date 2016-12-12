@@ -154,6 +154,9 @@ register.filter('ago', ago)
 
 @register.filter
 def avatar_size(avatar_url, size):
+    if not avatar_url:
+        from gim.core.models import GithubUser
+        avatar_url = GithubUser.get_default_avatar()
     if not size:
         return avatar_url
     if '?' in avatar_url:
