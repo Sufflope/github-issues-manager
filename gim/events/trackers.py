@@ -328,6 +328,8 @@ class IssueTracker(ChangeTracker):
 
     @staticmethod
     def event_part_for_title(instance, new, old):
+        if (old or '').strip() == (new or '').strip():
+            return []
         if old:
             return [{
                 'field': 'title',
@@ -337,6 +339,8 @@ class IssueTracker(ChangeTracker):
 
     @staticmethod
     def event_part_for_body(instance, new, old):
+        if (old or '').strip() == (new or '').strip():
+            return []
         if old:
             return [{
                 'field': 'body',
