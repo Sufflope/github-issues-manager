@@ -535,6 +535,26 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         return self.mergeable_state in self.MERGEABLE_STATES['mergeable']
 
 
+    def simplified_pr_label(self, pr_label):
+        if not pr_label:
+            return self.repository.owner.username
+        else:
+            try:
+                owner_username, branch_name = pr_label.split(':')
+                if owner_username == self.repository.owner.username:
+                    return branch_name
+            except Exception:
+                pass
+        return pr_label
+
+    @property
+    def simplified_head_label(self):
+        return self.simplified_pr_label(self.head_label)
+
+    @property
+    def simplified_base_label(self):
+        return self.simplified_pr_label(self.base_label)
+
 class IssueEvent(WithIssueMixin, GithubObjectWithId):
     repository = models.ForeignKey('Repository', related_name='issues_events')
     issue = models.ForeignKey('Issue', related_name='events')

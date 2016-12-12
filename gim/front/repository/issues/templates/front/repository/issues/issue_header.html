@@ -146,7 +146,7 @@
                     <li class="label label-black" title="{{ current_issue.nb_changed_files }} changed file{{ current_issue.nb_changed_files|pluralize }}"><i class="fa fa-file-o"></i> {{ current_issue.nb_changed_files }}</li>
                 </ul>
             {% endif %}
-            <div>Pull request from <strong>{{ current_issue.head_label|default:current_issue.user.username }}</strong></div>
+            <div>Pull request from <strong>{{ current_issue.simplified_head_label }}</strong> for <strong>{{ current_issue.simplified_base_label }}</strong></div>
             {% if current_issue.pr_fetched_at %}
                 {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid all_head_commits=current_issue.get_all_head_commits %}
                 <div class="pr-merge-status">
