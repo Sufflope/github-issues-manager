@@ -491,7 +491,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
         if self.is_pull_request:
-            hashable_fields += ('base_sha', 'head_sha', 'merged', 'last_head_status')
+            hashable_fields += ('base_sha', 'head_sha', 'merged', 'last_head_status', 'pr_review_state')
             if self.state == 'open' and not self.merged:
                 hashable_fields += ('mergeable', 'mergeable_state')
 
@@ -670,6 +670,10 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 for comments in cc_by_commit.values():
                     activity += GroupedCommitComments.group_by_day(comments)
 
+            # add pull request reviews
+            if self.repository.pr_reviews_activated:
+                activity += self.get_pr_reviews_activity()
+
         activity.sort(key=attrgetter('created_at'))
 
         if self.is_pull_request:
@@ -677,6 +681,17 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             activity = GroupedPullRequestComments.group_in_activity(activity)
 
         return activity
+
+    def get_pr_reviews_activity(self):
+        if not self.repository.pr_reviews_activated:
+            return []
+
+        if not hasattr(self, '_pr_reviews_activity'):
+
+            self._pr_reviews_activity = list(self.reviews.filter(displayable=True).select_related('author'))
+
+        return self._pr_reviews_activity
+
 
     def get_sorted_entry_points(self):
         for entry_point in self.all_entry_points:
@@ -1086,6 +1101,40 @@ class _GithubNotification(models.Model):
         return reverse_lazy('front:github-notifications:edit', kwargs={'notif_id': self.pk})
 
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
+
+
+class _PullRequestReview(models.Model):
+
+    class Meta:
+        abstract = True
+
+    is_pull_request_review = True
+
+    @property
+    def created_at(self):
+        return self.submitted_at
+
+    @property
+    def user_id(self):
+        return self.author_id
+
+    @property
+    def user(self):
+        return self.author
+
+    @property
+    def repository_id(self):
+        return self.issue.repository_id
+
+    @property
+    def repository(self):
+        return self.issue.repository
+
+    @property
+    def html_content(self):
+        return html_content(self)
+
+contribute_to_model(_PullRequestReview, core_models.PullRequestReview)
 
 
 class _Project(Hashable, FrontEditable):

@@ -117,6 +117,8 @@
                                 {% include "front/repository/issues/activity/include_pr_comments_group.html" with group=event with_ago=True %}
                             {% elif event.is_commit_comments_group %}{# GroupedCommitComments #}
                                 {% include "front/repository/issues/activity/include_commit_comments_group.html" with group=event with_ago=True %}
+                            {% elif event.is_pull_request_review  %}{# PullRequestReview  #}
+                                {% include "front/repository/issues/activity/include_pr_review.html" with review=event comment=event %}
                             {% elif event.get_parts %}{# Event #}
                                 {% include "front/repository/issues/activity/include_change_event.html" %}
                             {% else %}{# IssueComment #}

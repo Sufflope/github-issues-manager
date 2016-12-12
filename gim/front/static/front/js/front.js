@@ -2919,17 +2919,17 @@ $().ready(function() {
             }
         }), // IssueDetail__reload_waypoints
 
-        on_statuses_box_toggled: (function IssueDetail__on_statuses_box_toggled (ev) {
+        on_statuses_or_review_box_toggled: (function IssueDetail__on_statuses_or_review_box_box_toggled (ev) {
             if (ev.target != this) { return; }
             var $node =  $(this).closest('.issue-container');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
-        }), // IssueDetail__on_statuses_box_toggled
+        }), // IssueDetail__on_statuses_or_review_box_box_toggled
 
         on_statuses_box_logs_toggled: (function IssueDetail__on_statuses_box_logs_toggled () {
             var $node =  $(this).closest('.issue-container');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
             return false;
@@ -2938,12 +2938,11 @@ $().ready(function() {
         on_statuses_box_older_logs_toggled: (function IssueDetail__on_statuses_box_older_logs_toggled () {
             var $node =  $(this).closest('.issue-container');
             $(this.parentNode).addClass('show-older');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
             return false;
         }), // IssueDetail__on_statuses_box_older_logs_toggled
-
 
         is_modal: (function IssueDetail__is_modal ($node) {
             return !!$node.data('$modal');
@@ -4361,10 +4360,27 @@ $().ready(function() {
             jwerty.key('p/k/shift+p/shift+k', IssueDetail.on_review_key_event('go_to_previous_review_comment'));
             jwerty.key('n/j/shift+n/shift+j', IssueDetail.on_review_key_event('go_to_next_review_comment'));
 
-            // toggling statuses
-            $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-commit-statuses .box-content', IssueDetail.on_statuses_box_toggled);
+            // toggling statuses and review details
+            $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-reviews-detail, .pr-commit-statuses .box-content', IssueDetail.on_statuses_or_review_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
+            // only one of status details or review details
+            $document.on('show.collapse', '.pr-commits-statuses', function(ev) {
+                if (ev.target != this) { return; }
+                var $node =  $(this).closest('.issue-container');
+                if ($node.length) {
+                    $node.find('.pr-review-state:not(.collapsed)').click();
+                }
+            });
+            // only one of status details or review details
+            $document.on('show.collapse', '.pr-reviews-detail', function(ev) {
+                if (ev.target != this) { return; }
+                var $node =  $(this).closest('.issue-container');
+                if ($node.length) {
+                    $node.find('.pr-last-commit-status:not(.collapsed)').click();
+                }
+            });
 
             $document.on('click', '.code-file > .box-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
             $document.on('click', '.code-diff .diff-hunk-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_hunk_click));

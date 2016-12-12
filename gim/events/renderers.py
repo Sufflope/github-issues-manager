@@ -2,7 +2,7 @@
 
 from django.utils.html import escape
 
-from gim.core.models import GITHUB_COMMIT_STATUS_CHOICES, GithubUser
+from gim.core.models import GITHUB_COMMIT_STATUS_CHOICES, GithubUser, REVIEW_STATES
 from gim.front.diff import HtmlDiff, HtmlDiffWithoutControl
 from gim.front.templatetags.frontutils import avatar_size
 
@@ -137,9 +137,14 @@ class IssueRenderer(Renderer):
         new_status = self.helper_get_commit_status(new['last_head_status'])
 
         if mode == 'text':
-            title = 'New checks status: %s' % new_status.display
+            title = 'New checks status: '
         else:
-            title = 'New checks status: <strong><span class="state-%s">%s</span></strong>' % (
+            title = 'New <strong>checks</strong> status: '
+
+        if mode == 'text':
+            title += '%s' % new_status.display
+        else:
+            title += '<strong><span class="state-%s">%s</span></strong>' % (
                 new_status.constant.lower(),
                 new_status.display,
             )
@@ -167,6 +172,44 @@ class IssueRenderer(Renderer):
                 old_status.constant.lower(),
                 old_status.display,
             )
+
+        return title
+
+    def render_part_pr_review_state(self, part, mode):
+        new, old = part.new_value, part.old_value
+
+        if mode == 'text':
+            title = 'New review status: '
+        else:
+            title = 'New <strong>review</strong> status: '
+
+        if new['pr_review_state']:
+            new_status = REVIEW_STATES.for_value(new['pr_review_state'])
+            if mode == 'text':
+                title += '%s' % new_status.display
+            else:
+                title += '<strong><span class="state-%s">%s</span></strong>' % (
+                    new_status.constant.lower(),
+                    new_status.display
+                )
+        else:
+            if mode == 'text':
+                title += 'Waiting for approval' if new['review_required'] else 'No reviews'
+            else:
+                if new['review_required']:
+                    title += '<strong><span class="state-review_required">Review required</span></strong>'
+                else:
+                    title += '<strong><span class="state-review_not_required">No reviews</span></strong>'
+
+        if old['pr_review_state']:
+            old_status = REVIEW_STATES.for_value(old['pr_review_state'])
+            if mode == 'text':
+                title += ' (previously %s)' % old_status.display
+            else:
+                title += ' (previously <span class="state-%s">%s</span>)' % (
+                    old_status.constant.lower(),
+                    old_status.display,
+                )
 
         return title
 

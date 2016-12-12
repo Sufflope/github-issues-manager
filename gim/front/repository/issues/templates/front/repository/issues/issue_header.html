@@ -148,7 +148,7 @@
             {% endif %}
             <div>Pull request from <strong>{{ current_issue.simplified_head_label }}</strong> for <strong>{{ current_issue.simplified_base_label }}</strong></div>
             {% if current_issue.pr_fetched_at %}
-                {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid all_head_commits=current_issue.get_all_head_commits %}
+                {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid all_head_commits=current_issue.get_all_head_commits pr_reviews_uuid=new_uuid %}
                 <div class="pr-merge-status">
                     {% if current_issue.state == 'open' or not current_issue.merged %}
                         {# cannot reopen a merged-closed issue #}
@@ -170,7 +170,7 @@
                     {% if current_issue.last_head_status or current_repository.has_commit_statuses %}
                         {% with status=current_issue.last_head_status commits_count=all_head_commits|length %}
                             <div
-                                    {% if current_issue.last_head_status or commits_count > 1 %}title="Click to toggle details"{% endif %}
+                                    {% if current_issue.last_head_status or commits_count > 1 %}title="Click to toggle history"{% endif %}
                                     class="alert alert-{% if status == STATUS_CHOICES.SUCCESS %}success{% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}error{% else %}warning{% endif %} pr-last-commit-status collapsed"
                                     {% if current_issue.last_head_status or commits_count > 1 %}
                                         data-toggle="collapse"
@@ -185,6 +185,30 @@
                             </div>
                         {% endwith %}
                     {%  endif %}
+                    {% if current_repository.pr_reviews_activated %}{%if current_issue.pr_review_required or current_issue.pr_review_state %}
+                        <div
+                                {% if current_issue.pr_review_state %}title="Click to toggle history"{% endif %}
+                                class="alert alert-{% if current_issue.pr_review_state == 'APPROVED' %}success{% elif current_issue.pr_review_state == 'CHANGES_REQUESTED' %}error{% else %}warning{% endif %} pr-review-state collapsed"
+                                {% if current_issue.pr_review_state %}
+                                    data-toggle="collapse"
+                                    data-target="#pr-reviews-detail-{{ pr_reviews_uuid }}"
+                                {% endif %}
+                            >
+                            Review:
+                            <strong>
+                                {% if current_issue.pr_review_state == 'APPROVED' %}
+                                    approved
+                                {% elif current_issue.pr_review_state == 'CHANGES_REQUESTED' %}
+                                    changes requested
+                                {% else %}
+                                    Waiting for approval
+                                {% endif %}
+                            </strong>
+                            {% if current_issue.pr_review_state %}
+                                <i class="fa fa-caret-right"></i>
+                            {% endif %}
+                        </div>
+                    {% endif %}{% endif %}
                 </div>
                 {% if all_head_commits %}
                     <div id="pr-commits-statuses-{{ statuses_uuid }}" class="pr-commits-statuses collapse">
@@ -291,6 +315,15 @@
                         </div>
                         {% endwith %}
                     {% endfor %}
+                    </div>
+                {% endif %}
+                {% if current_repository.pr_reviews_activated and current_issue.pr_review_state %}
+                    <div id="pr-reviews-detail-{{ pr_reviews_uuid }}" class="pr-reviews-detail collapse">
+                        <ul class="unstyled chat-box timeline issue-activity">
+                            {% for pr_review in current_issue.get_pr_reviews_activity reversed %}
+                                {% include "front/repository/issues/activity/include_pr_review.html" with review=pr_review comment=pr_review %}
+                            {% endfor %}
+                        </ul>
                     </div>
                 {% endif %}
                 {% endwith %}
