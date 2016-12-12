@@ -278,6 +278,10 @@ class Token(lmodel.RedisModel):
         username, token = self.hmget('username', 'token')
         return Connection.get(username=username, access_token=token)
 
+    @classmethod
+    def get_for_gh(cls, gh):
+        return cls.get(token=gh._connection_args['access_token'])
+
     def check_graphql_access(self):
         try:
             self.gh.graphql.post(query="query{ viewer { login }}")
