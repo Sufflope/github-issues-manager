@@ -371,14 +371,14 @@ class DeletedInstance(lmodel.RedisModel):
         print('Deleted %s "deleted instances" on %s.' % (len(to_delete), count))
 
     def get_instance(self):
-        app_label, model_name, github_id = self.ident.hget()
+        app_label, model_name, github_id = self.ident.hget().split('.')
         try:
             model = get_model(app_label, model_name)
         except Exception:
             return None
         try:
             return model.objects.get(github_id=github_id)
-        except model.DoesNotExist():
+        except model.DoesNotExist:
             return None
 
     @classmethod
