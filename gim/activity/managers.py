@@ -257,6 +257,22 @@ class ActivityManagerIEV(ActivityManager):
         return qs.select_related('issue__user', 'issue__repository__owner', 'user')
 
 
+class ActivityManagerPRR(ActivityManager):
+    code = 'prr'
+    limpyd_field = 'pr_reviews'
+    related_name = 'reviews'
+    model_uri = 'gim.core.models.PullRequestReview'
+    pr_only = True
+    date_field = 'submitted_at'
+
+    @classmethod
+    def get_data_queryset(cls, issue):
+        qs = super(ActivityManagerPRR, cls).get_data_queryset(issue)
+        return qs.filter(displayable=True).select_related(
+            'issue__user', 'issue__repository__owner', 'author'
+        )
+
+
 class ActivityManagerPCO(ActivityManager):
     code = 'pco'
     limpyd_field = 'pr_comments'

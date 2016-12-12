@@ -71,6 +71,12 @@
                         margin-top: 4px;
                         margin-bottom: 2px;
                         padding-left: 7px;
+                        &.pr-review-changes_requested {
+                            border-color: $state-closed-color;
+                        }
+                        &.pr-review-approved {
+                            border-color: $state-open-color;
+                        }
                     }
                     .part-last_head_status {
                         .state-success {
@@ -80,6 +86,17 @@
                             color: $errorText;
                         }
                         .state-pending, .state-unknown {
+                            color: $warningText;
+                        }
+                    }
+                    .part-pr_review_state {
+                        .state-approved {
+                            color: $successText;
+                        }
+                        .state-changes_requested {
+                            color: $errorText;
+                        }
+                        .state-review_required {
                             color: $warningText;
                         }
                     }
@@ -221,6 +238,7 @@
     &.hide-model-IssueEvent-reopened .model-IssueEvent-reopened,
     &.hide-model-IssueComment .model-IssueComment,
     &.hide-model-PullRequestComment .model-PullRequestComment,
+    &.hide-model-PullRequestReview .model-PullRequestReview,
     &.hide-model-IssueCommits .model-IssueCommits,
     &.hide-model-IssueCommits-deleted .model-IssueCommits-deleted,
     &.hide-model-CommitComment .model-CommitComment,
