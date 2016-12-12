@@ -59,6 +59,47 @@
             <a href="{{ issue.get_absolute_url }}" class="issue-item-link issue-link" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
                 <strong class="text-{{ issue.state }}">#{{ issue.number }}</strong> - {{ issue.title }}
             </a>
+            <span class="issue-item-checks not-hoverable">
+                {% if issue.is_pull_request %}
+                    {% if issue.state == 'open' %}
+                        {% if issue.is_mergeable %}
+                            <i class="fa fa-check text-open" title="Mergeable"> </i>
+                        {% else %}
+                            <i class="fa fa-times text-closed" title="Not mergeable"> </i>
+                        {% endif %}
+                    {% else %}
+                        {% if issue.merged %}
+                            <i class="fa fa-check text-open" title="Merged"> </i>
+                        {% else %}
+                            <i class="fa fa-times text-closed" title="Not merged"> </i>
+                        {% endif %}
+                    {% endif %}
+                    {% if issue.last_head_status %}
+                        {% with status=issue.last_head_status STATUS_CHOICES=issue.GITHUB_COMMIT_STATUS_CHOICES %}
+                            {% if status == STATUS_CHOICES.SUCCESS %}
+                                <i class="fa fa-check text-open" title="All checks passed"> </i>
+                            {% elif status == STATUS_CHOICES.FAILURE or status == STATUS_CHOICES.ERROR %}
+                                <i class="fa fa-times text-closed" title="Some checks failed"> </i>
+                            {% else %}
+                                <i class="fa fa-spinner fa-spin text-warning" title="Checks are running"> </i>
+                            {% endif %}
+                        {% endwith %}
+                    {% elif issue.repository.has_commit_statuses %}
+                        <i class="fa fa-spinner fa-spin text-warning" title="Waiting for checks"> </i>
+                    {% endif %}
+                    {% if issue.repository.pr_reviews_activated %}
+                        {% with status=issue.pr_review_state %}
+                            {% if status == 'APPROVED' %}
+                                <i class="fa fa-check text-open" title="Review approved"> </i>
+                            {% elif status == 'CHANGES_REQUESTED' %}
+                                <i class="fa fa-times text-closed" title="Changes requested"> </i>
+                            {% elif issue.pr_review_required %}
+                                <i class="fa fa-spinner fa-spin text-warning" title="Waiting for review"> </i>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                {% endif %}
+            </span>
         </div>
     </div>
     <div class="issue-item-footer{% if issue_labels %} with-labels{% endif %}">

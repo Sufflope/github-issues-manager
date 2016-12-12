@@ -491,7 +491,9 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
         if self.is_pull_request:
-            hashable_fields += ('base_sha', 'head_sha', 'merged', 'last_head_status', 'pr_review_state')
+            hashable_fields += (
+                'base_sha', 'head_sha', 'merged', 'last_head_status', 'pr_review_state', 'pr_review_required'
+            )
             if self.state == 'open' and not self.merged:
                 hashable_fields += ('mergeable', 'mergeable_state')
 
@@ -507,7 +509,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
-            hash_values += (commits_part, )
+            hash_values += (commits_part, self.repository.pr_reviews_activated, )
 
         return hash_values
 
