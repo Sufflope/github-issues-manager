@@ -2,6 +2,7 @@
 __all__ = [
     'GITHUB_STATUS_CHOICES',
     'GITHUB_COMMIT_STATUS_CHOICES',
+    'REVIEW_STATES'
 ]
 
 from datetime import datetime, timedelta
@@ -64,6 +65,17 @@ GITHUB_COMMIT_STATUS_CHOICES = Choices(
     ('SUCCESS', 50, u'Success'),
 )
 GITHUB_COMMIT_STATUS_CHOICES.add_subset('FINISHED', ('ERROR', 'FAILURE', 'SUCCESS'))
+
+
+REVIEW_STATES = Choices(
+    ('PENDING', 'PENDING', u'Pending'),
+    ('COMMENTED', 'COMMENTED', u'Commented'),
+    ('APPROVED', 'APPROVED', u'Approved'),
+    ('CHANGES_REQUESTED', 'CHANGES_REQUESTED', u'Changes requested'),
+    ('DISMISSED', 'DISMISSED', u'Dismissed'),
+)
+REVIEW_STATES.add_subset('FOR_PR_STATE_COMPUTATION', ['DISMISSED', 'CHANGES_REQUESTED', 'APPROVED'])
+REVIEW_STATES.add_subset('PR_STATES', ['CHANGES_REQUESTED', 'APPROVED'])
 
 
 class GithubObject(models.Model):

@@ -241,7 +241,8 @@ class ChangeTracker(object):
 
 class IssueTracker(ChangeTracker):
     fields = ('title', 'body', 'labels__ids', 'assignees__ids', 'milestone_id',
-              'state', 'merged', 'mergeable', 'mergeable_state', 'last_head_status')
+              'state', 'merged', 'mergeable', 'mergeable_state', 'last_head_status',
+              'pr_review_state')
     model = Issue
 
     @classmethod
@@ -280,6 +281,9 @@ class IssueTracker(ChangeTracker):
 
             if instance.last_head_status != GITHUB_COMMIT_STATUS_CHOICES.NOTHING:
                 parts.extend(cls.event_part_for_last_head_status(instance, instance.last_head_status, None))
+
+            if instance.pr_review_state:
+                parts.extend(cls.event_part_for_pr_review_state(instance, instance.pr_review_state, None))
 
         parts.extend(cls.event_part_for_labels__ids(instance, instance.labels__ids, []))
 
@@ -510,6 +514,22 @@ class IssueTracker(ChangeTracker):
                     result['new_value']['count_by_state'] = defaultdict(int)
                     for status in last_statuses:
                         result['new_value']['count_by_state'][int(status.state)] += 1
+
+        return [result]
+
+    @staticmethod
+    def event_part_for_pr_review_state(instance, new, old):
+        if old is None and not new:
+            # Status for a new pr. No notification if still "nothing"
+            return []
+
+        pr_review_required = instance.pr_review_required
+
+        result = {
+            'field': 'pr_review_state',
+            'old_value': {'pr_review_state': old, 'review_required': pr_review_required},
+            'new_value': {'pr_review_state': new, 'review_required': pr_review_required},
+        }
 
         return [result]
 

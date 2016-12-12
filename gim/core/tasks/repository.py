@@ -1,3 +1,4 @@
+
 __all__ = [
     'FetchClosedIssuesWithNoClosedBy',
     'FetchUpdatedPullRequests',
@@ -21,6 +22,7 @@ from async_messages import messages
 from gim.core.managers import MODE_UPDATE
 from gim.core.models import Repository, GithubUser
 from gim.github import ApiNotFoundError
+from gim.core.limpyd_models import Token
 from gim.subscriptions.models import WaitingSubscription, WAITING_SUBSCRIPTION_STATES
 
 from .base import DjangoModelJob, Job
@@ -45,7 +47,6 @@ class RepositoryJob(DjangoModelJob):
                 self.hmset(status=STATUSES.CANCELED, cancel_on_error=1)
                 raise
         return self._repository
-
 
 
 class FetchClosedIssuesWithNoClosedBy(RepositoryJob):
@@ -106,6 +107,7 @@ class FetchUpdatedPullRequests(RepositoryJob):
     limit = fields.InstanceHashField()
     count = fields.InstanceHashField()
     errors = fields.InstanceHashField()
+    count_for_reviews = fields.InstanceHashField()
 
     permission = 'read'
     clonable_fields = ('gh', 'limit', )
@@ -121,12 +123,24 @@ class FetchUpdatedPullRequests(RepositoryJob):
         if not gh:
             return  # it's delayed !
 
-        count, deleted, errors, todo = self.repository.fetch_updated_prs(
+        repository = self.repository
+
+        count, deleted, errors, todo = repository.fetch_updated_prs(
                                     limit=int(self.limit.hget() or 20), gh=gh)
 
-        self.hmset(count=count, errors=errors)
+        count_for_reviews = -2  # reviews not activated
+        if repository.pr_reviews_activated:
+            token = Token.get_for_gh(gh)
+            if token.can_access_graphql_api.hget() != '1':
+                token = Token.get_one_for_repository(repository.pk, 'pull', for_graphql=True)
+            if token:
+                count_for_reviews = self.repository.fetch_updated_pr_reviews(token.gh)
+            else:
+                count_for_reviews = -1  # reviews activated but no token to fetch them
 
-        return count, deleted, errors, todo
+        self.hmset(count=count, errors=errors, count_for_reviews=count_for_reviews)
+
+        return count, deleted, errors, todo, count_for_reviews
 
     def on_success(self, queue, result):
         """
@@ -140,7 +154,7 @@ class FetchUpdatedPullRequests(RepositoryJob):
         """
         Display the count of updated pull requests
         """
-        return ' [fetched=%d, deleted=%s, errors=%s, todo=%s]' % result
+        return ' [fetched=%d, deleted=%s, errors=%s, todo=%s, for_reviews=%s]' % result
 
 
 class FetchUnmergedPullRequests(RepositoryJob):
@@ -388,6 +402,16 @@ class FirstFetchStep2(RepositoryJob):
                             start_page=self._start_page, max_pages=self._max_pages,
                             to_ignore=self._to_ignore, issues_state='closed')
         finally:
+
+            if not sum(counts):
+                # we're done, we can fetch the pr reviews
+                if self.repository.pr_reviews_activated:
+                    token = Token.get_for_gh(gh)
+                    if token.can_access_graphql_api.hget() != '1':
+                        token = Token.get_one_for_repository(self.repository.pk, 'pull', for_graphql=True)
+                    if token:
+                        self.repository.fetch_all_pr_reviews(token.gh)
+
             thread_data.skip_publish = False
 
         return counts

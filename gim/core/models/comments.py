@@ -3,7 +3,8 @@ __all__ = [
     'CommitCommentEntryPoint',
     'IssueComment',
     'PullRequestComment',
-    'PullRequestCommentEntryPoint'
+    'PullRequestCommentEntryPoint',
+    'PullRequestReview',
 ]
 
 import re
@@ -11,17 +12,29 @@ import re
 from django.conf import settings
 from django.db import models
 
+from extended_choices import Choices
+
+from gim.core.graphql_utils import (
+    compose_query,
+    encode_graphql_id_for_object,
+    fetch_graphql,
+    GraphQLGithubInternalError,
+    GITHUB_TYPES,
+)
+
 from ..managers import (
     CommitCommentEntryPointManager,
     CommitCommentManager,
     IssueCommentManager,
     PullRequestCommentEntryPointManager,
     PullRequestCommentManager,
+    PullRequestReviewManager,
 )
 
 from .base import (
     GithubObject,
     GithubObjectWithId,
+    REVIEW_STATES,
 )
 
 from .mixins import (
@@ -572,3 +585,107 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
         super(CommitComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
+
+
+class PullRequestReview(GithubObjectWithId):
+    issue = models.ForeignKey('Issue', related_name='reviews')
+    author = models.ForeignKey('GithubUser', related_name='reviews')
+    state = models.CharField(max_length=20, choices=REVIEW_STATES)
+    body = models.TextField(blank=True, null=True)
+    body_html = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField()
+    head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
+    comments_count = models.PositiveIntegerField(blank=True, null=True)
+    displayable = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        app_label = 'core'
+        ordering = ('submitted_at', )
+
+    objects = PullRequestReviewManager()
+
+    REVIEW_STATES = REVIEW_STATES
+    GRAPHQL_TYPE = GITHUB_TYPES.PullRequestReview
+
+    GRAPHQL_FETCH_ONE = compose_query("""
+        query PullRequestReview($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewFull
+            }
+        }
+    """, 'pullRequestReviewFull')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_AUTHOR = compose_query("""
+        query PullRequestReviewWithoutAuthor($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewNoAuthor
+            }
+        }
+    """, 'pullRequestReviewNoAuthor')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_PR = compose_query("""
+        query PullRequestReviewWithoutPR($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewNoPR
+            }
+        }
+    """, 'pullRequestReviewNoPR')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_PR_AND_AUTHOR = compose_query("""
+        query PullRequestReviewWithoutPRAndAuthor($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewBase
+            }
+        }
+    """, 'pullRequestReviewBase')
+
+    def __unicode__(self):
+        return u'Review %s by %s on Pull request #%d' % (self.state, self.author, self.issue.number)
+
+    def fetch(self, gh):
+
+        defaults = {}
+        if self.issue_id:
+            defaults['fk'] = {
+                'issue': self.issue
+            }
+            query = self.GRAPHQL_FETCH_ONE_WITHOUT_PR
+            query_name = 'PullRequestReviewWithoutPR'
+        else:
+            query = self.GRAPHQL_FETCH_ONE
+            query_name = 'PullRequestReview'
+
+        variables = {
+            'pullRequestReviewId': encode_graphql_id_for_object(self)
+        }
+
+        try:
+            data = fetch_graphql(gh, query, variables, query_name, {
+                'pr_review_github_id': self.github_id
+            })
+        except GraphQLGithubInternalError:
+            # In general it happens when the author of a review is now deleted
+            if self.issue_id:
+                query = self.GRAPHQL_FETCH_ONE_WITHOUT_PR_AND_AUTHOR
+                query_name = 'PullRequestReviewWithoutPRAndAuthor'
+            else:
+                query = self.GRAPHQL_FETCH_ONE_WITHOUT_AUTHOR
+                query_name = 'PullRequestReviewWithoutAuthor'
+
+            data = fetch_graphql(gh, query, variables, query_name, {
+                'pr_review_github_id': self.github_id
+            })
+
+        if not data.get('node'):
+            return None
+
+        return PullRequestReview.objects.create_or_update_from_dict(
+            data.node,
+            defaults=defaults
+        )
+
+    def save(self, *args, **kwargs):
+        super(PullRequestReview, self).save(*args, **kwargs)
+        if self.state in REVIEW_STATES.FOR_PR_STATE_COMPUTATION:
+            self.issue.update_pr_review_state()
+

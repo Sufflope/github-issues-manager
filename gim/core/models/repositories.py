@@ -8,6 +8,16 @@ from datetime import datetime, timedelta
 from django.db import models
 from django.utils.functional import cached_property
 
+
+from gim.core.graphql_utils import (
+    compose_query,
+    encode_graphql_id_for_object,
+    fetch_graphql,
+    reindent,
+    GraphQLComplexityError,
+    GraphQLGithubInternalError,
+)
+
 from .. import GITHUB_HOST
 
 from ..ghpool import (
@@ -74,6 +84,7 @@ class Repository(GithubObjectWithId):
     projects_etag = models.CharField(max_length=64, blank=True, null=True)
     protected_branches_fetched_at = models.DateTimeField(blank=True, null=True)
     protected_branches_etag = models.CharField(max_length=64, blank=True, null=True)
+    pr_reviews_activated = models.BooleanField(default=False)
 
     objects = RepositoryManager()
 
@@ -751,6 +762,227 @@ class Repository(GithubObjectWithId):
     def has_projects_with_issues(self):
         from .projects import CARDTYPE
         return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
+
+    GRAPHQL_FETCH_REVIEWS = compose_query("""
+        query RepositoryPullRequestsReviews($nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {
+            %s
+        }
+    """, 'pullRequestReviewsFull')
+
+    GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY = """
+        node%(pr_index)02d: node(id: "%(pr_id)s") {
+            ...pullRequestReviewsFull
+        }
+    """
+
+    GRAPHQL_FETCH_ALL_REVIEWS = compose_query("""
+        query RepositoryAllPullRequestsReviews($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nbReviewsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String, $nextReviewsPageCursor: String) {
+            repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
+                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                    pageInfo {
+                        ...pageInfoNext
+                    }
+                    edges {
+                        node {
+                            ...pullRequestNumber
+                            ...pullRequestReviewsFull
+                        }
+                    }
+                }
+            }
+        }
+    """, 'pageInfoNext', 'pullRequestNumber', 'pullRequestReviewsFull')
+
+    GRAPHQL_FETCH_ALL_REVIEWS_LITE = compose_query("""
+        query RepositoryAllPullRequestsReviewsLite($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String) {
+            repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
+                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                    pageInfo {
+                        ...pageInfoNext
+                    }
+                    edges {
+                        node {
+                            ...pullRequestNumber
+                        }
+                    }
+                }
+            }
+        }
+    """, 'pageInfoNext', 'pullRequestNumber')
+
+    def _manage_pr_reviews_from_fetch(self, gh, pr, reviews_node):
+        from gim.core.models import PullRequestReview
+
+        if reviews_node and reviews_node.get('edges'):
+
+            objs = PullRequestReview.objects.create_or_update_from_list(
+                [edge.node for edge in reviews_node.edges],
+                defaults={'fk': {'issue': pr}},
+            )
+
+            # continue fetching the reviews for this issue if more than one page
+            has_next_page = reviews_node.pageInfo.hasNextPage
+            if has_next_page:
+                objs += pr.fetch_pr_reviews(gh, reviews_node.pageInfo.endCursor, False)
+
+        # we're done
+        pr.pr_reviews_fetched_at = datetime.utcnow()
+        pr.save(update_fields=['pr_reviews_fetched_at'])
+
+    def fetch_all_pr_reviews(self, gh, next_page_cursor=''):
+
+        if not self.pr_reviews_activated:
+            return
+
+        from gim.core.models import Issue
+
+        has_next_page = True
+
+        per_page = normal_per_page = 30
+
+        done = 0
+        failed = 0
+        total = self.issues.filter(is_pull_request=True).count()
+
+        variables = {
+            'repositoryOwnerLogin': self.owner.username,
+            'repositoryName': self.name,
+        }
+        debug_context = {
+            'total': total,
+        }
+
+        while has_next_page:
+            variables['nbPullRequestsToRetrieve'] =  per_page
+            if next_page_cursor:
+                variables['nextPullRequestsPageCursor'] =  next_page_cursor
+            debug_context.update({
+                'failed': failed,
+                'done': done,
+            })
+
+            manage_reviews = True
+
+            try:
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_ALL_REVIEWS, variables, 'RepositoryAllPullRequestsReviews', debug_context)
+            except GraphQLGithubInternalError:
+                # We don't know which one fails, so we retry only with the half.
+                # When only one PR, and a failure, we have our failing PR, and
+                # will fetch it in a very light way to get the number
+
+                if per_page > 1:
+                    per_page /= 2
+                    continue
+
+                failed += 1
+                manage_reviews = False
+                debug_context['failed'] = failed
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_ALL_REVIEWS_LITE, variables, 'RepositoryAllPullRequestsReviewsLite', debug_context)
+
+                # now we can get the pr and retrieve its reviews
+                pr_number = data.repository.pullRequests.edges[0].node.number
+                try:
+                    pr = self.issues.get(number=pr_number)
+                    pr.fetch_pr_reviews(gh)
+                except Issue.DoesNotExist:
+                    pass
+                else:
+                    done += 1
+
+                # we can restore the qtt per page
+                per_page = normal_per_page
+                # and let the process continue using pagination info
+
+            pulls_node = data.repository.pullRequests
+
+            has_next_page = pulls_node.pageInfo.hasNextPage
+            if has_next_page:
+                next_page_cursor = pulls_node.pageInfo.endCursor
+
+            if not manage_reviews:
+                continue
+
+            # now work on each retrieved pr
+            for edge in pulls_node.get('edges', []):
+                try:
+                    self._manage_pr_reviews_from_fetch(
+                        gh,
+                        self.issues.get(number=edge.node.number),
+                        edge.get('node', {}).get('reviews', {})
+                    )
+                except Issue.DoesNotExist:
+                    pass
+                else:
+                    done += 1
+
+    def fetch_updated_pr_reviews(self, gh, prs=None, nb_prs_by_query=10): # more is too much complexity for github
+
+        if not self.pr_reviews_activated:
+            return 0
+
+        # get the list of PRs to fetch: the ones where it was never fetched, or the one where it
+        # was fetched before the last updated at
+        if prs is None:
+            prs = list(self.issues.filter(is_pull_request=True).filter(
+                models.Q(pr_reviews_fetched_at__isnull=True)
+                |
+                models.Q(pr_reviews_fetched_at__lt=models.F('updated_at'))
+            ).select_related('repository__owner'))
+
+        if not prs:
+            return 0
+
+        count = 0
+
+        failing_prs = []
+        while len(prs):
+            current_prs, prs = prs[:nb_prs_by_query], prs[nb_prs_by_query:]
+
+            subqueries = [
+                self.GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY % {
+                    'pr_index': index,
+                    'pr_id': encode_graphql_id_for_object(pr),
+                }
+                for index, pr
+                in enumerate(current_prs)
+            ]
+
+            query = reindent(self.GRAPHQL_FETCH_REVIEWS % '\n'.join(subqueries))
+
+            try:
+                data = fetch_graphql(gh, query, {}, 'RepositoryPullRequestsReviews', {
+                    'repository': self.full_name,
+                    'prs_left': len(prs) + len(current_prs),
+                    'failed': len(failing_prs),
+                })
+            except GraphQLGithubInternalError:
+                # we'll try them later
+                failing_prs += current_prs
+                continue
+            except GraphQLComplexityError as e:
+                # reset list to restart with a lower nb of prs by query
+                nb_prs_by_query = e.complexity[1] / (e.complexity[0] / nb_prs_by_query)
+                prs = current_prs + prs
+                continue
+
+            for index, node_key in enumerate(sorted(data.keys())):
+                self._manage_pr_reviews_from_fetch(
+                    gh,
+                    current_prs[index],
+                    data[node_key].get('reviews', {})
+                )
+                count += 1
+
+        if failing_prs:
+            if nb_prs_by_query / 2 > 1:
+                count += self.fetch_updated_pr_reviews(gh, failing_prs, nb_prs_by_query / 2)
+            else:
+                # fetch the reviews one by one
+                for pr in failing_prs:
+                    pr.fetch_pr_reviews(gh)
+                    count += 1
+
+        return count
 
 
 class ProtectedBranch(GithubObject):
