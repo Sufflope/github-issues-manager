@@ -131,6 +131,31 @@
                 {% endif %}
             {% endblock filter-check-status %}
 
+            {% block filter-review-status %}
+                {# The different review statuses, only if filter on pull requests #}
+                {% if issues_filter.parts.pr == 'yes' %}
+                    <li class="accordion-group dark-nav">
+                        <span class="glow"></span>
+                        <a class="accordion-toggle collapsed{% if issues_filter.parts.review_status %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-review_status-{{ list_uuid }}">
+                            Review status
+                            <i class="fa fa-caret-right"></i>
+                            {% if issues_filter.objects.review_status %}
+                                    <span class="selection">{{ issues_filter.objects.review_status.display|lower }}</span>
+                                </a>
+                                <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "review" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                            {% endif %}
+                        </a>
+                        <ul id="filter-review_status-{{ list_uuid }}" class="collapse">
+                            {% for review_status_key, review_status in view.REVIEW_STATUS_CHOICES.items %}
+                                <li{% if issues_filter.parts.review_status == review_status_key %} class="active"{% endif %}>
+                                    <a href="{{ current_issues_url }}{% toggle_in_querystring "review" review_status_key %}">{{ review_status.display|capfirst }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endif %}
+            {% endblock filter-review-status %}
+
             {% block after_common_filters %}{% endblock %}
 
         </ul>{% endspaceless %}

@@ -15,7 +15,7 @@ from django.utils.cache import patch_response_headers
 from django.utils.functional import cached_property
 
 from gim.front.utils import make_querystring
-from gim.core.models import Repository, Issue, GITHUB_COMMIT_STATUS_CHOICES
+from gim.core.models import Repository, Issue, GITHUB_COMMIT_STATUS_CHOICES, REVIEW_STATES
 from gim.subscriptions.models import Subscription, SUBSCRIPTION_STATES
 
 
@@ -567,6 +567,11 @@ CHECK_STATUS_CHOICES = OrderedDict(
     for status in GITHUB_COMMIT_STATUS_CHOICES.entries
 )
 
+REVIEW_STATUS_CHOICES = OrderedDict(
+    (status.constant.lower(), status)
+    for status in REVIEW_STATES.FOR_PR_STATE_FILTERING.entries
+)
+
 
 class BaseIssuesFilters(WithQueryStringViewMixin):
 
@@ -578,6 +583,7 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
     allowed_mergeables = ['no', 'yes']
     allowed_mergeds = ['no', 'yes']
     allowed_check_statuses = CHECK_STATUS_CHOICES.keys()
+    allowed_review_statuses = REVIEW_STATUS_CHOICES.keys()
 
     allowed_sort = OrderedDict(SORT_CHOICES[name] for name in [
         'created',
@@ -590,6 +596,7 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
     default_qs = ''
 
     CHECK_STATUS_CHOICES = CHECK_STATUS_CHOICES
+    REVIEW_STATUS_CHOICES = REVIEW_STATUS_CHOICES
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
     SORT_CHOICES = SORT_CHOICES
 
@@ -647,6 +654,17 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
         if check_status in self.allowed_check_statuses:
             if self._get_is_pull_request(qs_parts):
                 return CHECK_STATUS_CHOICES[check_status]
+        return None
+
+    def _get_review_status(self, qs_parts):
+        """
+        Return the valid "review_status" flag to use, or None
+        Will return None if current filter is not on Pull requests
+        """
+        review_status = qs_parts.get('review', None)
+        if review_status in self.allowed_review_statuses:
+            if self._get_is_pull_request(qs_parts):
+                return REVIEW_STATUS_CHOICES[review_status]
         return None
 
     def _get_group_by_direction(self, qs_parts):
@@ -739,6 +757,16 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
                 qs_filters['checks'] = check_status.constant.lower()
                 filter_objects['check_status'] = check_status
                 query_filters['last_head_status'] = check_status.value
+
+            # filter by review status
+            review_status = self._get_review_status(qs_parts)
+            if review_status is not None:
+                qs_filters['review'] = review_status.constant.lower()
+                filter_objects['review_status'] = review_status
+                if review_status is REVIEW_STATES.for_constant('UNSET'):
+                    query_filters['pr_review_state__isnull'] = True
+                else:
+                    query_filters['pr_review_state'] = review_status.value
 
         # prepare order, by group then asked ordering
         order_by = []
