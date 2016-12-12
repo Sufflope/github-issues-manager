@@ -570,6 +570,7 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
     allowed_states = ['open', 'closed']
     allowed_prs = ['no', 'yes']
     allowed_mergeables = ['no', 'yes']
+    allowed_mergeds = ['no', 'yes']
     allowed_sort = OrderedDict(SORT_CHOICES[name] for name in [
         'created',
         'updated',
@@ -615,6 +616,17 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
         if is_mergeable in self.allowed_mergeables:
             if self._get_is_pull_request(qs_parts):
                 return True if is_mergeable == 'yes' else False
+        return None
+
+    def _get_is_merged(self, qs_parts):
+        """
+        Return the valid "is_merged" flag to use, or None
+        Will return None if current filter is not on Pull requests
+        """
+        is_merged = qs_parts.get('merged', None)
+        if is_merged in self.allowed_mergeds:
+            if self._get_is_pull_request(qs_parts):
+                return True if is_merged == 'yes' else False
         return None
 
     def _get_group_by_direction(self, qs_parts):
@@ -687,12 +699,17 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
             qs_filters['pr'] = self.allowed_prs[is_pull_request]
             filter_objects['pr'] = query_filters['is_pull_request'] = is_pull_request
 
-        # filter by mergeable status
+        # filter by mergeable and merged status
         if qs_filters.get('pr') == 'yes':
             is_mergeable = self._get_is_mergeable(qs_parts)
             if is_mergeable is not None:
                 qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
                 filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
+
+            is_merged = self._get_is_merged(qs_parts)
+            if is_merged is not None:
+                qs_filters['merged'] = self.allowed_mergeds[is_merged]
+                filter_objects['merged'] = query_filters['merged'] = is_merged
 
         # prepare order, by group then asked ordering
         order_by = []

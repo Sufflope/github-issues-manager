@@ -81,6 +81,31 @@
             {% endif %}
             {% endblock filter-mergeable %}
 
+            {% block filter-merged %}
+            {# The two merged states, only if filter on pull requests #}
+            {% if issues_filter.parts.pr == 'yes' %}
+                <li class="accordion-group dark-nav">
+                    <span class="glow"></span>
+                    <a class="accordion-toggle collapsed{% if issues_filter.parts.merged %} with-selection{% endif %}" data-toggle="collapse" data-parent="#issues-filters-accordion-{{ list_uuid }}" href="#filter-merged-{{ list_uuid }}">
+                        Merged
+                        <i class="fa fa-caret-right"></i>
+                        {% if issues_filter.parts.merged %}
+                                <span class="selection">{{ issues_filter.parts.merged }}</span>
+                            </a>
+                            <a class="clear-filter" href="{{ current_issues_url }}{% remove_from_querystring "merged" %}" title="Clear this filter"><i class="fa fa-times"> </i>
+                        {% endif %}
+                    </a>
+                    <ul id="filter-merged-{{ list_uuid }}" class="collapse">
+                        {% for merged in view.allowed_mergeds %}
+                            <li{% if issues_filter.parts.merged == merged %} class="active"{% endif %}>
+                                <a href="{{ current_issues_url }}{% toggle_in_querystring "merged" merged %}">{{ merged|capfirst }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% endif %}
+            {% endblock filter-merged %}
+
             {% block after_common_filters %}{% endblock %}
 
         </ul>{% endspaceless %}
