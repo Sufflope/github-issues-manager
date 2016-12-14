@@ -1911,7 +1911,7 @@ class PullRequestReviewManager(GithubObjectManager):
             from gim.core.models import GithubUser
             fields['fk']['author'] = GithubUser.objects.get_deleted_user()
 
-        fields['simple']['displayable'] = (
+        fields['simple']['displayable'] = bool(
             fields['simple']['state'] != self.model.REVIEW_STATES.COMMENTED
             or fields['simple']['comments_count'] > 1
             or (fields['simple'].get('body') or '').strip()

@@ -171,7 +171,11 @@ def decode_graphql_id(graphql_id):
 
     parts = base64.decodestring(graphql_id).split(':')
     try:
-        return parts[1][len(GITHUB_TYPES.for_value(parts[0]).constant):]
+        str_id = parts[1][len(GITHUB_TYPES.for_value(parts[0]).constant):]
+        try:
+            return int(str_id)
+        except ValueError:
+            return str_id
     except KeyError:
         print('Type not registered for graphql ID %s' % ':'.join(parts))
         raise

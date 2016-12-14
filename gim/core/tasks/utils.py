@@ -455,7 +455,7 @@ def requeue_all_users():
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
 
-    CheckGraphQLAccesses.add_job(None)
+    CheckGraphQLAccesses.add_job(42)
 
 
 def maintenance(include_users_and_repositories=True):
