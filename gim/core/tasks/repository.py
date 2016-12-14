@@ -2,6 +2,7 @@
 __all__ = [
     'FetchClosedIssuesWithNoClosedBy',
     'FetchUpdatedPullRequests',
+    'FetchUpdatedReviews',
     'FetchUnmergedPullRequests',
     'FetchCollaborators',
     'FirstFetch',
@@ -107,7 +108,6 @@ class FetchUpdatedPullRequests(RepositoryJob):
     limit = fields.InstanceHashField()
     count = fields.InstanceHashField()
     errors = fields.InstanceHashField()
-    count_for_reviews = fields.InstanceHashField()
 
     permission = 'read'
     clonable_fields = ('gh', 'limit', )
@@ -123,24 +123,12 @@ class FetchUpdatedPullRequests(RepositoryJob):
         if not gh:
             return  # it's delayed !
 
-        repository = self.repository
-
-        count, deleted, errors, todo = repository.fetch_updated_prs(
+        count, deleted, errors, todo = self.repository.fetch_updated_prs(
                                     limit=int(self.limit.hget() or 20), gh=gh)
 
-        count_for_reviews = -2  # reviews not activated
-        if repository.pr_reviews_activated:
-            token = Token.get_for_gh(gh)
-            if token.can_access_graphql_api.hget() != '1':
-                token = Token.get_one_for_repository(repository.pk, 'pull', for_graphql=True)
-            if token:
-                count_for_reviews = self.repository.fetch_updated_pr_reviews(token.gh)
-            else:
-                count_for_reviews = -1  # reviews activated but no token to fetch them
+        self.hmset(count=count, errors=errors)
 
-        self.hmset(count=count, errors=errors, count_for_reviews=count_for_reviews)
-
-        return count, deleted, errors, todo, count_for_reviews
+        return count, deleted, errors, todo
 
     def on_success(self, queue, result):
         """
@@ -154,7 +142,39 @@ class FetchUpdatedPullRequests(RepositoryJob):
         """
         Display the count of updated pull requests
         """
-        return ' [fetched=%d, deleted=%s, errors=%s, todo=%s, for_reviews=%s]' % result
+        return ' [fetched=%d, deleted=%s, errors=%s, todo=%s]' % result
+
+
+class FetchUpdatedReviews(RepositoryJob):
+    queue_name = 'update-pr-reviews'
+
+    limit = fields.InstanceHashField()
+    count = fields.InstanceHashField()
+
+    permission = 'read'
+    use_graphql = True
+
+    def run(self, queue):
+
+        super(FetchUpdatedReviews, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return   # it's delayed !
+
+        count, total = self.repository.fetch_updated_pr_reviews(gh, max_prs=int(self.limit.hget() or 10))
+
+        self.count.hset(count)
+
+        return count, total
+
+    def on_success(self, queue, result):
+        # replay this often
+        if self.repository.pr_reviews_activated:
+            self.clone(delayed_for=60)
+
+    def success_message_addon(self, queue, result):
+        return ' [fetched=%s, total=%s]' % result
 
 
 class FetchUnmergedPullRequests(RepositoryJob):
@@ -363,6 +383,8 @@ class FirstFetchStep2(RepositoryJob):
     counts = fields.HashField()
     last_one = fields.InstanceHashField()
 
+    pr_reviews_next_page_cursor = fields.InstanceHashField()
+
     permission = 'read'
 
     def run(self, queue):
@@ -401,17 +423,27 @@ class FirstFetchStep2(RepositoryJob):
             counts = self.repository.fetch_all_step2(gh=gh, force_fetch=True,
                             start_page=self._start_page, max_pages=self._max_pages,
                             to_ignore=self._to_ignore, issues_state='closed')
+
+            if self.repository.pr_reviews_activated and 'pr_reviews' not in self._to_ignore:
+                counts['pr_reviews'] = -1  # to indicate failure
+
+                pr_reviews_gh = Token.ensure_graphql_gh_for_repository(gh, self.repository.pk)
+
+                if pr_reviews_gh:
+
+                    total, done, failed, next_page_cursor = self.repository.fetch_all_pr_reviews(
+                        pr_reviews_gh,
+                        next_page_cursor=self.pr_reviews_next_page_cursor.hget() or None,
+                        max_prs=30,
+                    )
+                    counts['pr_reviews'] = done
+                    if next_page_cursor:
+                        self.pr_reviews_next_page_cursor.hset(next_page_cursor)
+                    else:
+                        self.pr_reviews_next_page_cursor.delete()
+                        self._to_ignore.add('pr_reviews')
+
         finally:
-
-            if not sum(counts):
-                # we're done, we can fetch the pr reviews
-                if self.repository.pr_reviews_activated:
-                    token = Token.get_for_gh(gh)
-                    if token.can_access_graphql_api.hget() != '1':
-                        token = Token.get_one_for_repository(self.repository.pk, 'pull', for_graphql=True)
-                    if token:
-                        self.repository.fetch_all_pr_reviews(token.gh)
-
             thread_data.skip_publish = False
 
         return counts
@@ -427,10 +459,11 @@ class FirstFetchStep2(RepositoryJob):
         if result:
             self.counts.hmset(**result)
             total_count = sum(result.values())
+            force_continue = any(v for v in result.values() if v and v < 0)
         else:
             total_count = 0
 
-        if total_count:
+        if total_count or force_continue:
             # we got data, continue at least one time
 
             self._to_ignore.update([k for k, v in result.iteritems() if not v])

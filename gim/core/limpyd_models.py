@@ -293,6 +293,37 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
+    def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission='pull', min_remaining=None):
+        if min_remaining is None:
+            min_remaining = cls.GRAPHQL_LIMIT
+
+        token = cls.get_for_gh(gh)
+
+        if token.can_access_graphql_api.hget() == '1':
+            try:
+                remaining = int(token.graphql_rate_limit_remaining.get())
+            except:
+                remaining = cls.GRAPHQL_MAX_EXPECTED
+
+            if remaining > min_remaining:
+                return gh
+
+        token = cls.get_one_for_repository(repository_pk, permission, for_graphql=True)
+
+        if not token:
+            return None
+
+        try:
+            remaining = int(token.graphql_rate_limit_remaining.get())
+        except:
+            remaining = cls.GRAPHQL_MAX_EXPECTED
+
+        if remaining <= min_remaining:
+            return None
+
+        return token.gh
+
+    @classmethod
     def get_one(cls, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:

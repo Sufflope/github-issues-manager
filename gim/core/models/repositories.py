@@ -298,8 +298,10 @@ class Repository(GithubObjectWithId):
             from gim.core.tasks.repository import FetchClosedIssuesWithNoClosedBy
             FetchClosedIssuesWithNoClosedBy.add_job(self.id, limit=20, gh=gh)
 
-        from gim.core.tasks.repository import FetchUpdatedPullRequests
+        from gim.core.tasks.repository import FetchUpdatedPullRequests, FetchUpdatedReviews
         FetchUpdatedPullRequests.add_job(self.id, limit=20, gh=gh)
+        if self.pr_reviews_activated:
+            FetchUpdatedReviews.add_job(self.id, limit=10, gh=gh)
 
         return count
 
@@ -829,10 +831,10 @@ class Repository(GithubObjectWithId):
         pr.pr_reviews_fetched_at = datetime.utcnow()
         pr.save(update_fields=['pr_reviews_fetched_at'])
 
-    def fetch_all_pr_reviews(self, gh, next_page_cursor=''):
+    def fetch_all_pr_reviews(self, gh, next_page_cursor=None, max_prs=None):
 
         if not self.pr_reviews_activated:
-            return
+            return 0, 0, 0, None
 
         from gim.core.models import Issue
 
@@ -852,10 +854,10 @@ class Repository(GithubObjectWithId):
             'total': total,
         }
 
-        while has_next_page:
-            variables['nbPullRequestsToRetrieve'] =  per_page
+        while has_next_page and (not max_prs or done < max_prs):
+            variables['nbPullRequestsToRetrieve'] = per_page
             if next_page_cursor:
-                variables['nextPullRequestsPageCursor'] =  next_page_cursor
+                variables['nextPullRequestsPageCursor'] = next_page_cursor
             debug_context.update({
                 'failed': failed,
                 'done': done,
@@ -898,6 +900,8 @@ class Repository(GithubObjectWithId):
             has_next_page = pulls_node.pageInfo.hasNextPage
             if has_next_page:
                 next_page_cursor = pulls_node.pageInfo.endCursor
+            else:
+                next_page_cursor = None
 
             if not manage_reviews:
                 continue
@@ -915,27 +919,40 @@ class Repository(GithubObjectWithId):
                 else:
                     done += 1
 
-    def fetch_updated_pr_reviews(self, gh, prs=None, nb_prs_by_query=10): # more is too much complexity for github
+        return total, done, failed, next_page_cursor
+
+    def fetch_updated_pr_reviews(self, gh, prs=None, nb_prs_by_query=10, max_prs=None):  # more nb_prs_by_query is too much complexity for github
 
         if not self.pr_reviews_activated:
-            return 0
+            return 0, 0
 
         # get the list of PRs to fetch: the ones where it was never fetched, or the one where it
         # was fetched before the last updated at
         if prs is None:
-            prs = list(self.issues.filter(is_pull_request=True).filter(
+            prs = self.issues.filter(is_pull_request=True).filter(
                 models.Q(pr_reviews_fetched_at__isnull=True)
                 |
                 models.Q(pr_reviews_fetched_at__lt=models.F('updated_at'))
-            ).select_related('repository__owner'))
+            ).select_related(
+                'repository__owner'
+            ).order_by('-updated_at')
 
-        if not prs:
-            return 0
+            total = prs.count()
+
+            if total:
+                if max_prs:
+                    prs = prs[:max_prs]
+                prs = list(prs)
+        else:
+            total = len(prs)
+
+        if not total:
+            return 0, 0
 
         count = 0
 
         failing_prs = []
-        while len(prs):
+        while len(prs) and (not max_prs or count < max_prs):
             current_prs, prs = prs[:nb_prs_by_query], prs[nb_prs_by_query:]
 
             subqueries = [
@@ -975,14 +992,14 @@ class Repository(GithubObjectWithId):
 
         if failing_prs:
             if nb_prs_by_query / 2 > 1:
-                count += self.fetch_updated_pr_reviews(gh, failing_prs, nb_prs_by_query / 2)
+                count += self.fetch_updated_pr_reviews(gh, failing_prs, nb_prs_by_query / 2)[0]
             else:
                 # fetch the reviews one by one
                 for pr in failing_prs:
                     pr.fetch_pr_reviews(gh)
                     count += 1
 
-        return count
+        return count, total
 
 
 class ProtectedBranch(GithubObject):
