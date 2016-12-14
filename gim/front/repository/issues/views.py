@@ -19,7 +19,7 @@ from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              IssueComment, PullRequestComment, CommitComment,
-                             GithubNotification)
+                             GithubNotification, PullRequestReview)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjectsJob,
@@ -890,7 +890,7 @@ class IssueView(WithIssueViewMixin, TemplateView):
         """
         involved = SortedDict()
 
-        def add_involved(user, is_comment=False, is_commit=False):
+        def add_involved(user, is_comment=False, is_commit=False, is_review=False):
             real_user = not isinstance(user, basestring)
             if real_user:
                 key = user.username
@@ -900,13 +900,16 @@ class IssueView(WithIssueViewMixin, TemplateView):
                 val = {'username': user}
 
             d = involved.setdefault(key, {
-                                    'user': val, 'comments': 0, 'commits': 0})
+                'user': val, 'comments': 0, 'commits': 0, 'reviews': 0,
+            })
             if real_user:
                 d['user'] = val  # override if user was a dict
             if is_comment:
                 d['comments'] += 1
             if is_commit:
                 d['commits'] += 1
+            if is_review:
+                d['reviews'] += 1
 
         add_involved(issue.user)
 
@@ -928,6 +931,8 @@ class IssueView(WithIssueViewMixin, TemplateView):
                     add_involved(pr_commit.author if pr_commit.author_id
                                                   else pr_commit.author_name,
                                  is_commit=True)
+            elif isinstance(entry, PullRequestReview):
+                add_involved(entry.author, is_review=True)
 
         involved = involved.values()
         for involved_user in involved:

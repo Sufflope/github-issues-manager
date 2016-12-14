@@ -105,6 +105,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     pr_reviews_fetched_at = models.DateTimeField(blank=True, null=True, db_index=True)
     pr_review_state = models.CharField(max_length=20, choices=REVIEW_STATES.PR_STATES,
                                        blank=True, null=True)
+    pr_reviews_count = models.PositiveIntegerField(blank=True, null=True)
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
@@ -434,9 +435,12 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     @property
     def total_comments_count(self):
-        return ((self.comments_count or 0)
-              + (self.pr_comments_count or 0)
-              + (self.commits_comments_count or 0))
+        return (
+            (self.comments_count or 0)
+          + (self.pr_comments_count or 0)
+          + (self.commits_comments_count or 0)
+          + (self.pr_reviews_count or 0)
+        )
 
     def update_commits_comments_count(self):
         if self.is_pull_request:
@@ -553,15 +557,21 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             # we may have dismissed reviews, but at least one approval
             new_state = REVIEW_STATES.APPROVED
 
-        if new_state == self.pr_review_state:
-            return False
+        update_fields = []
 
-        self.pr_review_state = new_state
+        if new_state != self.pr_review_state:
+            update_fields.append('pr_review_state')
+            self.pr_review_state = new_state
 
-        if save:
-            self.save(update_fields=['pr_review_state'])
+        pr_reviews_count = self.reviews.filter(displayable=True).count()
+        if pr_reviews_count != self.pr_reviews_count:
+            update_fields.append('pr_reviews_count')
+            self.pr_reviews_count = pr_reviews_count
 
-        return True
+        if save and update_fields:
+            self.save(update_fields=update_fields)
+
+        return update_fields
 
 
     @property

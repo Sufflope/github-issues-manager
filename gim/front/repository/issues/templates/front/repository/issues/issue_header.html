@@ -125,7 +125,7 @@
                         <div class="issue-footer-info-part">
                             <ul class="unstyled issue-involved">
                                 {% for involved_user in current_issue_involved %}
-                                    <li><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ involved_user.user.full_avatar_url|avatar_size:24 }}" title="{{ involved_user.user.username }}{% if involved_user.types|length %} ({{ involved_user.types|join:", "}}){% endif %}{% if involved_user.comments %}, {{ involved_user.comments }} comment{{ involved_user.comments|pluralize }}{% endif %}{% if involved_user.commits %}, {{ involved_user.commits }} commit{{ involved_user.commits|pluralize }}{% endif %}"></li>
+                                    <li><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ involved_user.user.full_avatar_url|avatar_size:24 }}" title="{{ involved_user.user.username }}{% if involved_user.types|length %} ({{ involved_user.types|join:", "}}){% endif %}{% if involved_user.comments %}, {{ involved_user.comments }} comment{{ involved_user.comments|pluralize }}{% endif %}{% if involved_user.commits %}, {{ involved_user.commits }} commit{{ involved_user.commits|pluralize }}{% endif %}{% if involved_user.reviews %}, {{ involved_user.reviews }} review     {{ involved_user.reviews|pluralize }}{% endif %}"></li>
                                 {% endfor %}
                             </ul>
                         </div>

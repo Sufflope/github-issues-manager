@@ -509,7 +509,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
-            hash_values += (commits_part, self.repository.pr_reviews_activated, )
+            hash_values += (commits_part, self.repository.pr_reviews_activated)
 
         return hash_values
 
@@ -1105,12 +1105,22 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
-class _PullRequestReview(models.Model):
+class _PullRequestReview(Hashable, models.Model):
 
     class Meta:
         abstract = True
 
     is_pull_request_review = True
+
+    @property
+    def hash(self):
+        return hash((self.author_id, self.submitted_at, self.state))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this review(ie only one!)
+        """
+        return core_models.Issue.objects.filter(pk=self.issue_id)
 
     @property
     def created_at(self):
@@ -1450,6 +1460,12 @@ PUBLISHABLE = {
              ),
         ],
     },
+    core_models.PullRequestReview: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
     # core_models.Commit: {
     #     'self': False,
     #     'parents': [
@@ -1630,7 +1646,7 @@ def publish_update(instance, message_type, extra_data=None):
     # No we can remove the front_uuid field and the is_new flag
     if hasattr(instance, 'is_new'):
         del instance.is_new
-    if getattr(instance, 'front_uuid') and not getattr(instance, 'skip_reset_front_uuid', False):
+    if getattr(instance, 'front_uuid', None) and not getattr(instance, 'skip_reset_front_uuid', False):
         instance.front_uuid = None
         if instance.pk and FrontEditable.isinstance(instance):
             instance.clear_front_uuid()
@@ -1722,7 +1738,8 @@ def hash_check(sender, instance, created, **kwargs):
                         core_models.Project,
                         core_models.Column,
                         core_models.Card,
-                        core_models.Issue
+                        core_models.Issue,
+                        core_models.PullRequestReview,
                       )):
         return
 

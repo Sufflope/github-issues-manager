@@ -24,7 +24,7 @@
                     <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-discussion">
                         Discussion
                         <span class="label label-blue">
-                            <span title="{{ current_issue.comments_count }} comment{{ current_issue.comments_count|pluralize }}"><i class="fa fa-comments-o"></i> {{ current_issue.comments_count }}</span>
+                            <span title="{{ current_issue.comments_count }} comment{{ current_issue.comments_count|pluralize }}{% if current_issue.pr_reviews_count %} and {{ current_issue.pr_reviews_count }} review{{ current_issue.pr_reviews_count|pluralize }}{% endif %}"><i class="fa fa-comments-o"></i> {{ current_issue.comments_count|add:current_issue.pr_reviews_count }}</span>
                         </span>
                          &amp; updates
                     </a>
