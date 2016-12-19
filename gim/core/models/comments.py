@@ -14,6 +14,7 @@ from django.db import models
 
 from extended_choices import Choices
 
+from gim.core.ghpool import ApiError
 from gim.core.graphql_utils import (
     compose_query,
     encode_graphql_id_for_object,
@@ -371,6 +372,37 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         super(PullRequestComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
+
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None, update_method='patch', github_api_version=None, update_object=True):
+        in_reply_to_used = False
+
+        if mode == 'create' and fields is None:
+            # use the `in_reply_to` if possible (note: doesn't work for commit comments, only for pr comments)
+            if self.entry_point:
+                last_comment = self.entry_point.comments.filter(github_status=self.GITHUB_STATUS_CHOICES.FETCHED).last()
+                if last_comment:
+                    fields = {'body', 'in_reply_to'}
+                    values = {'in_reply_to': last_comment.github_id}
+                    in_reply_to_used = True
+
+        try:
+            return super(PullRequestComment, self).dist_edit(gh, mode, fields, values, meta_base_name, update_method, github_api_version, update_object)
+        except ApiError as e:
+            retry = False
+            if in_reply_to_used and getattr(e, 'code', None) == 422 and e.response.get('json', {}).get('errors'):
+                errors = e.response.json.errors
+                if isinstance(errors, dict):
+                    errors = [errors]
+                for error in errors:
+                    if error.get('field') == 'in_reply_to':
+                        retry = True
+                        fields = None
+                        values = None
+                        break
+            if retry:
+                return super(PullRequestComment, self).dist_edit(gh, mode, fields, values, meta_base_name, update_method, github_api_version, update_object)
+            else:
+                raise
 
 
 class CommitCommentEntryPoint(CommentEntryPointMixin):
