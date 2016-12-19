@@ -445,6 +445,12 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             self._pr_comment_create_url = self.get_view_url(PullRequestCommentCreateView.url_name)
         return self._pr_comment_create_url
 
+    def pr_review_create_url(self):
+        if not hasattr(self, '_pr_review_create_url'):
+            from gim.front.repository.issues.views import PullRequestReviewCreateView
+            self._pr_review_create_url = self.get_view_url(PullRequestReviewCreateView.url_name)
+        return self._pr_review_create_url
+
     def ajax_files_url(self):
         return self.get_view_url('issue.files')
 
@@ -694,7 +700,6 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         return self._pr_reviews_activity
 
-
     def get_sorted_entry_points(self):
         for entry_point in self.all_entry_points:
             entry_point.last_created = list(entry_point.comments.all())[-1].created_at
@@ -779,6 +784,15 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             'column__project__number'
         ))
         return self._prefetched_objects_cache['cards']
+
+    def user_can_add_pr_review(self, user):
+        if not self.is_pull_request:
+            return False
+        if not user or user.is_anonymous():
+            return False
+        if not self.repository.pr_reviews_activated:
+            return False
+        return self.user != user
 
 contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
@@ -1105,7 +1119,7 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
-class _PullRequestReview(Hashable, models.Model):
+class _PullRequestReview(Hashable, FrontEditable):
 
     class Meta:
         abstract = True
@@ -1146,7 +1160,39 @@ class _PullRequestReview(Hashable, models.Model):
     def html_content(self):
         return html_content(self)
 
-contribute_to_model(_PullRequestReview, core_models.PullRequestReview)
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'issue_number': self.issue.number,
+            'review_pk': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.issues.views import PullRequestReviewView
+        return self.get_view_url(PullRequestReviewView.url_name)
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        is_new = not bool(self.pk)
+
+        if not update_fields or 'body' in update_fields:
+            self.body_html = html_content(self) if self.body else ''
+            if update_fields:
+                update_fields.append('body_html')
+
+        if is_new and self.front_uuid:
+            self.issue.front_uuid = self.front_uuid
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+contribute_to_model(_PullRequestReview, core_models.PullRequestReview, {'save', 'defaults_create_values'}, {'save'})
 
 
 class _Project(Hashable, FrontEditable):
@@ -1688,7 +1734,11 @@ def publish_github_updated(sender, instance, created, **kwargs):
             return
 
         # If only status and updated date, we're good
-        if update_fields == {'github_status', 'updated_at'}:
+        if update_fields in [
+                    {'github_status'},
+                    {'github_status', 'updated_at'},
+                    {'github_status', 'submitted_at'},
+                ]:
             return
 
     extra_data = {}

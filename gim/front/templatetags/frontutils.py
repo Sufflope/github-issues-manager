@@ -507,3 +507,10 @@ def _is(value, comparison):
 @register.filter
 def get_absolute_url_for_issue(obj, issue):
     return obj.get_absolute_url_for_issue(issue)
+
+@register.filter
+def user_can_add_pr_review(issue, user):
+    if not issue:
+        return False
+    return issue.user_can_add_pr_review(user)
+

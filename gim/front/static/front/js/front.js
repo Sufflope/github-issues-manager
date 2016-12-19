@@ -5039,12 +5039,25 @@ $().ready(function() {
         /* POST COMMENT */
         on_comment_submit: (function IssueEditor__on_comment_submit (ev) {
             var $form = $(this),
-                context = IssueEditor.handle_form($form, ev);
+                context = IssueEditor.handle_form($form, ev),
+                text_expected = true,
+                handle_pr_review = false,
+                action, data;  // both will be set only if review action, else will be default, managed by post_form_with_uuid
+
             if (context === false) { return false; }
+
+            context['with-pr-review-buttons']  = $form.data('with-pr-review-buttons');
+
+            if (document.activeElement && document.activeElement.name == 'pr-review') {
+                handle_pr_review = document.activeElement.value;
+                if (handle_pr_review == 'APPROVED') {
+                    text_expected = false;
+                }
+            }
 
             var $textarea = $form.find('textarea');
 
-            if ($textarea.length && !$textarea.val().trim()) {
+            if (text_expected && $textarea.length && !$textarea.val().trim()) {
                 $textarea.after('<div class="alert alert-error">You must enter a comment</div>');
                 $form.find('button').removeClass('loading');
                 FormTools.enable_form($form);
@@ -5054,9 +5067,18 @@ $().ready(function() {
 
             $form.closest('li.issue-comment')[0].setAttribute('data-front-uuid', context.uuid);
 
+            if (handle_pr_review) {
+                // specific action
+                action = $form.data('pr-review-url');
+                // and specific data: we add the type
+                data = $form.serializeArray();
+                data.push({name:'state', value: handle_pr_review});
+            }
+
             FormTools.post_form_with_uuid($form, context,
                 IssueEditor.on_comment_submit_done,
-                IssueEditor.on_comment_submit_failed
+                IssueEditor.on_comment_submit_failed,
+                data, action
             );
         }), // on_comment_submit
 
@@ -5128,7 +5150,7 @@ $().ready(function() {
             $comment_box.$textarea.focus();
         }), // on_comment_create_placeholder_click
 
-        create_comment_form_from_template: (function IssueEditor__create_comment_form_from_template ($trigger, $issue) {
+        create_comment_form_from_template: (function IssueEditor__create_comment_form_from_template ($trigger, $issue, is_last_pr_comment) {
             var $template = $issue.find('.comment-create-container').first(),
                 $node = $template.clone(),
                 $form = $node.find('form'),
@@ -5136,6 +5158,9 @@ $().ready(function() {
                 is_commit = $tab_pane.hasClass('commit-files'),
                 action = is_commit ? $tab_pane.data('comment-url') : $form.data('pr-url'),
                 $textarea;
+            if (!is_last_pr_comment) {
+                $node.find('button[name=pr-review]').remove();
+            }
             $node.removeClass('comment-create-container');
             $form.attr('action', action);
             $textarea = $form.find('textarea');
@@ -5567,7 +5592,7 @@ $().ready(function() {
                 return;
             }
             // Replace "waiting" comments
-            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment')) {
+            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment' || kwargs.model == 'PullRequestReview')) {
 
                 var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
                 if (kwargs.front_uuid) {

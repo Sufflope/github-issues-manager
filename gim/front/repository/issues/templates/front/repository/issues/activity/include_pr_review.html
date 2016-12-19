@@ -1,6 +1,4 @@
-{% extends "front/repository/issues/comments/include_base_comment.html"%}
-
-{% block node_data %}{% endblock %}
+{% extends "front/repository/issues/comments/include_issue_comment.html"%}
 
 {% block node_class %}{{ block.super }} pr-review review-{{ review.state|lower }}{% endblock %}
 

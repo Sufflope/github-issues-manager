@@ -542,26 +542,34 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.last_head_status).constant
 
     def update_pr_review_state(self, save=True):
-        last_states = set(dict(
-            self.reviews.filter(state__in=REVIEW_STATES.FOR_PR_STATE_COMPUTATION.values).values_list(
-                'author_id', 'state'
-            )
-        ).values())
+        all_reviews = self.reviews.filter(state__in=REVIEW_STATES.FOR_PR_STATE_COMPUTATION.values).values_list(
+            'author_id', 'state', 'submitted_at'
+        )
 
-        new_state = None
+        last_review_by_user = {}
+        last_state = None
+        last_change_date = None
 
-        if REVIEW_STATES.CHANGES_REQUESTED in last_states:
-            # there is still a user that requested changes without approval
-            new_state = REVIEW_STATES.CHANGES_REQUESTED
-        elif REVIEW_STATES.APPROVED in last_states:
-            # we may have dismissed reviews, but at least one approval
-            new_state = REVIEW_STATES.APPROVED
+        for author_id, state, submitted_at in all_reviews:
+            last_review_by_user[author_id] = state
+            current_states = set(last_review_by_user.values())
+            current_state = None
+            if REVIEW_STATES.CHANGES_REQUESTED in current_states:
+                current_state = REVIEW_STATES.CHANGES_REQUESTED
+            elif REVIEW_STATES.APPROVED in current_states:
+                current_state = REVIEW_STATES.APPROVED
+            if current_state != last_state:
+                last_state = current_state
+                last_change_date = submitted_at
 
         update_fields = []
 
-        if new_state != self.pr_review_state:
+        if last_state != self.pr_review_state:
             update_fields.append('pr_review_state')
-            self.pr_review_state = new_state
+            self.pr_review_state = last_state
+            if last_change_date:
+                # don't save this, just to have the activity at the correct date
+                self.updated_at = last_change_date
 
         pr_reviews_count = self.reviews.filter(displayable=True).count()
         if pr_reviews_count != self.pr_reviews_count:
@@ -573,7 +581,6 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         return update_fields
 
-
     @property
     def is_mergeable(self):
         if not self.is_pull_request:
@@ -583,6 +590,12 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         if self.mergeable:
             return True
         return self.mergeable_state in self.MERGEABLE_STATES['mergeable']
+
+    @property
+    def github_callable_identifiers_for_reviews(self):
+        return self.github_callable_identifiers_for_pr + [
+            'reviews'
+        ]
 
     @cached_property
     def GRAPHQL_TYPE(self):

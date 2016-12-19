@@ -77,6 +77,7 @@ REVIEW_STATES = Choices(
 )
 REVIEW_STATES.add_subset('FOR_PR_STATE_COMPUTATION', ['DISMISSED', 'CHANGES_REQUESTED', 'APPROVED'])
 REVIEW_STATES.add_subset('PR_STATES', ['CHANGES_REQUESTED', 'APPROVED'])
+REVIEW_STATES.add_subset('CREATE_STATES', ['CHANGES_REQUESTED', 'APPROVED'])
 REVIEW_STATES.add_subset('FOR_PR_STATE_FILTERING', ['UNSET', 'CHANGES_REQUESTED', 'APPROVED'])
 
 
@@ -692,8 +693,8 @@ class GithubObject(models.Model):
                 else:
                     # it's a direct field
                     data[key] = getattr(self, field_name)
-                    if isinstance(data[field_name], datetime):
-                        data[key] = data[field_name].isoformat()
+                    if isinstance(data[key], datetime):
+                        data[key] = data[key].isoformat()
 
         # prepare the request
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)

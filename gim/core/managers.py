@@ -776,7 +776,6 @@ class IssueManager(WithRepositoryManager):
         return fields
 
 
-
 class WithIssueManager(GithubObjectManager):
     """
     This base manager is for the models linked to an issue, with an enhanced
@@ -1866,30 +1865,38 @@ class ProtectedBranchManager(WithRepositoryManager):
         return super(ProtectedBranchManager, self).get_object_fields_from_dict(data, defaults, saved_objects)
 
 
-class PullRequestReviewManager(GithubObjectManager):
+class PullRequestReviewManager(WithIssueManager):
     def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
 
+        if not defaults:
+            defaults = {}
+        if 'fk' not in defaults:
+            defaults['fk'] = {}
+
         # we should have a pull request
-        issue = defaults.get('fk', {}).get('issue') if defaults else None
+        issue = defaults['fk'].get('issue')
         if not issue:
-            if not data.get('pullRequest'):
-                return None
-            issue_number = data['pullRequest']['number']
-            repository_github_id = data['pullRequest']['repository']['id']
+            if not data.get('pull_request_url'):  # rest api
 
-            from gim.core.models import Issue
-            try:
-                issue = Issue.objects.get(
-                    repository__github_id=repository_github_id,
-                    number=issue_number
-                )
-            except Issue.DoesNotExist:
-                return None
+                if not data.get('pullRequest'):  # graphql
+                    return None
 
-        # remove issue information from data
-        data.pop('pullRequest', None)
+                issue_number = data['pullRequest']['number']
+                repository_github_id = data['pullRequest']['repository']['id']
 
-        if data.get('author'):
+                from gim.core.models import Issue
+                try:
+                    defaults['fk']['issue'] = Issue.objects.get(
+                        repository__github_id=repository_github_id,
+                        number=issue_number
+                    )
+                except Issue.DoesNotExist:
+                    return None
+
+                # remove issue information from data
+                data.pop('pullRequest', None)
+
+        if data.get('author') and not data['author'].get('type'):
             # we know the author is not an organisation
             data['author']['type'] = 'User'
 
@@ -1899,13 +1906,11 @@ class PullRequestReviewManager(GithubObjectManager):
             del data['commit']
 
         # and the comments count
-        data['comments_count'] = data['comments']['totalCount']
-        del data['comments']
+        if data.get('comments'):
+            data['comments_count'] = data['comments'].get('totalCount', 0)
+            del data['comments']
 
         fields = super(PullRequestReviewManager, self).get_object_fields_from_dict(data, defaults, saved_objects)
-
-        if not fields['fk'].get('issue'):
-            fields['fk']['issue'] = issue
 
         if not fields['fk'].get('author'):
             from gim.core.models import GithubUser

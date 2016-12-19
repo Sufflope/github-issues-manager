@@ -598,6 +598,22 @@ class PullRequestReview(GithubObjectWithId):
     comments_count = models.PositiveIntegerField(blank=True, null=True)
     displayable = models.BooleanField(default=True, db_index=True)
 
+    github_api_version = 'black-cat-preview'
+    github_edit_fields = {
+        'create': ('body', ('event', 'github_create_event'), ),
+        'update': ('body', ),
+    }
+    github_matching = dict(GithubObjectWithId.github_matching)
+    github_matching.update({
+        'user': 'author',
+        'commit_id': 'head_sha',
+    })
+
+    CREATE_EVENTS = {
+        REVIEW_STATES.APPROVED: 'APPROVE',
+        REVIEW_STATES.CHANGES_REQUESTED: 'REQUEST_CHANGES',
+    }
+
     class Meta:
         app_label = 'core'
         ordering = ('submitted_at', )
@@ -605,6 +621,17 @@ class PullRequestReview(GithubObjectWithId):
     objects = PullRequestReviewManager()
 
     REVIEW_STATES = REVIEW_STATES
+
+    @property
+    def github_callable_identifiers(self):
+        return self.issue.github_callable_identifiers_for_reviews + [
+            self.github_id,
+        ]
+
+    @property
+    def github_callable_create_identifiers(self):
+        return self.issue.github_callable_identifiers_for_reviews
+
     GRAPHQL_TYPE = GITHUB_TYPES.PullRequestReview
 
     GRAPHQL_FETCH_ONE = compose_query("""
@@ -685,7 +712,18 @@ class PullRequestReview(GithubObjectWithId):
         )
 
     def save(self, *args, **kwargs):
+        if self.comments_count is None:
+            self.comments_count = 0
+
         super(PullRequestReview, self).save(*args, **kwargs)
+
         if self.state in REVIEW_STATES.FOR_PR_STATE_COMPUTATION:
             self.issue.update_pr_review_state()
 
+    @property
+    def github_create_event(self):
+        return self.CREATE_EVENTS[self.state]
+
+    @property
+    def github_url(self):
+        return self.issue.github_url + '#pullrequestreview-%s' % self.github_id

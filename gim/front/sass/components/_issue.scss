@@ -1191,6 +1191,12 @@ $repo-name-height: 20px;
         }
     }
 
+    .comment-create-form {
+        button[name=pr-review] {
+            margin-left: 10px;
+        }
+    }
+
     .comment-delete-form {
         .auto-align {
             padding-bottom: 10px;

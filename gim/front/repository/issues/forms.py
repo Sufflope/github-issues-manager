@@ -6,13 +6,10 @@ from collections import OrderedDict
 import json
 
 from django import forms
-from django.conf import settings
-from django.db.models import F
-from django.template.defaultfilters import date as convert_date
-from django.utils.html import escape
 
 from gim.core.models import (Issue, GITHUB_STATUS_CHOICES, Card, Column,
-                             IssueComment, PullRequestComment, CommitComment)
+                             IssueComment, PullRequestComment, CommitComment,
+                             PullRequestReview)
 
 from gim.front.mixins.forms import (LinkedToUserFormMixin, LinkedToIssueFormMixin,
                                     LinkedToCommitFormMixin, LinkedToRepositoryFormMixin)
@@ -455,20 +452,34 @@ class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
     class Meta:
         fields = ['body', 'front_uuid', ]
 
+    body_always_required = True
+    updated_date_field = 'updated_at'
+    created_date_field = 'created_at'
+
     def __init__(self, *args, **kwargs):
         super(BaseCommentEditForm, self).__init__(*args, **kwargs)
+        if self.body_always_required:
+            self.add_filled_body_validator()
+
+    def add_filled_body_validator(self):
         self.fields['body'].validators = [validate_filled_string]
         self.fields['body'].required = True
 
     def save(self, commit=True):
+
         if self.instance.pk:
             self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_UPDATE
         else:
             self.instance.github_status = GITHUB_STATUS_CHOICES.WAITING_CREATE
+
         self.instance.body_html = None
-        self.instance.updated_at = datetime.utcnow()
-        if not self.instance.created_at:
-            self.instance.created_at = self.instance.updated_at
+
+        now = datetime.utcnow()
+        if self.updated_date_field:
+            setattr(self.instance, self.updated_date_field, now)
+        if self.created_date_field and not getattr(self.instance, self.created_date_field, None):
+            setattr(self.instance, self.created_date_field, now)
+
         return super(BaseCommentEditForm, self).save(commit)
 
 
@@ -482,6 +493,29 @@ class IssueCommentEditForm(BaseCommentEditForm):
 
     class Meta(BaseCommentEditForm.Meta):
         model = IssueComment
+
+
+class PullRequestReviewCreateForm(BaseCommentEditForm):
+
+    body_always_required = False
+    updated_date_field = 'submitted_at'
+    created_date_field = None
+    user_attribute = 'author'
+
+    class Meta(BaseCommentEditForm.Meta):
+        model = PullRequestReview
+        fields = BaseCommentEditForm.Meta.fields + ['state']
+
+    def __init__(self, *args, **kwargs):
+        super(PullRequestReviewCreateForm, self).__init__(*args, **kwargs)
+        self.fields['state'].choices = PullRequestReview.REVIEW_STATES.CREATE_STATES
+
+    def _clean_fields(self):
+        state_field = self.fields['state']
+        state = state_field.widget.value_from_datadict(self.data, self.files, self.add_prefix('state'))
+        if state == PullRequestReview.REVIEW_STATES.CHANGES_REQUESTED:
+            self.add_filled_body_validator()
+        return super(PullRequestReviewCreateForm, self)._clean_fields()
 
 
 class PullRequestCommentCreateForm(BaseCommentEditForm):
