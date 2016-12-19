@@ -518,6 +518,13 @@ class PullRequestReviewCreateForm(BaseCommentEditForm):
         return super(PullRequestReviewCreateForm, self)._clean_fields()
 
 
+class PullRequestReviewEditForm(BaseCommentEditForm):
+    user_attribute = None
+
+    class Meta(BaseCommentEditForm.Meta):
+        model = PullRequestReview
+
+
 class PullRequestCommentCreateForm(BaseCommentEditForm):
     class Meta(BaseCommentEditForm.Meta):
         model = PullRequestComment

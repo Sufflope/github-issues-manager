@@ -56,7 +56,7 @@ from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
                     IssueCommentDeleteForm, PullRequestCommentDeleteForm, CommitCommentDeleteForm,
-                    PullRequestReviewCreateForm)
+                    PullRequestReviewCreateForm, PullRequestReviewEditForm)
 
 LIMIT_ISSUES = 300
 LIMIT_USERS = 30
@@ -2049,6 +2049,18 @@ class IssueCommentEditView(IssueCommentEditMixin, BaseCommentEditView):
     url_name = 'issue.comment.edit'
     form_class = IssueCommentEditForm
 
+
+class PullRequestReviewEditView(PullRequestReviewEditMixin, BaseCommentEditView):
+    url_name = 'issue.pr_review.edit'
+    form_class = PullRequestReviewEditForm
+    pk_url_kwarg = 'review_pk'
+    object_human_name = 'review'
+    template_name = 'front/repository/issues/comments/include_pr_review_edit.html'
+
+    def get_context_data(self, **kwargs):
+        context = super(PullRequestReviewEditView, self).get_context_data(**kwargs)
+        context['review'] = context[self.context_object_name]
+        return context
 
 class PullRequestCommentEditView(PullRequestCommentEditMixin, BaseCommentEditView):
     url_name = 'issue.pr_comment.edit'

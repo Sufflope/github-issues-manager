@@ -12,37 +12,43 @@
             </span>
         </span>
     {% else %}
-        {% if comment_is_editable|default_if_none:True %}
-            {% if current_issue_edit_level == "full" or comment.user == view.request.user or comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
+        {% if current_issue_edit_level == "full" or comment.user == view.request.user or comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
+            {% with github_url=comment.github_url object_human_name=object_human_name|default:'comment' %}
+            {% if not comment_not_editable or not comment_not_deletable or github_url %}
                 <nav class="comment-nav dropdown">
                     <button class="btn btn-default btn-mini dropdown-toggle" data-toggle="dropdown"><i class="fa fa-bars"> </i></button>
                     <ul class="dropdown-menu pull-right" role="menu" aria-label="Comment menu">
                         {% if current_issue_edit_level == "full" or comment.user == view.request.user %}
-                            <li><a href="{{ comment.get_edit_url }}" class="comment-edit-btn btn-loading" title="Edit this comment"><i class="fa fa-edit fa-fw"> </i><i class='fa fa-spinner fa-spin' fa-fw> </i> Edit this comment</a></li>
-                            <li><a href="{{ comment.get_delete_url }}" class="comment-delete-btn btn-loading" title="Delete this comment"><i class="fa fa-times fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i> Delete this comment</a></li>
+                            {% if not comment_not_editable %}
+                                <li><a href="{{ comment.get_edit_url }}" class="comment-edit-btn btn-loading" title="Edit this {{ object_human_name }}"><i class="fa fa-edit fa-fw"> </i><i class='fa fa-spinner fa-spin' fa-fw> </i> Edit this {{ object_human_name }}</a></li>
+                            {% endif %}
+                            {% if not comment_not_deletable %}
+                                <li><a href="{{ comment.get_delete_url }}" class="comment-delete-btn btn-loading" title="Delete this {{ object_human_name }}"><i class="fa fa-times fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i> Delete this {{ object_human_name }}</a></li>
+                            {% endif %}
                         {% endif %}
                         {% if comment.github_status not in GITHUB_STATUSES.ALL_WAITING %}
-                            {% with github_url=comment.github_url %}
-                                {% if with_link_to_diff or github_url %}
+                            {% if with_link_to_diff or github_url %}
+                                {% if not comment_not_editable or not comment_not_deletable %}
                                     {% if current_issue_edit_level == "full" or comment.user == view.request.user %}
                                         <li class="divider"></li>
                                     {% endif %}
-                                    {% if github_url %}
-                                        <li><a href="{{ github_url }}" target="_blank"><i class="fa fa-github fa-fw"> </i> View on Github</a></li>
-                                    {% endif %}
-                                    {% if with_link_to_diff %}
-                                        {% if comment.commit %}
-                                            <li><a href='#' class="go-to-commit-diff-link"><i class="fa fa-eye fa-fw"> </i> View in the commit tab</a></li>
-                                        {% else %}
-                                            <li><a href='#' class="go-to-diff-link"><i class="fa fa-eye fa-fw"> </i> View in "Files changed" tab</a></li>
-                                        {% endif %}
+                                {% endif %}
+                                {% if github_url %}
+                                    <li><a href="{{ github_url }}" target="_blank"><i class="fa fa-github fa-fw"> </i> View on Github</a></li>
+                                {% endif %}
+                                {% if with_link_to_diff %}
+                                    {% if comment.commit %}
+                                        <li><a href='#' class="go-to-commit-diff-link"><i class="fa fa-eye fa-fw"> </i> View in the commit tab</a></li>
+                                    {% else %}
+                                        <li><a href='#' class="go-to-diff-link"><i class="fa fa-eye fa-fw"> </i> View in "Files changed" tab</a></li>
                                     {% endif %}
                                 {% endif %}
-                            {% endwith %}
+                            {% endif %}
                         {% endif %}
                     </ul>
                 </nav>
             {% endif %}
+            {% endwith %}
         {% endif %}
         {{ block.super }}
     {% endif %}

@@ -18,7 +18,7 @@
 {% endblock %}
 
 {% block comment_date %}
-    {% with comment_is_editable=False %}
+    {% with comment_not_editable=True comment_not_deletable=True object_human_name='review' %}
         {{ block.super }}
     {% endwith %}
 {% endblock %}

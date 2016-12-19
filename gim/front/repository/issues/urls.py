@@ -12,7 +12,7 @@ from .views import (
     IssueCommentEditView, PullRequestCommentEditView, CommitCommentEditView,
     IssueCommentDeleteView, PullRequestCommentDeleteView, CommitCommentDeleteView,
     IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers, IssuesFilterMentioned,
-    PullRequestReviewCreateView, PullRequestReviewView,
+    PullRequestReviewCreateView, PullRequestReviewView, PullRequestReviewEditView,
 )
 
 urlpatterns = patterns('',
@@ -58,6 +58,7 @@ urlpatterns = patterns('',
         # reviews
         url(r'^(?P<issue_number>\d+)/reviews/add/$', PullRequestReviewCreateView.as_view(), name=PullRequestReviewCreateView.url_name),
             url(r'^(?P<issue_number>\d+)/reviews/(?P<review_pk>\d+)/$', PullRequestReviewView.as_view(), name=PullRequestReviewView.url_name),
+            url(r'^(?P<issue_number>\d+)/reviews/(?P<review_pk>\d+)/edit/$', PullRequestReviewEditView.as_view(), name=PullRequestReviewEditView.url_name),
 
         # code comments
         url(r'^(?P<issue_number>\d+)/code-comment/add/$', PullRequestCommentCreateView.as_view(), name=PullRequestCommentCreateView.url_name),

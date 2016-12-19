@@ -1178,6 +1178,10 @@ class _PullRequestReview(Hashable, FrontEditable):
         from gim.front.repository.issues.views import PullRequestReviewView
         return self.get_view_url(PullRequestReviewView.url_name)
 
+    def get_edit_url(self):
+        from gim.front.repository.issues.views import PullRequestReviewEditView
+        return self.get_view_url(PullRequestReviewEditView.url_name)
+
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
 
         is_new = not bool(self.pk)
