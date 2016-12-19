@@ -1894,9 +1894,9 @@ class PullRequestReviewManager(GithubObjectManager):
             data['author']['type'] = 'User'
 
         # convert the commit sha
-        if data.get('head'):
-            data['head_sha'] = data['head']['oid']
-            del data['head']
+        if data.get('commit'):
+            data['head_sha'] = data['commit']['oid']
+            del data['commit']
 
         # and the comments count
         data['comments_count'] = data['comments']['totalCount']

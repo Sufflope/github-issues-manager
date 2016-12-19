@@ -64,7 +64,7 @@ FRAGMENTS = {
         submitted_at: submittedAt
         body
         body_html: bodyHTML
-        head {
+        commit {
             oid
         }
         comments(first:1) {
