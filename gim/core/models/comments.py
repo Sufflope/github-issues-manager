@@ -326,9 +326,6 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         ),
         'update': (
            'body',
-           ('commit_id', 'entry_point__original_commit_sha'),
-           ('path', 'entry_point__path'),
-           ('position', 'entry_point__original_position'),
         ),
     }
     github_date_field = ('updated_at', 'updated', 'desc')
@@ -517,9 +514,6 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
         ),
         'update': (
            'body',
-           ('sha', 'entry_point__commit_sha'),
-           ('path', 'entry_point__path'),
-           ('position', 'entry_point__position'),
         ),
     }
     github_date_field = ('created_at', 'created', 'asc')
