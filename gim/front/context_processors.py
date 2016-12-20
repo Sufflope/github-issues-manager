@@ -32,6 +32,10 @@ def default_context_data(request):
             },
         },
         'headwayapp_account': settings.HEADWAYAPP_ACCOUNT,
+        'dynamic_favicon_colors': {
+            'background': settings.FAVICON_DYN_BACKGROUND_COLOR,
+            'text': settings.FAVICON_DYN_TEXT_COLOR,
+        },
         'utcnow': datetime.utcnow(),
         'gim_version': hashed_version,
         'GITHUB_STATUSES': GITHUB_STATUS_CHOICES,
