@@ -9,6 +9,7 @@ __all__ = [
 ]
 
 from collections import OrderedDict
+from datetime import datetime
 import re
 
 from django.contrib.contenttypes.models import ContentType
@@ -21,6 +22,14 @@ from django.utils.functional import cached_property
 from extended_choices import Choices
 from jsonfield import JSONField
 
+from gim.core.graphql_utils import (
+    compose_query,
+    encode_graphql_id_for_object,
+    fetch_graphql,
+    GraphQLGithubInternalError,
+    GITHUB_TYPES,
+)
+
 from ..managers import (
     IssueEventManager,
     IssueManager,
@@ -32,6 +41,7 @@ from .base import (
     GithubObject,
     GithubObjectWithId,
     GITHUB_COMMIT_STATUS_CHOICES,
+    REVIEW_STATES,
 )
 
 from .mixins import (
@@ -92,6 +102,10 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     files_etag = models.CharField(max_length=64, blank=True, null=True)
     user_mentions = models.ManyToManyField('GithubUser', related_name='issues_mentioned',
                                            through='Mention')
+    pr_reviews_fetched_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    pr_review_state = models.CharField(max_length=20, choices=REVIEW_STATES.PR_STATES,
+                                       blank=True, null=True)
+    pr_reviews_count = models.PositiveIntegerField(blank=True, null=True)
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
@@ -421,9 +435,12 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     @property
     def total_comments_count(self):
-        return ((self.comments_count or 0)
-              + (self.pr_comments_count or 0)
-              + (self.commits_comments_count or 0))
+        return (
+            (self.comments_count or 0)
+          + (self.pr_comments_count or 0)
+          + (self.commits_comments_count or 0)
+          + (self.pr_reviews_count or 0)
+        )
 
     def update_commits_comments_count(self):
         if self.is_pull_request:
@@ -524,6 +541,46 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     def last_head_status_constant(self):
         return GITHUB_COMMIT_STATUS_CHOICES.for_value(self.last_head_status).constant
 
+    def update_pr_review_state(self, save=True):
+        all_reviews = self.reviews.filter(state__in=REVIEW_STATES.FOR_PR_STATE_COMPUTATION.values).values_list(
+            'author_id', 'state', 'submitted_at'
+        )
+
+        last_review_by_user = {}
+        last_state = None
+        last_change_date = None
+
+        for author_id, state, submitted_at in all_reviews:
+            last_review_by_user[author_id] = state
+            current_states = set(last_review_by_user.values())
+            current_state = None
+            if REVIEW_STATES.CHANGES_REQUESTED in current_states:
+                current_state = REVIEW_STATES.CHANGES_REQUESTED
+            elif REVIEW_STATES.APPROVED in current_states:
+                current_state = REVIEW_STATES.APPROVED
+            if current_state != last_state:
+                last_state = current_state
+                last_change_date = submitted_at
+
+        update_fields = []
+
+        if last_state != self.pr_review_state:
+            update_fields.append('pr_review_state')
+            self.pr_review_state = last_state
+            if last_change_date:
+                # don't save this, just to have the activity at the correct date
+                self.updated_at = last_change_date
+
+        pr_reviews_count = self.reviews.filter(displayable=True).count()
+        if pr_reviews_count != self.pr_reviews_count:
+            update_fields.append('pr_reviews_count')
+            self.pr_reviews_count = pr_reviews_count
+
+        if save and update_fields:
+            self.save(update_fields=update_fields)
+
+        return update_fields
+
     @property
     def is_mergeable(self):
         if not self.is_pull_request:
@@ -533,6 +590,145 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
         if self.mergeable:
             return True
         return self.mergeable_state in self.MERGEABLE_STATES['mergeable']
+
+    @property
+    def github_callable_identifiers_for_reviews(self):
+        return self.github_callable_identifiers_for_pr + [
+            'reviews'
+        ]
+
+    @cached_property
+    def GRAPHQL_TYPE(self):
+        return GITHUB_TYPES.PullRequest if self.is_pull_request else GITHUB_TYPES.Issue
+
+    @cached_property
+    def GRAPHQL_ID_FIELD(self):
+        return 'github_pr_id' if self.is_pull_request else 'github_id'
+
+    GRAPHQL_FETCH_REVIEWS = compose_query("""
+        query PullRequestReviews($pullRequestId: ID!, $nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {
+            node(id: $pullRequestId) {
+                ...pullRequestReviewsFull
+            }
+        }
+    """, 'pullRequestReviewsFull')
+
+    GRAPHQL_FETCH_REVIEWS_WITHOUT_AUTHOR = compose_query("""
+        query PullRequestReviewsWithoutAuthor($pullRequestId: ID!, $nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {
+            node(id: $pullRequestId) {
+                ...pullRequestReviewsNoAuthor
+            }
+        }
+    """, 'pullRequestReviewsNoAuthor')
+
+    def fetch_pr_reviews(self, gh, next_page_cursor='', save_pr=True):
+
+        if not self.repository.pr_reviews_activated:
+            return
+
+        from gim.core.models import PullRequestReview
+
+        has_next_page = True
+        entries = []
+        graphql_github_id = encode_graphql_id_for_object(self)
+
+        per_page = normal_per_page = 30
+        failed = 0
+
+        variables = {
+            'pullRequestId': graphql_github_id,
+        }
+        debug_context = {
+            'pr_repository': self.repository.full_name,
+            'pr_number': self.number,
+        }
+
+        while has_next_page:
+            variables['nbReviewsToRetrieve'] = per_page
+            if next_page_cursor:
+                variables['nextReviewsPageCursor'] = next_page_cursor
+            debug_context['failed'] = failed
+
+            try:
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_REVIEWS, variables, 'PullRequestReviews', debug_context)
+            except GraphQLGithubInternalError:
+                # In general it happens when the author of a review is now deleted
+                # So will try to fetch only half the size, until it fails for
+                # only one item. At this moment, we'll refetch the review without
+                # the author, and a deleted user will be assigned at create time
+                # Then we'll continue next page using the original number of prs per page
+
+                if per_page > 1:
+                    per_page /= 2
+                    continue
+
+                failed += 1
+                debug_context['failed'] = failed
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_REVIEWS_WITHOUT_AUTHOR, variables, 'PullRequestReviewsWithoutAuthor', debug_context)
+                # we don't call "continue" to let the pagination work correctly below
+                # and we won't have edge so it will continue normally, and stop if no reviews left
+                # but we can restore the per_page
+                per_page = normal_per_page
+
+            if not data.get('node', {}).get('reviews', {}):
+                break
+
+            reviews_node = data.node.reviews
+
+            has_next_page = reviews_node.pageInfo.hasNextPage
+            if has_next_page:
+                next_page_cursor = reviews_node.pageInfo.endCursor
+
+            entries += [edge.node for edge in reviews_node.get('edges', [])]
+
+        objs = PullRequestReview.objects.create_or_update_from_list(
+            entries,
+            defaults={'fk': {'issue': self}},
+        )
+
+        if save_pr:
+            self.pr_reviews_fetched_at = datetime.utcnow()
+            self.save(update_fields=['pr_reviews_fetched_at'])
+
+        return objs
+
+    def simplified_pr_label(self, pr_label):
+        if not pr_label:
+            return self.repository.owner.username
+        else:
+            try:
+                owner_username, branch_name = pr_label.split(':')
+                if owner_username == self.repository.owner.username:
+                    return branch_name
+            except Exception:
+                pass
+        return pr_label
+
+    @property
+    def simplified_head_label(self):
+        return self.simplified_pr_label(self.head_label)
+
+    @property
+    def simplified_base_label(self):
+        return self.simplified_pr_label(self.base_label)
+
+    def get_protected_base_branch(self):
+        branch_name = self.simplified_base_label
+        if self.base_label != '%s:%s' % (self.repository.owner.username, branch_name):
+            return None
+        try:
+            return self.repository.protected_branches.get(name=branch_name)
+        except self.repository.protected_branches.model.DoesNotExist:
+            return None
+
+    @property
+    def pr_review_required(self):
+        if not self.is_pull_request:
+            return False
+        branch = self.get_protected_base_branch()
+        if not branch:
+            return False
+        return branch.require_approved_review
 
 
 class IssueEvent(WithIssueMixin, GithubObjectWithId):

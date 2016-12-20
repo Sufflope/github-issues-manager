@@ -59,6 +59,49 @@
             <a href="{{ issue.get_absolute_url }}" class="issue-item-link issue-link" data-issue-number="{{ issue.number }}" data-issue-id="{{ issue.id }}" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository.id }}" title="{% if issue.is_pull_request %}Pull-request. {% endif %}State: {{ issue.state }}">
                 <strong class="text-{{ issue.state }}">#{{ issue.number }}</strong> - {{ issue.title }}
             </a>
+            <span class="issue-item-checks not-hoverable">
+                {% if issue.is_pull_request %}
+                    {% if issue.state == 'open' %}
+                        {% if issue.is_mergeable %}
+                            <a href="" class="js-filter-trigger" title="Mergeable" data-filter="mergeable:yes"><i class="fa fa-check text-open"> </i></a>
+                        {% else %}
+                            <a href="" class="js-filter-trigger" title="Not mergeable" data-filter="mergeable:no"><i class="fa fa-times text-closed"> </i></a>
+                        {% endif %}
+                    {% else %}
+                        {% if issue.merged %}
+                            <a href="" class="js-filter-trigger" title="Merged" data-filter="merged:yes"><i class="fa fa-check text-open"> </i></a>
+                        {% else %}
+                            <a href="" class="js-filter-trigger" title="Not merged" data-filter="merged:no"><i class="fa fa-times text-closed"> </i></a>
+                        {% endif %}
+                    {% endif %}
+                    {% if issue.last_head_status %}
+                        {% with status=issue.last_head_status STATUS_CHOICES=issue.GITHUB_COMMIT_STATUS_CHOICES %}
+                            {% if status == STATUS_CHOICES.SUCCESS %}
+                                <a href="" class="js-filter-trigger" title="All checks passed" data-filter="checks:success"><i class="fa fa-check text-open"> </i></a>
+                            {% elif status == STATUS_CHOICES.FAILURE %}
+                                <a href="" class="js-filter-trigger" title="Some checks failed" data-filter="checks:failure"><i class="fa fa-times text-closed"> </i></a>
+                            {% elif status == STATUS_CHOICES.ERROR %}
+                                <a href="" class="js-filter-trigger" title="Some checks are in error" data-filter="checks:error"><i class="fa fa-times text-closed"> </i></a>
+                            {% else %}
+                                <a href="" class="js-filter-trigger" title="Checks are running" data-filter="checks:pending"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
+                            {% endif %}
+                        {% endwith %}
+                    {% elif issue.repository.has_commit_statuses %}
+                        <a href="" class="js-filter-trigger" title="Waiting for checks" data-filter="checks:nothing"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
+                    {% endif %}
+                    {% if issue.repository.pr_reviews_activated %}
+                        {% with status=issue.pr_review_state %}
+                            {% if status == 'APPROVED' %}
+                                <a href="" class="js-filter-trigger" title="Review approved" data-filter="review:approved"><i class="fa fa-check text-open"> </i></a>
+                            {% elif status == 'CHANGES_REQUESTED' %}
+                                <a href="" class="js-filter-trigger" title="Changes requested" data-filter="review:changes_requested"><i class="fa fa-times text-closed"> </i></a>
+                            {% elif issue.pr_review_required %}
+                                <a href="" class="js-filter-trigger" title="Waiting for review" data-filter="review:unset"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                {% endif %}
+            </span>
         </div>
     </div>
     <div class="issue-item-footer{% if issue_labels %} with-labels{% endif %}">

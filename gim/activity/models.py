@@ -6,7 +6,8 @@ from django.db import models
 from django.db.models.signals import post_save
 
 from gim.core.models import (Repository, Issue, IssueComment, IssueEvent,
-                             PullRequestComment, IssueCommits, CommitComment)
+                             PullRequestComment, IssueCommits, CommitComment,
+                             PullRequestReview)
 from gim.core.utils import contribute_to_model
 
 from gim.events.models import Event, EventPart
@@ -65,6 +66,8 @@ post_save.connect(update_activity_for_fk_link, sender=Event, weak=False,
                   dispatch_uid='update_activity_for_fk_link_Event')
 post_save.connect(update_activity_for_fk_link, sender=IssueCommits, weak=False,
                   dispatch_uid='update_activity_for_fk_link_IssueCommits')
+post_save.connect(update_activity_for_fk_link, sender=PullRequestReview, weak=False,
+                  dispatch_uid='update_activity_for_fk_link_PullRequestReview')
 
 
 def update_activity_for_commit_comment(sender, instance, created, **kwargs):

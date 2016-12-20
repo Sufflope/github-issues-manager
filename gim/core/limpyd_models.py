@@ -9,6 +9,7 @@ from limpyd.contrib.collection import ExtendedCollectionManager
 from limpyd_jobs.utils import datetime_to_score
 
 from gim.core import get_main_limpyd_database
+from gim.github import ApiError
 
 
 class Token(lmodel.RedisModel):
@@ -30,12 +31,21 @@ class Token(lmodel.RedisModel):
     last_call_ko = lfields.InstanceHashField()  # last github call that was an error
     errors = lfields.SortedSetField()  # will store all errors
     unavailabilities = lfields.SortedSetField()  # will store all queries that set the token as unavailable
+    can_access_graphql_api = lfields.InstanceHashField(indexable=True)  # if the user can access the githup graphql api
+    graphql_rate_limit_remaining = lfields.StringField()  # expirable field
+    graphql_rate_limit_limit = lfields.InstanceHashField()  # how much by hour
+    graphql_rate_limit_reset = lfields.InstanceHashField()  # same as ttl(graphql_rate_limit_remaining)
+    graphql_available = lfields.InstanceHashField(indexable=True)  # if the token is publicly available
 
     repos_admin = lfields.SetField(indexable=True)
     repos_push = lfields.SetField(indexable=True)
     repos_pull = lfields.SetField(indexable=True)
 
+    # keep some to do post actions by users
+    MAX_EXPECTED = 5000
     LIMIT = 500
+    GRAPHQL_MAX_EXPECTED = 200
+    GRAPHQL_LIMIT = 50
 
     @property
     def user(self):
@@ -66,6 +76,23 @@ class Token(lmodel.RedisModel):
         if username:
             self.username.hset(username)
 
+        is_graphql = path == '/graphql'
+
+        if is_graphql:
+            rate_limit_remaining_field = self.graphql_rate_limit_remaining
+            rate_limit_limit_field = self.graphql_rate_limit_limit
+            rate_limit_reset_field = self.graphql_rate_limit_reset
+            available_field = self.graphql_available
+            default_limit = self.GRAPHQL_LIMIT
+            max_expected = self.GRAPHQL_MAX_EXPECTED
+        else:
+            rate_limit_remaining_field = self.rate_limit_remaining
+            rate_limit_limit_field = self.rate_limit_limit
+            rate_limit_reset_field = self.rate_limit_reset
+            available_field = self.available
+            default_limit = self.LIMIT
+            max_expected = self.MAX_EXPECTED
+
         # save last calls
         now = datetime.utcnow()
         str_now = str(now)
@@ -92,33 +119,33 @@ class Token(lmodel.RedisModel):
                 self.scopes.sadd(*gh.x_oauth_scopes)
             self.valid_scopes.hset(int(bool(gh.x_oauth_scopes)))
             if not gh.x_oauth_scopes or 'repo' not in gh.x_oauth_scopes:
-                self.available.hset(0)
+                available_field.hset(0)
                 log_unavailability = True
-                self.ask_for_reset_flags(3600)  # check again in an hour
+                self.ask_for_reset_flags(3600, is_graphql)  # check again in an hour
 
         if gh.x_ratelimit_remaining != -1:
             # add rate limit remaining, clear it after reset time
-            self.rate_limit_remaining.set(gh.x_ratelimit_remaining)
+            rate_limit_remaining_field.set(gh.x_ratelimit_remaining)
             if gh.x_ratelimit_reset != -1:
-                self.connection.expireat(self.rate_limit_remaining.key, gh.x_ratelimit_reset)
-                self.rate_limit_reset.hset(gh.x_ratelimit_reset)
+                self.connection.expireat(rate_limit_remaining_field.key, gh.x_ratelimit_reset)
+                rate_limit_reset_field.hset(gh.x_ratelimit_reset)
             else:
-                self.connection.expire(self.rate_limit_remaining.key, 3600)
-                self.rate_limit_reset.hset(datetime_to_score(datetime.utcnow()+timedelta(seconds=3600)))
+                self.connection.expire(rate_limit_remaining_field.key, 3600)
+                rate_limit_reset_field.hset(datetime_to_score(datetime.utcnow()+timedelta(seconds=3600)))
 
             # if to few requests remaining, consider it as not available for public queries
-            limit = 5000 if gh.x_ratelimit_limit == -1 else gh.x_ratelimit_limit
-            self.rate_limit_limit.hset(limit)
-            if not gh.x_ratelimit_remaining or gh.x_ratelimit_remaining < self.LIMIT:
-                self.available.hset(0)
+            limit = max_expected if gh.x_ratelimit_limit == -1 else gh.x_ratelimit_limit
+            rate_limit_limit_field.hset(limit)
+            if not gh.x_ratelimit_remaining or gh.x_ratelimit_remaining < default_limit:
+                available_field.hset(0)
                 log_unavailability = True
-                self.ask_for_reset_flags()
+                self.ask_for_reset_flags(is_graphql)
             else:
-                self.available.hset(1)
+                available_field.hset(1)
 
         # ask for a flag every 50 calls, to be sure to have one
-        if not (gh.x_ratelimit_remaining+1 or 5000) % 50:
-            self.ask_for_reset_flags()
+        if not (gh.x_ratelimit_remaining+1 or max_expected) % 50:
+            self.ask_for_reset_flags(is_graphql)
 
         if is_error or log_unavailability:
             json_data = {
@@ -146,49 +173,70 @@ class Token(lmodel.RedisModel):
             if log_unavailability:
                 self.unavailabilities.zadd(when, json_data)
 
-    def reset_flags(self):
+    def reset_flags(self, for_graphql=False):
         """
         Will reset the flags of this token (actually only "available")
         If the token object is not in a good state to be reset, a task to reset
         it later will be asked.
         Return False if the reset was not successful and need to be done later
         """
+
+        if for_graphql:
+            rate_limit_remaining_field = self.graphql_rate_limit_remaining
+            rate_limit_limit_field = self.graphql_rate_limit_limit
+            rate_limit_reset_field = self.graphql_rate_limit_reset
+            available_field = self.graphql_available
+            default_limit = self.GRAPHQL_LIMIT
+            max_expected = self.GRAPHQL_MAX_EXPECTED
+        else:
+            rate_limit_remaining_field = self.rate_limit_remaining
+            rate_limit_limit_field = self.rate_limit_limit
+            rate_limit_reset_field = self.rate_limit_reset
+            available_field = self.available
+            default_limit = self.LIMIT
+            max_expected = self.MAX_EXPECTED
+
         # not expired yet, ask to reset flags later
-        if self.connection.exists(self.rate_limit_remaining.key):
+        if self.connection.exists(rate_limit_remaining_field.key):
             return False
 
-        self.rate_limit_reset.hset(0)
+        rate_limit_reset_field.hset(0)
         # set the remaining to the max to let this token be fetched first when
         # sorting by rate_limit_remaining
-        self.rate_limit_remaining.set(self.rate_limit_limit.hget() or 5000)
+        rate_limit_remaining_field.set(rate_limit_limit_field.hget() or max_expected)
 
         # set the token available again only if it has valid scopes
         if self.valid_scopes.hget() == '1':
-            self.available.hset(1)
+            available_field.hset(1)
 
         return True
 
-    def get_remaining_seconds(self):
+    def get_remaining_seconds(self, for_graphql=False):
         """
         Return the time before the reset of the rate limiting
         """
-        return self.connection.ttl(self.rate_limit_remaining.key)
+        field = self.graphql_rate_limit_remaining if for_graphql else self.rate_limit_remaining
+        return self.connection.ttl(field.key)
 
-    def ask_for_reset_flags(self, delayed_for=None):
+    def ask_for_reset_flags(self, delayed_for=None, for_graphql=False):
         """
         Create a task to reset the token's flags later. But if the token is in
         a good state, reset them now instead of creating a flag
         """
         if not delayed_for:
-            ttl = self.get_remaining_seconds()
+            ttl = self.get_remaining_seconds(for_graphql)
             if ttl <= 0:
-                self.rate_limit_remaining.delete()
-                self.reset_flags()
+                field = self.graphql_rate_limit_remaining if for_graphql else self.rate_limit_remaining
+                field.delete()
+                self.reset_flags(for_graphql)
                 return
             delayed_for = ttl + 2
 
         from gim.core.tasks.tokens import ResetTokenFlags
-        ResetTokenFlags.add_job(self.token.hget(), delayed_for=delayed_for)
+        job_key = self.token.hget()
+        if for_graphql:
+            job_key += ':graphql'
+        ResetTokenFlags.add_job(job_key, delayed_for=delayed_for)
 
     @classmethod
     def update_repos_for_user(cls, user):
@@ -214,10 +262,20 @@ class Token(lmodel.RedisModel):
                 token.repos_pull.sadd(*repos_pull)
 
     @classmethod
-    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining'):
+    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
-            collection = collection.filter(available=1)
+            if for_graphql:
+                collection = collection.filter(graphql_available=1)
+            else:
+                collection = collection.filter(available=1)
+        if for_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
+            if sort_by:
+                if sort_by.startswith('rate_limit'):
+                    sort_by = 'graphql_' + sort_by
+                elif sort_by.startswith('-rate_limit'):
+                    sort_by = '-graphql_' + sort_by[1:]
         if permission == 'admin':
             collection.filter(repos_admin=repository_pk)
         elif permission == 'push':
@@ -235,10 +293,51 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def get_one(cls, available=True, sort_by='-rate_limit_remaining'):
+    def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission='pull', min_remaining=None):
+        if min_remaining is None:
+            min_remaining = cls.GRAPHQL_LIMIT
+
+        token = cls.get_for_gh(gh)
+
+        if token.can_access_graphql_api.hget() == '1':
+            try:
+                remaining = int(token.graphql_rate_limit_remaining.get())
+            except:
+                remaining = cls.GRAPHQL_MAX_EXPECTED
+
+            if remaining > min_remaining:
+                return gh
+
+        token = cls.get_one_for_repository(repository_pk, permission, for_graphql=True)
+
+        if not token:
+            return None
+
+        try:
+            remaining = int(token.graphql_rate_limit_remaining.get())
+        except:
+            remaining = cls.GRAPHQL_MAX_EXPECTED
+
+        if remaining <= min_remaining:
+            return None
+
+        return token.gh
+
+    @classmethod
+    def get_one(cls, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
-            collection = collection.filter(available=1)
+            if for_graphql:
+                collection = collection.filter(graphql_available=1)
+            else:
+                collection = collection.filter(available=1)
+        if for_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
+            if sort_by:
+                if sort_by.startswith('rate_limit'):
+                    sort_by = 'graphql_' + sort_by
+                elif sort_by.startswith('-rate_limit'):
+                    sort_by = '-graphql_' + sort_by[1:]
         try:
             if sort_by is None:
                 token = choice(collection.instances())
@@ -250,10 +349,20 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining'):
+    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
         collection = cls.collection(username=username, valid_scopes=1)
         if available:
-            collection = collection.filter(available=1)
+            if for_graphql:
+                collection = collection.filter(graphql_available=1)
+            else:
+                collection = collection.filter(available=1)
+        if for_graphql:
+            collection = collection.filter(can_access_graphql_api=1)
+            if sort_by:
+                if sort_by.startswith('rate_limit'):
+                    sort_by = 'graphql_' + sort_by
+                elif sort_by.startswith('-rate_limit'):
+                    sort_by = '-graphql_' + sort_by[1:]
         try:
             if sort_by is None:
                 token = choice(collection.instances())
@@ -269,6 +378,25 @@ class Token(lmodel.RedisModel):
         from .ghpool import Connection
         username, token = self.hmget('username', 'token')
         return Connection.get(username=username, access_token=token)
+
+    @classmethod
+    def get_for_gh(cls, gh):
+        return cls.get(token=gh._connection_args['access_token'])
+
+    def check_graphql_access(self):
+        try:
+            self.gh.graphql.post(query="query{ viewer { login }}")
+        except ApiError:
+            self.can_access_graphql_api.hset(0)
+            return False
+        else:
+            self.can_access_graphql_api.hset(1)
+            return True
+
+    @classmethod
+    def check_graphql_accesses(cls):
+        for token in cls.collection().instances():
+            token.check_graphql_access()
 
 
 class DeletedInstance(lmodel.RedisModel):
@@ -348,14 +476,14 @@ class DeletedInstance(lmodel.RedisModel):
         print('Deleted %s "deleted instances" on %s.' % (len(to_delete), count))
 
     def get_instance(self):
-        app_label, model_name, github_id = self.ident.hget()
+        app_label, model_name, github_id = self.ident.hget().split('.')
         try:
             model = get_model(app_label, model_name)
         except Exception:
             return None
         try:
             return model.objects.get(github_id=github_id)
-        except model.DoesNotExist():
+        except model.DoesNotExist:
             return None
 
     @classmethod

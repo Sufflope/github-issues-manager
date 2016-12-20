@@ -194,6 +194,9 @@ nav.issues-list-options .dropdown-toggle .caret {
             padding-left: 9px;
         }
     }
+    .issue-item-checks {
+        display: none;
+    }
     &.active {
         padding-left: 3px;
         .issue-item-repository {
@@ -399,6 +402,15 @@ nav.issues-list-options .dropdown-toggle .caret {
             width: auto;
             margin: 0 1px 0 2px;
             opacity: 0.5;
+        }
+    }
+    .issue-item-checks {
+        display: inline-block;
+        white-space: nowrap;
+        i {
+            width: 1.1em;
+            text-align: center;
+            line-height: 20px;
         }
     }
     .news-content {

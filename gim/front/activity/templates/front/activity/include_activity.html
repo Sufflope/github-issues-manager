@@ -161,6 +161,51 @@
                 </blockquote>
             </div>
             {% endwith %}
+        {% elif model == 'PullRequestReview' %}
+            <div class="avatar"><img class="avatar-small lazyload" src="{{ default_avatar }}" data-src="{{ entry.author.full_avatar_url|avatar_size:36 }}" /></div>
+            <div class="info">
+                <span class="name">
+                    <strong>{{ entry.user }}</strong>
+                    {% usemacro tags entry.issue entry.author %}
+                </span>
+                {% usemacro datetime entry.submitted_at %}
+            </div>
+            <span class="fa-stack">
+                <i class="fa fa-comment-o fa-stack-2x"></i>
+                {% if entry.state == entry.REVIEW_STATES.COMMENTED %}
+                    <i class="fa fa-code fa-stack-1x"></i>
+                {% elif entry.state == entry.REVIEW_STATES.APPROVED %}
+                    <i class="fa fa-check-circle fa-stack-1x text-open"></i>
+                {% elif entry.state == entry.REVIEW_STATES.CHANGES_REQUESTED %}
+                    <i class="fa fa-times-circle fa-stack-1x text-closed"></i>
+                {% elif entry.state == entry.REVIEW_STATES.DISMISSED %}
+                    <i class="fa fa-times fa-stack-1x"></i>
+                {% endif %}
+            </span>
+            <div class="box-content">
+                {% with has_comment=entry.body.strip %}
+                    <p>
+                        {% if entry.state == entry.REVIEW_STATES.COMMENTED %}
+                            Reviewed this pull request
+                        {% elif entry.state == entry.REVIEW_STATES.APPROVED %}
+                            Approved the changes of this pull request
+                        {% elif entry.state == entry.REVIEW_STATES.CHANGES_REQUESTED %}
+                            Requested changes in this pull request
+                        {% elif entry.state == entry.REVIEW_STATES.DISMISSED %}
+                            Had its review of this pull request dismissed
+                        {% endif %}
+                        {% if has_comment %}
+                            <span data-toggle="collapse" data-target="#pr-review-{{ entry.id }}" title="Toggle comment">…</span>
+                        {% endif %}
+                    </p>
+                    {% if has_comment %}
+                        <blockquote class="pr-review-{{ entry.state|lower }} collapse" id="pr-review-{{ entry.id }}">
+                            {{ entry.html_content|safe }}
+                        </blockquote>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
         {% elif model == 'IssueEvent' %}
             <div class="avatar"><img class="avatar-small lazyload" src="{{ default_avatar }}" data-src="{{ entry.user.full_avatar_url|avatar_size:36 }}" /></div>
             <div class="info">

@@ -2,6 +2,7 @@
 __all__ = [
     'GITHUB_STATUS_CHOICES',
     'GITHUB_COMMIT_STATUS_CHOICES',
+    'REVIEW_STATES'
 ]
 
 from datetime import datetime, timedelta
@@ -64,6 +65,20 @@ GITHUB_COMMIT_STATUS_CHOICES = Choices(
     ('SUCCESS', 50, u'Success'),
 )
 GITHUB_COMMIT_STATUS_CHOICES.add_subset('FINISHED', ('ERROR', 'FAILURE', 'SUCCESS'))
+
+
+REVIEW_STATES = Choices(
+    ('UNSET', 'UNSET', u'Not reviewed'),
+    ('PENDING', 'PENDING', u'Pending'),
+    ('COMMENTED', 'COMMENTED', u'Commented'),
+    ('APPROVED', 'APPROVED', u'Approved'),
+    ('CHANGES_REQUESTED', 'CHANGES_REQUESTED', u'Changes requested'),
+    ('DISMISSED', 'DISMISSED', u'Dismissed'),
+)
+REVIEW_STATES.add_subset('FOR_PR_STATE_COMPUTATION', ['DISMISSED', 'CHANGES_REQUESTED', 'APPROVED'])
+REVIEW_STATES.add_subset('PR_STATES', ['CHANGES_REQUESTED', 'APPROVED'])
+REVIEW_STATES.add_subset('CREATE_STATES', ['CHANGES_REQUESTED', 'APPROVED'])
+REVIEW_STATES.add_subset('FOR_PR_STATE_FILTERING', ['UNSET', 'CHANGES_REQUESTED', 'APPROVED'])
 
 
 class GithubObject(models.Model):
@@ -678,8 +693,8 @@ class GithubObject(models.Model):
                 else:
                     # it's a direct field
                     data[key] = getattr(self, field_name)
-                    if isinstance(data[field_name], datetime):
-                        data[key] = data[field_name].isoformat()
+                    if isinstance(data[key], datetime):
+                        data[key] = data[key].isoformat()
 
         # prepare the request
         gh_callable = self.__class__.objects.get_github_callable(gh, identifiers)
