@@ -82,6 +82,10 @@
         var WS_uri = "{{ WS.uri }}";
         var WS_last_msg_id = {{ WS.last_msg_id }};
         var WS_user_topic_key = "{{ wamp_topic_key }}";
+        var dynamic_favicon_colors = {
+            background: "{{ dynamic_favicon_colors.background }}",
+            text: "{{ dynamic_favicon_colors.text }}",
+        };
     </script>
     <script src="{% static "front/js/ago.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/jquery-2.1.1.min.js" %}" type="text/javascript"></script>

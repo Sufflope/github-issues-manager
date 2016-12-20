@@ -71,12 +71,12 @@ $().ready(function() {
         init: function () {
             if (!Favicon.obj && window.Favico) {
                 Favicon.obj = new window.Favico({
-                    animation: 'slide',
+                    animation: 'popFade',
                     position: 'down',
                     type: 'circle',
-                    bgColor: '#a24037',
-                    textColor: '#fff',
-                    fontStyle: 'bold',
+                    bgColor: dynamic_favicon_colors.background,
+                    textColor: dynamic_favicon_colors.text,
+                    fontStyle: '600',
                     fontFamily: 'sans-serif'
                 });
             }
