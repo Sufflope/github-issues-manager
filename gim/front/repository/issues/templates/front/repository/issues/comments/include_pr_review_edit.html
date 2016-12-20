@@ -1,0 +1,21 @@
+{% extends "front/repository/issues/comments/include_comment_edit.html" %}
+
+{% block node_class %}{{ block.super }} pr-review review-{{ review.state|lower }}{% endblock %}
+
+{% block comment_inner_body %}
+    <div class="review-title{% if review.body %} with-comment{% endif %}">
+    {% if review.state == review.REVIEW_STATES.APPROVED %}
+        <i class="fa fa-check-circle fa-2x"> </i><span> approved these changes, and said:</span>
+    {% elif review.state == review.REVIEW_STATES.CHANGES_REQUESTED %}
+        <i class="fa fa-times-circle fa-2x"> </i><span> requested changes, and said:</span>
+    {% elif review.state == review.REVIEW_STATES.DISMISSED %}
+        had its review dismissed, that said:
+    {% else %}
+        reviewed this pull request, and said:
+    {% endif %}
+    </div>
+    {% with object_human_name='review' %}
+        {{ block.super }}
+    {% endwith %}
+{% endblock comment_inner_body %}
+

@@ -11,7 +11,8 @@ from .views import (
     IssueCommentView, PullRequestCommentView, CommitCommentView,
     IssueCommentEditView, PullRequestCommentEditView, CommitCommentEditView,
     IssueCommentDeleteView, PullRequestCommentDeleteView, CommitCommentDeleteView,
-    IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers, IssuesFilterMentioned
+    IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers, IssuesFilterMentioned,
+    PullRequestReviewCreateView, PullRequestReviewView, PullRequestReviewEditView,
 )
 
 urlpatterns = patterns('',
@@ -53,6 +54,11 @@ urlpatterns = patterns('',
             url(r'^(?P<issue_number>\d+)/comment/(?P<comment_pk>\d+)/$', IssueCommentView.as_view(), name=IssueCommentView.url_name),
             url(r'^(?P<issue_number>\d+)/comment/(?P<comment_pk>\d+)/edit/$', IssueCommentEditView.as_view(), name=IssueCommentEditView.url_name),
             url(r'^(?P<issue_number>\d+)/comment/(?P<comment_pk>\d+)/delete/$', IssueCommentDeleteView.as_view(), name=IssueCommentDeleteView.url_name),
+
+        # reviews
+        url(r'^(?P<issue_number>\d+)/reviews/add/$', PullRequestReviewCreateView.as_view(), name=PullRequestReviewCreateView.url_name),
+            url(r'^(?P<issue_number>\d+)/reviews/(?P<review_pk>\d+)/$', PullRequestReviewView.as_view(), name=PullRequestReviewView.url_name),
+            url(r'^(?P<issue_number>\d+)/reviews/(?P<review_pk>\d+)/edit/$', PullRequestReviewEditView.as_view(), name=PullRequestReviewEditView.url_name),
 
         # code comments
         url(r'^(?P<issue_number>\d+)/code-comment/add/$', PullRequestCommentCreateView.as_view(), name=PullRequestCommentCreateView.url_name),

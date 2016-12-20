@@ -15,7 +15,7 @@ from django.utils.cache import patch_response_headers
 from django.utils.functional import cached_property
 
 from gim.front.utils import make_querystring
-from gim.core.models import Repository, Issue
+from gim.core.models import Repository, Issue, GITHUB_COMMIT_STATUS_CHOICES, REVIEW_STATES
 from gim.subscriptions.models import Subscription, SUBSCRIPTION_STATES
 
 
@@ -562,6 +562,16 @@ SORT_CHOICES = {sort[0]: sort for sort in [
     }),
 ]}
 
+CHECK_STATUS_CHOICES = OrderedDict(
+    (status.constant.lower(), status)
+    for status in GITHUB_COMMIT_STATUS_CHOICES.entries
+)
+
+REVIEW_STATUS_CHOICES = OrderedDict(
+    (status.constant.lower(), status)
+    for status in REVIEW_STATES.FOR_PR_STATE_FILTERING.entries
+)
+
 
 class BaseIssuesFilters(WithQueryStringViewMixin):
 
@@ -569,7 +579,12 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
 
     allowed_states = ['open', 'closed']
     allowed_prs = ['no', 'yes']
+
     allowed_mergeables = ['no', 'yes']
+    allowed_mergeds = ['no', 'yes']
+    allowed_check_statuses = CHECK_STATUS_CHOICES.keys()
+    allowed_review_statuses = REVIEW_STATUS_CHOICES.keys()
+
     allowed_sort = OrderedDict(SORT_CHOICES[name] for name in [
         'created',
         'updated',
@@ -580,6 +595,8 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
 
     default_qs = ''
 
+    CHECK_STATUS_CHOICES = CHECK_STATUS_CHOICES
+    REVIEW_STATUS_CHOICES = REVIEW_STATUS_CHOICES
     GROUP_BY_CHOICES = GROUP_BY_CHOICES
     SORT_CHOICES = SORT_CHOICES
 
@@ -615,6 +632,39 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
         if is_mergeable in self.allowed_mergeables:
             if self._get_is_pull_request(qs_parts):
                 return True if is_mergeable == 'yes' else False
+        return None
+
+    def _get_is_merged(self, qs_parts):
+        """
+        Return the valid "is_merged" flag to use, or None
+        Will return None if current filter is not on Pull requests
+        """
+        is_merged = qs_parts.get('merged', None)
+        if is_merged in self.allowed_mergeds:
+            if self._get_is_pull_request(qs_parts):
+                return True if is_merged == 'yes' else False
+        return None
+
+    def _get_check_status(self, qs_parts):
+        """
+        Return the valid "check_status" flag to use, or None
+        Will return None if current filter is not on Pull requests
+        """
+        check_status = qs_parts.get('checks', None)
+        if check_status in self.allowed_check_statuses:
+            if self._get_is_pull_request(qs_parts):
+                return CHECK_STATUS_CHOICES[check_status]
+        return None
+
+    def _get_review_status(self, qs_parts):
+        """
+        Return the valid "review_status" flag to use, or None
+        Will return None if current filter is not on Pull requests
+        """
+        review_status = qs_parts.get('review', None)
+        if review_status in self.allowed_review_statuses:
+            if self._get_is_pull_request(qs_parts):
+                return REVIEW_STATUS_CHOICES[review_status]
         return None
 
     def _get_group_by_direction(self, qs_parts):
@@ -687,12 +737,36 @@ class BaseIssuesFilters(WithQueryStringViewMixin):
             qs_filters['pr'] = self.allowed_prs[is_pull_request]
             filter_objects['pr'] = query_filters['is_pull_request'] = is_pull_request
 
-        # filter by mergeable status
+        # apply some filters for prs only
         if qs_filters.get('pr') == 'yes':
+            # filter by mergeable status
             is_mergeable = self._get_is_mergeable(qs_parts)
             if is_mergeable is not None:
                 qs_filters['mergeable'] = self.allowed_mergeables[is_mergeable]
                 filter_objects['mergeable'] = query_filters['mergeable'] = is_mergeable
+
+            # filter by merged status
+            is_merged = self._get_is_merged(qs_parts)
+            if is_merged is not None:
+                qs_filters['merged'] = self.allowed_mergeds[is_merged]
+                filter_objects['merged'] = query_filters['merged'] = is_merged
+
+            # filter by check status
+            check_status = self._get_check_status(qs_parts)
+            if check_status is not None:
+                qs_filters['checks'] = check_status.constant.lower()
+                filter_objects['check_status'] = check_status
+                query_filters['last_head_status'] = check_status.value
+
+            # filter by review status
+            review_status = self._get_review_status(qs_parts)
+            if review_status is not None:
+                qs_filters['review'] = review_status.constant.lower()
+                filter_objects['review_status'] = review_status
+                if review_status is REVIEW_STATES.for_constant('UNSET'):
+                    query_filters['pr_review_state__isnull'] = True
+                else:
+                    query_filters['pr_review_state'] = review_status.value
 
         # prepare order, by group then asked ordering
         order_by = []

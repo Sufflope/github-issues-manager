@@ -7,6 +7,7 @@ __all__ = [
     'FinalizeGithubNotification',
     'GithubNotificationEditJob',
     'FetchNotifications',
+    'CheckGraphQLAccesses',
 ]
 
 import sys
@@ -20,6 +21,7 @@ except:
 from async_messages import messages
 from limpyd import fields
 
+from gim.core.limpyd_models import Token
 from gim.core.managers import MODE_UPDATE
 from gim.core.models import GithubNotification, GithubUser
 from gim.github import ApiNotFoundError, ApiError
@@ -373,3 +375,19 @@ class FetchNotifications(UserJob):
         self.clone(delayed_for=delay)
 
         self.user.ping_github_notifications()
+
+
+class CheckGraphQLAccesses(Job):
+    """Update all github tokens to see if they can access the graqhql api"""
+
+    queue_name = 'check-graphql-accesses'
+
+    def run(self, queue):
+        """Ask the Token class to do the checks"""
+        Token.check_graphql_accesses()
+
+    def on_success(self, queue, result):
+        """
+        Check all tokens in 30mn
+        """
+        self.clone(delayed_for=60*30)  # once per 30mn

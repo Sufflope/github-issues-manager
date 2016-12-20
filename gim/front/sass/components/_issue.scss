@@ -239,7 +239,7 @@ $repo-name-height: 20px;
         padding: 15px;
         border-bottom: solid 1px $box-border-color;
         overflow: auto;
-        ul {
+        > ul {
             float: right;
             li {
                 display: inline-block;
@@ -249,13 +249,13 @@ $repo-name-height: 20px;
     }
     .pr-merge-status {
         margin-top: 15px;
+        margin-bottom: -15px;
         .alert {
             display: inline-block;
             padding-right: 14px;
-            margin: 0;
-            margin-right: 1em;
+            margin: 0 15px 15px 0;
         }
-        .pr-last-commit-status {
+        .pr-last-commit-status, .pr-review-state {
             &[data-toggle=collapse] {
                 cursor: pointer;
             }
@@ -272,7 +272,7 @@ $repo-name-height: 20px;
         }
     }
     .pr-commit-statuses {
-        margin-top: 1em;
+        margin-top: 15px;
         margin-bottom: 0;
         a.logs-toggler:not(.collapsed) {
             background: darken($header-gradient-bottom, 2);
@@ -389,6 +389,15 @@ $repo-name-height: 20px;
                         margin-bottom: 0;
                     }
                 }
+            }
+        }
+    }
+
+    .pr-reviews-detail {
+        .issue-activity {
+            padding: 0;
+            > li:last-child {
+                margin-bottom: 0;
             }
         }
     }
@@ -926,6 +935,76 @@ $repo-name-height: 20px;
         .content {
             overflow: auto;
         }
+        &.pr-review {
+            .content {
+                .review-title {
+                    font-weight: 600;
+                    &.with-comment {
+                        border-bottom: solid #eee 1px;
+                        padding-bottom: 5px;
+                        + P {
+                            margin-top: 5px;
+                        }
+                    }
+                    .fa {
+                        margin-right: 5px;
+                    }
+                }
+            }
+            &.review-changes_requested, &.review-approved {
+                border-width: 2px;
+                border-style: solid;
+                &:before {
+                    border-width: 9px;
+                }
+                .content .review-title {
+                    &.with-comment {
+                        padding-bottom: 4px;
+                    }
+                    &:not(.with-comment) {
+                        margin-bottom: -1px;
+                    }
+                    span {
+                        vertical-align: middle;
+                        position: relative;
+                        top: -1px;
+                    }
+                    .fa {
+                        vertical-align: middle;
+                    }
+                }
+            }
+            &.review-changes_requested {
+                border-color: $state-closed-color;
+                &:before {
+                    border-right-color: $state-closed-color;
+                }
+                &:after {
+                    border-right-color: $state-closed-color;
+                }
+                .content .review-title {
+                    border-bottom-color: $state-closed-color;
+                    .fa {
+                        color: $state-closed-color;
+                    }
+                }
+            }
+            &.review-approved {
+                border-color: $state-open-color;
+                &:before {
+                    border-right-color: $state-open-color;
+                }
+                &:after {
+                    border-right-color: $state-open-color;
+                }
+                .content .review-title {
+                    border-bottom-color: $state-open-color;
+                    .fa {
+                        color: $state-open-color;
+                    }
+                }
+            }
+        }
     }
     .pr-commits-group .box-header {
         > .title, > .box-toolbar > li {
@@ -1112,6 +1191,12 @@ $repo-name-height: 20px;
         }
     }
 
+    .comment-create-form {
+        button[name=pr-review] {
+            margin-left: 10px;
+        }
+    }
+
     .comment-delete-form {
         .auto-align {
             padding-bottom: 10px;
@@ -1135,6 +1220,17 @@ $repo-name-height: 20px;
             color: $errorText;
         }
         .state-pending, .state-unknown {
+            color: $warningText;
+        }
+    }
+    .part-pr_review_state {
+        .state-approved {
+            color: $successText;
+        }
+        .state-changes_requested {
+            color: $errorText;
+        }
+        .state-review_required {
             color: $warningText;
         }
     }

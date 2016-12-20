@@ -3,7 +3,8 @@ __all__ = [
     'CommitCommentEntryPoint',
     'IssueComment',
     'PullRequestComment',
-    'PullRequestCommentEntryPoint'
+    'PullRequestCommentEntryPoint',
+    'PullRequestReview',
 ]
 
 import re
@@ -11,17 +12,30 @@ import re
 from django.conf import settings
 from django.db import models
 
+from extended_choices import Choices
+
+from gim.core.ghpool import ApiError
+from gim.core.graphql_utils import (
+    compose_query,
+    encode_graphql_id_for_object,
+    fetch_graphql,
+    GraphQLGithubInternalError,
+    GITHUB_TYPES,
+)
+
 from ..managers import (
     CommitCommentEntryPointManager,
     CommitCommentManager,
     IssueCommentManager,
     PullRequestCommentEntryPointManager,
     PullRequestCommentManager,
+    PullRequestReviewManager,
 )
 
 from .base import (
     GithubObject,
     GithubObjectWithId,
+    REVIEW_STATES,
 )
 
 from .mixins import (
@@ -313,9 +327,6 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         ),
         'update': (
            'body',
-           ('commit_id', 'entry_point__original_commit_sha'),
-           ('path', 'entry_point__path'),
-           ('position', 'entry_point__original_position'),
         ),
     }
     github_date_field = ('updated_at', 'updated', 'desc')
@@ -361,6 +372,37 @@ class PullRequestComment(CommentMixin, WithIssueMixin, GithubObjectWithId):
         super(PullRequestComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
+
+    def dist_edit(self, gh, mode, fields=None, values=None, meta_base_name=None, update_method='patch', github_api_version=None, update_object=True):
+        in_reply_to_used = False
+
+        if mode == 'create' and fields is None:
+            # use the `in_reply_to` if possible (note: doesn't work for commit comments, only for pr comments)
+            if self.entry_point:
+                last_comment = self.entry_point.comments.filter(github_status=self.GITHUB_STATUS_CHOICES.FETCHED).last()
+                if last_comment:
+                    fields = {'body', 'in_reply_to'}
+                    values = {'in_reply_to': last_comment.github_id}
+                    in_reply_to_used = True
+
+        try:
+            return super(PullRequestComment, self).dist_edit(gh, mode, fields, values, meta_base_name, update_method, github_api_version, update_object)
+        except ApiError as e:
+            retry = False
+            if in_reply_to_used and getattr(e, 'code', None) == 422 and e.response.get('json', {}).get('errors'):
+                errors = e.response.json.errors
+                if isinstance(errors, dict):
+                    errors = [errors]
+                for error in errors:
+                    if error.get('field') == 'in_reply_to':
+                        retry = True
+                        fields = None
+                        values = None
+                        break
+            if retry:
+                return super(PullRequestComment, self).dist_edit(gh, mode, fields, values, meta_base_name, update_method, github_api_version, update_object)
+            else:
+                raise
 
 
 class CommitCommentEntryPoint(CommentEntryPointMixin):
@@ -504,9 +546,6 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
         ),
         'update': (
            'body',
-           ('sha', 'entry_point__commit_sha'),
-           ('path', 'entry_point__path'),
-           ('position', 'entry_point__position'),
         ),
     }
     github_date_field = ('created_at', 'created', 'asc')
@@ -572,3 +611,145 @@ class CommitComment(CommentMixin, WithCommitMixin, GithubObjectWithId):
         super(CommitComment, self).delete(*args, **kwargs)
 
         entry_point.update_starting_point(save=True)
+
+
+class PullRequestReview(GithubObjectWithId):
+    issue = models.ForeignKey('Issue', related_name='reviews')
+    author = models.ForeignKey('GithubUser', related_name='reviews')
+    state = models.CharField(max_length=20, choices=REVIEW_STATES)
+    body = models.TextField(blank=True, null=True)
+    body_html = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField()
+    head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
+    comments_count = models.PositiveIntegerField(blank=True, null=True)
+    displayable = models.BooleanField(default=True, db_index=True)
+
+    github_api_version = 'black-cat-preview'
+    github_edit_fields = {
+        'create': ('body', ('event', 'github_create_event'), ),
+        'update': ('body', ),
+    }
+    github_matching = dict(GithubObjectWithId.github_matching)
+    github_matching.update({
+        'user': 'author',
+        'commit_id': 'head_sha',
+    })
+
+    CREATE_EVENTS = {
+        REVIEW_STATES.APPROVED: 'APPROVE',
+        REVIEW_STATES.CHANGES_REQUESTED: 'REQUEST_CHANGES',
+    }
+
+    class Meta:
+        app_label = 'core'
+        ordering = ('submitted_at', )
+
+    objects = PullRequestReviewManager()
+
+    REVIEW_STATES = REVIEW_STATES
+
+    @property
+    def github_callable_identifiers(self):
+        return self.issue.github_callable_identifiers_for_reviews + [
+            self.github_id,
+        ]
+
+    @property
+    def github_callable_create_identifiers(self):
+        return self.issue.github_callable_identifiers_for_reviews
+
+    GRAPHQL_TYPE = GITHUB_TYPES.PullRequestReview
+
+    GRAPHQL_FETCH_ONE = compose_query("""
+        query PullRequestReview($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewFull
+            }
+        }
+    """, 'pullRequestReviewFull')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_AUTHOR = compose_query("""
+        query PullRequestReviewWithoutAuthor($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewNoAuthor
+            }
+        }
+    """, 'pullRequestReviewNoAuthor')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_PR = compose_query("""
+        query PullRequestReviewWithoutPR($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewNoPR
+            }
+        }
+    """, 'pullRequestReviewNoPR')
+
+    GRAPHQL_FETCH_ONE_WITHOUT_PR_AND_AUTHOR = compose_query("""
+        query PullRequestReviewWithoutPRAndAuthor($pullRequestReviewId: ID!) {
+            node(id:$pullRequestReviewId) {
+                ...pullRequestReviewBase
+            }
+        }
+    """, 'pullRequestReviewBase')
+
+    def __unicode__(self):
+        return u'Review %s by %s on Pull request #%d' % (self.state, self.author, self.issue.number)
+
+    def fetch(self, gh):
+
+        defaults = {}
+        if self.issue_id:
+            defaults['fk'] = {
+                'issue': self.issue
+            }
+            query = self.GRAPHQL_FETCH_ONE_WITHOUT_PR
+            query_name = 'PullRequestReviewWithoutPR'
+        else:
+            query = self.GRAPHQL_FETCH_ONE
+            query_name = 'PullRequestReview'
+
+        variables = {
+            'pullRequestReviewId': encode_graphql_id_for_object(self)
+        }
+
+        try:
+            data = fetch_graphql(gh, query, variables, query_name, {
+                'pr_review_github_id': self.github_id
+            })
+        except GraphQLGithubInternalError:
+            # In general it happens when the author of a review is now deleted
+            if self.issue_id:
+                query = self.GRAPHQL_FETCH_ONE_WITHOUT_PR_AND_AUTHOR
+                query_name = 'PullRequestReviewWithoutPRAndAuthor'
+            else:
+                query = self.GRAPHQL_FETCH_ONE_WITHOUT_AUTHOR
+                query_name = 'PullRequestReviewWithoutAuthor'
+
+            data = fetch_graphql(gh, query, variables, query_name, {
+                'pr_review_github_id': self.github_id
+            })
+
+        if not data.get('node'):
+            return None
+
+        return PullRequestReview.objects.create_or_update_from_dict(
+            data.node,
+            defaults=defaults
+        )
+
+    def save(self, *args, **kwargs):
+        if self.comments_count is None:
+            self.comments_count = 0
+
+        super(PullRequestReview, self).save(*args, **kwargs)
+
+        if self.state in REVIEW_STATES.FOR_PR_STATE_COMPUTATION:
+            self.issue.update_pr_review_state()
+
+    @property
+    def github_create_event(self):
+        return self.CREATE_EVENTS[self.state]
+
+    @property
+    def github_url(self):
+        return self.issue.github_url + '#pullrequestreview-%s' % self.github_id

@@ -778,6 +778,22 @@ $().ready(function() {
                 'on': 'Click to display only pull requests',
                 'off': 'Click to stop displaying only pull requests'
             },
+            merged: {
+                'on': 'Click to display only merged pull requests',
+                'off': 'Click to stop displaying only merged pull requests'
+            },
+            mergeable: {
+                'on': 'Click to display only mergeable pull requests',
+                'off': 'Click to stop displaying only mergeable pull requests'
+            },
+            checks: {
+                'on': 'Click to display only pull requests with this checks status',
+                'off': 'Click to stop displaying only pull requests with this checks status'
+            },
+            review: {
+                'on': 'Click to display only pull requests with this review status',
+                'off': 'Click to stop displaying only pull requests with this review status'
+            },
             milestone: {
                 'on': 'Click to filter on this milestone',
                 'off': 'Click to stop filtering on this milestone'
@@ -831,6 +847,10 @@ $().ready(function() {
                         value = (key == 'project' ? '__any__' : parts[1]);
                         key = 'project_' + parts[0];
                     case 'pr':
+                    case 'merged':
+                    case 'mergeable':
+                    case 'checks':
+                    case 'review':
                     case 'milestone':
                     case 'created_by':
                     case 'assigned':
@@ -2919,17 +2939,17 @@ $().ready(function() {
             }
         }), // IssueDetail__reload_waypoints
 
-        on_statuses_box_toggled: (function IssueDetail__on_statuses_box_toggled (ev) {
+        on_statuses_or_review_box_toggled: (function IssueDetail__on_statuses_or_review_box_box_toggled (ev) {
             if (ev.target != this) { return; }
             var $node =  $(this).closest('.issue-container');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
-        }), // IssueDetail__on_statuses_box_toggled
+        }), // IssueDetail__on_statuses_or_review_box_box_toggled
 
         on_statuses_box_logs_toggled: (function IssueDetail__on_statuses_box_logs_toggled () {
             var $node =  $(this).closest('.issue-container');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
             return false;
@@ -2938,12 +2958,11 @@ $().ready(function() {
         on_statuses_box_older_logs_toggled: (function IssueDetail__on_statuses_box_older_logs_toggled () {
             var $node =  $(this).closest('.issue-container');
             $(this.parentNode).addClass('show-older');
-            if ($node) {
+            if ($node.length) {
                 IssueDetail.reload_waypoints($node);
             }
             return false;
         }), // IssueDetail__on_statuses_box_older_logs_toggled
-
 
         is_modal: (function IssueDetail__is_modal ($node) {
             return !!$node.data('$modal');
@@ -4361,10 +4380,27 @@ $().ready(function() {
             jwerty.key('p/k/shift+p/shift+k', IssueDetail.on_review_key_event('go_to_previous_review_comment'));
             jwerty.key('n/j/shift+n/shift+j', IssueDetail.on_review_key_event('go_to_next_review_comment'));
 
-            // toggling statuses
-            $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-commit-statuses .box-content', IssueDetail.on_statuses_box_toggled);
+            // toggling statuses and review details
+            $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-reviews-detail, .pr-commit-statuses .box-content', IssueDetail.on_statuses_or_review_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
+            // only one of status details or review details
+            $document.on('show.collapse', '.pr-commits-statuses', function(ev) {
+                if (ev.target != this) { return; }
+                var $node =  $(this).closest('.issue-container');
+                if ($node.length) {
+                    $node.find('.pr-review-state:not(.collapsed)').click();
+                }
+            });
+            // only one of status details or review details
+            $document.on('show.collapse', '.pr-reviews-detail', function(ev) {
+                if (ev.target != this) { return; }
+                var $node =  $(this).closest('.issue-container');
+                if ($node.length) {
+                    $node.find('.pr-last-commit-status:not(.collapsed)').click();
+                }
+            });
 
             $document.on('click', '.code-file > .box-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_file_click));
             $document.on('click', '.code-diff .diff-hunk-header .locally-reviewed', Ev.stop_event_decorate(IssueDetail.on_toggle_locally_reviewed_hunk_click));
@@ -5003,12 +5039,25 @@ $().ready(function() {
         /* POST COMMENT */
         on_comment_submit: (function IssueEditor__on_comment_submit (ev) {
             var $form = $(this),
-                context = IssueEditor.handle_form($form, ev);
+                context = IssueEditor.handle_form($form, ev),
+                text_expected = true,
+                handle_pr_review = false,
+                action, data;  // both will be set only if review action, else will be default, managed by post_form_with_uuid
+
             if (context === false) { return false; }
+
+            context['with-pr-review-buttons']  = $form.data('with-pr-review-buttons');
+
+            if (document.activeElement && document.activeElement.name == 'pr-review') {
+                handle_pr_review = document.activeElement.value;
+                if (handle_pr_review == 'APPROVED') {
+                    text_expected = false;
+                }
+            }
 
             var $textarea = $form.find('textarea');
 
-            if ($textarea.length && !$textarea.val().trim()) {
+            if (text_expected && $textarea.length && !$textarea.val().trim()) {
                 $textarea.after('<div class="alert alert-error">You must enter a comment</div>');
                 $form.find('button').removeClass('loading');
                 FormTools.enable_form($form);
@@ -5018,9 +5067,18 @@ $().ready(function() {
 
             $form.closest('li.issue-comment')[0].setAttribute('data-front-uuid', context.uuid);
 
+            if (handle_pr_review) {
+                // specific action
+                action = $form.data('pr-review-url');
+                // and specific data: we add the type
+                data = $form.serializeArray();
+                data.push({name:'state', value: handle_pr_review});
+            }
+
             FormTools.post_form_with_uuid($form, context,
                 IssueEditor.on_comment_submit_done,
-                IssueEditor.on_comment_submit_failed
+                IssueEditor.on_comment_submit_failed,
+                data, action
             );
         }), // on_comment_submit
 
@@ -5092,7 +5150,7 @@ $().ready(function() {
             $comment_box.$textarea.focus();
         }), // on_comment_create_placeholder_click
 
-        create_comment_form_from_template: (function IssueEditor__create_comment_form_from_template ($trigger, $issue) {
+        create_comment_form_from_template: (function IssueEditor__create_comment_form_from_template ($trigger, $issue, is_last_pr_comment) {
             var $template = $issue.find('.comment-create-container').first(),
                 $node = $template.clone(),
                 $form = $node.find('form'),
@@ -5100,6 +5158,9 @@ $().ready(function() {
                 is_commit = $tab_pane.hasClass('commit-files'),
                 action = is_commit ? $tab_pane.data('comment-url') : $form.data('pr-url'),
                 $textarea;
+            if (!is_last_pr_comment) {
+                $node.find('button[name=pr-review]').remove();
+            }
             $node.removeClass('comment-create-container');
             $form.attr('action', action);
             $textarea = $form.find('textarea');
@@ -5531,7 +5592,7 @@ $().ready(function() {
                 return;
             }
             // Replace "waiting" comments
-            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment')) {
+            if (kwargs.url && (kwargs.model == 'IssueComment' || kwargs.model == 'CommitComment' || kwargs.model == 'PullRequestComment' || kwargs.model == 'PullRequestReview')) {
 
                 var selector = 'li.issue-comment[data-model=' + kwargs.model + '][data-id=' + kwargs.id + ']';
                 if (kwargs.front_uuid) {

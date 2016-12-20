@@ -449,8 +449,32 @@ def requeue_all_repositories():
 
 
 def requeue_all_users():
-    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications
+    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications, CheckGraphQLAccesses
 
     for user in GithubUser.objects.filter(token__isnull=False):
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
+
+    CheckGraphQLAccesses.add_job(42)
+
+
+def maintenance(include_users_and_repositories=True):
+    print('Maintenance tasks...')
+    print('    clear_requeue_delayed_lock_key...')
+    for q in Queue.collection().instances():
+        if q.requeue_delayed_lock_key_exists():
+            q.clear_requeue_delayed_lock_key()
+    print('    requeue_halted_jobs...')
+    requeue_halted_jobs()
+    print('    requeue_unqueued_waiting_jobs...')
+    requeue_unqueued_waiting_jobs()
+    print('    requeue_unqueued_delayed_jobs...')
+    requeue_unqueued_delayed_jobs()
+    print('    delete_empty_queues...')
+    delete_empty_queues()
+    if include_users_and_repositories:
+        print('    requeue_all_users...')
+        requeue_all_users()
+        print('    requeue_all_repositories...')
+        requeue_all_repositories()
+    print '[done]'

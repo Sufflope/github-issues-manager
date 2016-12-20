@@ -1,11 +1,22 @@
 __all__ = [
     'Repository',
+    'ProtectedBranch',
 ]
 
 from datetime import datetime, timedelta
 
 from django.db import models
 from django.utils.functional import cached_property
+
+
+from gim.core.graphql_utils import (
+    compose_query,
+    encode_graphql_id_for_object,
+    fetch_graphql,
+    reindent,
+    GraphQLComplexityError,
+    GraphQLGithubInternalError,
+)
 
 from .. import GITHUB_HOST
 
@@ -14,13 +25,17 @@ from ..ghpool import (
     ApiNotFoundError,
 )
 
+from ..limpyd_models import Token
+
 from ..managers import (
     MODE_ALL,
     MODE_UPDATE,
     RepositoryManager,
+    ProtectedBranchManager,
 )
 
 from .base import (
+    GithubObject,
     GithubObjectWithId,
 )
 
@@ -67,6 +82,9 @@ class Repository(GithubObjectWithId):
                                         on_delete=models.SET_NULL)
     projects_fetched_at = models.DateTimeField(blank=True, null=True)
     projects_etag = models.CharField(max_length=64, blank=True, null=True)
+    protected_branches_fetched_at = models.DateTimeField(blank=True, null=True)
+    protected_branches_etag = models.CharField(max_length=64, blank=True, null=True)
+    pr_reviews_activated = models.BooleanField(default=False)
 
     objects = RepositoryManager()
 
@@ -280,8 +298,10 @@ class Repository(GithubObjectWithId):
             from gim.core.tasks.repository import FetchClosedIssuesWithNoClosedBy
             FetchClosedIssuesWithNoClosedBy.add_job(self.id, limit=20, gh=gh)
 
-        from gim.core.tasks.repository import FetchUpdatedPullRequests
+        from gim.core.tasks.repository import FetchUpdatedPullRequests, FetchUpdatedReviews
         FetchUpdatedPullRequests.add_job(self.id, limit=20, gh=gh)
+        if self.pr_reviews_activated:
+            FetchUpdatedReviews.add_job(self.id, limit=10, gh=gh)
 
         return count
 
@@ -624,6 +644,48 @@ class Repository(GithubObjectWithId):
             self.save(update_fields=['projects_fetched_at'])
             raise
 
+    @property
+    def github_callable_identifiers_for_protected_branches(self):
+        return self.github_callable_identifiers + [
+            'branches',
+        ]
+
+    def fetch_protected_branches(self, gh, force_fetch=False, parameters=None, max_pages=None):
+        if parameters is None:
+            parameters = {}
+        parameters['protected'] = 1
+        return self._fetch_many('protected_branches', gh,
+                                defaults={
+                                    'fk': {'repository': self},
+                                    'related': {'*': {'fk': {'repository': self}}},
+                                },
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                max_pages=None)  # we need them all to get all the positions
+
+    def fetch_all_protected_branches(self, gh, force_fetch=False):
+        # only admins can fetch protected branches :(
+        token = Token.get_for_gh(gh)
+        if not token.repos_admin.sismember(self.pk):
+            token = Token.get_one_for_repository(self.pk, 'admin')
+            if token:
+                gh = token.gh
+            else:
+                return
+
+        if not force_fetch:
+            if not self.protected_branches_fetched_at:
+                force_fetch = True
+        try:
+            self.fetch_protected_branches(gh, force_fetch=force_fetch)
+            for branch in self.protected_branches.all():
+                branch.fetch_all(gh, force_fetch=force_fetch)
+        except Exception:
+            # Next time we'll refetch all. Else we won't be able to get new data
+            self.protected_branches_fetched_at = None
+            self.save(update_fields=['protected_branches_fetched_at'])
+            raise
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -642,6 +704,7 @@ class Repository(GithubObjectWithId):
         two_steps = bool(kwargs.get('two_steps', False))
 
         self.fetch_minimal(gh, force_fetch=force_fetch)
+        self.fetch_all_protected_branches(gh, force_fetch=force_fetch)
 
         if two_steps:
             self.fetch_issues(gh, force_fetch=force_fetch, state='open')
@@ -701,3 +764,287 @@ class Repository(GithubObjectWithId):
     def has_projects_with_issues(self):
         from .projects import CARDTYPE
         return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
+
+    GRAPHQL_FETCH_REVIEWS = compose_query("""
+        query RepositoryPullRequestsReviews($nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {
+            %s
+        }
+    """, 'pullRequestReviewsFull')
+
+    GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY = """
+        node%(pr_index)02d: node(id: "%(pr_id)s") {
+            ...pullRequestReviewsFull
+        }
+    """
+
+    GRAPHQL_FETCH_ALL_REVIEWS = compose_query("""
+        query RepositoryAllPullRequestsReviews($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nbReviewsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String, $nextReviewsPageCursor: String) {
+            repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
+                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                    pageInfo {
+                        ...pageInfoNext
+                    }
+                    edges {
+                        node {
+                            ...pullRequestNumber
+                            ...pullRequestReviewsFull
+                        }
+                    }
+                }
+            }
+        }
+    """, 'pageInfoNext', 'pullRequestNumber', 'pullRequestReviewsFull')
+
+    GRAPHQL_FETCH_ALL_REVIEWS_LITE = compose_query("""
+        query RepositoryAllPullRequestsReviewsLite($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String) {
+            repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
+                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                    pageInfo {
+                        ...pageInfoNext
+                    }
+                    edges {
+                        node {
+                            ...pullRequestNumber
+                        }
+                    }
+                }
+            }
+        }
+    """, 'pageInfoNext', 'pullRequestNumber')
+
+    def _manage_pr_reviews_from_fetch(self, gh, pr, reviews_node):
+        from gim.core.models import PullRequestReview
+
+        if reviews_node and reviews_node.get('edges'):
+
+            objs = PullRequestReview.objects.create_or_update_from_list(
+                [edge.node for edge in reviews_node.edges],
+                defaults={'fk': {'issue': pr}},
+            )
+
+            # continue fetching the reviews for this issue if more than one page
+            has_next_page = reviews_node.pageInfo.hasNextPage
+            if has_next_page:
+                objs += pr.fetch_pr_reviews(gh, reviews_node.pageInfo.endCursor, False)
+
+        # we're done
+        pr.pr_reviews_fetched_at = datetime.utcnow()
+        pr.save(update_fields=['pr_reviews_fetched_at'])
+
+    def fetch_all_pr_reviews(self, gh, next_page_cursor=None, max_prs=None):
+
+        if not self.pr_reviews_activated:
+            return 0, 0, 0, None
+
+        from gim.core.models import Issue
+
+        has_next_page = True
+
+        per_page = normal_per_page = 30
+
+        done = 0
+        failed = 0
+        total = self.issues.filter(is_pull_request=True).count()
+
+        variables = {
+            'repositoryOwnerLogin': self.owner.username,
+            'repositoryName': self.name,
+        }
+        debug_context = {
+            'total': total,
+        }
+
+        while has_next_page and (not max_prs or done < max_prs):
+            variables['nbPullRequestsToRetrieve'] = per_page
+            if next_page_cursor:
+                variables['nextPullRequestsPageCursor'] = next_page_cursor
+            debug_context.update({
+                'failed': failed,
+                'done': done,
+            })
+
+            manage_reviews = True
+
+            try:
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_ALL_REVIEWS, variables, 'RepositoryAllPullRequestsReviews', debug_context)
+            except GraphQLGithubInternalError:
+                # We don't know which one fails, so we retry only with the half.
+                # When only one PR, and a failure, we have our failing PR, and
+                # will fetch it in a very light way to get the number
+
+                if per_page > 1:
+                    per_page /= 2
+                    continue
+
+                failed += 1
+                manage_reviews = False
+                debug_context['failed'] = failed
+                data = fetch_graphql(gh, self.GRAPHQL_FETCH_ALL_REVIEWS_LITE, variables, 'RepositoryAllPullRequestsReviewsLite', debug_context)
+
+                # now we can get the pr and retrieve its reviews
+                pr_number = data.repository.pullRequests.edges[0].node.number
+                try:
+                    pr = self.issues.get(number=pr_number)
+                    pr.fetch_pr_reviews(gh)
+                except Issue.DoesNotExist:
+                    pass
+                else:
+                    done += 1
+
+                # we can restore the qtt per page
+                per_page = normal_per_page
+                # and let the process continue using pagination info
+
+            pulls_node = data.repository.pullRequests
+
+            has_next_page = pulls_node.pageInfo.hasNextPage
+            if has_next_page:
+                next_page_cursor = pulls_node.pageInfo.endCursor
+            else:
+                next_page_cursor = None
+
+            if not manage_reviews:
+                continue
+
+            # now work on each retrieved pr
+            for edge in pulls_node.get('edges', []):
+                try:
+                    self._manage_pr_reviews_from_fetch(
+                        gh,
+                        self.issues.get(number=edge.node.number),
+                        edge.get('node', {}).get('reviews', {})
+                    )
+                except Issue.DoesNotExist:
+                    pass
+                else:
+                    done += 1
+
+        return total, done, failed, next_page_cursor
+
+    def fetch_updated_pr_reviews(self, gh, prs=None, nb_prs_by_query=10, max_prs=None):  # more nb_prs_by_query is too much complexity for github
+
+        if not self.pr_reviews_activated:
+            return 0, 0
+
+        # get the list of PRs to fetch: the ones where it was never fetched, or the one where it
+        # was fetched before the last updated at
+        if prs is None:
+            prs = self.issues.filter(is_pull_request=True).filter(
+                models.Q(pr_reviews_fetched_at__isnull=True)
+                |
+                models.Q(pr_reviews_fetched_at__lt=models.F('updated_at'))
+            ).select_related(
+                'repository__owner'
+            ).order_by('-updated_at')
+
+            total = prs.count()
+
+            if total:
+                if max_prs:
+                    prs = prs[:max_prs]
+                prs = list(prs)
+        else:
+            total = len(prs)
+
+        if not total:
+            return 0, 0
+
+        count = 0
+
+        failing_prs = []
+        while len(prs) and (not max_prs or count < max_prs):
+            current_prs, prs = prs[:nb_prs_by_query], prs[nb_prs_by_query:]
+
+            subqueries = [
+                self.GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY % {
+                    'pr_index': index,
+                    'pr_id': encode_graphql_id_for_object(pr),
+                }
+                for index, pr
+                in enumerate(current_prs)
+            ]
+
+            query = reindent(self.GRAPHQL_FETCH_REVIEWS % '\n'.join(subqueries))
+
+            try:
+                data = fetch_graphql(gh, query, {}, 'RepositoryPullRequestsReviews', {
+                    'repository': self.full_name,
+                    'prs_left': len(prs) + len(current_prs),
+                    'failed': len(failing_prs),
+                })
+            except GraphQLGithubInternalError:
+                # we'll try them later
+                failing_prs += current_prs
+                continue
+            except GraphQLComplexityError as e:
+                # reset list to restart with a lower nb of prs by query
+                nb_prs_by_query = e.complexity[1] / (e.complexity[0] / nb_prs_by_query)
+                prs = current_prs + prs
+                continue
+
+            for index, node_key in enumerate(sorted(data.keys())):
+                self._manage_pr_reviews_from_fetch(
+                    gh,
+                    current_prs[index],
+                    data[node_key].get('reviews', {})
+                )
+                count += 1
+
+        if failing_prs:
+            if nb_prs_by_query / 2 > 1:
+                count += self.fetch_updated_pr_reviews(gh, failing_prs, nb_prs_by_query / 2)[0]
+            else:
+                # fetch the reviews one by one
+                for pr in failing_prs:
+                    pr.fetch_pr_reviews(gh)
+                    count += 1
+
+        return count, total
+
+
+class ProtectedBranch(GithubObject):
+    repository = models.ForeignKey('Repository', related_name='protected_branches')
+    name = models.TextField(db_index=True)
+    require_status_check = models.BooleanField(default=False)
+    require_status_check_include_admins = models.BooleanField(default=False)
+    require_up_to_date = models.BooleanField(default=False)
+    require_approved_review = models.BooleanField(default=False)
+    require_approved_review_include_admins = models.BooleanField(default=False)
+    etag = models.CharField(max_length=64, blank=True, null=True)
+
+    github_api_version = 'loki-preview'
+    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'name': 'name'}
+
+    objects = ProtectedBranchManager()
+
+    class Meta:
+        app_label = 'core'
+
+    def __unicode__(self):
+        return u'%s' % self.name
+
+    @property
+    def github_callable_identifiers(self):
+        return self.repository.github_callable_identifiers_for_protected_branches + [
+            self.name,
+            'protection',
+        ]
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None, github_api_version=None):
+        if defaults is None:
+            defaults = {}
+        if not defaults.get('fk', {}):
+            defaults['fk'] = {}
+        if not defaults.get('repository'):
+            defaults['fk']['repository'] = self.repository
+        if not defaults.get('simple', {}):
+            defaults['simple'] = {}
+        if not defaults['simple'].get('name'):
+            defaults['simple']['name'] = self.name
+
+        try:
+            return super(ProtectedBranch, self).fetch(gh, defaults, force_fetch, parameters, meta_base_name, github_api_version)
+        except ApiNotFoundError:
+            # the branch is not protected anymore
+            self.delete()
+        return None

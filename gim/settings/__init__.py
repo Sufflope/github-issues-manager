@@ -245,6 +245,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'gim.graphql': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     }
 }
 

@@ -31,6 +31,7 @@ class BaseActivity(ModelWithDynamicFieldMixin, lmodel.RedisModel):
     pr_comments = lfields.SortedSetField()
     commit_comments = lfields.SortedSetField()
     pr_commits = lfields.SortedSetField()
+    pr_reviews = lfields.SortedSetField()
 
     @staticmethod
     def load_object(data):

@@ -445,6 +445,12 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             self._pr_comment_create_url = self.get_view_url(PullRequestCommentCreateView.url_name)
         return self._pr_comment_create_url
 
+    def pr_review_create_url(self):
+        if not hasattr(self, '_pr_review_create_url'):
+            from gim.front.repository.issues.views import PullRequestReviewCreateView
+            self._pr_review_create_url = self.get_view_url(PullRequestReviewCreateView.url_name)
+        return self._pr_review_create_url
+
     def ajax_files_url(self):
         return self.get_view_url('issue.files')
 
@@ -491,7 +497,9 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
         if self.is_pull_request:
-            hashable_fields += ('base_sha', 'head_sha', 'merged')
+            hashable_fields += (
+                'base_sha', 'head_sha', 'merged', 'last_head_status', 'pr_review_state', 'pr_review_required'
+            )
             if self.state == 'open' and not self.merged:
                 hashable_fields += ('mergeable', 'mergeable_state')
 
@@ -507,7 +515,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
-            hash_values += (commits_part, )
+            hash_values += (commits_part, self.repository.pr_reviews_activated)
 
         return hash_values
 
@@ -670,6 +678,10 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 for comments in cc_by_commit.values():
                     activity += GroupedCommitComments.group_by_day(comments)
 
+            # add pull request reviews
+            if self.repository.pr_reviews_activated:
+                activity += self.get_pr_reviews_activity()
+
         activity.sort(key=attrgetter('created_at'))
 
         if self.is_pull_request:
@@ -677,6 +689,16 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             activity = GroupedPullRequestComments.group_in_activity(activity)
 
         return activity
+
+    def get_pr_reviews_activity(self):
+        if not self.repository.pr_reviews_activated:
+            return []
+
+        if not hasattr(self, '_pr_reviews_activity'):
+
+            self._pr_reviews_activity = list(self.reviews.filter(displayable=True).select_related('author'))
+
+        return self._pr_reviews_activity
 
     def get_sorted_entry_points(self):
         for entry_point in self.all_entry_points:
@@ -762,6 +784,15 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             'column__project__number'
         ))
         return self._prefetched_objects_cache['cards']
+
+    def user_can_add_pr_review(self, user):
+        if not self.is_pull_request:
+            return False
+        if not user or user.is_anonymous():
+            return False
+        if not self.repository.pr_reviews_activated:
+            return False
+        return self.user != user
 
 contribute_to_model(_Issue, core_models.Issue, {'defaults_create_values'})
 
@@ -1088,6 +1119,86 @@ class _GithubNotification(models.Model):
 contribute_to_model(_GithubNotification, core_models.GithubNotification)
 
 
+class _PullRequestReview(Hashable, FrontEditable):
+
+    class Meta:
+        abstract = True
+
+    is_pull_request_review = True
+
+    @property
+    def hash(self):
+        return hash((self.author_id, self.submitted_at, self.state))
+
+    def get_related_issues(self):
+        """
+        Return a list of all issues related to this review(ie only one!)
+        """
+        return core_models.Issue.objects.filter(pk=self.issue_id)
+
+    @property
+    def created_at(self):
+        return self.submitted_at
+
+    @property
+    def user_id(self):
+        return self.author_id
+
+    @property
+    def user(self):
+        return self.author
+
+    @property
+    def repository_id(self):
+        return self.issue.repository_id
+
+    @property
+    def repository(self):
+        return self.issue.repository
+
+    @property
+    def html_content(self):
+        return html_content(self)
+
+    def get_reverse_kwargs(self):
+        """
+        Return the kwargs to use for "reverse"
+        """
+        return {
+            'owner_username': self.repository.owner.username,
+            'repository_name': self.repository.name,
+            'issue_number': self.issue.number,
+            'review_pk': self.pk,
+        }
+
+    def get_view_url(self, url_name):
+        return reverse_lazy('front:repository:%s' % url_name, kwargs=self.get_reverse_kwargs())
+
+    def get_absolute_url(self):
+        from gim.front.repository.issues.views import PullRequestReviewView
+        return self.get_view_url(PullRequestReviewView.url_name)
+
+    def get_edit_url(self):
+        from gim.front.repository.issues.views import PullRequestReviewEditView
+        return self.get_view_url(PullRequestReviewEditView.url_name)
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+
+        is_new = not bool(self.pk)
+
+        if not update_fields or 'body' in update_fields:
+            self.body_html = html_content(self) if self.body else ''
+            if update_fields:
+                update_fields.append('body_html')
+
+        if is_new and self.front_uuid:
+            self.issue.front_uuid = self.front_uuid
+
+        self.old_save(force_insert, force_update, using, update_fields)
+
+contribute_to_model(_PullRequestReview, core_models.PullRequestReview, {'save', 'defaults_create_values'}, {'save'})
+
+
 class _Project(Hashable, FrontEditable):
     body_html = models.TextField(blank=True, null=True)
 
@@ -1399,6 +1510,12 @@ PUBLISHABLE = {
              ),
         ],
     },
+    core_models.PullRequestReview: {
+        'self': False,
+        'parents': [
+            ('Issue', 'issue', lambda self: [self.issue_id], None),
+        ],
+    },
     # core_models.Commit: {
     #     'self': False,
     #     'parents': [
@@ -1579,7 +1696,7 @@ def publish_update(instance, message_type, extra_data=None):
     # No we can remove the front_uuid field and the is_new flag
     if hasattr(instance, 'is_new'):
         del instance.is_new
-    if getattr(instance, 'front_uuid') and not getattr(instance, 'skip_reset_front_uuid', False):
+    if getattr(instance, 'front_uuid', None) and not getattr(instance, 'skip_reset_front_uuid', False):
         instance.front_uuid = None
         if instance.pk and FrontEditable.isinstance(instance):
             instance.clear_front_uuid()
@@ -1621,7 +1738,11 @@ def publish_github_updated(sender, instance, created, **kwargs):
             return
 
         # If only status and updated date, we're good
-        if update_fields == {'github_status', 'updated_at'}:
+        if update_fields in [
+                    {'github_status'},
+                    {'github_status', 'updated_at'},
+                    {'github_status', 'submitted_at'},
+                ]:
             return
 
     extra_data = {}
@@ -1671,7 +1792,8 @@ def hash_check(sender, instance, created, **kwargs):
                         core_models.Project,
                         core_models.Column,
                         core_models.Card,
-                        core_models.Issue
+                        core_models.Issue,
+                        core_models.PullRequestReview,
                       )):
         return
 

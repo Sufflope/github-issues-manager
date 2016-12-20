@@ -19,13 +19,13 @@ from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              IssueComment, PullRequestComment, CommitComment,
-                             GithubNotification)
+                             GithubNotification, PullRequestReview)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjectsJob,
                                   IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
-                                    CommitCommentEditJob)
+                                    CommitCommentEditJob, PullRequestReviewEditJob)
 
 from gim.subscriptions.models import SUBSCRIPTION_STATES, Subscription
 
@@ -55,7 +55,8 @@ from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueCreateForm, IssueCreateFormFull,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
-                    IssueCommentDeleteForm, PullRequestCommentDeleteForm, CommitCommentDeleteForm)
+                    IssueCommentDeleteForm, PullRequestCommentDeleteForm, CommitCommentDeleteForm,
+                    PullRequestReviewCreateForm, PullRequestReviewEditForm)
 
 LIMIT_ISSUES = 300
 LIMIT_USERS = 30
@@ -890,7 +891,7 @@ class IssueView(WithIssueViewMixin, TemplateView):
         """
         involved = SortedDict()
 
-        def add_involved(user, is_comment=False, is_commit=False):
+        def add_involved(user, is_comment=False, is_commit=False, is_review=False):
             real_user = not isinstance(user, basestring)
             if real_user:
                 key = user.username
@@ -900,13 +901,16 @@ class IssueView(WithIssueViewMixin, TemplateView):
                 val = {'username': user}
 
             d = involved.setdefault(key, {
-                                    'user': val, 'comments': 0, 'commits': 0})
+                'user': val, 'comments': 0, 'commits': 0, 'reviews': 0,
+            })
             if real_user:
                 d['user'] = val  # override if user was a dict
             if is_comment:
                 d['comments'] += 1
             if is_commit:
                 d['commits'] += 1
+            if is_review:
+                d['reviews'] += 1
 
         add_involved(issue.user)
 
@@ -928,6 +932,8 @@ class IssueView(WithIssueViewMixin, TemplateView):
                     add_involved(pr_commit.author if pr_commit.author_id
                                                   else pr_commit.author_name,
                                  is_commit=True)
+            elif isinstance(entry, PullRequestReview):
+                add_involved(entry.author, is_review=True)
 
         involved = involved.values()
         for involved_user in involved:
@@ -1297,7 +1303,6 @@ class SimpleAjaxIssueView(WithAjaxRestrictionViewMixin, IssueView):
        Ignore while things in IssueView, get from the parent
         """
         return super(IssueView, self).get_context_data(**kwargs)
-
 
 
 class FilesAjaxIssueView(SimpleAjaxIssueView):
@@ -1706,13 +1711,14 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
     pk_url_kwarg = 'comment_pk'
     http_method_names = ['get']
     ajax_only = True
+    object_human_name = 'comment'
 
     def get_context_data(self, **kwargs):
         context = super(BaseIssueCommentView, self).get_context_data(**kwargs)
 
         context.update({
             'use_current_user': False,
-            'include_create_form': self.request.GET.get('include_form', False),
+            'include_create_form': bool(self.request.GET.get('include_form', False)),
         })
 
         return context
@@ -1721,7 +1727,7 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
         if queryset is None:
             queryset = self.get_queryset()
 
-        pk = self.kwargs['comment_pk']
+        pk = self.kwargs[self.pk_url_kwarg]
         obj = None
 
         try:
@@ -1742,7 +1748,7 @@ class BaseIssueCommentView(WithAjaxRestrictionViewMixin, DependsOnIssueViewMixin
                     sleep(0.1)
 
         if not obj:
-            raise Http404("No comment found matching the query")
+            raise Http404("No %s found matching the query" % self.object_human_name)
 
         return obj
 
@@ -1752,6 +1758,30 @@ class IssueCommentView(BaseIssueCommentView):
     model = IssueComment
     template_name = 'front/repository/issues/comments/include_issue_comment.html'
     job_model = IssueCommentEditJob
+
+    def get_context_data(self, **kwargs):
+        context = super(IssueCommentView, self).get_context_data(**kwargs)
+
+        # if the template includes the create form, we need to know if we can add the pr review buttons
+        if context.get('include_create_form', False):
+            context['with_pr_review_buttons'] = self.issue and self.issue.user_can_add_pr_review(self.request.user)
+
+        return context
+
+
+class PullRequestReviewView(BaseIssueCommentView):
+    url_name = 'issue.pr_review'
+    pk_url_kwarg = 'review_pk'
+    object_human_name = 'review'
+    model = PullRequestReview
+    template_name = 'front/repository/issues/activity/include_pr_review.html'
+    job_model = PullRequestReviewEditJob
+
+    def get_context_data(self, **kwargs):
+        context = super(PullRequestReviewView, self).get_context_data(**kwargs)
+        context['with_pr_review_buttons'] = context.get('include_create_form', False)
+        context['review'] = context[self.context_object_name]
+        return context
 
 
 class PullRequestCommentView(BaseIssueCommentView):
@@ -1799,6 +1829,11 @@ class CommitCommentView(CommitViewMixin, BaseIssueCommentView):
 class IssueCommentEditMixin(object):
     model = IssueComment
     job_model = IssueCommentEditJob
+
+
+class PullRequestReviewEditMixin(object):
+    model = PullRequestReview
+    job_model = PullRequestReviewEditJob
 
 
 class PullRequestCommentEditMixin(object):
@@ -1871,6 +1906,11 @@ class BaseCommentCreateView(BaseCommentEditMixin, CreateView):
 class IssueCommentCreateView(IssueCommentEditMixin, BaseCommentCreateView):
     url_name = 'issue.comment.create'
     form_class = IssueCommentCreateForm
+
+
+class PullRequestReviewCreateView(PullRequestReviewEditMixin, BaseCommentCreateView):
+    url_name = 'issue.pr_review.create'
+    form_class = PullRequestReviewCreateForm
 
 
 class CommentWithEntryPointCreateViewMixin(BaseCommentCreateView):
@@ -2009,6 +2049,18 @@ class IssueCommentEditView(IssueCommentEditMixin, BaseCommentEditView):
     url_name = 'issue.comment.edit'
     form_class = IssueCommentEditForm
 
+
+class PullRequestReviewEditView(PullRequestReviewEditMixin, BaseCommentEditView):
+    url_name = 'issue.pr_review.edit'
+    form_class = PullRequestReviewEditForm
+    pk_url_kwarg = 'review_pk'
+    object_human_name = 'review'
+    template_name = 'front/repository/issues/comments/include_pr_review_edit.html'
+
+    def get_context_data(self, **kwargs):
+        context = super(PullRequestReviewEditView, self).get_context_data(**kwargs)
+        context['review'] = context[self.context_object_name]
+        return context
 
 class PullRequestCommentEditView(PullRequestCommentEditMixin, BaseCommentEditView):
     url_name = 'issue.pr_comment.edit'

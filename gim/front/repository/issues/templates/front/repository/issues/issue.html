@@ -1,5 +1,6 @@
 {% load querystring frontutils spaceless_except_pre issues_tags %}{% spaceless_except_pre %}
 {% if current_issue %}
+    {% with can_add_pr_reviews=current_issue|user_can_add_pr_review:view.request.user %}
     <nav class="issue-nav dropdown">
         <button class="btn btn-default dropdown-toggle" data-toggle="dropdown"><i class="fa fa-bars"> </i></button>
         <ul class="dropdown-menu pull-right" role="menu" aria-label="Issue menu">
@@ -15,7 +16,7 @@
             {% endif %}
         </ul>
     </nav>
-    <article class='issue-content' data-issue-id="{{ current_issue.pk }}" data-issue-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}">
+    <article class='issue-content' data-issue-id="{{ current_issue.pk }}" data-issue-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}" data-can-add-pr-review="{{ can_add_pr_reviews|yesno:"true,false" }}">
         {% include 'front/repository/issues/issue_header.html' %}
         <div class="issue-tabs no-scroll-left no-scroll-right">
             <a href='#' title="Show one tab one the left" class="arrow scroll-left"><span class="badge badge-gray">0</span><i class="fa fa-chevron-left"> </i></a>
@@ -24,7 +25,7 @@
                     <a data-toggle="tab" href="#issue-{{ current_issue.pk }}-discussion">
                         Discussion
                         <span class="label label-blue">
-                            <span title="{{ current_issue.comments_count }} comment{{ current_issue.comments_count|pluralize }}"><i class="fa fa-comments-o"></i> {{ current_issue.comments_count }}</span>
+                            <span title="{{ current_issue.comments_count }} comment{{ current_issue.comments_count|pluralize }}{% if current_issue.pr_reviews_count %} and {{ current_issue.pr_reviews_count }} review{{ current_issue.pr_reviews_count|pluralize }}{% endif %}"><i class="fa fa-comments-o"></i> {{ current_issue.comments_count|add:current_issue.pr_reviews_count }}</span>
                         </span>
                          &amp; updates
                     </a>
@@ -117,13 +118,21 @@
                                 {% include "front/repository/issues/activity/include_pr_comments_group.html" with group=event with_ago=True %}
                             {% elif event.is_commit_comments_group %}{# GroupedCommitComments #}
                                 {% include "front/repository/issues/activity/include_commit_comments_group.html" with group=event with_ago=True %}
+                            {% elif event.is_pull_request_review  %}{# PullRequestReview  #}
+                                {% include "front/repository/issues/activity/include_pr_review.html" with review=event comment=event %}
                             {% elif event.get_parts %}{# Event #}
                                 {% include "front/repository/issues/activity/include_change_event.html" %}
                             {% else %}{# IssueComment #}
                                 {% include "front/repository/issues/comments/include_issue_comment.html" with comment=event include_create_form=False %}
                             {% endif %}
                         {% endfor %}
-                        {% include "front/repository/issues/comments/include_issue_comment_create.html" with use_current_user=True %}
+                        {% include "front/repository/issues/comments/include_issue_comment_create.html" with use_current_user=True with_pr_review_buttons=can_add_pr_reviews %}
+                        {% if current_issue.is_pull_request and not current_issue.repository.pr_reviews_activated and not view.request.user.is_anonymous and view.request.user != current_issue.user %}
+                            <li class="alert alert-info alert-pr-reviews-not-activated">
+                                Pull requests reviews are not yet activated on this repository.
+                                Please contact <a href="https://twitter.com/isshub_io" target="_blank">@isshub_io on Twitter</a> if you want them.
+                            </li>
+                        {% endif %}
                     </ul>
                 </aside>
                 {% endif %}
@@ -169,6 +178,7 @@
             </div>
         </div>
     </article>
+    {% endwith%}
 {% else %}
     <p class="empty-area">{% if current_issue_state == 'notfound' %}404 :({% else %}...{% endif %}</p>
 {% endif %}

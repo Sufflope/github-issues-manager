@@ -5,6 +5,7 @@ __all__ = [
     'SearchReferenceCommitForComment',
     'SearchReferenceCommitForPRComment',
     'SearchReferenceCommitForCommitComment',
+    'PullRequestReviewEditJob',
 ]
 
 
@@ -14,7 +15,7 @@ from limpyd_jobs.utils import compute_delayed_until
 
 from async_messages import messages
 
-from gim.core.models import IssueComment, PullRequestComment, Commit, CommitComment
+from gim.core.models import IssueComment, PullRequestComment, Commit, CommitComment, PullRequestReview
 from gim.core.ghpool import ApiError, ApiNotFoundError
 
 from .base import DjangoModelJob
@@ -107,6 +108,9 @@ class CommentEditJob(IssueCommentJob):
 
         return None
 
+    def after_run(self, gh, obj, delta):
+        pass
+
     def success_message_addon(self, queue, result):
         """
         Display the action done (created/updated/deleted)
@@ -125,6 +129,11 @@ class IssueCommentEditJob(CommentEditJob):
                 setattr(issue, key, value)
             issue.comments_count = (issue.comments_count or 0) + delta
             issue.save(update_fields=['comments_count'])
+
+
+class PullRequestReviewEditJob(CommentEditJob):
+    queue_name = 'edit-pr-review'
+    model = PullRequestReview
 
 
 class PullRequestCommentEditJob(CommentEditJob):
