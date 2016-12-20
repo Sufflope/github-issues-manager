@@ -376,6 +376,8 @@ BRAND_LONG_NAME = get_env_variable('BRAND_LONG_NAME', default='Github Issues Man
 
 FAVICON_PATH = get_env_variable('FAVICON_PATH', default=None)
 FAVICON_STATIC_MANAGED = bool(get_env_variable('FAVICON_STATIC_MANAGED', default=True))
+FAVICON_DYN_BACKGROUND_COLOR = get_env_variable('FAVICON_DYN_BACKGROUND_COLOR', default='#a24037')
+FAVICON_DYN_TEXT_COLOR = get_env_variable('FAVICON_DYN_TEXT_COLOR', default='#fff')
 
 HEADWAYAPP_ACCOUNT = get_env_variable('HEADWAYAPP_ACCOUNT', default=None)
 

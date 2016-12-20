@@ -74,8 +74,8 @@ $().ready(function() {
                     animation: 'slide',
                     position: 'down',
                     type: 'circle',
-                    bgColor: '#a24037',
-                    textColor: '#fff',
+                    bgColor: dynamic_favicon_colors.background,
+                    textColor: dynamic_favicon_colors.text,
                     fontStyle: 'bold',
                     fontFamily: 'sans-serif'
                 });
