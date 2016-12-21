@@ -11,9 +11,11 @@ from django.utils.functional import cached_property
 
 from gim.core.graphql_utils import (
     compose_query,
+    convert_ids_from_graphql_result,
     encode_graphql_id_for_object,
     fetch_graphql,
     reindent,
+    GraphQLError,
     GraphQLComplexityError,
     GraphQLGithubInternalError,
 )
@@ -772,7 +774,7 @@ class Repository(GithubObjectWithId):
     """, 'pullRequestReviewsFull')
 
     GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY = """
-        node%(pr_index)02d: node(id: "%(pr_id)s") {
+        node%(pr_id)s: node(id: "%(pr_idb64)s") {
             ...pullRequestReviewsFull
         }
     """
@@ -955,13 +957,14 @@ class Repository(GithubObjectWithId):
         while len(prs) and (not max_prs or count < max_prs):
             current_prs, prs = prs[:nb_prs_by_query], prs[nb_prs_by_query:]
 
+            prs_by_id = {pr.github_pr_id: pr for pr in current_prs}
+
             subqueries = [
                 self.GRAPHQL_FETCH_REVIEWS_PR_SUBQUERY % {
-                    'pr_index': index,
-                    'pr_id': encode_graphql_id_for_object(pr),
+                    'pr_id': pr.github_pr_id,
+                    'pr_idb64': encode_graphql_id_for_object(pr),
                 }
-                for index, pr
-                in enumerate(current_prs)
+                for pr in prs_by_id.values()
             ]
 
             query = reindent(self.GRAPHQL_FETCH_REVIEWS % '\n'.join(subqueries))
@@ -981,12 +984,47 @@ class Repository(GithubObjectWithId):
                 nb_prs_by_query = e.complexity[1] / (e.complexity[0] / nb_prs_by_query)
                 prs = current_prs + prs
                 continue
+            except GraphQLError as e:
+                from gim.core.tasks import FetchIssueByNumber
+                do_raise = True
+                remove_from_data = set()
+                try:
+                    if e.code == 400:
+                        # handle deleted issues
+                        errors = e.response.json.get('errors', [])
+                        for error in errors:
+                            if error.get('type') == u'NOT_FOUND':
+                                do_raise = False
+                                node_key = error.get('path', [''])[0]
+                                if node_key.startswith('node'):
+                                    remove_from_data.add(node_key)
+                                    pr_id = node_key[4:]  # 'node12345' => 12345
+                                    if pr_id.isdigit():
+                                        try:
+                                            issue = prs_by_id[int(pr_id)]
+                                        except KeyError:
+                                            pass
+                                        else:
+                                            # will delete the issue if it does not exist anymore
+                                            FetchIssueByNumber.add_job('%s#%s' % (issue.repository_id, issue.number))
 
-            for index, node_key in enumerate(sorted(data.keys())):
+                except:
+                    pass
+
+                if do_raise:
+                    raise
+                else:
+                    data = e.response.json.get('data', {})
+                    if data:
+                        for node_key in remove_from_data:
+                            data.pop(node_key, None)
+                        data = convert_ids_from_graphql_result(data)
+
+            for node_key, node_data in data.iteritems():
                 self._manage_pr_reviews_from_fetch(
                     gh,
-                    current_prs[index],
-                    data[node_key].get('reviews', {})
+                    prs_by_id[int(node_key[4:])],
+                    node_data.get('reviews', {})
                 )
                 count += 1
 
