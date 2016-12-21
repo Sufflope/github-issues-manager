@@ -97,6 +97,8 @@
                                 <a href="" class="js-filter-trigger" title="Changes requested" data-filter="review:changes_requested"><i class="fa fa-times text-closed"> </i></a>
                             {% elif issue.pr_review_required %}
                                 <a href="" class="js-filter-trigger" title="Waiting for review" data-filter="review:unset"><i class="fa fa-spinner fa-spin text-warning"> </i></a>
+                            {% elif issue.pr_reviews_fetched_at %}
+                                <a href="" class="js-filter-trigger" title="No reviews yet" data-filter="review:unset"><i class="fa fa-minus"> </i></a>
                             {% endif %}
                         {% endwith %}
                     {% endif %}

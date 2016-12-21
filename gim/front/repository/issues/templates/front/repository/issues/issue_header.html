@@ -185,11 +185,11 @@
                             </div>
                         {% endwith %}
                     {%  endif %}
-                    {% if current_repository.pr_reviews_activated %}{%if current_issue.pr_review_required or current_issue.pr_review_state %}
+                    {% if current_repository.pr_reviews_activated %}{% if current_issue.pr_review_required or current_issue.pr_reviews_fetched_at %}{% with reviews_count=current_issue.get_displayable_pr_reviews_count %}
                         <div
-                                {% if current_issue.pr_review_state %}title="Click to toggle history"{% endif %}
-                                class="alert alert-{% if current_issue.pr_review_state == 'APPROVED' %}success{% elif current_issue.pr_review_state == 'CHANGES_REQUESTED' %}error{% else %}warning{% endif %} pr-review-state collapsed"
-                                {% if current_issue.pr_review_state %}
+                                {% if reviews_count %}title="Click to toggle history"{% endif %}
+                                class="alert alert-{% if current_issue.pr_review_state == 'APPROVED' %}success{% elif current_issue.pr_review_state == 'CHANGES_REQUESTED' %}error{% elif current_issue.pr_review_required %}warning{% else %}info{% endif %} pr-review-state collapsed"
+                                {% if reviews_count %}
                                     data-toggle="collapse"
                                     data-target="#pr-reviews-detail-{{ pr_reviews_uuid }}"
                                 {% endif %}
@@ -200,15 +200,17 @@
                                     approved
                                 {% elif current_issue.pr_review_state == 'CHANGES_REQUESTED' %}
                                     changes requested
-                                {% else %}
+                                {% elif current_issue.pr_review_required %}
                                     Waiting for approval
+                                {% else %}
+                                    No reviews yet
                                 {% endif %}
                             </strong>
-                            {% if current_issue.pr_review_state %}
+                            {% if reviews_count %}
                                 <i class="fa fa-caret-right"></i>
                             {% endif %}
                         </div>
-                    {% endif %}{% endif %}
+                    {% endwith %}{% endif %}{% endif %}
                 </div>
                 {% if all_head_commits %}
                     <div id="pr-commits-statuses-{{ statuses_uuid }}" class="pr-commits-statuses collapse">
@@ -317,7 +319,7 @@
                     {% endfor %}
                     </div>
                 {% endif %}
-                {% if current_repository.pr_reviews_activated and current_issue.pr_review_state %}
+                {% if current_repository.pr_reviews_activated and current_issue.get_displayable_pr_reviews_count %}
                     <div id="pr-reviews-detail-{{ pr_reviews_uuid }}" class="pr-reviews-detail collapse">
                         <ul class="unstyled chat-box timeline issue-activity">
                             {% for pr_review in current_issue.get_pr_reviews_activity reversed %}
