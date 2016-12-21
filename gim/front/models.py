@@ -515,7 +515,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
-            hash_values += (commits_part, self.repository.pr_reviews_activated)
+            hash_values += (commits_part, self.repository.pr_reviews_activated, self.displayable_pr_reviews_count)
 
         return hash_values
 
@@ -700,7 +700,8 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         return self._pr_reviews_activity
 
-    def get_displayable_pr_reviews_count(self):
+    @property
+    def displayable_pr_reviews_count(self):
         return len(self.get_pr_reviews_activity())
 
     def get_sorted_entry_points(self):
