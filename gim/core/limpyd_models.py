@@ -293,7 +293,7 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission='pull', min_remaining=None):
+    def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission, min_remaining=None):
         if min_remaining is None:
             min_remaining = cls.GRAPHQL_LIMIT
 

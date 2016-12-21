@@ -427,7 +427,11 @@ class FirstFetchStep2(RepositoryJob):
             if self.repository.pr_reviews_activated and 'pr_reviews' not in self._to_ignore:
                 counts['pr_reviews'] = -1  # to indicate failure
 
-                pr_reviews_gh = Token.ensure_graphql_gh_for_repository(gh, self.repository.pk)
+                pr_reviews_gh = Token.ensure_graphql_gh_for_repository(
+                    gh,
+                    self.repository.pk,
+                    permission='pull' if self.repository.private else None
+                )
 
                 if pr_reviews_gh:
 
