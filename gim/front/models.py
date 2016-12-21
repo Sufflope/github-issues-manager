@@ -700,6 +700,9 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         return self._pr_reviews_activity
 
+    def get_displayable_pr_reviews_count(self):
+        return len(self.get_pr_reviews_activity())
+
     def get_sorted_entry_points(self):
         for entry_point in self.all_entry_points:
             entry_point.last_created = list(entry_point.comments.all())[-1].created_at
