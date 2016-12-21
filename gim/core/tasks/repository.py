@@ -417,6 +417,8 @@ class FirstFetchStep2(RepositoryJob):
         except:
             self._to_ignore = None
 
+        self._pr_reviews_next_page_cursor = self.pr_reviews_next_page_cursor.hget() or None
+
         # We don't publish things (comments...) when we first create a repository
         thread_data.skip_publish = True
         try:
@@ -437,14 +439,14 @@ class FirstFetchStep2(RepositoryJob):
 
                     total, done, failed, next_page_cursor = self.repository.fetch_all_pr_reviews(
                         pr_reviews_gh,
-                        next_page_cursor=self.pr_reviews_next_page_cursor.hget() or None,
+                        next_page_cursor=self._pr_reviews_next_page_cursor,
                         max_prs=30,
                     )
                     counts['pr_reviews'] = done
                     if next_page_cursor:
-                        self.pr_reviews_next_page_cursor.hset(next_page_cursor)
+                        self._pr_reviews_next_page_cursor = next_page_cursor
                     else:
-                        self.pr_reviews_next_page_cursor.delete()
+                        self._pr_reviews_next_page_cursor = None
                         self._to_ignore.add('pr_reviews')
 
         finally:
@@ -475,6 +477,8 @@ class FirstFetchStep2(RepositoryJob):
             kwargs = {'start_page': self._start_page + self._max_pages}
             if self._to_ignore:
                 kwargs['to_ignore'] = self._to_ignore  # cannot sadd an empty set
+            if self._pr_reviews_next_page_cursor:
+                kwargs['pr_reviews_next_page_cursor'] = self._pr_reviews_next_page_cursor
 
             self.clone(delayed_for=60, **kwargs)
 
