@@ -390,4 +390,4 @@ class CheckGraphQLAccesses(Job):
         """
         Check all tokens in 30mn
         """
-        self.clone(delayed_for=60*30)  # once per 30mn
+        self.clone(delayed_for=60*5)  # once per 5mn

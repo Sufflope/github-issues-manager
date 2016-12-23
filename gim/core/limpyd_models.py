@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import json
-from random import choice
+from random import choice, randint
 
 from django.db.models import get_model
 
@@ -410,6 +410,15 @@ class Token(lmodel.RedisModel):
         return cls.get(token=gh._connection_args['access_token'])
 
     def check_graphql_access(self):
+        # only fetch for users already having graphql activated if the token was not used recently
+        if self.can_access_graphql_api.hget() == '1':
+            if (self.get_remaining_seconds(True) or 0) > 0:
+                return
+        # for users not having access, fetch randomly (Called once per 5mn, random 1/6 => once per 30mn in average)
+        else:
+            if randint(0, 5):
+                return
+
         try:
             self.gh.graphql.post(query="query{ viewer { login }}")
         except ApiError:
