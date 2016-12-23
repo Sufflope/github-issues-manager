@@ -55,9 +55,16 @@ class Token(lmodel.RedisModel):
         return self._user
 
     @classmethod
-    def update_token_from_gh(cls, gh, *args, **kwargs):
-        if gh._connection_args.get('access_token'):
-            token, _ = Token.get_or_connect(token=gh._connection_args['access_token'])
+    def update_tokens_from_gh(cls, gh, *args, **kwargs):
+        access_token = gh._connection_args.get('access_token')
+        if not access_token:
+            return
+        try:
+            username = Token.collection(token=access_token).instances()[0].username.hget()
+        except IndexError:
+            return
+        tokens = Token.collection(username=username).instances()
+        for token in tokens:
             token.update_from_gh(gh, *args, **kwargs)
 
     def update_from_gh(self, gh, api_error, method, path, request_headers, response_headers, kw):
