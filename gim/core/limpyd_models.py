@@ -154,8 +154,8 @@ class Token(lmodel.RedisModel):
 
         self.set_compute_score(is_graphql)
 
-        # ask for a flag every 50 calls, to be sure to have one
-        if not (gh.x_ratelimit_remaining+1 or max_expected) % 50:
+        # ask for a flag every 50 calls (q0 for graphql), to be sure to have one
+        if not (gh.x_ratelimit_remaining+1 or max_expected) % (10 if is_graphql else 50):
             self.ask_for_reset_flags(None, is_graphql)
 
         if is_error or log_unavailability:
