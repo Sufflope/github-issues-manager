@@ -288,7 +288,7 @@ class Token(lmodel.RedisModel):
                 token.repos_pull.sadd(*repos_pull)
 
     @classmethod
-    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
+    def get_one_for_repository(cls, repository_pk, permission, available=True, sort_by='-rate_limit_score', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
             if for_graphql:
@@ -350,7 +350,7 @@ class Token(lmodel.RedisModel):
         return token.gh
 
     @classmethod
-    def get_one(cls, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
+    def get_one(cls, available=True, sort_by='-rate_limit_score', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
             if for_graphql:
@@ -375,7 +375,7 @@ class Token(lmodel.RedisModel):
             return token
 
     @classmethod
-    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_remaining', for_graphql=False):
+    def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_score', for_graphql=False):
         collection = cls.collection(username=username, valid_scopes=1)
         if available:
             if for_graphql:
