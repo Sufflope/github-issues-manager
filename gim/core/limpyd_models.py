@@ -23,6 +23,7 @@ class Token(lmodel.RedisModel):
     rate_limit_remaining = lfields.StringField()  # expirable field
     rate_limit_limit = lfields.InstanceHashField()  # how much by hour
     rate_limit_reset = lfields.InstanceHashField()  # same as ttl(rate_limit_remaining)
+    rate_limit_score = lfields.InstanceHashField()  # based on remaining and reset, the higher, the better
     scopes = lfields.SetField(indexable=True)  # list of scopes for this token
     valid_scopes = lfields.InstanceHashField(indexable=True)  # if scopes are valid
     available = lfields.InstanceHashField(indexable=True)  # if the token is publicly available
@@ -35,6 +36,7 @@ class Token(lmodel.RedisModel):
     graphql_rate_limit_remaining = lfields.StringField()  # expirable field
     graphql_rate_limit_limit = lfields.InstanceHashField()  # how much by hour
     graphql_rate_limit_reset = lfields.InstanceHashField()  # same as ttl(graphql_rate_limit_remaining)
+    graphql_rate_limit_score = lfields.InstanceHashField()  # based on remaining and reset, the higher, the better
     graphql_available = lfields.InstanceHashField(indexable=True)  # if the token is publicly available
 
     repos_admin = lfields.SetField(indexable=True)
@@ -150,6 +152,8 @@ class Token(lmodel.RedisModel):
             else:
                 available_field.hset(1)
 
+        self.set_compute_score(is_graphql)
+
         # ask for a flag every 50 calls, to be sure to have one
         if not (gh.x_ratelimit_remaining+1 or max_expected) % 50:
             self.ask_for_reset_flags(None, is_graphql)
@@ -193,14 +197,12 @@ class Token(lmodel.RedisModel):
             rate_limit_limit_field = self.graphql_rate_limit_limit
             rate_limit_reset_field = self.graphql_rate_limit_reset
             available_field = self.graphql_available
-            default_limit = self.GRAPHQL_LIMIT
             max_expected = self.GRAPHQL_MAX_EXPECTED
         else:
             rate_limit_remaining_field = self.rate_limit_remaining
             rate_limit_limit_field = self.rate_limit_limit
             rate_limit_reset_field = self.rate_limit_reset
             available_field = self.available
-            default_limit = self.LIMIT
             max_expected = self.MAX_EXPECTED
 
         # not expired yet, ask to reset flags later
@@ -212,11 +214,28 @@ class Token(lmodel.RedisModel):
         # sorting by rate_limit_remaining
         rate_limit_remaining_field.set(rate_limit_limit_field.hget() or max_expected)
 
+        self.set_compute_score(for_graphql)
+
         # set the token available again only if it has valid scopes
         if self.valid_scopes.hget() == '1':
             available_field.hset(1)
 
         return True
+
+    def set_compute_score(self, for_graphql=False):
+        if for_graphql:
+            rate_limit_remaining_field = self.graphql_rate_limit_remaining
+            rate_limit_score_field = self.graphql_rate_limit_score
+            default_limit = self.GRAPHQL_LIMIT
+        else:
+            rate_limit_remaining_field = self.rate_limit_remaining
+            rate_limit_score_field = self.rate_limit_score
+            default_limit = self.LIMIT
+
+        remaining_calls = int(rate_limit_remaining_field.get() or 0)
+        remaining_seconds = self.get_remaining_seconds(for_graphql) or -2
+        score = (remaining_calls - default_limit) / float(remaining_seconds)
+        rate_limit_score_field.hset(score)
 
     def get_remaining_seconds(self, for_graphql=False):
         """
