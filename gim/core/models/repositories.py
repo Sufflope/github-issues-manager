@@ -782,9 +782,9 @@ class Repository(GithubObjectWithId):
     GRAPHQL_FETCH_ALL_REVIEWS = compose_query("""
         query RepositoryAllPullRequestsReviews($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nbReviewsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String, $nextReviewsPageCursor: String) {
             repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
-                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                pullRequests(last: $nbPullRequestsToRetrieve, before: $nextPullRequestsPageCursor) {
                     pageInfo {
-                        ...pageInfoNext
+                        ...pageInfoPrevious
                     }
                     edges {
                         node {
@@ -795,14 +795,14 @@ class Repository(GithubObjectWithId):
                 }
             }
         }
-    """, 'pageInfoNext', 'pullRequestNumber', 'pullRequestReviewsFull')
+    """, 'pageInfoPrevious', 'pullRequestNumber', 'pullRequestReviewsFull')
 
     GRAPHQL_FETCH_ALL_REVIEWS_LITE = compose_query("""
         query RepositoryAllPullRequestsReviewsLite($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String) {
             repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
-                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                pullRequests(last: $nbPullRequestsToRetrieve, before: $nextPullRequestsPageCursor) {
                     pageInfo {
-                        ...pageInfoNext
+                        ...pageInfoPrevious
                     }
                     edges {
                         node {
@@ -812,7 +812,7 @@ class Repository(GithubObjectWithId):
                 }
             }
         }
-    """, 'pageInfoNext', 'pullRequestNumber')
+    """, 'pageInfoPrevious', 'pullRequestNumber')
 
     def _manage_pr_reviews_from_fetch(self, gh, pr, reviews_node):
         from gim.core.models import PullRequestReview
@@ -878,6 +878,7 @@ class Repository(GithubObjectWithId):
                     per_page /= 2
                     continue
 
+                # here we have only one left to fetch
                 failed += 1
                 manage_reviews = False
                 debug_context['failed'] = failed
@@ -899,9 +900,9 @@ class Repository(GithubObjectWithId):
 
             pulls_node = data.repository.pullRequests
 
-            has_next_page = pulls_node.pageInfo.hasNextPage
+            has_next_page = pulls_node.pageInfo.hasPreviousPage
             if has_next_page:
-                next_page_cursor = pulls_node.pageInfo.endCursor
+                next_page_cursor = pulls_node.pageInfo.startCursor
             else:
                 next_page_cursor = None
 
@@ -935,9 +936,21 @@ class Repository(GithubObjectWithId):
                 models.Q(pr_reviews_fetched_at__isnull=True)
                 |
                 models.Q(pr_reviews_fetched_at__lt=models.F('updated_at'))
+            ).exclude(
+                pr_reviews_fetch_failed=True
             ).select_related(
                 'repository__owner'
             ).order_by('-updated_at')
+
+            # don't fetch reviews for prs for which the global review fetch is not done yet
+            from gim.core.tasks.repository import FirstFetchStep2
+            if FirstFetchStep2.collection(identifier=self.pk, queued=1):
+                try:
+                    oldest_updated_at = self.issues.filter(pr_reviews_fetched_at__isnull=False).order_by('updated_at').values_list('updated_at', flat=True)[0]
+                except IndexError:
+                    pass
+                else:
+                    prs = prs.filter(updated_at__gt=oldest_updated_at)
 
             total = prs.count()
 
@@ -946,6 +959,7 @@ class Repository(GithubObjectWithId):
                     prs = prs[:max_prs]
                 prs = list(prs)
         else:
+            prs = [pr for pr in prs if not pr.pr_reviews_fetch_failed]
             total = len(prs)
 
         if not total:

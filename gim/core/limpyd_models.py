@@ -139,13 +139,13 @@ class Token(lmodel.RedisModel):
             if not gh.x_ratelimit_remaining or gh.x_ratelimit_remaining < default_limit:
                 available_field.hset(0)
                 log_unavailability = True
-                self.ask_for_reset_flags(is_graphql)
+                self.ask_for_reset_flags(None, is_graphql)
             else:
                 available_field.hset(1)
 
         # ask for a flag every 50 calls, to be sure to have one
         if not (gh.x_ratelimit_remaining+1 or max_expected) % 50:
-            self.ask_for_reset_flags(is_graphql)
+            self.ask_for_reset_flags(None, is_graphql)
 
         if is_error or log_unavailability:
             json_data = {
