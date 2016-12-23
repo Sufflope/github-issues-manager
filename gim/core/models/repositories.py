@@ -942,6 +942,16 @@ class Repository(GithubObjectWithId):
                 'repository__owner'
             ).order_by('-updated_at')
 
+            # don't fetch reviews for prs for which the global review fetch is not done yet
+            from gim.core.tasks.repository import FirstFetchStep2
+            if FirstFetchStep2.collection(identifier=self.pk, queued=1):
+                try:
+                    oldest_updated_at = self.issues.filter(pr_reviews_fetched_at__isnull=False).order_by('updated_at').values_list('updated_at', flat=True)[0]
+                except IndexError:
+                    pass
+                else:
+                    prs = prs.filter(updated_at__gt=oldest_updated_at)
+
             total = prs.count()
 
             if total:
