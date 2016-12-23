@@ -465,9 +465,13 @@ class FirstFetchStep2(RepositoryJob):
         if result:
             self.counts.hmset(**result)
             total_count = sum(result.values())
+            total_count_excluding_reviews = total_count - result.get('pr_reviews', 0)
+            only_reviews = set(result.keys()) == {'pr_reviews'}
             force_continue = any(v for v in result.values() if v and v < 0)
         else:
+            only_reviews = False
             total_count = 0
+            total_count_excluding_reviews = 0
 
         if total_count or force_continue:
             # we got data, continue at least one time
@@ -482,9 +486,10 @@ class FirstFetchStep2(RepositoryJob):
 
             self.clone(delayed_for=60, **kwargs)
 
-        else:
+        if total_count_excluding_reviews == 0 and not only_reviews:
+            # got nothing else than reviews to do, we can let the reviews continue
+            # to be fetched and add a job to do future fetches of other data
             repository = self.object
-            # got nothing, it's the end, add a job to do future fetches
             self.last_one.hset(1)
             FetchForUpdate.add_job(repository.id, gh=self.gh)
             # and also to fetch projects independently
