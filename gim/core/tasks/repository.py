@@ -492,7 +492,7 @@ class FirstFetchStep2(RepositoryJob):
             # to be fetched and add a job to do future fetches of other data
             repository = self.object
             self.last_one.hset(1)
-            FetchForUpdate.add_job(repository.id, gh=self.gh)
+            FetchForUpdate.add_job(repository.id)
             # and also to fetch projects independently
             from .project import FetchProjects
             FetchProjects.add_job(repository.id)
