@@ -878,6 +878,7 @@ class Repository(GithubObjectWithId):
                     per_page /= 2
                     continue
 
+                # here we have only one left to fetch
                 failed += 1
                 manage_reviews = False
                 debug_context['failed'] = failed
@@ -935,6 +936,8 @@ class Repository(GithubObjectWithId):
                 models.Q(pr_reviews_fetched_at__isnull=True)
                 |
                 models.Q(pr_reviews_fetched_at__lt=models.F('updated_at'))
+            ).exclude(
+                pr_reviews_fetch_failed=True
             ).select_related(
                 'repository__owner'
             ).order_by('-updated_at')
@@ -946,6 +949,7 @@ class Repository(GithubObjectWithId):
                     prs = prs[:max_prs]
                 prs = list(prs)
         else:
+            prs = [pr for pr in prs if not pr.pr_reviews_fetch_failed]
             total = len(prs)
 
         if not total:

@@ -103,6 +103,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     user_mentions = models.ManyToManyField('GithubUser', related_name='issues_mentioned',
                                            through='Mention')
     pr_reviews_fetched_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    pr_reviews_fetch_failed = models.BooleanField(default=False, db_index=True)
     pr_review_state = models.CharField(max_length=20, choices=REVIEW_STATES.PR_STATES,
                                        blank=True, null=True)
     pr_reviews_count = models.PositiveIntegerField(blank=True, null=True)
@@ -624,7 +625,10 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     def fetch_pr_reviews(self, gh, next_page_cursor='', save_pr=True):
 
         if not self.repository.pr_reviews_activated:
-            return
+            return []
+
+        if self.pr_reviews_fetch_failed:
+            return []
 
         from gim.core.models import PullRequestReview
 
@@ -664,11 +668,18 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
                 failed += 1
                 debug_context['failed'] = failed
-                data = fetch_graphql(gh, self.GRAPHQL_FETCH_REVIEWS_WITHOUT_AUTHOR, variables, 'PullRequestReviewsWithoutAuthor', debug_context)
-                # we don't call "continue" to let the pagination work correctly below
-                # and we won't have edge so it will continue normally, and stop if no reviews left
-                # but we can restore the per_page
-                per_page = normal_per_page
+                try:
+                    data = fetch_graphql(gh, self.GRAPHQL_FETCH_REVIEWS_WITHOUT_AUTHOR, variables, 'PullRequestReviewsWithoutAuthor', debug_context)
+                except GraphQLGithubInternalError:
+                    # we still have an error, we mark this pr to not be fetched for reviews anymore
+                    self.pr_reviews_fetch_failed = True
+                    self.save(update_fields=['pr_reviews_fetch_failed'])
+                    return []
+                else:
+                    # we don't call "continue" to let the pagination work correctly below
+                    # and we won't have edge so it will continue normally, and stop if no reviews left
+                    # but we can restore the per_page
+                    per_page = normal_per_page
 
             if not data.get('node', {}).get('reviews', {}):
                 break
