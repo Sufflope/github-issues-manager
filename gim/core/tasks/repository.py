@@ -429,16 +429,17 @@ class FirstFetchStep2(RepositoryJob):
             if self.repository.pr_reviews_activated and 'pr_reviews' not in self._to_ignore:
                 counts['pr_reviews'] = -1  # to indicate failure
 
-                pr_reviews_gh = Token.ensure_graphql_gh_for_repository(
-                    gh,
+                # always get the token with the most remaining
+                graphql_token = Token.get_one_for_repository(
                     self.repository.pk,
-                    permission='pull' if self.repository.private else None
+                    permission='pull' if self.repository.private else None,
+                    for_graphql=True
                 )
 
-                if pr_reviews_gh:
+                if graphql_token:
 
                     total, done, failed, next_page_cursor = self.repository.fetch_all_pr_reviews(
-                        pr_reviews_gh,
+                        graphql_token.gh,
                         next_page_cursor=self._pr_reviews_next_page_cursor,
                         max_prs=30,
                     )
@@ -465,9 +466,13 @@ class FirstFetchStep2(RepositoryJob):
         if result:
             self.counts.hmset(**result)
             total_count = sum(result.values())
+            total_count_excluding_reviews = total_count - result.get('pr_reviews', 0)
+            only_reviews = set(result.keys()) == {'pr_reviews'}
             force_continue = any(v for v in result.values() if v and v < 0)
         else:
+            only_reviews = False
             total_count = 0
+            total_count_excluding_reviews = 0
 
         if total_count or force_continue:
             # we got data, continue at least one time
@@ -482,9 +487,10 @@ class FirstFetchStep2(RepositoryJob):
 
             self.clone(delayed_for=60, **kwargs)
 
-        else:
+        if total_count_excluding_reviews == 0 and not only_reviews:
+            # got nothing else than reviews to do, we can let the reviews continue
+            # to be fetched and add a job to do future fetches of other data
             repository = self.object
-            # got nothing, it's the end, add a job to do future fetches
             self.last_one.hset(1)
             FetchForUpdate.add_job(repository.id, gh=self.gh)
             # and also to fetch projects independently
