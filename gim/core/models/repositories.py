@@ -782,9 +782,9 @@ class Repository(GithubObjectWithId):
     GRAPHQL_FETCH_ALL_REVIEWS = compose_query("""
         query RepositoryAllPullRequestsReviews($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nbReviewsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String, $nextReviewsPageCursor: String) {
             repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
-                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                pullRequests(last: $nbPullRequestsToRetrieve, before: $nextPullRequestsPageCursor) {
                     pageInfo {
-                        ...pageInfoNext
+                        ...pageInfoPrevious
                     }
                     edges {
                         node {
@@ -795,14 +795,14 @@ class Repository(GithubObjectWithId):
                 }
             }
         }
-    """, 'pageInfoNext', 'pullRequestNumber', 'pullRequestReviewsFull')
+    """, 'pageInfoPrevious', 'pullRequestNumber', 'pullRequestReviewsFull')
 
     GRAPHQL_FETCH_ALL_REVIEWS_LITE = compose_query("""
         query RepositoryAllPullRequestsReviewsLite($repositoryOwnerLogin: String!, $repositoryName: String!, $nbPullRequestsToRetrieve: Int = 30, $nextPullRequestsPageCursor: String) {
             repository(owner:$repositoryOwnerLogin, name:$repositoryName) {
-                pullRequests(first: $nbPullRequestsToRetrieve, after: $nextPullRequestsPageCursor) {
+                pullRequests(last: $nbPullRequestsToRetrieve, before: $nextPullRequestsPageCursor) {
                     pageInfo {
-                        ...pageInfoNext
+                        ...pageInfoPrevious
                     }
                     edges {
                         node {
@@ -812,7 +812,7 @@ class Repository(GithubObjectWithId):
                 }
             }
         }
-    """, 'pageInfoNext', 'pullRequestNumber')
+    """, 'pageInfoPrevious', 'pullRequestNumber')
 
     def _manage_pr_reviews_from_fetch(self, gh, pr, reviews_node):
         from gim.core.models import PullRequestReview
@@ -899,9 +899,9 @@ class Repository(GithubObjectWithId):
 
             pulls_node = data.repository.pullRequests
 
-            has_next_page = pulls_node.pageInfo.hasNextPage
+            has_next_page = pulls_node.pageInfo.hasPreviousPage
             if has_next_page:
-                next_page_cursor = pulls_node.pageInfo.endCursor
+                next_page_cursor = pulls_node.pageInfo.startCursor
             else:
                 next_page_cursor = None
 
