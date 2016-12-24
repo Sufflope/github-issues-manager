@@ -450,12 +450,14 @@ def requeue_all_repositories():
 
 def requeue_all_users():
     from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications, CheckGraphQLAccesses
+    from gim.core.tasks.tokens import ResetTokenFlags
 
     for user in GithubUser.objects.filter(token__isnull=False):
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
 
     CheckGraphQLAccesses.add_job(42)
+    ResetTokenFlags.add_job(42)
 
 
 def maintenance(include_users_and_repositories=True):

@@ -130,7 +130,6 @@ class Token(lmodel.RedisModel):
             if not gh.x_oauth_scopes or 'repo' not in gh.x_oauth_scopes:
                 available_field.hset(0)
                 log_unavailability = True
-                self.ask_for_reset_flags(3600, is_graphql)  # check again in an hour
 
         if gh.x_ratelimit_remaining != -1:
             # add rate limit remaining, clear it after reset time
@@ -148,15 +147,10 @@ class Token(lmodel.RedisModel):
             if not gh.x_ratelimit_remaining or gh.x_ratelimit_remaining < default_limit:
                 available_field.hset(0)
                 log_unavailability = True
-                self.ask_for_reset_flags(None, is_graphql)
             else:
                 available_field.hset(1)
 
         self.set_compute_score(is_graphql)
-
-        # ask for a flag every 50 calls (q0 for graphql), to be sure to have one
-        if not (gh.x_ratelimit_remaining+1 or max_expected) % (10 if is_graphql else 50):
-            self.ask_for_reset_flags(None, is_graphql)
 
         if is_error or log_unavailability:
             json_data = {
@@ -192,35 +186,40 @@ class Token(lmodel.RedisModel):
         Return False if the reset was not successful and need to be done later
         """
 
-        if for_graphql:
-            rate_limit_remaining_field = self.graphql_rate_limit_remaining
-            rate_limit_limit_field = self.graphql_rate_limit_limit
-            rate_limit_reset_field = self.graphql_rate_limit_reset
-            available_field = self.graphql_available
-            max_expected = self.GRAPHQL_MAX_EXPECTED
-        else:
-            rate_limit_remaining_field = self.rate_limit_remaining
-            rate_limit_limit_field = self.rate_limit_limit
-            rate_limit_reset_field = self.rate_limit_reset
-            available_field = self.available
-            max_expected = self.MAX_EXPECTED
+        rate_limit_remaining_field = self.graphql_rate_limit_remaining if for_graphql else self.rate_limit_remaining
+        expired = not self.connection.exists(rate_limit_remaining_field.key)
 
-        # not expired yet, ask to reset flags later
-        if self.connection.exists(rate_limit_remaining_field.key):
-            return False
+        # we reset flags only if expired
+        if expired:
+            if for_graphql:
+                rate_limit_limit_field = self.graphql_rate_limit_limit
+                rate_limit_reset_field = self.graphql_rate_limit_reset
+                available_field = self.graphql_available
+                max_expected = self.GRAPHQL_MAX_EXPECTED
+            else:
+                rate_limit_limit_field = self.rate_limit_limit
+                rate_limit_reset_field = self.rate_limit_reset
+                available_field = self.available
+                max_expected = self.MAX_EXPECTED
 
-        rate_limit_reset_field.hset(0)
-        # set the remaining to the max to let this token be fetched first when
-        # sorting by rate_limit_remaining
-        rate_limit_remaining_field.set(rate_limit_limit_field.hget() or max_expected)
+            rate_limit_reset_field.hset(0)
+            # set the remaining to the max to let this token be fetched first when
+            # sorting by rate_limit_remaining
+            rate_limit_remaining_field.set(rate_limit_limit_field.hget() or max_expected)
 
         self.set_compute_score(for_graphql)
 
-        # set the token available again only if it has valid scopes
-        if self.valid_scopes.hget() == '1':
+        # set the token available again but only if it has valid scopes
+        if expired and self.valid_scopes.hget() == '1':
             available_field.hset(1)
 
         return True
+
+    @classmethod
+    def reset_all_flags(cls):
+        for token in cls.collection().instances():
+            token.reset_flags()
+            token.reset_flags(True)
 
     def set_compute_score(self, for_graphql=False):
         if for_graphql:
@@ -247,26 +246,6 @@ class Token(lmodel.RedisModel):
         """
         field = self.graphql_rate_limit_remaining if for_graphql else self.rate_limit_remaining
         return self.connection.ttl(field.key)
-
-    def ask_for_reset_flags(self, delayed_for=None, for_graphql=False):
-        """
-        Create a task to reset the token's flags later. But if the token is in
-        a good state, reset them now instead of creating a flag
-        """
-        if not delayed_for:
-            ttl = self.get_remaining_seconds(for_graphql)
-            if ttl <= 0:
-                field = self.graphql_rate_limit_remaining if for_graphql else self.rate_limit_remaining
-                field.delete()
-                self.reset_flags(for_graphql)
-                return
-            delayed_for = ttl + 2
-
-        from gim.core.tasks.tokens import ResetTokenFlags
-        job_key = self.token.hget()
-        if for_graphql:
-            job_key += ':graphql'
-        ResetTokenFlags.add_job(job_key, delayed_for=delayed_for)
 
     @classmethod
     def update_repos_for_user(cls, user):
