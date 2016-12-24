@@ -226,14 +226,18 @@ class Token(lmodel.RedisModel):
         if for_graphql:
             rate_limit_remaining_field = self.graphql_rate_limit_remaining
             rate_limit_score_field = self.graphql_rate_limit_score
+            max_expected = self.GRAPHQL_MAX_EXPECTED
             default_limit = self.GRAPHQL_LIMIT
         else:
             rate_limit_remaining_field = self.rate_limit_remaining
             rate_limit_score_field = self.rate_limit_score
+            max_expected = self.MAX_EXPECTED
             default_limit = self.LIMIT
 
         remaining_calls = int(rate_limit_remaining_field.get() or 0)
         remaining_seconds = self.get_remaining_seconds(for_graphql) or -2
+        if remaining_seconds == -1:
+            remaining_seconds = max_expected
         score = (remaining_calls - default_limit) / float(remaining_seconds)
         rate_limit_score_field.hset(score * (110 - randint(0, 20)) / 100)  # +- 10%
 
