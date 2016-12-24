@@ -298,12 +298,12 @@ class Repository(GithubObjectWithId):
 
         if self.has_issues and (not state or state == 'closed'):
             from gim.core.tasks.repository import FetchClosedIssuesWithNoClosedBy
-            FetchClosedIssuesWithNoClosedBy.add_job(self.id, limit=20, gh=gh)
+            FetchClosedIssuesWithNoClosedBy.add_job(self.id, limit=20)
 
         from gim.core.tasks.repository import FetchUpdatedPullRequests, FetchUpdatedReviews
-        FetchUpdatedPullRequests.add_job(self.id, limit=20, gh=gh)
+        FetchUpdatedPullRequests.add_job(self.id, limit=20)
         if self.pr_reviews_activated:
-            FetchUpdatedReviews.add_job(self.id, limit=10, gh=gh)
+            FetchUpdatedReviews.add_job(self.id, limit=10)
 
         return count
 
@@ -711,13 +711,13 @@ class Repository(GithubObjectWithId):
         if two_steps:
             self.fetch_issues(gh, force_fetch=force_fetch, state='open')
             from gim.core.tasks.repository import FirstFetchStep2
-            FirstFetchStep2.add_job(self.id, gh=gh)
+            FirstFetchStep2.add_job(self.id)
         else:
             self.fetch_all_step2(gh, force_fetch)
             from gim.core.tasks.project import FetchProjects
             FetchProjects.add_job(self.id)
             from gim.core.tasks.repository import FetchUnmergedPullRequests
-            FetchUnmergedPullRequests.add_job(self.id, priority=-15, gh=gh, delayed_for=60*60*3)  # 3 hours
+            FetchUnmergedPullRequests.add_job(self.id, priority=-15, delayed_for=60*60*3)  # 3 hours
 
         if not self.first_fetch_done:
             self.first_fetch_done = True

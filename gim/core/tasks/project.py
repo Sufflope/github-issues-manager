@@ -33,7 +33,6 @@ class FetchProjects(RepositoryJob):
     """
     queue_name = 'fetch-projects'
     permission = 'read'
-    clonable_fields = ('gh', )
 
     def run(self, queue):
         """

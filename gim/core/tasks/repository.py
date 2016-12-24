@@ -63,7 +63,7 @@ class FetchClosedIssuesWithNoClosedBy(RepositoryJob):
     errors = fields.InstanceHashField()
 
     permission = 'read'
-    clonable_fields = ('gh', 'limit', )
+    clonable_fields = ('limit', )
 
     def run(self, queue):
         """
@@ -110,7 +110,7 @@ class FetchUpdatedPullRequests(RepositoryJob):
     errors = fields.InstanceHashField()
 
     permission = 'read'
-    clonable_fields = ('gh', 'limit', )
+    clonable_fields = ('limit', )
 
     def run(self, queue):
         """
@@ -190,7 +190,7 @@ class FetchUnmergedPullRequests(RepositoryJob):
     errors = fields.InstanceHashField()
 
     permission = 'read'
-    clonable_fields = ('gh', 'limit', )
+    clonable_fields = ('limit', )
 
     def run(self, queue):
         """
@@ -374,7 +374,7 @@ class FirstFetchStep2(RepositoryJob):
     comments)
     """
     queue_name = 'repository-fetch-step2'
-    clonable_fields = ('gh', 'max_pages', )
+    clonable_fields = ('max_pages', )
 
     start_page = fields.InstanceHashField()
     max_pages = fields.InstanceHashField()
@@ -492,7 +492,7 @@ class FirstFetchStep2(RepositoryJob):
             # to be fetched and add a job to do future fetches of other data
             repository = self.object
             self.last_one.hset(1)
-            FetchForUpdate.add_job(repository.id, gh=self.gh)
+            FetchForUpdate.add_job(repository.id)
             # and also to fetch projects independently
             from .project import FetchProjects
             FetchProjects.add_job(repository.id)
@@ -522,7 +522,6 @@ class FetchForUpdate(RepositoryJob):
     queue_name = 'update-repo'
 
     permission = 'read'
-    clonable_fields = ('gh', )
 
     def run(self, queue):
         """
@@ -557,7 +556,7 @@ class ManageDualRepository(Job):
     resolution = fields.InstanceHashField()
     update_related_output = fields.InstanceHashField()
 
-    clonable_fields = ('gh', 'new_github_id')
+    clonable_fields = ('new_github_id', )
 
     def run(self, queue):
         """

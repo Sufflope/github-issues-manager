@@ -138,7 +138,7 @@ class ManageDualUser(Job):
     resolution = fields.InstanceHashField()
     update_related_output = fields.InstanceHashField()
 
-    clonable_fields = ('gh', 'new_github_id')
+    clonable_fields = ('new_github_id', )
 
     def run(self, queue):
         """
@@ -231,7 +231,7 @@ class FinalizeGithubNotification(GithubNotificationJob):
     queue_name = 'finalize-notification'
     publish = fields.InstanceHashField()
 
-    clonable_fields = ('gh', 'publish')
+    clonable_fields = GithubNotificationJob.clonable_fields + ('publish', )
 
     def run(self, queue):
         """
@@ -390,4 +390,4 @@ class CheckGraphQLAccesses(Job):
         """
         Check all tokens in 30mn
         """
-        self.clone(delayed_for=60*30)  # once per 30mn
+        self.clone(delayed_for=60*5)  # once per 5mn
