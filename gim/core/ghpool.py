@@ -95,7 +95,7 @@ class Connection(GitHub):
 
     def manage_token(self, *args, **kwargs):
         from gim.core.limpyd_models import Token
-        Token.update_token_from_gh(self, *args, **kwargs)
+        Token.update_tokens_from_gh(self, *args, **kwargs)
 
 
 def parse_header_links(value):

@@ -1,5 +1,6 @@
 from collections import defaultdict, OrderedDict
 from datetime import datetime
+import logging
 from operator import attrgetter, itemgetter
 
 from limpyd_jobs import STATUSES
@@ -13,6 +14,8 @@ from ..models import GithubUser, Repository
 from . import JobRegistry
 from .base import Queue, Error
 from .repository import FetchForUpdate
+
+maintenance_logger = logging.getLogger('gim.maintenance')
 
 
 def get_job_models():
@@ -159,10 +162,10 @@ def delete_empty_queues(dry_run=False, max_priority=0):
                 continue
 
             if dry_run:
-                print('Empty: %s (%d)' % (name, priority))
+                maintenance_logger.info('Empty: %s (%d)', name, priority)
             else:
                 q.delete()
-                print('Deleted: %s (%d)' % (name, priority))
+                maintenance_logger.info('Deleted: %s (%d)', name, priority)
 
 
 def requeue_halted_jobs(dry_run=False):
@@ -187,11 +190,11 @@ def requeue_halted_jobs(dry_run=False):
             priority = int(job.priority.hget() or 0)
 
             if dry_run:
-                print('Halted: %s (%s)' % (job.ident, priority))
+                maintenance_logger.info('Halted: %s (%s)', job.ident, priority)
             else:
                 job.status.hset(STATUSES.WAITING)
                 job.queue.enqueue_job(job)
-                print('Requeued: %s (%s)' % (job.ident, priority))
+                maintenance_logger.info('Requeued: %s (%s)', job.ident, priority)
 
 
 def requeue_unqueued_waiting_jobs(dry_run=False):
@@ -226,10 +229,10 @@ def requeue_unqueued_waiting_jobs(dry_run=False):
                     priority = int(job.priority.hget() or 0)
 
                     if dry_run:
-                        print('Not queued: %s (%s)' % (job.ident, priority))
+                        maintenance_logger.info('Not queued: %s (%s)', job.ident, priority)
                     else:
                         job.queue.enqueue_job(job)
-                        print('Requeued: %s (%s)' % (job.ident, priority))
+                        maintenance_logger.info('Requeued: %s (%s)', job.ident, priority)
 
 
 def requeue_unqueued_delayed_jobs(dry_run=False):
@@ -264,10 +267,10 @@ def requeue_unqueued_delayed_jobs(dry_run=False):
                     priority = int(job.priority.hget() or 0)
 
                     if dry_run:
-                        print('Not queued: %s (%s)' % (job.ident, priority))
+                        maintenance_logger.info('Not queued: %s (%s)', job.ident, priority)
                     else:
                         job.queue.delay_job(job, job.delayed_until.hget())
-                        print('Requeued: %s (%s)' % (job.ident, priority))
+                        maintenance_logger.info('Requeued: %s (%s)', job.ident, priority)
 
 
 def get_last_error_for_job(job, index=0, date=None):
@@ -326,51 +329,51 @@ def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
 
     repositories = user.owned_repositories.all()
     if len(repositories):
-        print('Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
+        maintenance_logger.info('Owned repositories: %s', ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
         if not dry_run:
             for r in repositories:
                 try:
                     r.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
-                    print('Failure while updating repository %s: %s' % (r.id, e))
+                    maintenance_logger.info('Failure while updating repository %s: %s', r.id, e)
             repositories = user.owned_repositories.all()
             if len(repositories):
                 rest['Repository'] += len(repositories)
-                print('STILL Owned repostories: %s' % ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
+                maintenance_logger.info('STILL Owned repositories: %s', ', '.join(['[%s] %s' % (r.id, r.full_name) for r in repositories]))
 
     milestones = user.milestones.all()
     if len(milestones):
-        print('Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
+        maintenance_logger.info('Created milestones: %s', ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
         if not dry_run:
             for m in milestones:
                 try:
                     m.fetch(gh=gh, force_fetch=True)
                 except Exception as e:
-                    print('Failure while updating milestone %s: %s' % (m.id, e))
+                    maintenance_logger.info('Failure while updating milestone %s: %s', m.id, e)
             milestones = user.milestones.all()
             if len(milestones):
                 rest['Milestone'] += len(milestones)
-                print('STILL Created milestones: %s' % ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
+                maintenance_logger.info('STILL Created milestones: %s', ', '.join(['[%s] %s:%s' % (m.id, m.repository.full_name, m.title) for m in milestones]))
 
     for field, name in [('commits_authored', 'Authored'), ('commits_commited', 'Commited')]:
         commits = getattr(user, field).all()
         if len(commits):
-            print('%s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
+            maintenance_logger.info('%s commits: %s', name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits]))
             if not dry_run:
                 for c in commits:
                     try:
                         c.fetch(gh=gh, force_fetch=True)
                     except Exception as e:
-                        print('Failure while updating commit %s: %s' % (c.id, e))
+                        maintenance_logger.info('Failure while updating commit %s: %s', c.id, e)
                 commits = getattr(user, field).all()
                 if len(commits):
                     rest['Commit'] += len(commits)
-                    print('STILL %s commits: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits])))
+                    maintenance_logger.info('STILL %s commits: %s', name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.sha) for c in commits]))
 
     for field, name in [('created_issues', 'Created'), ('assigned_issues', 'Assigned'), ('closed_issues', 'Closed'), ('merged_prs', 'Merged')]:
         issues = getattr(user, field).all()
         if len(issues):
-            print('%s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
+            maintenance_logger.info('%s issues: %s', name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues]))
             if not dry_run:
                 for i in issues:
                     if i.id in issues_fetched:
@@ -378,17 +381,17 @@ def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
                     try:
                         i.fetch_all(gh=gh, force_fetch=True)
                     except Exception as e:
-                        print('Failure while updating issue %s: %s' % (i.id, e))
+                        maintenance_logger.info('Failure while updating issue %s: %s' % (i.id, e))
                     issues_fetched.add(i.id)
                 issues = getattr(user, field).all()
                 if len(issues):
                     rest['Issue'] += len(issues)
-                    print('STILL %s issues: %s' % (name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues])))
+                    maintenance_logger.info('STILL %s issues: %s', name, ', '.join(['[%s] %s:%s' % (i.id, i.repository.full_name, i.number) for i in issues]))
 
     for field, name in [('issue_comments', 'Simple'), ('pr_comments', 'Code')]:
         comments = getattr(user, field).all()
         if len(comments):
-            print('%s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
+            maintenance_logger.info('%s comments: %s', name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments]))
             if not dry_run:
                 for c in comments:
                     if c.issue_id in issues_fetched:
@@ -396,30 +399,30 @@ def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
                     try:
                         c.issue.fetch_all(gh=gh, force_fetch=True)
                     except Exception as e:
-                        print('Failure while updating issue %s for comment %s: %s' % (c.issue.id, c.id, e))
+                        maintenance_logger.info('Failure while updating issue %s for comment %s: %s', c.issue.id, c.id, e)
                     issues_fetched.add(c.issue_id)
                 comments = getattr(user, field).all()
                 if len(comments):
                     rest[comments[0].model_name] += len(comments)
-                    print('STILL %s comments: %s' % (name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments])))
+                    maintenance_logger.info('STILL %s comments: %s', name, ', '.join(['[%s] %s:%s' % (c.id, c.repository.full_name, c.issue.number) for c in comments]))
 
     entry_points = user.pr_comments_entry_points.all()
     if len(entry_points):
-        print('Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
+        maintenance_logger.info('Started entry points: %s', ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
         if not dry_run:
             for ep in entry_points:
                 try:
                     ep.update_starting_point()
                 except Exception as e:
-                    print('Failure while updating entry-point %s: %s' % (ep.id, e))
+                    maintenance_logger.info('Failure while updating entry-point %s: %s', ep.id, e)
             entry_points = user.pr_comments_entry_points.all()
             if len(entry_points):
                 rest['PullRequestCommentEntryPoint'] += len(entry_points)
-                print('STILL Started entry points: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
+                maintenance_logger.info('STILL Started entry points: %s', ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in entry_points]))
 
     events = user.issues_events.all()
     if len(events):
-        print('Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
+        maintenance_logger.info('Issue events: %s', ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
         if not dry_run:
             for ev in events:
                 if ev.issue_id in issues_fetched:
@@ -427,12 +430,12 @@ def update_user_related_stuff(username, gh=None, dry_run=False, user=None):
                 try:
                     ev.issue.fetch_all(gh=gh, force_fetch=True)
                 except Exception as e:
-                    print('Failure while updating issue %s for event %s: %s' % (ev.issue.id, ev.id, e))
+                    maintenance_logger.info('Failure while updating issue %s for event %s: %s', ev.issue.id, ev.id, e)
                 issues_fetched.add(ev.issue_id)
             events = user.issues_events.all()
             if len(events):
                 rest['Event'] += len(events)
-                print('STILL Issue events: %s' % ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
+                maintenance_logger.info('STILL Issue events: %s', ', '.join(['[%s] %s:%s' % (e.id, e.repository.full_name, e.issue.number) for e in events]))
 
     return rest
 
@@ -450,31 +453,34 @@ def requeue_all_repositories():
 
 def requeue_all_users():
     from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications, CheckGraphQLAccesses
+    from gim.core.tasks.tokens import ResetTokenFlags
 
     for user in GithubUser.objects.filter(token__isnull=False):
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
 
     CheckGraphQLAccesses.add_job(42)
+    ResetTokenFlags.add_job(42)
 
 
 def maintenance(include_users_and_repositories=True):
-    print('Maintenance tasks...')
-    print('    clear_requeue_delayed_lock_key...')
+    maintenance_logger.info('Maintenance tasks...')
+    maintenance_logger.info('    clear_requeue_delayed_lock_key...')
     for q in Queue.collection().instances():
         if q.requeue_delayed_lock_key_exists():
+            maintenance_logger.info('     clear lock key for %s:%s', *q.hmget('name', 'priority'))
             q.clear_requeue_delayed_lock_key()
-    print('    requeue_halted_jobs...')
+    maintenance_logger.info('    requeue_halted_jobs...')
     requeue_halted_jobs()
-    print('    requeue_unqueued_waiting_jobs...')
+    maintenance_logger.info('    requeue_unqueued_waiting_jobs...')
     requeue_unqueued_waiting_jobs()
-    print('    requeue_unqueued_delayed_jobs...')
+    maintenance_logger.info('    requeue_unqueued_delayed_jobs...')
     requeue_unqueued_delayed_jobs()
-    print('    delete_empty_queues...')
+    maintenance_logger.info('    delete_empty_queues...')
     delete_empty_queues()
     if include_users_and_repositories:
-        print('    requeue_all_users...')
+        maintenance_logger.info('    requeue_all_users...')
         requeue_all_users()
-        print('    requeue_all_repositories...')
+        maintenance_logger.info('    requeue_all_repositories...')
         requeue_all_repositories()
-    print '[done]'
+    maintenance_logger.info('[done]')
