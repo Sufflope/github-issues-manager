@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 import json
+import logging
+
 from random import choice, randint
 
 from django.db.models import get_model
@@ -10,6 +12,9 @@ from limpyd_jobs.utils import datetime_to_score
 
 from gim.core import get_main_limpyd_database
 from gim.github import ApiError
+
+
+maintenance_logger = logging.getLogger('gim.maintenance')
 
 
 class Token(lmodel.RedisModel):
@@ -491,7 +496,7 @@ class DeletedInstance(lmodel.RedisModel):
         for instance in to_delete:
             instance.delete()
 
-        print('Deleted %s "deleted instances" on %s.' % (len(to_delete), count))
+        maintenance_logger.info('Deleted %s "deleted instances" on %s.', len(to_delete), count)
 
     def get_instance(self):
         app_label, model_name, github_id = self.ident.hget().split('.')
@@ -518,4 +523,4 @@ class DeletedInstance(lmodel.RedisModel):
                 count_deleted +=1
                 instance.delete()
 
-        print('Deleted %s instances on %s.' % (count_deleted, count_total))
+        maintenance_logger.info('Deleted %s instances on %s.', count_deleted, count_total)

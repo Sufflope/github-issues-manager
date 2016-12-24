@@ -250,6 +250,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'gim.maintenance': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     }
 }
 
