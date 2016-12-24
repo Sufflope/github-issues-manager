@@ -148,8 +148,6 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 
-    'south',
-
     'jsonfield',
     'adv_cache_tag',
     'macros',
