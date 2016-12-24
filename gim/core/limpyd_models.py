@@ -235,7 +235,7 @@ class Token(lmodel.RedisModel):
         remaining_calls = int(rate_limit_remaining_field.get() or 0)
         remaining_seconds = self.get_remaining_seconds(for_graphql) or -2
         score = (remaining_calls - default_limit) / float(remaining_seconds)
-        rate_limit_score_field.hset(score)
+        rate_limit_score_field.hset(score * (110 - randint(0, 20)) / 100)  # +- 10%
 
     def get_remaining_seconds(self, for_graphql=False):
         """
