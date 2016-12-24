@@ -463,6 +463,7 @@ def maintenance(include_users_and_repositories=True):
     print('    clear_requeue_delayed_lock_key...')
     for q in Queue.collection().instances():
         if q.requeue_delayed_lock_key_exists():
+            print('     clear lock key for %s:%s' % tuple(q.hmget('name', 'priority')))
             q.clear_requeue_delayed_lock_key()
     print('    requeue_halted_jobs...')
     requeue_halted_jobs()
