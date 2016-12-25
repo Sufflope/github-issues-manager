@@ -657,5 +657,3 @@ class IssueTracker(ChangeTracker):
 
         return result
 
-
-IssueTracker.connect()

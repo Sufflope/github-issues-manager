@@ -10,9 +10,9 @@ from gim.core import models as core_models
 from gim.core.ghpool import prepare_fetch_headers, ApiError, Connection
 from gim.core.managers import MODE_ALL
 from gim.core.tasks.issue import FetchIssueByNumber
-from gim.core.utils import contribute_to_model, SavedObjects
+from gim.core.utils import SavedObjects
 
-from gim.front.models import unify_messages, send_unified_messages
+from gim.front.publish import unify_messages, send_unified_messages
 from gim.ws import publisher
 
 
@@ -318,8 +318,6 @@ class _Repository(models.Model):
             return True
 
         return False
-
-contribute_to_model(_Repository, core_models.Repository)
 
 
 class EventManager(object):
