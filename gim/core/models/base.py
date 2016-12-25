@@ -507,13 +507,16 @@ class GithubObject(models.Model):
         existing_ids = set(existing_queryset.order_by().values_list('id', flat=True))
         fetched_ids = set(ids or [])
 
+        has_through = hasattr(instance_field, 'through')
+        is_manual_through = has_through and not instance_field.through._meta.auto_created
+
         # if some relations are not here, remove them
         to_remove = existing_ids - fetched_ids
         if do_remove and to_remove:
             count['removed'] = len(to_remove)
             # if FK, only objects with nullable FK have a clear method, so we
             # only clear if the model allows us to
-            if hasattr(instance_field, 'remove'):
+            if hasattr(instance_field, 'remove') and not is_manual_through:
                 # The relation itself can be removed, we remove it but we keep
                 # the original object
                 # Example: a user is not anymore a collaborator, we keep the
@@ -544,7 +547,7 @@ class GithubObject(models.Model):
                 # Example: a milestone of a repository is not fetched via
                 # fetch_milestones? => we know it's deleted
                 # We also manage here relations via through tables
-                if hasattr(instance_field, 'through'):
+                if has_through:
                     model = instance_field.through
                     filter = {
                         '%s__id' % instance_field.source_field_name: self.id,
@@ -563,7 +566,7 @@ class GithubObject(models.Model):
         to_add = fetched_ids - existing_ids
         if to_add:
             count['added'] = len(to_add)
-            if hasattr(instance_field, 'add'):
+            if hasattr(instance_field, 'add') and not is_manual_through:
                 try:
                     instance_field.add(*to_add)
                 except DatabaseError, e:
@@ -577,7 +580,7 @@ class GithubObject(models.Model):
                     for iteration in range(0, iterations):
                         instance_field.add(*to_add[iteration * per_iteration:(iteration + 1) * per_iteration])
 
-            elif hasattr(instance_field, 'through'):
+            elif has_through:
                 model = instance_field.through
                 objs = [
                     model(**{
