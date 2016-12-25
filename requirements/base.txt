@@ -31,7 +31,7 @@ django-redis==4.2.0
 
 redis-limpyd>=0.2.4,<1
 redis-limpyd-extensions>=0.1.3,<1
-redis-limpyd-jobs>=0.1.4,<1
+redis-limpyd-jobs>=0.1.5,<1
 
 # dependencies
 python-dateutil==2.4.2
