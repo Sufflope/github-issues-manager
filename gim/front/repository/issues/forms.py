@@ -27,6 +27,7 @@ class IssueFormMixin(LinkedToRepositoryFormMixin):
 
     class Meta:
         model = Issue
+        fields = []  # just to avoid a warning, as it will be set in subclasses
 
     def __init__(self, *args, **kwargs):
         super(IssueFormMixin, self).__init__(*args, **kwargs)
