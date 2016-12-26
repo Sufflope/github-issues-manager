@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 
 from gim.front.activity.urls import activity_pattern
 
@@ -10,7 +10,7 @@ from .views import (DashboardView, MilestonesPart, CountersPart, LabelsPart,
                     HookPart, HookToggle, MainMetricView)
 
 
-urlpatterns = patterns('',
+urlpatterns = [
     url(r'^$', DashboardView.as_view(), name=DashboardView.url_name),
     url(r'^milestones/$', MilestonesPart.as_view(), name=MilestonesPart.url_name),
     url(r'^counters/$', CountersPart.as_view(), name=CountersPart.url_name),
@@ -34,4 +34,4 @@ urlpatterns = patterns('',
 
     url(r'hook/toggle/$', HookToggle.as_view(), name=HookToggle.url_name),
     url(r'main_metric/set/$', MainMetricView.as_view(), name=MainMetricView.url_name),
-)
+]
