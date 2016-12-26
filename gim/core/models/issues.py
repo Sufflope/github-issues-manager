@@ -81,7 +81,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     base_sha = models.CharField(max_length=256, blank=True, null=True)
     head_label = models.TextField(blank=True, null=True)
     head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
-    last_head_commit = models.ForeignKey('Commit', related_name='', blank=True, null=True)
+    last_head_commit = models.ForeignKey('Commit', related_name='last_head_prs', blank=True, null=True)
     last_head_status = models.PositiveSmallIntegerField(
         default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING, choices=GITHUB_COMMIT_STATUS_CHOICES)
     merged_at = models.DateTimeField(blank=True, null=True)

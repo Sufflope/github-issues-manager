@@ -814,7 +814,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='issue',
             name='last_head_commit',
-            field=models.ForeignKey(related_name=b'', blank=True, to='core.Commit', null=True),
+            field=models.ForeignKey(related_name='last_head_prs', blank=True, to='core.Commit', null=True),
             preserve_default=True,
         ),
         migrations.AddField(
