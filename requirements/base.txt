@@ -12,7 +12,7 @@ django-async-messages==0.3.1
 django-adv-cache-tag>=0.3.0,<1
 django-decorator-include>=1.1
 django-extended-choices==1.0.7
-django-templates-macros>=0.1
+django-templates-macros>=0.2
 ghdiff_class>=0.1
 
 ipython>=4
