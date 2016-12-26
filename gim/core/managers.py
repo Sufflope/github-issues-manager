@@ -483,7 +483,7 @@ class GithubObjectManager(BaseManager):
                 # we have many objects to create: m2m
                 # or we have an external object to create: fk
                 if value:
-                    model = field.related.parent_model if direct else field.model
+                    model = field.related_model
                     defaults_related = {}
 
                     if defaults and 'related' in defaults:

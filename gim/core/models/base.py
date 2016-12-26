@@ -201,15 +201,7 @@ class GithubObject(models.Model):
         "update". If None is passed, the default is both values.
         """
         field, _, direct, m2m = self._meta.get_field_by_name(field_name)
-        if direct:
-            # we are on a field of the current model, the objects to create or
-            # update are on the model on the other side of the relation
-            model = field.related.parent_model
-        else:
-            # the field is originally defined on the other side of the relation,
-            # we have a RelatedObject with the model on the other side of the
-            # relation to use to create or update are on the current model
-            model = field.model
+        model = field.related_model
 
         if not meta_base_name:
             meta_base_name = field_name
