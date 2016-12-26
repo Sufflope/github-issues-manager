@@ -531,7 +531,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         issue = self.__class__.objects.filter(
             id=self.id
         ).select_related(
-            'repository__owner', 'user', 'created_by', 'closed_by', 'milestone'
+            'repository__owner', 'user', 'closed_by', 'milestone'
         ).prefetch_related(
             'assignees', 'labels__label_type', 'cards__column__project'
         )[0]

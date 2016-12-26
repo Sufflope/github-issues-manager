@@ -84,7 +84,7 @@ PUBLISHABLE = {
         'self': False,
         'parents': [
             ('Issue', 'issues',
-             lambda self: self.commit.issues.all().select_related('commit', 'repository__owner'),
+             lambda self: self.commit.issues.all().select_related('repository__owner'),
              lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
              ),
         ],

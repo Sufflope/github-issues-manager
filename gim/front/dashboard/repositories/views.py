@@ -514,7 +514,7 @@ class ChooseRepositoryTabAvailableNotInOrgs(ChooseRepositoryTab):
             in groupby(
                 self.request.user.available_repositories_set.extra(**extra)
                                  .exclude(organization_id__in=self.organizations_ids)
-                                 .select_related('is_self', 'repository__owner')
+                                 .select_related('repository__owner')
                                  .order_by('repository__owner'),
                 lambda ar: self.get_organization_name_for_repository(ar.repository)
             )
