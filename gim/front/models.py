@@ -10,7 +10,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse_lazy
 from django.db import models
 from django.db.models import FieldDoesNotExist
-from django.template import loader, Context
+from django.template import loader
 from django.template.defaultfilters import date as convert_date, escape
 from django.utils.functional import cached_property
 from limpyd import model as lmodel, fields as lfields
@@ -536,10 +536,10 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             'assignees', 'labels__label_type', 'cards__column__project'
         )[0]
 
-        context = Context({
+        context = {
             'issue': issue,
             '__regenerate__': force_regenerate,
-        })
+        }
 
         loader.get_template(template).render(context)
 
