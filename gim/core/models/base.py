@@ -516,7 +516,7 @@ class GithubObject(models.Model):
                 try:
                     try:
                         instance_field.remove(*to_remove)
-                    except AttributeError:
+                    except (AttributeError, TypeError):
                         # In some case we need objects, not PKs
                         to_remove = instance_field.model.objects.filter(pk__in=to_remove)
                         instance_field.remove(*to_remove)
@@ -560,7 +560,12 @@ class GithubObject(models.Model):
             count['added'] = len(to_add)
             if hasattr(instance_field, 'add') and not is_manual_through:
                 try:
-                    instance_field.add(*to_add)
+                    try:
+                        instance_field.add(*to_add)
+                    except (AttributeError, TypeError):
+                        # In some case we need objects, not PKs
+                        to_add = instance_field.model.objects.filter(pk__in=to_add)
+                        instance_field.add(*to_add)
                 except DatabaseError, e:
                     # sqlite limits the vars passed in a request to 999
                     # In this case, we loop on the data by slice of 950 obj to add
