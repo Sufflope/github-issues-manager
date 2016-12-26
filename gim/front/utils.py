@@ -113,7 +113,21 @@ def get_metric_stats(issues, metric, issues_count=None):
         issues_count = len(issues)
 
     if not issues_count:
-        return None
+        return {
+            'metric': metric,
+            'count_total': issues_count,
+            'count_with': 0,
+            'count_too_many':0,
+            'count_without': 0,
+            'count_invalid': 0,
+            'count_valid': 0,
+            'distribution': 0,
+            'sum': 0,
+            'mean': None,
+            'median': None,
+            'mode': None,
+            'stdev': None,
+        }
 
     # Get all couple issue/metric
     from gim.core.models import Issue
