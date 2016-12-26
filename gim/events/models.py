@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes import generic
 from django.db import models
 
 from jsonfield import JSONField
@@ -55,7 +55,7 @@ class Event(models.Model):
 
     related_content_type = models.ForeignKey(ContentType, blank=True, null=True)
     related_object_id = models.PositiveIntegerField(blank=True, null=True, db_index=True)
-    related_object = generic.GenericForeignKey('related_content_type',
+    related_object = GenericForeignKey('related_content_type',
                                                'related_object_id')
 
     RENDERERS = {
