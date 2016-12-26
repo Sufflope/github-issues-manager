@@ -1,4 +1,5 @@
 import Cookie
+from importlib import import_module
 import logging
 
 from twisted.internet.defer import inlineCallbacks
@@ -7,7 +8,6 @@ from autobahn.twisted.wamp import ApplicationSession
 from autobahn.wamp.exception import ApplicationError
 
 from django.conf import settings
-from django.utils.importlib import import_module
 
 from gim import hashed_version
 

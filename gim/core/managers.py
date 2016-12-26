@@ -1150,7 +1150,7 @@ class IssueEventManager(WithIssueManager):
         """
         from gim.core.models import Issue
 
-        type_event = 'referenced_by_%s' % obj._meta.module_name
+        type_event = 'referenced_by_%s' % obj._meta.model_name
 
         existing_events_ids = obj.repository.issues_events.filter(
                                                     event=type_event,

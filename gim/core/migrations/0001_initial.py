@@ -1,405 +1,1024 @@
 # -*- coding: utf-8 -*-
-import datetime
-from south.db import db
-from south.v2 import SchemaMigration
-from django.db import models
+from __future__ import unicode_literals
+
+from django.db import models, migrations
+import gim.core.models.mixins
+import re
+import django.db.models.deletion
+import jsonfield.fields
+import django.utils.timezone
+from django.conf import settings
+import django.core.validators
 
 
-class Migration(SchemaMigration):
+class Migration(migrations.Migration):
 
-    def forwards(self, orm):
-        # Adding model 'GithubUser'
-        db.create_table(u'core_githubuser', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('password', self.gf('django.db.models.fields.CharField')(max_length=128)),
-            ('last_login', self.gf('django.db.models.fields.DateTimeField')(default=datetime.datetime.now)),
-            ('is_superuser', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('username', self.gf('django.db.models.fields.CharField')(unique=True, max_length=255)),
-            ('first_name', self.gf('django.db.models.fields.CharField')(max_length=30, blank=True)),
-            ('last_name', self.gf('django.db.models.fields.CharField')(max_length=30, blank=True)),
-            ('email', self.gf('django.db.models.fields.EmailField')(max_length=75, blank=True)),
-            ('is_staff', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('is_active', self.gf('django.db.models.fields.BooleanField')(default=True)),
-            ('date_joined', self.gf('django.db.models.fields.DateTimeField')(default=datetime.datetime.now)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('github_id', self.gf('django.db.models.fields.PositiveIntegerField')(unique=True, null=True, blank=True)),
-            ('token', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('avatar_url', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('is_organization', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('organizations_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('_available_repositories', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('available_repositories_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-        ))
-        db.send_create_signal(u'core', ['GithubUser'])
+    dependencies = [
+        ('auth', '0001_initial'),
+        ('contenttypes', '0001_initial'),
+    ]
 
-        # Adding M2M table for field groups on 'GithubUser'
-        m2m_table_name = db.shorten_name(u'core_githubuser_groups')
-        db.create_table(m2m_table_name, (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('githubuser', models.ForeignKey(orm[u'core.githubuser'], null=False)),
-            ('group', models.ForeignKey(orm[u'auth.group'], null=False))
-        ))
-        db.create_unique(m2m_table_name, ['githubuser_id', 'group_id'])
-
-        # Adding M2M table for field user_permissions on 'GithubUser'
-        m2m_table_name = db.shorten_name(u'core_githubuser_user_permissions')
-        db.create_table(m2m_table_name, (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('githubuser', models.ForeignKey(orm[u'core.githubuser'], null=False)),
-            ('permission', models.ForeignKey(orm[u'auth.permission'], null=False))
-        ))
-        db.create_unique(m2m_table_name, ['githubuser_id', 'permission_id'])
-
-        # Adding M2M table for field organizations on 'GithubUser'
-        m2m_table_name = db.shorten_name(u'core_githubuser_organizations')
-        db.create_table(m2m_table_name, (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('from_githubuser', models.ForeignKey(orm[u'core.githubuser'], null=False)),
-            ('to_githubuser', models.ForeignKey(orm[u'core.githubuser'], null=False))
-        ))
-        db.create_unique(m2m_table_name, ['from_githubuser_id', 'to_githubuser_id'])
-
-        # Adding model 'Repository'
-        db.create_table(u'core_repository', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('github_id', self.gf('django.db.models.fields.PositiveIntegerField')(unique=True, null=True, blank=True)),
-            ('owner', self.gf('django.db.models.fields.related.ForeignKey')(related_name='owned_repositories', to=orm['core.GithubUser'])),
-            ('name', self.gf('django.db.models.fields.TextField')(db_index=True)),
-            ('description', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('private', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('is_fork', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('has_issues', self.gf('django.db.models.fields.BooleanField')(default=False)),
-            ('collaborators_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('milestones_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('labels_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('issues_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('comments_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-        ))
-        db.send_create_signal(u'core', ['Repository'])
-
-        # Adding unique constraint on 'Repository', fields ['owner', 'name']
-        db.create_unique(u'core_repository', ['owner_id', 'name'])
-
-        # Adding M2M table for field collaborators on 'Repository'
-        m2m_table_name = db.shorten_name(u'core_repository_collaborators')
-        db.create_table(m2m_table_name, (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('repository', models.ForeignKey(orm[u'core.repository'], null=False)),
-            ('githubuser', models.ForeignKey(orm[u'core.githubuser'], null=False))
-        ))
-        db.create_unique(m2m_table_name, ['repository_id', 'githubuser_id'])
-
-        # Adding model 'LabelType'
-        db.create_table(u'core_labeltype', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('repository', self.gf('django.db.models.fields.related.ForeignKey')(related_name='label_types', to=orm['core.Repository'])),
-            ('regex', self.gf('django.db.models.fields.TextField')()),
-            ('name', self.gf('django.db.models.fields.CharField')(max_length=250, db_index=True)),
-            ('edit_mode', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1)),
-            ('edit_details', self.gf('jsonfield.fields.JSONField')(null=True, blank=True)),
-        ))
-        db.send_create_signal(u'core', ['LabelType'])
-
-        # Adding unique constraint on 'LabelType', fields ['repository', 'name']
-        db.create_unique(u'core_labeltype', ['repository_id', 'name'])
-
-        # Adding model 'Label'
-        db.create_table(u'core_label', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('repository', self.gf('django.db.models.fields.related.ForeignKey')(related_name='labels', to=orm['core.Repository'])),
-            ('name', self.gf('django.db.models.fields.TextField')()),
-            ('color', self.gf('django.db.models.fields.CharField')(max_length=6)),
-            ('api_url', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('label_type', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='labels', null=True, on_delete=models.SET_NULL, to=orm['core.LabelType'])),
-            ('typed_name', self.gf('django.db.models.fields.TextField')(db_index=True)),
-            ('order', self.gf('django.db.models.fields.IntegerField')(null=True, blank=True)),
-        ))
-        db.send_create_signal(u'core', ['Label'])
-
-        # Adding unique constraint on 'Label', fields ['repository', 'name']
-        db.create_unique(u'core_label', ['repository_id', 'name'])
-
-        # Adding index on 'Label', fields ['repository', 'label_type', 'order']
-        db.create_index(u'core_label', ['repository_id', 'label_type_id', 'order'])
-
-        # Adding model 'Milestone'
-        db.create_table(u'core_milestone', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('github_id', self.gf('django.db.models.fields.PositiveIntegerField')(unique=True, null=True, blank=True)),
-            ('repository', self.gf('django.db.models.fields.related.ForeignKey')(related_name='milestones', to=orm['core.Repository'])),
-            ('number', self.gf('django.db.models.fields.PositiveIntegerField')(db_index=True)),
-            ('title', self.gf('django.db.models.fields.TextField')(db_index=True)),
-            ('description', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('state', self.gf('django.db.models.fields.CharField')(max_length=10, db_index=True)),
-            ('created_at', self.gf('django.db.models.fields.DateTimeField')(db_index=True)),
-            ('due_on', self.gf('django.db.models.fields.DateTimeField')(db_index=True, null=True, blank=True)),
-            ('creator', self.gf('django.db.models.fields.related.ForeignKey')(related_name='milestones', to=orm['core.GithubUser'])),
-        ))
-        db.send_create_signal(u'core', ['Milestone'])
-
-        # Adding unique constraint on 'Milestone', fields ['repository', 'number']
-        db.create_unique(u'core_milestone', ['repository_id', 'number'])
-
-        # Adding model 'Issue'
-        db.create_table(u'core_issue', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('github_id', self.gf('django.db.models.fields.PositiveIntegerField')(unique=True, null=True, blank=True)),
-            ('repository', self.gf('django.db.models.fields.related.ForeignKey')(related_name='issues', to=orm['core.Repository'])),
-            ('number', self.gf('django.db.models.fields.PositiveIntegerField')(db_index=True)),
-            ('title', self.gf('django.db.models.fields.TextField')(db_index=True)),
-            ('body', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('body_html', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='created_issues', to=orm['core.GithubUser'])),
-            ('assignee', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='assigned_issues', null=True, to=orm['core.GithubUser'])),
-            ('created_at', self.gf('django.db.models.fields.DateTimeField')(db_index=True)),
-            ('updated_at', self.gf('django.db.models.fields.DateTimeField')(db_index=True)),
-            ('closed_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('is_pull_request', self.gf('django.db.models.fields.BooleanField')(default=False, db_index=True)),
-            ('milestone', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='issues', null=True, to=orm['core.Milestone'])),
-            ('state', self.gf('django.db.models.fields.CharField')(max_length=10, db_index=True)),
-            ('comments_count', self.gf('django.db.models.fields.PositiveIntegerField')(null=True, blank=True)),
-            ('closed_by', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='closed_issues', null=True, to=orm['core.GithubUser'])),
-            ('closed_by_fetched', self.gf('django.db.models.fields.BooleanField')(default=False, db_index=True)),
-            ('comments_fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-        ))
-        db.send_create_signal(u'core', ['Issue'])
-
-        # Adding unique constraint on 'Issue', fields ['repository', 'number']
-        db.create_unique(u'core_issue', ['repository_id', 'number'])
-
-        # Adding M2M table for field labels on 'Issue'
-        m2m_table_name = db.shorten_name(u'core_issue_labels')
-        db.create_table(m2m_table_name, (
-            ('id', models.AutoField(verbose_name='ID', primary_key=True, auto_created=True)),
-            ('issue', models.ForeignKey(orm[u'core.issue'], null=False)),
-            ('label', models.ForeignKey(orm[u'core.label'], null=False))
-        ))
-        db.create_unique(m2m_table_name, ['issue_id', 'label_id'])
-
-        # Adding model 'IssueComment'
-        db.create_table(u'core_issuecomment', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('fetched_at', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('github_status', self.gf('django.db.models.fields.PositiveSmallIntegerField')(default=1, db_index=True)),
-            ('github_id', self.gf('django.db.models.fields.PositiveIntegerField')(unique=True, null=True, blank=True)),
-            ('repository', self.gf('django.db.models.fields.related.ForeignKey')(related_name='comments', to=orm['core.Repository'])),
-            ('issue', self.gf('django.db.models.fields.related.ForeignKey')(related_name='comments', to=orm['core.Issue'])),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='issue_comments', to=orm['core.GithubUser'])),
-            ('body', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('body_html', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('created_at', self.gf('django.db.models.fields.DateTimeField')(db_index=True)),
-            ('updated_at', self.gf('django.db.models.fields.DateTimeField')(db_index=True)),
-        ))
-        db.send_create_signal(u'core', ['IssueComment'])
-
-
-    def backwards(self, orm):
-        # Removing unique constraint on 'Issue', fields ['repository', 'number']
-        db.delete_unique(u'core_issue', ['repository_id', 'number'])
-
-        # Removing unique constraint on 'Milestone', fields ['repository', 'number']
-        db.delete_unique(u'core_milestone', ['repository_id', 'number'])
-
-        # Removing index on 'Label', fields ['repository', 'label_type', 'order']
-        db.delete_index(u'core_label', ['repository_id', 'label_type_id', 'order'])
-
-        # Removing unique constraint on 'Label', fields ['repository', 'name']
-        db.delete_unique(u'core_label', ['repository_id', 'name'])
-
-        # Removing unique constraint on 'LabelType', fields ['repository', 'name']
-        db.delete_unique(u'core_labeltype', ['repository_id', 'name'])
-
-        # Removing unique constraint on 'Repository', fields ['owner', 'name']
-        db.delete_unique(u'core_repository', ['owner_id', 'name'])
-
-        # Deleting model 'GithubUser'
-        db.delete_table(u'core_githubuser')
-
-        # Removing M2M table for field groups on 'GithubUser'
-        db.delete_table(db.shorten_name(u'core_githubuser_groups'))
-
-        # Removing M2M table for field user_permissions on 'GithubUser'
-        db.delete_table(db.shorten_name(u'core_githubuser_user_permissions'))
-
-        # Removing M2M table for field organizations on 'GithubUser'
-        db.delete_table(db.shorten_name(u'core_githubuser_organizations'))
-
-        # Deleting model 'Repository'
-        db.delete_table(u'core_repository')
-
-        # Removing M2M table for field collaborators on 'Repository'
-        db.delete_table(db.shorten_name(u'core_repository_collaborators'))
-
-        # Deleting model 'LabelType'
-        db.delete_table(u'core_labeltype')
-
-        # Deleting model 'Label'
-        db.delete_table(u'core_label')
-
-        # Deleting model 'Milestone'
-        db.delete_table(u'core_milestone')
-
-        # Deleting model 'Issue'
-        db.delete_table(u'core_issue')
-
-        # Removing M2M table for field labels on 'Issue'
-        db.delete_table(db.shorten_name(u'core_issue_labels'))
-
-        # Deleting model 'IssueComment'
-        db.delete_table(u'core_issuecomment')
-
-
-    models = {
-        u'auth.group': {
-            'Meta': {'object_name': 'Group'},
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '80'}),
-            'permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'})
-        },
-        u'auth.permission': {
-            'Meta': {'ordering': "(u'content_type__app_label', u'content_type__model', u'codename')", 'unique_together': "((u'content_type', u'codename'),)", 'object_name': 'Permission'},
-            'codename': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'content_type': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['contenttypes.ContentType']"}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '50'})
-        },
-        u'contenttypes.contenttype': {
-            'Meta': {'ordering': "('name',)", 'unique_together': "(('app_label', 'model'),)", 'object_name': 'ContentType', 'db_table': "'django_content_type'"},
-            'app_label': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'model': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'})
-        },
-        u'core.githubuser': {
-            'Meta': {'ordering': "('username',)", 'object_name': 'GithubUser'},
-            '_available_repositories': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'available_repositories_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'avatar_url': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'date_joined': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
-            'email': ('django.db.models.fields.EmailField', [], {'max_length': '75', 'blank': 'True'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'first_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
-            'github_id': ('django.db.models.fields.PositiveIntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            'groups': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Group']", 'symmetrical': 'False', 'blank': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'is_active': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'is_organization': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'is_staff': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'is_superuser': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'last_login': ('django.db.models.fields.DateTimeField', [], {'default': 'datetime.datetime.now'}),
-            'last_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
-            'organizations': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'organizations_rel_+'", 'to': u"orm['core.GithubUser']"}),
-            'organizations_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'password': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
-            'token': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'user_permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'}),
-            'username': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '255'})
-        },
-        u'core.issue': {
-            'Meta': {'unique_together': "(('repository', 'number'),)", 'object_name': 'Issue'},
-            'assignee': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'assigned_issues'", 'null': 'True', 'to': u"orm['core.GithubUser']"}),
-            'body': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'body_html': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'closed_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'closed_by': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'closed_issues'", 'null': 'True', 'to': u"orm['core.GithubUser']"}),
-            'closed_by_fetched': ('django.db.models.fields.BooleanField', [], {'default': 'False', 'db_index': 'True'}),
-            'comments_count': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'}),
-            'comments_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'created_at': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'github_id': ('django.db.models.fields.PositiveIntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'is_pull_request': ('django.db.models.fields.BooleanField', [], {'default': 'False', 'db_index': 'True'}),
-            'labels': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'issues'", 'symmetrical': 'False', 'to': u"orm['core.Label']"}),
-            'milestone': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'issues'", 'null': 'True', 'to': u"orm['core.Milestone']"}),
-            'number': ('django.db.models.fields.PositiveIntegerField', [], {'db_index': 'True'}),
-            'repository': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'issues'", 'to': u"orm['core.Repository']"}),
-            'state': ('django.db.models.fields.CharField', [], {'max_length': '10', 'db_index': 'True'}),
-            'title': ('django.db.models.fields.TextField', [], {'db_index': 'True'}),
-            'updated_at': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'created_issues'", 'to': u"orm['core.GithubUser']"})
-        },
-        u'core.issuecomment': {
-            'Meta': {'ordering': "('created_at',)", 'object_name': 'IssueComment'},
-            'body': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'body_html': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'created_at': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'github_id': ('django.db.models.fields.PositiveIntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'issue': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'comments'", 'to': u"orm['core.Issue']"}),
-            'repository': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'comments'", 'to': u"orm['core.Repository']"}),
-            'updated_at': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'issue_comments'", 'to': u"orm['core.GithubUser']"})
-        },
-        u'core.label': {
-            'Meta': {'ordering': "('label_type', 'order', 'typed_name')", 'unique_together': "(('repository', 'name'),)", 'object_name': 'Label', 'index_together': "(('repository', 'label_type', 'order'),)"},
-            'api_url': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'color': ('django.db.models.fields.CharField', [], {'max_length': '6'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'label_type': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'labels'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['core.LabelType']"}),
-            'name': ('django.db.models.fields.TextField', [], {}),
-            'order': ('django.db.models.fields.IntegerField', [], {'null': 'True', 'blank': 'True'}),
-            'repository': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'labels'", 'to': u"orm['core.Repository']"}),
-            'typed_name': ('django.db.models.fields.TextField', [], {'db_index': 'True'})
-        },
-        u'core.labeltype': {
-            'Meta': {'ordering': "('name',)", 'unique_together': "(('repository', 'name'),)", 'object_name': 'LabelType'},
-            'edit_details': ('jsonfield.fields.JSONField', [], {'null': 'True', 'blank': 'True'}),
-            'edit_mode': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '250', 'db_index': 'True'}),
-            'regex': ('django.db.models.fields.TextField', [], {}),
-            'repository': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'label_types'", 'to': u"orm['core.Repository']"})
-        },
-        u'core.milestone': {
-            'Meta': {'ordering': "('number',)", 'unique_together': "(('repository', 'number'),)", 'object_name': 'Milestone'},
-            'created_at': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True'}),
-            'creator': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'milestones'", 'to': u"orm['core.GithubUser']"}),
-            'description': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'due_on': ('django.db.models.fields.DateTimeField', [], {'db_index': 'True', 'null': 'True', 'blank': 'True'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'github_id': ('django.db.models.fields.PositiveIntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'number': ('django.db.models.fields.PositiveIntegerField', [], {'db_index': 'True'}),
-            'repository': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'milestones'", 'to': u"orm['core.Repository']"}),
-            'state': ('django.db.models.fields.CharField', [], {'max_length': '10', 'db_index': 'True'}),
-            'title': ('django.db.models.fields.TextField', [], {'db_index': 'True'})
-        },
-        u'core.repository': {
-            'Meta': {'ordering': "('owner', 'name')", 'unique_together': "(('owner', 'name'),)", 'object_name': 'Repository'},
-            'collaborators': ('django.db.models.fields.related.ManyToManyField', [], {'related_name': "'repositories'", 'symmetrical': 'False', 'to': u"orm['core.GithubUser']"}),
-            'collaborators_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'comments_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'description': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'github_id': ('django.db.models.fields.PositiveIntegerField', [], {'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'github_status': ('django.db.models.fields.PositiveSmallIntegerField', [], {'default': '1', 'db_index': 'True'}),
-            'has_issues': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'is_fork': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'issues_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'labels_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'milestones_fetched_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'name': ('django.db.models.fields.TextField', [], {'db_index': 'True'}),
-            'owner': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'owned_repositories'", 'to': u"orm['core.GithubUser']"}),
-            'private': ('django.db.models.fields.BooleanField', [], {'default': 'False'})
-        }
-    }
-
-    complete_apps = ['core']
+    operations = [
+        migrations.CreateModel(
+            name='GithubUser',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('password', models.CharField(max_length=128, verbose_name='password')),
+                ('last_login', models.DateTimeField(default=django.utils.timezone.now, verbose_name='last login')),
+                ('is_superuser', models.BooleanField(default=False, help_text='Designates that this user has all permissions without explicitly assigning them.', verbose_name='superuser status')),
+                ('username', models.CharField(help_text='Required. 30 characters or fewer. Letters, digits and @/./+/-/_ only.', unique=True, max_length=255, verbose_name='username', validators=[django.core.validators.RegexValidator('^[\\w.@+-]+$', 'Enter a valid username.', 'invalid')])),
+                ('first_name', models.CharField(max_length=30, verbose_name='first name', blank=True)),
+                ('last_name', models.CharField(max_length=30, verbose_name='last name', blank=True)),
+                ('email', models.EmailField(max_length=75, verbose_name='email address', blank=True)),
+                ('is_staff', models.BooleanField(default=False, help_text='Designates whether the user can log into this admin site.', verbose_name='staff status')),
+                ('is_active', models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.', verbose_name='active')),
+                ('date_joined', models.DateTimeField(default=django.utils.timezone.now, verbose_name='date joined')),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('username_lower', models.CharField(max_length=255, null=True)),
+                ('token', models.TextField(null=True, blank=True)),
+                ('full_name', models.TextField(null=True, blank=True)),
+                ('avatar_url', models.TextField(null=True, blank=True)),
+                ('is_organization', models.BooleanField(default=False)),
+                ('organizations_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('organizations_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('teams_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('teams_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('github_notifications_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_notifications_etag', models.CharField(max_length=64, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('username_lower',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='AvailableRepository',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('permission', models.CharField(max_length=5, choices=[(b'pull', b'Simple user'), (b'push', b'Collaborator'), (b'admin', b'Admin')])),
+                ('organization_id', models.PositiveIntegerField(null=True, blank=True)),
+                ('organization_username', models.CharField(max_length=255, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('organization_username', 'repository'),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Card',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('type', models.PositiveSmallIntegerField(choices=[(1, 'Note'), (2, 'Issue/Pull request')])),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('note', models.TextField(null=True, blank=True)),
+                ('position', models.PositiveIntegerField(null=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('note_html', models.TextField(null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('position',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Column',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('name', models.TextField()),
+                ('position', models.PositiveIntegerField(null=True)),
+                ('cards_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('cards_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('position',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Commit',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('sha', models.CharField(max_length=40, db_index=True)),
+                ('message', models.TextField(null=True, blank=True)),
+                ('author_name', models.TextField(null=True, blank=True)),
+                ('author_email', models.CharField(max_length=256, null=True, blank=True)),
+                ('committer_name', models.TextField(null=True, blank=True)),
+                ('committer_email', models.CharField(max_length=256, null=True, blank=True)),
+                ('authored_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('committed_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('comments_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('tree', models.CharField(max_length=40, null=True, blank=True)),
+                ('deleted', models.BooleanField(default=False, db_index=True)),
+                ('files_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('nb_additions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_deletions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_changed_files', models.PositiveIntegerField(null=True, blank=True)),
+                ('commit_comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('commit_comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('commit_comments_last_page', models.PositiveIntegerField(null=True, blank=True)),
+                ('last_status', models.PositiveSmallIntegerField(default=0, choices=[(0, 'Nothing yet'), (10, 'Pending'), (20, 'Unknown'), (30, 'Error'), (40, 'Failure'), (50, 'Success')])),
+                ('commit_statuses_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('commit_statuses_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('author', models.ForeignKey(related_name='commits_authored', blank=True, to=settings.AUTH_USER_MODEL, null=True)),
+                ('committer', models.ForeignKey(related_name='commits_commited', blank=True, to=settings.AUTH_USER_MODEL, null=True)),
+            ],
+            options={
+                'ordering': ('committed_at',),
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='CommitComment',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('body', models.TextField(null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('commit_sha', models.CharField(max_length=40)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('commit', models.ForeignKey(related_name='commit_comments', to='core.Commit', null=True)),
+            ],
+            options={
+                'ordering': ('created_at',),
+            },
+            bases=(gim.core.models.mixins.WithCommitMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='CommitCommentEntryPoint',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('commit_sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('position', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('path', models.TextField(db_index=True, null=True, blank=True)),
+                ('diff_hunk', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('updated_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('commit', models.ForeignKey(related_name='commit_comments_entry_points', to='core.Commit', null=True)),
+            ],
+            options={
+                'ordering': ('created_at',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='CommitFile',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('path', models.TextField(db_index=True, null=True, blank=True)),
+                ('status', models.CharField(max_length=32, null=True, blank=True)),
+                ('nb_additions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_deletions', models.PositiveIntegerField(null=True, blank=True)),
+                ('patch', models.TextField(null=True, blank=True)),
+                ('sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('patch_sha', models.CharField(max_length=40, null=True, blank=True)),
+                ('hunk_shas', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('commit', models.ForeignKey(related_name='files', to='core.Commit')),
+            ],
+            options={
+                'ordering': ('path',),
+            },
+            bases=(gim.core.models.mixins.WithCommitMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='CommitStatus',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('state', models.PositiveSmallIntegerField(default=0, db_index=True, choices=[(0, 'Nothing yet'), (10, 'Pending'), (20, 'Unknown'), (30, 'Error'), (40, 'Failure'), (50, 'Success')])),
+                ('description', models.TextField(null=True, blank=True)),
+                ('context', models.TextField(default=b'default', db_index=True)),
+                ('target_url', models.URLField(max_length=512, null=True, blank=True)),
+                ('commit', models.ForeignKey(related_name='commit_statuses', to='core.Commit')),
+            ],
+            options={
+                'ordering': ['-updated_at', 'context'],
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='GithubNotification',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('thread_id', models.PositiveIntegerField(null=True, blank=True)),
+                ('type', models.CharField(db_index=True, max_length=255, null=True, blank=True)),
+                ('reason', models.CharField(db_index=True, max_length=255, null=True, blank=True)),
+                ('issue_number', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('title', models.TextField()),
+                ('unread', models.BooleanField(db_index=True)),
+                ('previous_unread', models.NullBooleanField()),
+                ('manual_unread', models.BooleanField(default=False, db_index=True)),
+                ('last_read_at', models.DateTimeField(null=True, db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('previous_updated_at', models.DateTimeField(null=True, blank=True)),
+                ('ready', models.BooleanField(default=False, db_index=True)),
+                ('subscribed', models.BooleanField(default=True, db_index=True)),
+                ('subscription_fetched_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('subscription_etag', models.CharField(max_length=64, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('-updated_at',),
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='Issue',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('number', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('title', models.TextField(db_index=True)),
+                ('body', models.TextField(null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('closed_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('state', models.CharField(max_length=10, db_index=True)),
+                ('comments_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('closed_by_fetched', models.BooleanField(default=False, db_index=True)),
+                ('comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('events_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('events_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('is_pull_request', models.BooleanField(default=False, db_index=True)),
+                ('pr_fetched_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('pr_comments_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('pr_comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('pr_comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('base_label', models.TextField(null=True, blank=True)),
+                ('base_sha', models.CharField(max_length=256, null=True, blank=True)),
+                ('head_label', models.TextField(null=True, blank=True)),
+                ('head_sha', models.CharField(db_index=True, max_length=256, null=True, blank=True)),
+                ('last_head_status', models.PositiveSmallIntegerField(default=0, choices=[(0, 'Nothing yet'), (10, 'Pending'), (20, 'Unknown'), (30, 'Error'), (40, 'Failure'), (50, 'Success')])),
+                ('merged_at', models.DateTimeField(null=True, blank=True)),
+                ('github_pr_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('mergeable', models.NullBooleanField()),
+                ('mergeable_state', models.CharField(max_length=20, null=True, blank=True)),
+                ('merged', models.NullBooleanField()),
+                ('nb_commits', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_additions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_deletions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_changed_files', models.PositiveIntegerField(null=True, blank=True)),
+                ('commits_comments_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('commits_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('commits_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('files_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('files_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('pr_reviews_fetched_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('pr_reviews_fetch_failed', models.BooleanField(default=False, db_index=True)),
+                ('pr_review_state', models.CharField(blank=True, max_length=20, null=True, choices=[(b'CHANGES_REQUESTED', 'Changes requested'), (b'APPROVED', 'Approved')])),
+                ('pr_reviews_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('assignees', models.ManyToManyField(related_name='assigned_issues', to=settings.AUTH_USER_MODEL)),
+                ('closed_by', models.ForeignKey(related_name='closed_issues', blank=True, to=settings.AUTH_USER_MODEL, null=True)),
+            ],
+            options={
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='IssueComment',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('body', models.TextField(null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('issue', models.ForeignKey(related_name='comments', to='core.Issue')),
+                ('linked_commits', models.ManyToManyField(to='core.Commit')),
+            ],
+            options={
+                'ordering': ('created_at',),
+            },
+            bases=(gim.core.models.mixins.WithIssueMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='IssueCommits',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('deleted', models.BooleanField(default=False, db_index=True)),
+                ('pull_request_head_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('commit', models.ForeignKey(related_name='related_commits', to='core.Commit')),
+                ('issue', models.ForeignKey(related_name='related_commits', to='core.Issue')),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='IssueEvent',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('event', models.CharField(db_index=True, max_length=256, null=True, blank=True)),
+                ('commit_sha', models.CharField(max_length=40, null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('related_object_id', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('issue', models.ForeignKey(related_name='events', to='core.Issue')),
+                ('related_content_type', models.ForeignKey(blank=True, to='contenttypes.ContentType', null=True)),
+            ],
+            options={
+                'ordering': ('created_at', 'github_id'),
+            },
+            bases=(gim.core.models.mixins.WithIssueMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='Label',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('name', models.TextField(db_index=True)),
+                ('lower_name', models.TextField(db_index=True)),
+                ('color', models.CharField(max_length=6)),
+                ('api_url', models.TextField(null=True, blank=True)),
+                ('typed_name', models.TextField(db_index=True)),
+                ('lower_typed_name', models.TextField(db_index=True)),
+                ('order', models.IntegerField(db_index=True, null=True, blank=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('label_type', 'order', 'lower_typed_name', 'lower_name'),
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='LabelType',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('regex', models.TextField(help_text='Must contain at least this part: <strong>(?P&lt;label&gt;visible-part-of-the-label)</strong>, and can include <strong>(?P&lt;order&gt;\\d+)</strong> for ordering<br/>If you want the order to be the label, simply do: <strong>(?P&lt;label&gt;(?P&lt;order&gt;\\d+))</strong>', validators=[django.core.validators.RegexValidator(re.compile(b'\\(\\?P<label>.+\\)'), 'Must contain a "label" part: "(?P<label>visible-part-of-the-label)"', b'no-label'), django.core.validators.RegexValidator(re.compile(b'^(?!.*\\(\\?P<order>(?!\\\\d\\+\\))).*$'), 'If an order is present, it must math a number: the exact part must be: "(?P<order>\\d+)"', b'invalid-order')])),
+                ('name', models.CharField(max_length=250)),
+                ('lower_name', models.CharField(max_length=250, db_index=True)),
+                ('edit_mode', models.PositiveSmallIntegerField(default=1, choices=[(3, 'List of labels'), (2, 'Simple format'), (1, 'Regular expression')])),
+                ('edit_details', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('is_metric', models.BooleanField(default=False, help_text='Only valid for "Simple format" or "Regular expression" groups with an "order". The order will be used as a value to do different kind of computations.<br />It can be used for example if the values are estimates, to get the total/mean/median for a list of issues')),
+            ],
+            options={
+                'ordering': ('lower_name',),
+                'verbose_name': 'Group',
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='LocallyReviewedHunk',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('path', models.TextField(null=True, blank=True)),
+                ('patch_sha', models.CharField(max_length=40)),
+                ('reviewed_at', models.DateTimeField(auto_now_add=True)),
+                ('author', models.ForeignKey(related_name='local_reviewed_files', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Mention',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('username', models.CharField(max_length=255)),
+                ('position', models.CharField(max_length=20, choices=[(b'issue_title', b'Issue title'), (b'issue_body', b'Issue body'), (b'issue_comment', b'Issue comment'), (b'pr_code_comment', b'PR code comment'), (b'commit', b'Commit text'), (b'commit_comment', b'Commit comment'), (b'commit_code_comment', b'Commit code comment')])),
+                ('object_id', models.PositiveIntegerField()),
+                ('content_type', models.ForeignKey(to='contenttypes.ContentType')),
+                ('issue', models.ForeignKey(related_name='mentions', to='core.Issue')),
+                ('user', models.ForeignKey(related_name='mentions', to=settings.AUTH_USER_MODEL, null=True)),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Milestone',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('number', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('title', models.TextField(db_index=True)),
+                ('description', models.TextField(null=True, blank=True)),
+                ('state', models.CharField(max_length=10, db_index=True)),
+                ('created_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('due_on', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('creator', models.ForeignKey(related_name='milestones', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ('-number',),
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='Project',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('name', models.TextField()),
+                ('number', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('body', models.TextField(null=True, blank=True)),
+                ('columns_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('columns_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('creator', models.ForeignKey(related_name='projects', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ('number',),
+            },
+            bases=(gim.core.models.mixins.WithRepositoryMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='ProtectedBranch',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('name', models.TextField(db_index=True)),
+                ('require_status_check', models.BooleanField(default=False)),
+                ('require_status_check_include_admins', models.BooleanField(default=False)),
+                ('require_up_to_date', models.BooleanField(default=False)),
+                ('require_approved_review', models.BooleanField(default=False)),
+                ('require_approved_review_include_admins', models.BooleanField(default=False)),
+                ('etag', models.CharField(max_length=64, null=True, blank=True)),
+            ],
+            options={
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='PullRequestComment',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('body', models.TextField(null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True)),
+                ('updated_at', models.DateTimeField(db_index=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+            ],
+            options={
+                'ordering': ('created_at',),
+            },
+            bases=(gim.core.models.mixins.WithIssueMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='PullRequestCommentEntryPoint',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('commit_sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('position', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('path', models.TextField(db_index=True, null=True, blank=True)),
+                ('diff_hunk', models.TextField(null=True, blank=True)),
+                ('created_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('updated_at', models.DateTimeField(db_index=True, null=True, blank=True)),
+                ('original_commit_sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('original_position', models.PositiveIntegerField(db_index=True, null=True, blank=True)),
+                ('issue', models.ForeignKey(related_name='pr_comments_entry_points', to='core.Issue')),
+            ],
+            options={
+                'ordering': ('created_at',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='PullRequestFile',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('path', models.TextField(db_index=True, null=True, blank=True)),
+                ('status', models.CharField(max_length=32, null=True, blank=True)),
+                ('nb_additions', models.PositiveIntegerField(null=True, blank=True)),
+                ('nb_deletions', models.PositiveIntegerField(null=True, blank=True)),
+                ('patch', models.TextField(null=True, blank=True)),
+                ('sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('patch_sha', models.CharField(max_length=40, null=True, blank=True)),
+                ('hunk_shas', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('tree', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
+                ('issue', models.ForeignKey(related_name='files', to='core.Issue')),
+            ],
+            options={
+                'ordering': ('path',),
+            },
+            bases=(gim.core.models.mixins.WithIssueMixin, models.Model),
+        ),
+        migrations.CreateModel(
+            name='PullRequestReview',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('state', models.CharField(max_length=20, choices=[(b'UNSET', 'Not reviewed'), (b'PENDING', 'Pending'), (b'COMMENTED', 'Commented'), (b'APPROVED', 'Approved'), (b'CHANGES_REQUESTED', 'Changes requested'), (b'DISMISSED', 'Dismissed')])),
+                ('body', models.TextField(null=True, blank=True)),
+                ('body_html', models.TextField(null=True, blank=True)),
+                ('submitted_at', models.DateTimeField()),
+                ('head_sha', models.CharField(db_index=True, max_length=256, null=True, blank=True)),
+                ('comments_count', models.PositiveIntegerField(null=True, blank=True)),
+                ('displayable', models.BooleanField(default=True, db_index=True)),
+                ('front_uuid', models.CharField(max_length=36, null=True, blank=True)),
+                ('author', models.ForeignKey(related_name='reviews', to=settings.AUTH_USER_MODEL)),
+                ('issue', models.ForeignKey(related_name='reviews', to='core.Issue')),
+            ],
+            options={
+                'ordering': ('submitted_at',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Repository',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('name', models.TextField(db_index=True)),
+                ('description', models.TextField(null=True, blank=True)),
+                ('private', models.BooleanField(default=False)),
+                ('is_fork', models.BooleanField(default=False)),
+                ('has_issues', models.BooleanField(default=False)),
+                ('default_branch', models.TextField(null=True, blank=True)),
+                ('first_fetch_done', models.BooleanField(default=False)),
+                ('fetch_minimal_done', models.BooleanField(default=False)),
+                ('collaborators_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('collaborators_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('milestones_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('milestones_state_open_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('milestones_state_closed_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('labels_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('labels_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('issues_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('issues_state_open_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('issues_state_closed_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('issues_state_all_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('prs_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('prs_state_open_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('prs_state_closed_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('prs_state_all_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('pr_comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('pr_comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('issues_events_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('issues_events_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('commit_comments_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('commit_comments_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('commit_comments_last_page', models.PositiveIntegerField(null=True, blank=True)),
+                ('has_commit_statuses', models.BooleanField(default=False)),
+                ('projects_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('projects_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('protected_branches_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('protected_branches_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('pr_reviews_activated', models.BooleanField(default=False)),
+                ('hook_set', models.BooleanField(default=False)),
+                ('hooks_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('hooks_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('events_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('events_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('collaborators', models.ManyToManyField(related_name='repositories', to=settings.AUTH_USER_MODEL)),
+                ('main_metric', models.OneToOneField(related_name='+', null=True, on_delete=django.db.models.deletion.SET_NULL, blank=True, to='core.LabelType')),
+                ('owner', models.ForeignKey(related_name='owned_repositories', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ('owner', 'name'),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.CreateModel(
+            name='Team',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('github_status', models.PositiveSmallIntegerField(default=1, db_index=True, choices=[(1, 'Awaiting creation'), (2, 'Awaiting update'), (3, 'Awaiting deletion'), (9, 'Saving'), (10, 'Fetched'), (21, 'Error while creating'), (22, 'Error while updating'), (23, 'Error while deleting'), (30, 'Error while fetching')])),
+                ('github_id', models.PositiveIntegerField(unique=True, null=True, blank=True)),
+                ('name', models.TextField()),
+                ('slug', models.TextField()),
+                ('permission', models.CharField(max_length=5)),
+                ('repositories_fetched_at', models.DateTimeField(null=True, blank=True)),
+                ('repositories_etag', models.CharField(max_length=64, null=True, blank=True)),
+                ('organization', models.ForeignKey(related_name='org_teams', to=settings.AUTH_USER_MODEL)),
+                ('repositories', models.ManyToManyField(related_name='teams', to='core.Repository')),
+            ],
+            options={
+                'ordering': ('name',),
+            },
+            bases=(models.Model,),
+        ),
+        migrations.AlterUniqueTogether(
+            name='repository',
+            unique_together=set([('owner', 'name')]),
+        ),
+        migrations.AddField(
+            model_name='pullrequestfile',
+            name='repository',
+            field=models.ForeignKey(related_name='pr_files', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='pullrequestfile',
+            unique_together=set([('repository', 'issue', 'tree', 'sha', 'path')]),
+        ),
+        migrations.AddField(
+            model_name='pullrequestcommententrypoint',
+            name='repository',
+            field=models.ForeignKey(related_name='pr_comments_entry_points', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='pullrequestcommententrypoint',
+            name='user',
+            field=models.ForeignKey(related_name='pr_comments_entry_points', blank=True, to=settings.AUTH_USER_MODEL, null=True),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='pullrequestcommententrypoint',
+            unique_together=set([('issue', 'original_commit_sha', 'path', 'original_position')]),
+        ),
+        migrations.AddField(
+            model_name='pullrequestcomment',
+            name='entry_point',
+            field=models.ForeignKey(related_name='comments', to='core.PullRequestCommentEntryPoint'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='pullrequestcomment',
+            name='issue',
+            field=models.ForeignKey(related_name='pr_comments', to='core.Issue'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='pullrequestcomment',
+            name='linked_commits',
+            field=models.ManyToManyField(to='core.Commit'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='pullrequestcomment',
+            name='repository',
+            field=models.ForeignKey(related_name='pr_comments', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='pullrequestcomment',
+            name='user',
+            field=models.ForeignKey(related_name='pr_comments', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='protectedbranch',
+            name='repository',
+            field=models.ForeignKey(related_name='protected_branches', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='project',
+            name='repository',
+            field=models.ForeignKey(related_name='projects', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='project',
+            unique_together=set([('repository', 'number')]),
+        ),
+        migrations.AddField(
+            model_name='milestone',
+            name='repository',
+            field=models.ForeignKey(related_name='milestones', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='mention',
+            unique_together=set([('issue', 'username', 'position', 'content_type', 'object_id')]),
+        ),
+        migrations.AddField(
+            model_name='locallyreviewedhunk',
+            name='repository',
+            field=models.ForeignKey(related_name='local_reviewed_files', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='locallyreviewedhunk',
+            unique_together=set([('repository', 'author', 'path', 'patch_sha')]),
+        ),
+        migrations.AddField(
+            model_name='labeltype',
+            name='repository',
+            field=models.ForeignKey(related_name='label_types', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterIndexTogether(
+            name='labeltype',
+            index_together=set([('repository', 'is_metric')]),
+        ),
+        migrations.AddField(
+            model_name='label',
+            name='label_type',
+            field=models.ForeignKey(related_name='labels', on_delete=django.db.models.deletion.SET_NULL, blank=True, to='core.LabelType', null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='label',
+            name='repository',
+            field=models.ForeignKey(related_name='labels', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='label',
+            unique_together=set([('repository', 'name')]),
+        ),
+        migrations.AlterIndexTogether(
+            name='label',
+            index_together=set([('repository', 'label_type', 'order')]),
+        ),
+        migrations.AddField(
+            model_name='issueevent',
+            name='repository',
+            field=models.ForeignKey(related_name='issues_events', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issueevent',
+            name='user',
+            field=models.ForeignKey(related_name='issues_events', blank=True, to=settings.AUTH_USER_MODEL, null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issuecomment',
+            name='repository',
+            field=models.ForeignKey(related_name='comments', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issuecomment',
+            name='user',
+            field=models.ForeignKey(related_name='issue_comments', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='commits',
+            field=models.ManyToManyField(related_name='issues', through='core.IssueCommits', to='core.Commit'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='labels',
+            field=models.ManyToManyField(related_name='issues', to='core.Label'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='last_head_commit',
+            field=models.ForeignKey(related_name=b'', blank=True, to='core.Commit', null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='merged_by',
+            field=models.ForeignKey(related_name='merged_prs', blank=True, to=settings.AUTH_USER_MODEL, null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='milestone',
+            field=models.ForeignKey(related_name='issues', blank=True, to='core.Milestone', null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='repository',
+            field=models.ForeignKey(related_name='issues', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='user',
+            field=models.ForeignKey(related_name='created_issues', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='issue',
+            name='user_mentions',
+            field=models.ManyToManyField(related_name='issues_mentioned', through='core.Mention', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='issue',
+            unique_together=set([('repository', 'number')]),
+        ),
+        migrations.AlterIndexTogether(
+            name='issue',
+            index_together=set([('repository', 'milestone'), ('repository', 'state'), ('repository', 'milestone', 'state')]),
+        ),
+        migrations.AddField(
+            model_name='githubnotification',
+            name='issue',
+            field=models.ForeignKey(related_name='github_notifications', blank=True, to='core.Issue', null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubnotification',
+            name='repository',
+            field=models.ForeignKey(related_name='github_notifications', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubnotification',
+            name='user',
+            field=models.ForeignKey(related_name='github_notifications', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitstatus',
+            name='repository',
+            field=models.ForeignKey(related_name='commit_statuses', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitfile',
+            name='repository',
+            field=models.ForeignKey(related_name='commit_files', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='commitfile',
+            unique_together=set([('repository', 'commit', 'sha', 'path')]),
+        ),
+        migrations.AddField(
+            model_name='commitcommententrypoint',
+            name='repository',
+            field=models.ForeignKey(related_name='commit_comments_entry_points', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitcommententrypoint',
+            name='user',
+            field=models.ForeignKey(related_name='commit_comments_entry_points', blank=True, to=settings.AUTH_USER_MODEL, null=True),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='commitcommententrypoint',
+            unique_together=set([('repository', 'commit_sha', 'path', 'position')]),
+        ),
+        migrations.AddField(
+            model_name='commitcomment',
+            name='entry_point',
+            field=models.ForeignKey(related_name='comments', to='core.CommitCommentEntryPoint'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitcomment',
+            name='linked_commits',
+            field=models.ManyToManyField(to='core.Commit'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitcomment',
+            name='repository',
+            field=models.ForeignKey(related_name='commit_comments', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commitcomment',
+            name='user',
+            field=models.ForeignKey(related_name='commit_comments', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='commit',
+            name='repository',
+            field=models.ForeignKey(related_name='commits', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='commit',
+            unique_together=set([('repository', 'sha')]),
+        ),
+        migrations.AddField(
+            model_name='column',
+            name='project',
+            field=models.ForeignKey(related_name='columns', to='core.Project'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='card',
+            name='column',
+            field=models.ForeignKey(related_name='cards', to='core.Column'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='card',
+            name='creator',
+            field=models.ForeignKey(related_name='cards', to=settings.AUTH_USER_MODEL, null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='card',
+            name='issue',
+            field=models.ForeignKey(related_name='cards', blank=True, to='core.Issue', null=True),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='availablerepository',
+            name='repository',
+            field=models.ForeignKey(to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='availablerepository',
+            name='user',
+            field=models.ForeignKey(related_name='available_repositories_set', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AlterUniqueTogether(
+            name='availablerepository',
+            unique_together=set([('user', 'repository')]),
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='available_repositories',
+            field=models.ManyToManyField(to='core.Repository', through='core.AvailableRepository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='groups',
+            field=models.ManyToManyField(related_query_name='user', related_name='user_set', to='auth.Group', blank=True, help_text='The groups this user belongs to. A user will get all permissions granted to each of his/her group.', verbose_name='groups'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='organizations',
+            field=models.ManyToManyField(related_name='organizations_rel_+', to=settings.AUTH_USER_MODEL),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='starred_repositories',
+            field=models.ManyToManyField(related_name='starred', to='core.Repository'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='teams',
+            field=models.ManyToManyField(related_name='members', to='core.Team'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='user_permissions',
+            field=models.ManyToManyField(related_query_name='user', related_name='user_set', to='auth.Permission', blank=True, help_text='Specific permissions for this user.', verbose_name='user permissions'),
+            preserve_default=True,
+        ),
+        migrations.AddField(
+            model_name='githubuser',
+            name='watched_repositories',
+            field=models.ManyToManyField(related_name='watched', to='core.Repository'),
+            preserve_default=True,
+        ),
+    ]

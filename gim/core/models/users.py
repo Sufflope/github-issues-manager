@@ -10,7 +10,7 @@ __all__ = [
 import re
 
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.generic import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.dateformat import format
@@ -593,7 +593,7 @@ class GithubNotification(WithRepositoryMixin, GithubObject):
     reason = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     issue_number = models.PositiveIntegerField(blank=True, null=True, db_index=True)
     title = models.TextField()
-    unread = models.BooleanField(db_index=True)
+    unread = models.BooleanField(default=True, db_index=True)
     previous_unread = models.NullBooleanField()
     manual_unread = models.BooleanField(default=False, db_index=True)
     last_read_at = models.DateTimeField(db_index=True, null=True)

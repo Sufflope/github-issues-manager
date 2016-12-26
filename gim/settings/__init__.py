@@ -40,6 +40,7 @@ DATETIME_FORMAT = "N j, Y P"  # Aug. 6, 2012 1:55 p.m.
 LANGUAGE_CODE = 'en-us'
 
 SITE_ID = 1
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
@@ -147,8 +148,6 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
-
-    'south',
 
     'jsonfield',
     'adv_cache_tag',

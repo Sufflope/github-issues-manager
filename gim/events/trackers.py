@@ -101,7 +101,7 @@ class ChangeTracker(object):
                         return
 
                     # prepare...
-                    self_name = cls.model._meta.module_name
+                    self_name = cls.model._meta.model_name
                     if action in ('pre_clear', 'post_clear', 'pre_replace', 'post_replace'):
                         if not hasattr(instance, '_m2m_dirty_fields'):
                             instance._m2m_dirty_fields = {}
@@ -657,5 +657,3 @@ class IssueTracker(ChangeTracker):
 
         return result
 
-
-IssueTracker.connect()

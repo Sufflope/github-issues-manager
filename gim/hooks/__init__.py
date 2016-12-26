@@ -1,3 +1,5 @@
+default_app_config = 'gim.hooks.apps.HooksConfig'
+
 EVENTS = {
     # event name in hook: event name in events api
     'issues': 'IssuesEvent',

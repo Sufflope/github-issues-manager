@@ -21,14 +21,15 @@ def m2m_replace(self, *new_objs):
     obj_ids = set()
     for obj in new_objs:
         if isinstance(obj, self.model):
-            obj_ids.add(self._get_fk_val(obj, self.target_field_name))
+            obj_id = self.through._meta.get_field(self.target_field_name).get_foreign_related_value(obj)[0]
+            obj_ids.add(obj_id)
         else:
             obj_ids.add(obj)
 
     db = router.db_for_write(self.through, instance=self.instance)
 
     to_remove = self.through._default_manager.using(db).filter(**{
-                    self.source_field_name: self._fk_val
+                    self.source_field_name: self.related_val[0]
                 }).exclude(**{
                     '%s__in' % self.target_field_name: obj_ids
                 }).order_by(
@@ -53,9 +54,6 @@ def m2m_replace(self, *new_objs):
 
 
 def m2m_descriptor__set__(self, instance, value):
-    if instance is None:
-        raise AttributeError("Manager must be accessed via instance")
-
     if not self.related.field.rel.through._meta.auto_created:
         opts = self.related.field.rel.through._meta
         raise AttributeError("Cannot set values on a ManyToManyField which specifies an intermediary model. Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
@@ -68,9 +66,6 @@ ManyRelatedObjectsDescriptor.__set__ = m2m_descriptor__set__
 
 
 def reverse_m2m_descriptor__set__(self, instance, value):
-    if instance is None:
-        raise AttributeError("Manager must be accessed via instance")
-
     if not self.field.rel.through._meta.auto_created:
         opts = self.field.rel.through._meta
         raise AttributeError("Cannot set values on a ManyToManyField which specifies an intermediary model.  Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))

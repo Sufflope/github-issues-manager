@@ -238,7 +238,7 @@ class CardNoteEditJob(CardJob):
                     self.created_pk.hset(card.pk)
                 else:
                     # force publish
-                    from gim.front.models import publish_update
+                    from gim.front.publish import publish_update
                     publish_update(card, 'updated', {})
 
         except ApiError, e:
@@ -340,7 +340,7 @@ class ColumnEditJob(ColumnJob):
                     self.created_pk.hset(column.pk)
                 else:
                     # force publish
-                    from gim.front.models import publish_update
+                    from gim.front.publish import publish_update
                     publish_update(column, 'updated', {})
 
         except ApiError, e:
@@ -476,7 +476,7 @@ class ProjectEditJob(ProjectJob):
                     self.created_pk.hset(column.pk)
                 else:
                     # force publish
-                    from gim.front.models import publish_update
+                    from gim.front.publish import publish_update
                     publish_update(project, 'updated', {})
 
         except ApiError, e:

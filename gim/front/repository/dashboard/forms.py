@@ -138,10 +138,7 @@ class LabelTypeEditForm(LinkedToRepositoryFormMixin):
 
             if metric_error:
                 if not self._errors:
-                    self._errors = {}
-                self._errors['is_metric'] = self.error_class([
-                    u'You can only set a group as metric if it has an order'
-                ])
+                    self.add_error('is_metric', u'You can only set a group as metric if it has an order')
                 return data
 
         if self.edit_mode_value == LABELTYPE_EDITMODE.FORMAT and data.get('format_string'):
