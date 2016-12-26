@@ -10,7 +10,6 @@ from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, render
-from django.utils.datastructures import SortedDict
 from django.utils.functional import cached_property
 from django.utils.http import is_safe_url
 from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
@@ -889,7 +888,7 @@ class IssueView(WithIssueViewMixin, TemplateView):
         user, the comment's count as "count", and a list of types (one or many
         of "owner", "collaborator", "submitter") as "types"
         """
-        involved = SortedDict()
+        involved = OrderedDict()
 
         def add_involved(user, is_comment=False, is_commit=False, is_review=False):
             real_user = not isinstance(user, basestring)
