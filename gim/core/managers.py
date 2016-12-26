@@ -57,14 +57,14 @@ class GithubObjectManager(BaseManager):
         that failed to be created.
         To use instead of "all" when needed
         """
-        return self.get_query_set().exclude(
+        return self.get_queryset().exclude(
                         github_status__in=self.model.GITHUB_STATUS_CHOICES.NOT_READY)
 
     def exclude_deleting(self):
         """
         Ignore all objects that are in the process of being deleted
         """
-        return self.get_query_set().exclude(
+        return self.get_queryset().exclude(
                         github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_DELETE)
 
     def get_github_callable(self, gh, identifiers):
