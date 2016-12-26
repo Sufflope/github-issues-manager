@@ -4,7 +4,7 @@ from django.views.generic.base import RedirectView
 from .views import ToggleLocallyReviewedCommitFile, ToggleLocallyReviewedPullRequestFile
 
 urlpatterns = patterns('',
-    url(r'^$', RedirectView.as_view(url='dashboard/'), name='home'),
+    url(r'^$', RedirectView.as_view(url='dashboard/', permanent=True), name='home'),
     url(r'^dashboard/', include('gim.front.repository.dashboard.urls')),
     url(r'^issues/', include('gim.front.repository.issues.urls')),
     url(r'^board/', include('gim.front.repository.board.urls')),

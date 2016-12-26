@@ -7,7 +7,7 @@ from .views import (AddRepositoryView, RemoveRepositoryView,
                     ShowRepositoryAjaxView)
 
 urlpatterns = patterns('',
-    url(r'^$', RedirectView.as_view(url=reverse_lazy("front:dashboard:home"))),
+    url(r'^$', RedirectView.as_view(url=reverse_lazy("front:dashboard:home"), permanent=True)),
     url(r'^choose/$', ChooseRepositoryView.as_view(), name='choose'),
     url(r'^add/$', AddRepositoryView.as_view(), name='add'),
     url(r'^remove/$', RemoveRepositoryView.as_view(), name='remove'),
