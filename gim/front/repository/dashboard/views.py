@@ -381,7 +381,7 @@ class LabelTypePreview(LabelTypeFormBaseViewSubscribed, UpdateView):
             queryset = self.get_queryset()
         return LabelType(repository=self.repository)
 
-    def get_form(self, form_class):
+    def get_form(self, form_class=None):
         form = super(LabelTypePreview, self).get_form(form_class)
         form.fields['name'].required = False
         return form
