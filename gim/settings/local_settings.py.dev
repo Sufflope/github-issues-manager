@@ -1,6 +1,12 @@
+DEBUG = True
 DEBUG_TOOLBAR = True
 
-TEMPLATE_LOADERS = (
+# Will be set in TEMPLATES[0]['OPTIONS']['debug']
+_TEMPLATE_DEBUG = True
+
+# Will be set in TEMPLATES[0]['OPTIONS']['loaders']
+_TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
 )
+

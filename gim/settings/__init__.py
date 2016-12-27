@@ -88,16 +88,33 @@ STATICFILES_FINDERS = (
 )
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.CachedStaticFilesStorage'
 
-# Make this unique, and don't share it with anybody.
 
-# List of callables that know how to import templates from various sources.
-TEMPLATE_LOADERS = (
-    ('django.template.loaders.cached.Loader', (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
-#     'django.template.loaders.eggs.Loader',
-    )),
-)
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'OPTIONS': {
+            'context_processors': [
+                "django.contrib.auth.context_processors.auth",
+                "django.template.context_processors.debug",
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.tz",
+                "django.contrib.messages.context_processors.messages",
+                "gim.front.context_processors.default_context_data",
+                "gim.front.context_processors.user_context",
+            ],
+            'loaders': [
+                ('django.template.loaders.cached.Loader', (
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                    # 'django.template.loaders.eggs.Loader',
+                )),
+            ]
+        }
+    }
+]
 
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
@@ -115,25 +132,6 @@ ROOT_URLCONF = 'gim.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = 'gim.wsgi.application'
-
-TEMPLATE_DIRS = (
-    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
-    # Always use forward slashes, even on Windows.
-    # Don't forget to use absolute paths, not relative paths.
-)
-
-TEMPLATE_CONTEXT_PROCESSORS = (
-    "django.contrib.auth.context_processors.auth",
-    "django.template.context_processors.debug",
-    "django.template.context_processors.i18n",
-    "django.template.context_processors.media",
-    "django.template.context_processors.static",
-    "django.template.context_processors.tz",
-    "django.contrib.messages.context_processors.messages",
-    "gim.front.context_processors.default_context_data",
-    "gim.front.context_processors.user_context",
-)
-
 
 AUTH_USER_MODEL = 'core.GithubUser'
 
@@ -386,6 +384,8 @@ FAVICON_DYN_TEXT_COLOR = get_env_variable('FAVICON_DYN_TEXT_COLOR', default='#ff
 HEADWAYAPP_ACCOUNT = get_env_variable('HEADWAYAPP_ACCOUNT', default=None)
 
 DEBUG_TOOLBAR = False
+_TEMPLATE_LOADERS = None
+_TEMPLATE_DEBUG = None
 try:
     from .local_settings import *
 except ImportError:
@@ -394,3 +394,7 @@ else:
     if DEBUG_TOOLBAR:
         INSTALLED_APPS += ('debug_toolbar', 'template_timings_panel', )
         MIDDLEWARE_CLASSES += ('debug_toolbar.middleware.DebugToolbarMiddleware', )
+    if _TEMPLATE_LOADERS is not None:
+        TEMPLATES[0]['OPTIONS']['loaders'] = _TEMPLATE_LOADERS
+    if _TEMPLATE_DEBUG is not None:
+        TEMPLATES[0]['OPTIONS']['debug'] = _TEMPLATE_DEBUG
