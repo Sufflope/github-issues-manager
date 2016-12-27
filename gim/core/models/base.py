@@ -25,6 +25,8 @@ from ..ghpool import (
 from ..managers import MODE_ALL, GithubObjectManager
 from ..utils import SavedObjects
 
+from . import django_m2m_descriptor_hack  # replace clear+add by remove+add
+
 
 class MinDateRaised(Exception):
     pass

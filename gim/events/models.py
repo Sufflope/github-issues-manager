@@ -11,8 +11,6 @@ from gim.core.utils import contribute_to_model
 
 from .renderers import IssueRenderer
 
-import django_m2m_descriptor_hack  # replace clear+add by remove+add
-
 
 class EventManager(models.Manager):
     unique_fields = {'repository', 'issue', 'created_at', 'is_update', 'related_content_type', 'related_object_id', 'related_object_id', 'title'}
