@@ -130,6 +130,7 @@ class Token(lmodel.RedisModel):
         if gh.x_oauth_scopes is not None:
             self.scopes.delete()
             if gh.x_oauth_scopes:
+                self.scopes.delete()
                 self.scopes.sadd(*gh.x_oauth_scopes)
             self.valid_scopes.hset(int(bool(gh.x_oauth_scopes)))
             if not gh.x_oauth_scopes or 'repo' not in gh.x_oauth_scopes:
