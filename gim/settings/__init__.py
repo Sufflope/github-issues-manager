@@ -146,8 +146,6 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
-
-    'jsonfield',
     'adv_cache_tag',
     'macros',
 
@@ -310,10 +308,10 @@ GITHUB_CLIENT_SECRET = get_env_variable('GITHUB_CLIENT_SECRET')
 
 GITHUB_HOOK_URL = get_env_variable('GITHUB_HOOK_URL', default=None)
 
-DATABASES = {  # default to a sqlite db "gim.db"
+DATABASES = {  # default to a postgresql db named "gim"
     'default': {
-        'ENGINE': get_env_variable('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': get_env_variable('DB_NAME', default=os.path.normpath(os.path.join(GIM_ROOT, '..', 'db', 'gim.db'))),
+        'ENGINE': get_env_variable('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': get_env_variable('DB_NAME', default='gim'),
         'USER': get_env_variable('DB_USER', default=''),
         'PASSWORD': get_env_variable('DB_PASSWORD', default=''),
         'HOST': get_env_variable('DB_HOST', default=''),

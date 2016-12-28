@@ -943,22 +943,7 @@ class BaseIssuesView(object):
         else:
             limit_reached = False
 
-        try:
-            issues = list(issues.all())
-        except DatabaseError as e:
-            # sqlite limits the vars passed in the request to 999, and
-            # prefetch_related use a in(...), and with more than 999 issues
-            # sqlite raises an error.
-            # In this case, we loop on the data by slice of 999 issues
-            if u'%s' % e != 'too many SQL variables':
-                raise
-            queryset = issues
-            issues = []
-            per_fetch = 999
-
-            iterations = int(ceil(issues_count / float(per_fetch)))
-            for iteration in range(0, iterations):
-                issues += list(queryset[iteration * per_fetch:(iteration + 1) * per_fetch])
+        issues = list(issues.all())
 
         return issues, total_count, limit_reached, original_queryset
 

@@ -4,10 +4,8 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
-from jsonfield import JSONField
-
 from gim.core.models import Repository, Issue
-from gim.core.utils import contribute_to_model
+from gim.core.utils import contribute_to_model, JSONField
 
 from .renderers import IssueRenderer
 
