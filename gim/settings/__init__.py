@@ -81,11 +81,11 @@ STATICFILES_DIRS = (
 
 # List of finder classes that know how to find static files in
 # various locations.
-STATICFILES_FINDERS = (
+STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
-)
+]
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.CachedStaticFilesStorage'
 
 
@@ -116,7 +116,7 @@ TEMPLATES = [
     }
 ]
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE_CLASSES = [
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -126,7 +126,7 @@ MIDDLEWARE_CLASSES = (
     'async_messages.middleware.AsyncMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
-)
+]
 
 ROOT_URLCONF = 'gim.urls'
 
@@ -135,7 +135,7 @@ WSGI_APPLICATION = 'gim.wsgi.application'
 
 AUTH_USER_MODEL = 'core.GithubUser'
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sites',
@@ -171,7 +171,7 @@ INSTALLED_APPS = (
     'gim.front.repository.issues',
     'gim.front.repository.dashboard',
     'gim.front.repository.board',
-)
+]
 
 DEBUG_TOOLBAR_PANELS = [
     'debug_toolbar.panels.versions.VersionsPanel',
@@ -253,10 +253,10 @@ LOGGING = {
     }
 }
 
-AUTHENTICATION_BACKENDS = (
+AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'gim.front.auth.backends.GithubBackend',
-)
+]
 
 LOGIN_URL = reverse_lazy('front:auth:login')
 
@@ -390,8 +390,8 @@ except ImportError:
     pass
 else:
     if DEBUG_TOOLBAR:
-        INSTALLED_APPS += ('debug_toolbar', 'template_timings_panel', )
-        MIDDLEWARE_CLASSES += ('debug_toolbar.middleware.DebugToolbarMiddleware', )
+        INSTALLED_APPS += ['debug_toolbar', 'template_timings_panel', ]
+        MIDDLEWARE_CLASSES += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
     if _TEMPLATE_LOADERS is not None:
         TEMPLATES[0]['OPTIONS']['loaders'] = _TEMPLATE_LOADERS
     if _TEMPLATE_DEBUG is not None:
