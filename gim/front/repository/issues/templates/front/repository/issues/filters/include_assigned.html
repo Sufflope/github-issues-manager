@@ -20,9 +20,9 @@
         {% endif %}
     </a>
     {% if deferred %}
-        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="assigned" username=issues_filter.parts.assigned %}
+        {% include "./include_users_list_deferred.html" with filter_type="assigned" username=issues_filter.parts.assigned %}
     {% else %}
-        {% include "front/repository/issues/filters/include_assigned_list.html" %}
+        {% include "./include_assigned_list.html" %}
     {% endif %}
 </li>
 {% endspaceless %}

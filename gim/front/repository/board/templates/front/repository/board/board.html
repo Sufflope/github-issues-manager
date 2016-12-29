@@ -1,4 +1,4 @@
-{% extends "front/repository/board/base.html" %}
+{% extends "./base.html" %}
 {% load staticfiles frontutils repository_tags %}
 
 {% block title %}{{ block.super }} - {{ current_board.name|capfirst }}{% endblock title %}
@@ -31,7 +31,7 @@
     <div id="board-columns" data-base_url="{{ current_board.base_url }}" data-editable="{{ board_editable|lower }}" data-key="{{ current_board.key }}" data-mode="{{ current_board.mode }}"{% if current_board.mode == 'project' and board_editable %} data-create-column-url="{{ current_board.object.get_create_column_url }}"{% endif %}>
         {% for column_key, current_column in current_board.columns.items %}
             <div class="board-column not-loaded{% if current_column.hidden %} hidden{% endif %}" data-key="{{ current_column.key }}">
-                {% include "front/repository/board/include_not_loaded_column.html" with column_url_query_string=view.request.META.QUERY_STRING %}
+                {% include "./include_not_loaded_column.html" with column_url_query_string=view.request.META.QUERY_STRING %}
             </div>
         {% endfor %}
     </div>
@@ -56,6 +56,6 @@
     {{ block.super }}
     {% include "front/repository/dashboard/chart_window.html" %}
     {% if current_board.mode == 'project' %}
-        {% include "front/repository/board/projects/project_modal.html" with project=current_board.object %}
+        {% include "./projects/project_modal.html" with project=current_board.object %}
     {% endif %}
 {% endblock modal-windows %}

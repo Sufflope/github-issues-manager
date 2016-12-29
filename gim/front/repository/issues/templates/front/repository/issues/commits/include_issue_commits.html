@@ -19,10 +19,10 @@
     {% endif %}
 </div>
 <ul class="unstyled chat-box timeline issue-activity active-commits">
-    {% include "front/repository/issues/commits/include_commits_groups.html" with groups=current_issue.get_commits_per_day id_prefix="pr-comm-" repository_source=current_issue.repository collapsed=False %}
+    {% include "./include_commits_groups.html" with groups=current_issue.get_commits_per_day id_prefix="pr-comm-" repository_source=current_issue.repository collapsed=False %}
 </ul>
 {% if current_issue.nb_deleted_commits %}
     <ul class="unstyled chat-box timeline issue-activity all-commits">
-        {% include "front/repository/issues/commits/include_commits_groups.html" with groups=current_issue.get_all_commits_per_day id_prefix="pr-all-comm-" repository_source=current_issue.repository collapsed=False %}
+        {% include "./include_commits_groups.html" with groups=current_issue.get_all_commits_per_day id_prefix="pr-all-comm-" repository_source=current_issue.repository collapsed=False %}
     </ul>
 {% endif %}

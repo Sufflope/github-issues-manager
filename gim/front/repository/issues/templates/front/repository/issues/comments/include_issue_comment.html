@@ -1,6 +1,6 @@
-{% extends "front/repository/issues/comments/include_base_comment.html" %}
+{% extends "./include_base_comment.html" %}
 {% block after_li %}
     {% if include_create_form %}
-        {% include "front/repository/issues/comments/include_issue_comment_create.html" %}
+        {% include "./include_issue_comment_create.html" %}
     {% endif %}
 {% endblock after_li %}

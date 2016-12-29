@@ -5,10 +5,10 @@
 <div class="box-section code-comments {{ classes }}" tabindex="-1">
     <ul class="unstyled chat-box timeline">
         {% for comment in comments %}
-            {% include "front/repository/issues/comments/include_code_comment.html" with include_create_form=False %}
+            {% include "./include_code_comment.html" with include_create_form=False %}
         {% endfor %}
         {% if include_create_form %}
-            {% include "front/repository/issues/comments/include_code_comment_create.html" %}
+            {% include "./include_code_comment_create.html" %}
         {% endif %}
     </ul>
 </div>

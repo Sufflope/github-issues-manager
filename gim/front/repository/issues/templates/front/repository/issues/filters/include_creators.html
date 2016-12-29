@@ -11,9 +11,9 @@
         {% endif %}
     </a>
     {% if deferred %}
-        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="created_by" username=issues_filter.parts.created_by %}
+        {% include "./include_users_list_deferred.html" with filter_type="created_by" username=issues_filter.parts.created_by %}
     {% else %}
-        {% include "front/repository/issues/filters/include_creators_list.html" %}
+        {% include "./include_creators_list.html" %}
     {% endif %}
 </li>
 {% endspaceless %}

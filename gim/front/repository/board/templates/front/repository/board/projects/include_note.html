@@ -1,4 +1,4 @@
-{% extends "front/repository/board/projects/include_base_note.html" %}
+{% extends "./include_base_note.html" %}
 {% block note-content %}
     {{ block.super }}
     {% if note.github_status != GITHUB_STATUSES.FETCHED %}
