@@ -43,8 +43,6 @@ from .base import (
 
 from .mixins import WithRepositoryMixin
 
-import username_hack  # force the username length to be 255 chars
-
 
 AVAILABLE_PERMISSIONS = Choices(
     ('pull', 'pull', 'Simple user'),  # can read, create issues
@@ -53,8 +51,18 @@ AVAILABLE_PERMISSIONS = Choices(
 )
 
 
+username_field = AbstractUser._meta.get_field('username')
+
 class GithubUser(GithubObjectWithId, AbstractUser):
     # username will hold the github "login"
+    username = models.CharField(
+        username_field.verbose_name,
+        max_length=255,
+        unique=True,
+        validators=[AbstractUser.username_validator],
+        error_messages={'unique': username_field.error_messages['unique']}
+    )
+
     username_lower = models.CharField(max_length=255, null=True)
     token = models.TextField(blank=True, null=True)
     full_name = models.TextField(blank=True, null=True)
