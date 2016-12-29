@@ -17,7 +17,7 @@
                 </span>
                 {% endif %}
             {% endwith %}
-            {% if hunk_sha and hunk_reviewed != None %}
+            {% if hunk_sha and hunk_reviewed is not None %}
                 <ul class="box-toolbar">
                     <li class="toolbar-link">
                         <a class="locally-reviewed is-{{ hunk_reviewed|yesno:",not-" }}reviewed" title="By marking a hunk as reviewed, the diff will be dimmed until it changes" data-url="{{ toggle_locally_reviewed_url }}{{ hunk_sha }}/">
