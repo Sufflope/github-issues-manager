@@ -544,7 +544,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         loader.get_template(template).render(context)
 
     @cached_method
-    def all_commits(self, include_deleted, sort=True):
+    def all_commits(self, include_deleted, sort=True, only_ready=True):
         qs = self.related_commits.select_related(
             'commit__author', 'commit__committer', 'commit__repository__owner'
         )
@@ -554,8 +554,16 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                'commit__authored_at', 'commit__committed_at'
             )
 
+        filters = {}
+
         if not include_deleted:
-            qs = qs.filter(deleted=False)
+            filters['deleted'] = False
+
+        if only_ready:
+            filters['commit__authored_at__isnull'] = False
+
+        if filters:
+            qs = qs.filter(**filters)
 
         result = []
         for c in qs:
@@ -584,7 +592,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
     def all_commit_entry_points(self):
         if not hasattr(self, '_all_commit_entry_points'):
 
-            commits = self.all_commits(True, False)  # only args for cache_method
+            commits = self.all_commits(True, False, True)  # only args for cache_method
             commits_by_pk = {commit.pk: commit for commit in commits}
 
             self._all_commit_entry_points = list(
@@ -637,7 +645,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         if self.is_pull_request:
             pr_comments = list(self.pr_comments.select_related('user'))
 
-            activity += pr_comments + self.all_commits(False)
+            activity += pr_comments + self.all_commits(False, True, True)  # only args for cache_method
 
             # group commit comments by day + commit
             cc_by_commit = {}
@@ -646,7 +654,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                                     .select_related('commit', 'user'))
 
             if len(commit_comments):
-                all_commits_by_sha = {c.sha: c for c in self.all_commits(True)}
+                all_commits_by_sha = {c.sha: c for c in self.all_commits(True, True, True)}  # only args for cache_method
                 for c in commit_comments:
 
                     if c.commit.sha in all_commits_by_sha:
@@ -698,7 +706,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         if not self.is_pull_request:
             return []
         return GroupedCommits.group_by_day(
-            self.all_commits(include_deleted)
+            self.all_commits(include_deleted, True, True)  # only args for cache_method
         )
 
     def get_all_commits_per_day(self):
@@ -836,6 +844,8 @@ class GroupedItems(list):
 
         for entry in entries:
             entry_datetime = getattr(entry, cls.date_field)
+            if not entry_datetime:
+                continue
             entry_date = entry_datetime.date()
             if not groups or entry_date != groups[-1].start_date:
                 groups.append(cls())
