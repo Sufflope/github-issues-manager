@@ -516,11 +516,17 @@ class GithubObject(models.Model):
                 # Example: a user is not anymore a collaborator, we keep the
                 # the user but remove the relation user <-> repository
                 try:
-                    instance_field.remove(*to_remove, bulk=False)
+                    if instance_field.__class__.__name__ == 'ManyRelatedManager':
+                        instance_field.remove(*to_remove)
+                    else:
+                        instance_field.remove(*to_remove, bulk=False)
                 except (AttributeError, TypeError):
                     # In some case we need objects, not PKs
                     to_remove = instance_field.model.objects.filter(pk__in=to_remove)
-                    instance_field.remove(*to_remove, bulk=False)
+                    if instance_field.__class__.__name__ == 'ManyRelatedManager':
+                        instance_field.remove(*to_remove, bulk=False)
+                    else:
+                        instance_field.remove(*to_remove)
             else:
                 # The relation cannot be removed, because the current object is
                 # a non-nullable fk of the other objects. In this case we are
@@ -551,11 +557,17 @@ class GithubObject(models.Model):
             count['added'] = len(to_add)
             if hasattr(instance_field, 'add') and not is_manual_through:
                 try:
-                    instance_field.add(*to_add, bulk=False)
+                    if instance_field.__class__.__name__ == 'ManyRelatedManager':
+                        instance_field.add(*to_add)
+                    else:
+                        instance_field.add(*to_add, bulk=False)
                 except (AttributeError, TypeError):
                     # In some case we need objects, not PKs
                     to_add = instance_field.model.objects.filter(pk__in=to_add)
-                    instance_field.add(*to_add, bulk=False)
+                    if instance_field.__class__.__name__ == 'ManyRelatedManager':
+                        instance_field.add(*to_add)
+                    else:
+                        instance_field.add(*to_add, bulk=False)
             elif has_through:
                 model = instance_field.through
                 objs = [
