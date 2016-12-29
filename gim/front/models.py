@@ -771,7 +771,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
     def user_can_add_pr_review(self, user):
         if not self.is_pull_request:
             return False
-        if not user or user.is_anonymous():
+        if not user or user.is_anonymous:
             return False
         if not self.repository.pr_reviews_activated:
             return False
