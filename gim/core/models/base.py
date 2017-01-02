@@ -200,16 +200,8 @@ class GithubObject(models.Model):
         Mode must be a tuple containing none, one or both of "create" and
         "update". If None is passed, the default is both values.
         """
-        field, _, direct, m2m = self._meta.get_field_by_name(field_name)
-        if direct:
-            # we are on a field of the current model, the objects to create or
-            # update are on the model on the other side of the relation
-            model = field.related.parent_model
-        else:
-            # the field is originally defined on the other side of the relation,
-            # we have a RelatedObject with the model on the other side of the
-            # relation to use to create or update are on the current model
-            model = field.model
+        field = self._meta.get_field(field_name)
+        model = field.related_model
 
         if not meta_base_name:
             meta_base_name = field_name
@@ -524,7 +516,7 @@ class GithubObject(models.Model):
                 try:
                     try:
                         instance_field.remove(*to_remove)
-                    except AttributeError:
+                    except (AttributeError, TypeError):
                         # In some case we need objects, not PKs
                         to_remove = instance_field.model.objects.filter(pk__in=to_remove)
                         instance_field.remove(*to_remove)
@@ -568,7 +560,12 @@ class GithubObject(models.Model):
             count['added'] = len(to_add)
             if hasattr(instance_field, 'add') and not is_manual_through:
                 try:
-                    instance_field.add(*to_add)
+                    try:
+                        instance_field.add(*to_add)
+                    except (AttributeError, TypeError):
+                        # In some case we need objects, not PKs
+                        to_add = instance_field.model.objects.filter(pk__in=to_add)
+                        instance_field.add(*to_add)
                 except DatabaseError, e:
                     # sqlite limits the vars passed in a request to 999
                     # In this case, we loop on the data by slice of 950 obj to add
@@ -595,12 +592,15 @@ class GithubObject(models.Model):
         update_fields = []
 
         if save_etags_and_fetched_at:
-            all_field_names = self._meta.get_all_field_names()
             # can we save a fetch date ?
             if not fetched_at_field:
                 fetched_at_field = '%s_fetched_at' % field_name
             setattr(self, fetched_at_field, datetime.utcnow())
-            if fetched_at_field in all_field_names:
+            try:
+                self._meta.get_field(fetched_at_field)
+            except models.FieldDoesNotExist:
+                pass
+            else:
                 update_fields.append(fetched_at_field)
 
             # do we have etags to save ?
@@ -608,7 +608,11 @@ class GithubObject(models.Model):
                 for etag_field, etag in etags.items():
                     if etag != getattr(self, etag_field, None):
                         setattr(self, etag_field, etag)
-                        if etag_field in all_field_names:
+                        try:
+                            self._meta.get_field(etag_field)
+                        except models.FieldDoesNotExist:
+                            pass
+                        else:
                             update_fields.append(etag_field)
 
         if last_page_field and hasattr(self, last_page_field) and last_page is not None:
@@ -685,9 +689,11 @@ class GithubObject(models.Model):
             else:
                 if '__' in field_name:
                     field_name, subfield_name = field_name.split('__')
-                    field, _, direct, is_m2m = self._meta.get_field_by_name(field_name)
+                    field = self._meta.get_field(field_name)
+                    is_field_direct = not field.auto_created or field.concrete
+                    is_field_m2m = field.is_relation and field.many_to_many
                     relation = getattr(self, field_name)
-                    if is_m2m or not direct:
+                    if is_field_m2m or not is_field_direct:
                         # we have a many to many relationship
                         data[key] = list(relation.order_by().values_list(subfield_name, flat=True))
                     else:

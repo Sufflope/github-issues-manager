@@ -57,14 +57,14 @@ class GithubObjectManager(BaseManager):
         that failed to be created.
         To use instead of "all" when needed
         """
-        return self.get_query_set().exclude(
+        return self.get_queryset().exclude(
                         github_status__in=self.model.GITHUB_STATUS_CHOICES.NOT_READY)
 
     def exclude_deleting(self):
         """
         Ignore all objects that are in the process of being deleted
         """
-        return self.get_query_set().exclude(
+        return self.get_queryset().exclude(
                         github_status=self.model.GITHUB_STATUS_CHOICES.WAITING_DELETE)
 
     def get_github_callable(self, gh, identifiers):
@@ -471,19 +471,22 @@ class GithubObjectManager(BaseManager):
             field_name = self.get_matching_field(key)
 
             try:
-                # get informations about the field
-                field, _, direct, is_m2m = self.model._meta.get_field_by_name(field_name)
+                # get information about the field
+                field = self.model._meta.get_field(field_name)
             except models.FieldDoesNotExist:
                 # there is not field for the given key, we pass to the next key
                 continue
+            else:
+                is_field_direct = not field.auto_created or field.concrete
+                is_field_m2m = field.is_relation and field.many_to_many
 
             # work depending of the field type
-            # TODO: nanage OneToOneField, not yet used in our models
-            if is_m2m or not direct or isinstance(field, models.ForeignKey):
+            # TODO: manage OneToOneField, not yet used in our models
+            if is_field_m2m or not is_field_direct or isinstance(field, models.ForeignKey):
                 # we have many objects to create: m2m
                 # or we have an external object to create: fk
                 if value:
-                    model = field.related.parent_model if direct else field.model
+                    model = field.related_model
                     defaults_related = {}
 
                     if defaults and 'related' in defaults:
@@ -494,7 +497,7 @@ class GithubObjectManager(BaseManager):
                         if '*' in defaults['related'] and '*' not in defaults_related:
                             defaults_related.update(defaults['related']['*'])
 
-                    if is_m2m or not direct:  # not sure: a list for a "not direct ?" (a through ?)
+                    if is_field_m2m or not is_field_direct:  # not sure: a list for a "not direct ?" (a through ?)
                         # fields['many'][field_name] = model.objects\
                         #     .create_or_update_from_list(data=value,
                         #                                 defaults=defaults_related,
@@ -515,7 +518,7 @@ class GithubObjectManager(BaseManager):
                                                         defaults=defaults_related,
                                                         saved_objects=saved_objects)
                 else:
-                    if is_m2m or not direct:
+                    if is_field_m2m or not is_field_direct:
                         fields['many'][field_name] = []
                     else:
                         fields['fk'][field_name] = None

@@ -76,8 +76,9 @@ class ChangeTracker(object):
             if not field.endswith('__ids'):
                 continue
             m2m_field = field[:-5]
-            _, _, _, is_m2m = cls.model._meta.get_field_by_name(m2m_field)
-            if not is_m2m:
+            django_field = cls.model._meta.get_field(m2m_field)
+            is_field_m2m = django_field.is_relation and django_field.many_to_many
+            if not is_field_m2m:
                 continue
 
             # use a function to avoid var pbms in loops with closures

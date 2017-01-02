@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 
 from .views import (
     BoardSelectorView, BoardView, BoardColumnView, BoardProjectColumnView,
@@ -11,7 +11,7 @@ from .views import (
     ProjectEditView, ProjectDeleteView, ProjectCreateView,
 )
 
-urlpatterns = patterns('',
+urlpatterns = [
 
     # main views
     url(r'^$', BoardSelectorView.as_view(), name=BoardSelectorView.url_name),
@@ -53,4 +53,4 @@ urlpatterns = patterns('',
     # move to columns not related to a project
     url(r'^(?P<board_mode>auto|labels)/(?P<board_key>[^/]+)/(?P<column_key>[^/]+)/can_move/(?P<issue_number>\d+)/$', BoardCanMoveIssueView.as_view(), name=BoardCanMoveIssueView.url_name),
     url(r'^(?P<board_mode>auto|labels)/(?P<board_key>[^/]+)/(?P<column_key>[^/]+)/move/(?P<issue_number>\d+)/to/(?P<to_column_key>[^/]+)/$', BoardMoveIssueView.as_view(), name=BoardMoveIssueView.url_name),
-)
+]

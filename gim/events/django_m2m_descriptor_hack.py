@@ -3,7 +3,8 @@ The goal of this hack is to avoid doing clear + add when updating m2m values.
 The problem is that this generate "clear" then "add" m2m_changed signals and
 so we are not able to track the updates.
 """
-from django.db import router
+
+from django.db import router, transaction
 from django.db.models import signals
 from django.db.models.fields.related import (
     ManyRelatedObjectsDescriptor,
@@ -56,11 +57,16 @@ def m2m_replace(self, *new_objs):
 def m2m_descriptor__set__(self, instance, value):
     if not self.related.field.rel.through._meta.auto_created:
         opts = self.related.field.rel.through._meta
-        raise AttributeError("Cannot set values on a ManyToManyField which specifies an intermediary model. Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
+        raise AttributeError(
+            "Cannot set values on a ManyToManyField which specifies an "
+            "intermediary model. Use %s.%s's Manager instead." % (opts.app_label, opts.object_name)
+        )
 
     manager = self.__get__(instance)
-    # replace clear + add by replace
-    m2m_replace(manager, *value)
+    db = router.db_for_write(manager.through, instance=manager.instance)
+    with transaction.atomic(using=db, savepoint=False):
+        # replace clear + add by replace
+        m2m_replace(manager, *value)
 
 ManyRelatedObjectsDescriptor.__set__ = m2m_descriptor__set__
 
@@ -68,10 +74,19 @@ ManyRelatedObjectsDescriptor.__set__ = m2m_descriptor__set__
 def reverse_m2m_descriptor__set__(self, instance, value):
     if not self.field.rel.through._meta.auto_created:
         opts = self.field.rel.through._meta
-        raise AttributeError("Cannot set values on a ManyToManyField which specifies an intermediary model.  Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
+        raise AttributeError(
+            "Cannot set values on a ManyToManyField which specifies an "
+            "intermediary model.  Use %s.%s's Manager instead." % (opts.app_label, opts.object_name)
+        )
+
+    # Force evaluation of `value` in case it's a queryset whose
+    # value could be affected by `manager.clear()`. Refs #19816.
+    value = tuple(value)
 
     manager = self.__get__(instance)
-    # replace clear + add by replace
-    m2m_replace(manager, *value)
+    db = router.db_for_write(manager.through, instance=manager.instance)
+    with transaction.atomic(using=db, savepoint=False):
+        # replace clear + add by replace
+        m2m_replace(manager, *value)
 
 ReverseManyRelatedObjectsDescriptor.__set__ = reverse_m2m_descriptor__set__

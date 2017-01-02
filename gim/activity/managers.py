@@ -359,7 +359,7 @@ class ActivityManagerPCC(ActivityManager):
             commit__related_commits__issue__isnull=False
             ).select_related(
                 'user',
-                'repository__user',
+                'repository__owner',
                 'commit__author',
                 'commit__committer',
             ).prefetch_related(

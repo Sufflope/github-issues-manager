@@ -44,11 +44,10 @@ def contribute_to_model(contrib, destination, to_backup=None, force_from_base_mo
     # Update or create new fields
     for field in contrib._meta.fields:
         try:
-            destination._meta.get_field_by_name(field.name)
+            current_field = destination._meta.get_field(field.name)
         except models.FieldDoesNotExist:
             field.contribute_to_class(destination, field.name)
         else:
-            current_field = destination._meta.get_field_by_name(field.name)[0]
             current_field.null = field.null
             current_field.blank = field.blank
             current_field.max_length = field.max_length

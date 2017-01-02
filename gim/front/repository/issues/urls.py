@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 
 from .views import (
     IssuesView, IssueView, IssueSummaryView, IssuePreviewView,
@@ -15,7 +15,7 @@ from .views import (
     PullRequestReviewCreateView, PullRequestReviewView, PullRequestReviewEditView,
 )
 
-urlpatterns = patterns('',
+urlpatterns = [
     url(r'^$', IssuesView.as_view(), name=IssuesView.url_name),
 
     # deferrable filters
@@ -71,4 +71,4 @@ urlpatterns = patterns('',
             url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/(?P<comment_pk>\d+)/$', CommitCommentView.as_view(), name=CommitCommentView.url_name),
             url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/(?P<comment_pk>\d+)/edit/$', CommitCommentEditView.as_view(), name=CommitCommentEditView.url_name),
             url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/(?P<comment_pk>\d+)/delete/$', CommitCommentDeleteView.as_view(), name=CommitCommentDeleteView.url_name),
-)
+]
