@@ -113,7 +113,7 @@ class CommentMixin(models.Model):
                 to_remove.append(e_commit)
 
         if to_remove:
-            self.linked_commits.remove(*to_remove, bulk=False)
+            self.linked_commits.remove(*to_remove)
 
         # add new commits if we have them
         to_add, not_found = [], []
@@ -139,7 +139,7 @@ class CommentMixin(models.Model):
                 not_found.append(new)
 
         if to_add:
-            self.linked_commits.add(*to_add, bulk=False)
+            self.linked_commits.add(*to_add)
 
         if not_found:
             from gim.core.tasks.commit import FetchCommitBySha
