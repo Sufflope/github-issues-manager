@@ -1,4 +1,4 @@
-{% extends "front/repository/board/include_not_loaded_column.html" %}
+{% extends "../include_not_loaded_column.html" %}
 
 {% block issues-additional-data %}{{ block.super }}{% if current_column.object.front_uuid %} data-front-uuid="{{ current_column.object.front_uuid }}"{% endif %}{% endblock %}
 

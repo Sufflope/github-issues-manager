@@ -8,7 +8,7 @@ class HomeView(TemplateView):
     redirect_authenticated_url = reverse_lazy('front:dashboard:home')
 
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated():
+        if request.user.is_authenticated:
             return HttpResponseRedirect(self.redirect_authenticated_url)
         return super(HomeView, self).get(request, *args, **kwargs)
 

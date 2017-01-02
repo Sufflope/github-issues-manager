@@ -1076,7 +1076,7 @@ class CommitManager(WithRepositoryManager):
         """
         obj = super(CommitManager, self).create_or_update_from_dict(
             data, modes, defaults,fetched_at_field, etag_field, saved_objects, force_update,
-            etag, ignore_github_status)
+            etag, ignore_github_status=True)  # True because can only be created remotely
 
         # We got commits from the list of commits of a PR, so we don't have files and comments
         if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):

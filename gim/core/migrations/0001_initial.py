@@ -5,7 +5,6 @@ from django.db import models, migrations
 import gim.core.models.mixins
 import re
 import django.db.models.deletion
-import jsonfield.fields
 import django.utils.timezone
 from django.conf import settings
 import django.core.validators
@@ -197,7 +196,7 @@ class Migration(migrations.Migration):
                 ('patch', models.TextField(null=True, blank=True)),
                 ('sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
                 ('patch_sha', models.CharField(max_length=40, null=True, blank=True)),
-                ('hunk_shas', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('hunk_shas', models.TextField(null=True, blank=True)),
                 ('commit', models.ForeignKey(related_name='files', to='core.Commit')),
             ],
             options={
@@ -389,7 +388,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=250)),
                 ('lower_name', models.CharField(max_length=250, db_index=True)),
                 ('edit_mode', models.PositiveSmallIntegerField(default=1, choices=[(3, 'List of labels'), (2, 'Simple format'), (1, 'Regular expression')])),
-                ('edit_details', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('edit_details', models.TextField(null=True, blank=True)),
                 ('is_metric', models.BooleanField(default=False, help_text='Only valid for "Simple format" or "Regular expression" groups with an "order". The order will be used as a value to do different kind of computations.<br />It can be used for example if the values are estimates, to get the total/mean/median for a list of issues')),
             ],
             options={
@@ -540,7 +539,7 @@ class Migration(migrations.Migration):
                 ('patch', models.TextField(null=True, blank=True)),
                 ('sha', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
                 ('patch_sha', models.CharField(max_length=40, null=True, blank=True)),
-                ('hunk_shas', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('hunk_shas', models.TextField(null=True, blank=True)),
                 ('tree', models.CharField(db_index=True, max_length=40, null=True, blank=True)),
                 ('issue', models.ForeignKey(related_name='files', to='core.Issue')),
             ],

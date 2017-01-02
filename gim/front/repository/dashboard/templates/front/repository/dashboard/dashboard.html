@@ -1,4 +1,4 @@
-{% extends "front/repository/dashboard/base.html" %}
+{% extends "./base.html" %}
 {% load frontutils staticfiles %}
 {% block body_classes %}{{block.super}} dashboard-2cols{% endblock %}
 
@@ -70,6 +70,6 @@
         </div>
     </div>{# #milestone-edit-form #}
 
-    {% include "front/repository/dashboard/chart_window.html" %}
+    {% include "./chart_window.html" %}
 
 {% endblock modal-windows %}

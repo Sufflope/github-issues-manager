@@ -2,7 +2,6 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-import jsonfield.fields
 
 
 class Migration(migrations.Migration):
@@ -37,8 +36,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('field', models.CharField(max_length=50, db_index=True)),
-                ('old_value', jsonfield.fields.JSONField(null=True, blank=True)),
-                ('new_value', jsonfield.fields.JSONField(null=True, blank=True)),
+                ('old_value', models.TextField(null=True, blank=True)),
+                ('new_value', models.TextField(null=True, blank=True)),
                 ('event', models.ForeignKey(related_name='parts', to='events.Event')),
             ],
             options={

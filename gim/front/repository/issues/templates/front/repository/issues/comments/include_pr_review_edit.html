@@ -1,4 +1,4 @@
-{% extends "front/repository/issues/comments/include_comment_edit.html" %}
+{% extends "./include_comment_edit.html" %}
 
 {% block node_class %}{{ block.super }} pr-review review-{{ review.state|lower }}{% endblock %}
 
