@@ -392,7 +392,8 @@ else:
     if DEBUG_TOOLBAR:
         INSTALLED_APPS += ['debug_toolbar', 'template_timings_panel', ]
         MIDDLEWARE_CLASSES += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
-    if _TEMPLATE_LOADERS is not None:
-        TEMPLATES[0]['OPTIONS']['loaders'] = _TEMPLATE_LOADERS
-    if _TEMPLATE_DEBUG is not None:
-        TEMPLATES[0]['OPTIONS']['debug'] = _TEMPLATE_DEBUG
+    from . import local_settings
+    if local_settings._TEMPLATE_LOADERS is not None:
+        TEMPLATES[0]['OPTIONS']['loaders'] = local_settings._TEMPLATE_LOADERS
+    if local_settings._TEMPLATE_DEBUG is not None:
+        TEMPLATES[0]['OPTIONS']['debug'] = local_settings._TEMPLATE_DEBUG
