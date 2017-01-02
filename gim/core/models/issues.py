@@ -20,7 +20,6 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from extended_choices import Choices
-from jsonfield import JSONField
 
 from gim.core.graphql_utils import (
     compose_query,
@@ -36,6 +35,8 @@ from ..managers import (
     LabelTypeManager,
     WithRepositoryManager,
 )
+
+from ..utils import JSONField
 
 from .base import (
     GithubObject,

@@ -4,7 +4,7 @@ import logging
 
 from random import choice, randint
 
-from django.db.models import get_model
+from django.apps import apps
 
 from limpyd import model as lmodel, fields as lfields
 from limpyd.contrib.collection import ExtendedCollectionManager
@@ -502,7 +502,7 @@ class DeletedInstance(lmodel.RedisModel):
     def get_instance(self):
         app_label, model_name, github_id = self.ident.hget().split('.')
         try:
-            model = get_model(app_label, model_name)
+            model = apps.get_model(app_label, model_name)
         except Exception:
             return None
         try:

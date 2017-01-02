@@ -1,7 +1,13 @@
 import gc
 from functools import wraps
 
+from django.contrib.postgres import fields
 from django.db import models
+
+
+class JSONField(fields.JSONField):
+    def db_type(self, connection):
+        return 'json'
 
 
 def contribute_to_model(contrib, destination, to_backup=None, force_from_base_model=None):
