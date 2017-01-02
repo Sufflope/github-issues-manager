@@ -111,6 +111,10 @@ class GithubNotificationsFilters(BaseIssuesFilters):
         }),
     ])
 
+    def __init__(self):
+        super(GithubNotificationsFilters, self).__init__()
+        self.read_filter = None
+
     def _get_read(self, qs_parts):
         """
         Return the valid "read status" flag to use, or None
@@ -144,7 +148,10 @@ class GithubNotificationsFilters(BaseIssuesFilters):
 
     @cached_property
     def allowed_repositories(self):
-        repositories = set(n.repository.full_name for n in self.github_notifications)
+        if self.read_filter is None:
+            repositories = set(n.repository.full_name for n in self.github_notifications)
+        else:
+            repositories = set(n.repository.full_name for n in self.github_notifications if n.unread is not self.read_filter)
         return sorted(repositories, key=lambda full_name: full_name.lower())
 
     def _get_repository(self, qs_parts):
@@ -163,11 +170,11 @@ class GithubNotificationsFilters(BaseIssuesFilters):
             super(GithubNotificationsFilters, self).get_filter_parts(qs_parts)
 
         # filter by unread status
-        is_read = self._get_read(qs_parts)
-        if is_read is not None:
-            qs_filters['read'] = self.allowed_reads[is_read]
-            filter_objects['read'] = is_read
-            query_filters['githubnotification__unread'] = not is_read
+        self.read_filter = self._get_read(qs_parts)
+        if self.read_filter is not None:
+            qs_filters['read'] = self.allowed_reads[self.read_filter]
+            filter_objects['read'] = self.read_filter
+            query_filters['githubnotification__unread'] = not self.read_filter
 
         # filter by subscribed status
         is_active = self._get_active(qs_parts)
