@@ -53,6 +53,16 @@ body {
     }
 }
 
+.dropdown-submenu.pull-left a:after {
+    margin-right: 0;
+    margin-left: -10px;
+    border-color: transparent;
+    border-right-color: #ccc;
+    border-width: 5px 5px 5px 0;
+    float: left;
+
+}
+
 @include keyframes(breathing-notifications-counter) {
     0% {
         @include transform(scale(1));
@@ -77,6 +87,16 @@ body {
     }
     &.new-notifications {
         @include animation(breathing-notifications-counter 5s infinite normal);
+    }
+}
+#github-notifications-menu-list {
+    > li > a:after {
+        margin-top: -5px;
+        margin-left: -15px;
+    }
+    small {
+        display: block;
+        margin-left: 19px;
     }
 }
 

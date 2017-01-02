@@ -10,7 +10,8 @@ from django.views.generic.base import TemplateView
 from django.views.generic.edit import UpdateView
 
 from gim.core.models import Issue, GithubNotification
-from gim.front.mixins.views import BaseIssuesView, BaseIssuesFilters
+from gim.front.mixins.views import BaseIssuesView, BaseIssuesFilters, WithAjaxRestrictionViewMixin
+
 
 GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: group_by for group_by in [
     ('unread', {
@@ -328,6 +329,11 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
         return select_related, prefetch_related
 
 
+class GithubNotificationsLastForMenu(WithAjaxRestrictionViewMixin, TemplateView):
+    template_name = 'front/github_notifications/include_notifications_menu_list.html'
+    ajax_only = True
+
+
 class GithubNotificationEditView(UpdateView):
     model = GithubNotification
     fields = ['unread', 'subscribed']
@@ -340,8 +346,8 @@ class GithubNotificationEditView(UpdateView):
     def get_form_kwargs(self):
         kwargs = super(GithubNotificationEditView, self).get_form_kwargs()
         kwargs['data'] = {
-            'unread': not bool(self.request.POST.get('read')),
-            'subscribed': bool(self.request.POST.get('active')),
+            'unread': not bool(int(self.request.POST.get('read', 0) or 0)),
+            'subscribed': bool(int(self.request.POST.get('active', 0) or 0)),
         }
 
         return kwargs
@@ -359,6 +365,7 @@ class GithubNotificationEditView(UpdateView):
             'manual_unread': self.object.manual_unread,
             'count': self.request.user.unread_notifications_count,
             'last': self.request.user.last_unread_notification_date,
+            'hash': self.request.user.last_github_notifications_hash,
         }
         if data['last']:
             data['last'] = format(data['last'], 'r')

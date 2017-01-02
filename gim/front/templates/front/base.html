@@ -26,6 +26,7 @@
                 {% block header_nav %}{% endblock header_nav %}
                 <ul class="nav full pull-right">
                     {% if user and user.is_authenticated %}
+                        {% with github_notifications_count=user.unread_notifications_count %}
                         <li class="dropdown user-avatar">
                             <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
                                 <span>
@@ -34,22 +35,24 @@
                                         {{ user.username }}
                                     </span>
                                     <i class="fa fa-caret-down"></i>
-                                    <span id="github-notifications-count" data-last="{{ github_notifications_last_date|date:'r' }}" data-count="{{ github_notifications_count }}" class="badge badge-dark-red{% if not github_notifications_count %} no-notifications{% endif %}">{{ github_notifications_count }}</span>
+                                    <span id="github-notifications-count" data-last="{{ user.last_unread_notification_date|date:'r' }}" data-count="{{ github_notifications_count }}" class="badge badge-dark-red{% if not github_notifications_count %} no-notifications{% endif %}">{{ github_notifications_count }}</span>
                                 </span>
                             </a>
                             <ul class="dropdown-menu" role="menu" aria-label="Main accesses">
                                 <li><a href="{% url "front:dashboard:home" %}"><i class="fa fa-tachometer fa-fw"> </i> Your dashboard</a></li>
-                                <li title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}" id="github-notifications-menu">
-                                    <a href="{{ github_notifications_url }}">
+                                <li id="github-notifications-menu"{% if github_notifications_count %} class="dropdown-submenu pull-left"{% endif %} data-last-notifications-hash="{{ user.last_github_notifications_hash }}" data-last-notifications-url="{{ github_notifications_last_url }}">
+                                    <a href="{{ github_notifications_url }}" title="{% if github_notifications_count %}You have {{ github_notifications_count }} unread notification{{ github_notifications_count|pluralize }}{% else %}You don't have unread notifications{% endif %}">
                                         <span class="label {% if github_notifications_count %} label-dark-red{% endif %} pull-right">{{ github_notifications_count|default:0 }}</span>
                                         <i class="fa fa-envelope fa-fw"> </i>
                                         Notifications
                                     </a>
+                                    {% include "front/github_notifications/include_notifications_menu_list.html" %}
                                 </li>
                                 <li class="divider"></li>
                                 <li><a href="{% url "front:auth:logout" %}"><i class="fa fa-sign-out fa-fw"> </i> Logout</a></li>
                             </ul>
                         </li>
+                        {% endwith %}
                     {% else %}
                         <li class="login"><a href="{% url "front:auth:login" %}"><i class="fa fa-github fa-fw"> </i> Login with Github</a></li>
                     {% endif %}
