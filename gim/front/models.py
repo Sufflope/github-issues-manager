@@ -165,15 +165,6 @@ class _GithubUser(Hashable, models.Model):
                 }
             ).select_related('owner').order_by('owner__username_lower', 'lower_name')
 
-    @cached_property
-    def unread_notifications_count(self):
-        return self.github_notifications.filter(unread=True, issue__isnull=False).count()
-
-    @cached_property
-    def last_unread_notification_date(self):
-        return self.github_notifications.filter(
-            unread=True, issue__isnull=False).order_by('-updated_at').values_list('updated_at', flat=True).first()
-
 
 class _Repository(models.Model):
     class Meta:
@@ -1096,6 +1087,10 @@ class _GithubNotification(models.Model):
 
     def get_edit_url(self):
         return reverse_lazy('front:github-notifications:edit', kwargs={'notif_id': self.pk})
+
+    @classmethod
+    def get_last_url(cls):
+        return reverse_lazy('front:github-notifications:last')
 
 
 class _PullRequestReview(Hashable, FrontEditable):
