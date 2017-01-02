@@ -6275,9 +6275,13 @@ $().ready(function() {
                 ident = HoverIssue.get_issue_ident($node),
                 placement = HoverIssue.popover_options.placement,
                 $parent_popover, parent_node,
-                onShow = null, child_popover_left=null;
+                onShow = null, child_popover_left = null;
 
-            if ($node.closest('.issue-item, .activity-feed').length) {
+            if ($node.data('popover-placement')) {
+                placement = $node.data('popover-placement');
+            } else if ($node.closest('#github-notifications-menu').length) {
+                placement = 'bottom';
+            } else if ($node.closest('.issue-item, .activity-feed').length) {
                 placement = 'horizontal';
             } else {
                 $parent_popover = $node.closest('.webui-popover-hover-issue');
@@ -6540,6 +6544,8 @@ $().ready(function() {
         orig_count: null,
         orig_last: null,
         orig_date: null,
+        hash: null,
+        last_url: null,
 
         disable_form: function ($form) {
             var $inputs = $form.find('input[type=checkbox]');
@@ -6604,6 +6610,40 @@ $().ready(function() {
                 .always(function () { GithubNotifications.enable_form($form); });
         }, // post_form
 
+        on_mark_as_read_in_notification_menu_click: function(ev) {
+            var $link = $(this),
+                data = {
+                    read: 1,
+                    active: $link.data('active') ? 1 : 0,
+                    csrfmiddlewaretoken: $body.data('csrf')
+                },
+                $ul = $link.closest('ul'),
+                action = $ul.data('edit-url'),
+                $form = null;
+
+            if (!action) { return; }
+
+            $ul.find('li.with-mark-notification-as-read-link').addClass('disabled');
+
+            if (GithubNotifications.on_page) {
+                $form = $('form[action="' + action + '"]');
+                if ($form.length) {
+                    GithubNotifications.disable_form($form);
+                } else {
+                    $form = null;
+                }
+            }
+
+            $.post(action, data)
+                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .fail(function() {
+                    $ul.find('li.with-mark-notification-as-read-link').removeClass('disabled');
+                })
+                .always(function () {if ($form) { GithubNotifications.enable_form($form); }});
+
+        }, // on_mark_as_read_in_notification_menu_click
+
         on_post_submit_done: function (data) {
             var $form = this;
             if (!data || !data.status) {
@@ -6612,17 +6652,19 @@ $().ready(function() {
             if (data.status != 'OK') {
                 return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
             }
-            GithubNotifications.save_values($form, data.values);
 
-            GithubNotifications.apply_values($form, data.values);
-            $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
-            $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
-
-            $form.data('manual-unread', data.manual_unread);
+            if ($form) {
+                GithubNotifications.save_values($form, data.values);
+                GithubNotifications.apply_values($form, data.values);
+                $form.find('[data-filter^="active:"]').data('filter', 'active:' + (data.values.active ? 'yes' : 'no'));
+                $form.find('[data-filter^="unread:"]').data('filter', 'unread:' + (data.values.read ? 'no' : 'yes'));
+                $form.data('manual-unread', data.manual_unread);
+            }
 
             GithubNotifications.on_notifications_ping(null, null, {
                 count: data.count,
-                last: data.last
+                last: data.last,
+                hash: data.hash
             });
 
         }, // on_post_submit_done
@@ -6631,11 +6673,12 @@ $().ready(function() {
             var $form=this,
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
             MessagesManager.add_messages([MessagesManager.make_message(error_msg, 'error')]);
-            GithubNotifications.apply_values($form, data.values);
+            if ($form) { GithubNotifications.apply_values($form, data.values); }
             if (data.values) {
                 GithubNotifications.on_notifications_ping(null, null, {
                     count: data.count,
-                    last: data.last
+                    last: data.last,
+                    hash: data.hash
                 });
             }
         }, // on_post_submit_failed
@@ -6708,7 +6751,16 @@ $().ready(function() {
                 new_count = kwargs.count || 0,
                 new_last = kwargs.last,
                 new_date = null,
-                to_notify = false;
+                to_notify = false,
+                old_hash = GithubNotifications.hash,
+                new_hash = kwargs.hash;
+
+            // reload last 10 if needed
+            if (new_hash != old_hash) {
+                GithubNotifications.hash = new_hash;
+                GithubNotifications.$menu_node.data('last-notifications-hash', new_hash);
+                GithubNotifications.reload_last_ones();
+            }
 
             GithubNotifications.current_count = new_count;
 
@@ -6745,14 +6797,31 @@ $().ready(function() {
             GithubNotifications.orig_date = new_date;
 
             GithubNotifications.update_favicon();
-
         }, // on_notifications_ping
+
         update_favicon: function (force) {
             var count = GithubNotifications.current_count;
             if (!force && count == GithubNotifications.previous_count) { return; }
             GithubNotifications.previous_count = count;
             Favicon.set_val(count > 99 ? '99+' : count);
         }, // update_favicon
+
+        reload_last_ones: function() {
+            $.get(GithubNotifications.last_url).done(function (data) {
+                var $list = $('#github-notifications-menu-list');
+                if (data) {
+                    if (!$list.length) {
+                        GithubNotifications.$menu_node.addClass('dropdown-submenu pull-left');
+                        $list = $('<ul class="dropdown-menu" id="github-notifications-menu-list"></ul>');
+                        GithubNotifications.$menu_node.append($list);
+                    }
+                    $list.replaceWith(data);
+                } else {
+                    $list.remove();
+                    GithubNotifications.$menu_node.removeClass('dropdown-submenu pull-left');
+                }
+            });
+        },
 
         init: function () {
             if (GithubNotifications.$count_node.length) {
@@ -6763,8 +6832,11 @@ $().ready(function() {
                 if (GithubNotifications.orig_last) {
                     GithubNotifications.orig_date = new Date(GithubNotifications.orig_last);
                 }
+                GithubNotifications.hash = GithubNotifications.$menu_node.data('last-notifications-hash');
+                GithubNotifications.last_url = GithubNotifications.$menu_node.data('last-notifications-url');
                 GithubNotifications.init_subscription();
             }
+            $document.on('click', 'li.with-mark-notification-as-read-link:not(.disabled) a', GithubNotifications.on_mark_as_read_in_notification_menu_click);
             if (!GithubNotifications.on_page) { return; }
             GithubNotifications.init_item_forms();
             jwerty.key('shift+r', GithubNotifications.on_current_issue_toggle_event('read'));

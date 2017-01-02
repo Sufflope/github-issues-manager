@@ -487,8 +487,35 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         publisher.publish(
             topic='gim.front.user.%s.notifications.ping' % self.wamp_topic_key,
             count=self.unread_notifications_count,
+            hash=self.last_github_notifications_hash,
             last=last,
         )
+
+    @cached_property
+    def unread_notifications_count(self):
+        return self.github_notifications.filter(unread=True, issue__isnull=False).count()
+
+    @cached_property
+    def last_github_notifications(self):
+        return list(self.github_notifications.filter(
+            unread=True, issue__isnull=False
+        ).order_by(
+            '-updated_at'
+        ).select_related(
+            'issue__repository__owner'
+        )[:10])
+
+    @cached_property
+    def last_unread_notification_date(self):
+        try:
+            return self.last_github_notifications.first().updated_at
+        except AttributeError:
+            return None
+
+    @cached_property
+    def last_github_notifications_hash(self):
+        pks = [notification.pk for notification in self.last_github_notifications]
+        return hash(tuple(pks))
 
     def get_repos_pks_with_permissions(self, *permissions):
         """
@@ -497,6 +524,7 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         return self.available_repositories_set.filter(
             permission__in=permissions
         ).values_list('repository_id', flat=True)
+
 
 class Team(GithubObjectWithId):
     organization = models.ForeignKey('GithubUser', related_name='org_teams')

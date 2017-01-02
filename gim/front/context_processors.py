@@ -4,7 +4,7 @@ from uuid import uuid4
 from django.conf import settings
 
 from gim import hashed_version
-from gim.core.models import GITHUB_STATUS_CHOICES
+from gim.core.models import GITHUB_STATUS_CHOICES, GithubNotification
 from gim.ws import publisher, sign
 
 
@@ -61,9 +61,8 @@ def user_context(request):
 
         context.update({
             'wamp_topic_key': request.user.wamp_topic_key,
-            'github_notifications_count': request.user.unread_notifications_count,
-            'github_notifications_last_date': request.user.last_unread_notification_date,
             'github_notifications_url': GithubNotifications.get_default_url(),
+            'github_notifications_last_url': GithubNotification.get_last_url(),
         })
 
     return context
