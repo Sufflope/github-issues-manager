@@ -52,7 +52,7 @@ class Connection(GitHub):
                     need_new = False
 
         if need_new:
-            # createa new valid connection
+            # create a new valid connection
             cls.pool[auth['username']] = cls(**auth)
 
         # return the old or new connection in the pool
@@ -60,7 +60,7 @@ class Connection(GitHub):
 
     def __init__(self, username=None, password=None, access_token=None, client_id=None, client_secret=None, redirect_uri=None, scope=None):
         """
-        Save auth informations in a dict to be able to retrieve it to generate
+        Save auth information in a dict to be able to retrieve it to generate
         a new connection (for example in async jobs)
         """
         self._connection_args = {}

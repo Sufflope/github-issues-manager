@@ -499,14 +499,10 @@ def values(dict_like):
     return dict_like.values()
 
 
-@register.filter(name='is')
-def _is(value, comparison):
-    return value is comparison
-
-
 @register.filter
 def get_absolute_url_for_issue(obj, issue):
     return obj.get_absolute_url_for_issue(issue)
+
 
 @register.filter
 def user_can_add_pr_review(issue, user):

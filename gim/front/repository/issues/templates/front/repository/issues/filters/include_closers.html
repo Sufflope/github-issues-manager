@@ -11,9 +11,9 @@
         {% endif %}
     </a>
     {% if deferred %}
-        {% include "front/repository/issues/filters/include_users_list_deferred.html" with filter_type="closed_by" username=issues_filter.parts.closed_by %}
+        {% include "./include_users_list_deferred.html" with filter_type="closed_by" username=issues_filter.parts.closed_by %}
     {% else %}
-        {% include "front/repository/issues/filters/include_closers_list.html" %}
+        {% include "./include_closers_list.html" %}
     {% endif %}
 </li>
 {% endspaceless %}

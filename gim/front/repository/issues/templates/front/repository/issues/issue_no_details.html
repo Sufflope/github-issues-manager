@@ -1,5 +1,5 @@
 {% load issues_tags %}
 <article class='issue-content' data-issue-id="{{ current_issue.pk }}" data-issue-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}">
-    {% include 'front/repository/issues/issue_header.html' %}
-    {% include 'front/repository/issues/issue_description.html' %}
+    {% include './issue_header.html' %}
+    {% include './issue_description.html' %}
 </article>

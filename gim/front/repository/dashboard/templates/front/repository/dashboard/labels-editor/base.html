@@ -1,4 +1,4 @@
-{% extends "front/repository/dashboard/base.html" %}
+{% extends "../base.html" %}
 {% load staticfiles %}
 
 {% block extra_css %}
@@ -43,7 +43,7 @@
     <div class="span9">
 
     <div id="labels-editor-content">
-        {% include "front/repository/dashboard/labels-editor/include-content.html" %}
+        {% include "./include-content.html" %}
     </div>
 
     <div id="label-type-edit-form" class="modal fancy hide fade" data-keyboard="false">

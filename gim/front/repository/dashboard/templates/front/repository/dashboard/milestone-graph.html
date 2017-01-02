@@ -40,12 +40,12 @@
 
 <div id="milestone-metric-stats" class="alert alert-info">
     <div id="milestone-metric-stats-all" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (for "|concat:all_stats.count_total|concat:" open+closed issues)" %}
+        {% include "./include-metrics-stats.html" with metric_stats=all_stats querystring_parts=all_querystring_parts metric_title_addon=" (for "|concat:all_stats.count_total|concat:" open+closed issues)" %}
     </div>
 
     {% if open_stats %}
     <div id="milestone-metric-stats-open" class="metric-stats">
-        {% include "front/repository/dashboard/include-metrics-stats.html" with metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (for "|concat:open_stats.count_total|concat:" open issues)" %}
+        {% include "./include-metrics-stats.html" with metric_stats=open_stats querystring_parts=open_querystring_parts metric_title_addon=" (for "|concat:open_stats.count_total|concat:" open issues)" %}
     </div>
     {% endif %}
 </div>

@@ -6,10 +6,13 @@ from twisted.internet.defer import inlineCallbacks
 from autobahn.twisted.util import sleep as txsleep
 from autobahn.twisted.wamp import ApplicationSession
 
+import django
 from django.utils.dateformat import format
 
 from gim import ws, hashed_version
 
+
+django.setup()
 
 logger = logging.getLogger('gim.ws.pinger')
 

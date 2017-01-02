@@ -152,7 +152,7 @@
                 <div class="pr-merge-status">
                     {% if current_issue.state == 'open' or not current_issue.merged %}
                         {# cannot reopen a merged-closed issue #}
-                        {% include "front/repository/issues/include_issue_big_infos.html" %}
+                        {% include "./include_issue_big_infos.html" %}
                     {% endif %}
                     {% if current_issue.state == 'open' %}
                         {% if current_issue.is_mergeable %}
@@ -323,7 +323,7 @@
                     <div id="pr-reviews-detail-{{ pr_reviews_uuid }}" class="pr-reviews-detail collapse">
                         <ul class="unstyled chat-box timeline issue-activity">
                             {% for pr_review in current_issue.get_pr_reviews_activity reversed %}
-                                {% include "front/repository/issues/activity/include_pr_review.html" with review=pr_review comment=pr_review %}
+                                {% include "./activity/include_pr_review.html" with review=pr_review comment=pr_review %}
                             {% endfor %}
                         </ul>
                     </div>
@@ -331,7 +331,7 @@
                 {% endwith %}
             {% endif %}
         {% elif current_issue_edit_level %}
-            {% include "front/repository/issues/include_issue_big_infos.html" %}
+            {% include "./include_issue_big_infos.html" %}
         {% endif %}
     </div>
 {% elif not current_issue.number %}

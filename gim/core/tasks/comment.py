@@ -74,7 +74,7 @@ class CommentEditJob(IssueCommentJob):
                     delta = 1
                 else:
                     # force publish
-                    from gim.front.models import publish_update
+                    from gim.front.publish import publish_update
                     publish_update(comment, 'updated', {})
 
         except ApiError, e:

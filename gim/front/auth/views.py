@@ -71,11 +71,11 @@ class ConfirmView(BaseGithubAuthView):
         # get the token for the given code
         try:
             gh = self.get_github_connection()
-            token = gh.get_access_token(code)
+            token, scopes = gh.get_access_token_and_scopes(code)
         except:
             token = None
 
-        if not token:
+        if not token or not scopes:
             return False, "Authentication failed, please retry"
 
         # do we have a user for this token ?
@@ -87,22 +87,22 @@ class ConfirmView(BaseGithubAuthView):
             user_with_token.token = None
             user_with_token.save(update_fields=['token'])
 
-        # get informations about this user
+        # get information about this user
         try:
-            user_infos = Connection(access_token=token).user.get()
+            user_info = Connection(access_token=token).user.get()
         except:
-            user_infos = None
+            user_info = None
 
-        if not user_infos:
-            return False, "Cannot get user informations, please retry"
+        if not user_info:
+            return False, "Cannot get user information, please retry"
 
         # create/update and get a user with the given infos and token
         try:
             user = GithubUser.objects.create_or_update_from_dict(
-                                        data=user_infos,
+                                        data=user_info,
                                         defaults={'simple': {'token': token}})
         except:
-            return False, "Cannot save user informations, please retry"
+            return False, "Cannot save user information, please retry"
 
         # reject banned users
         if not user.is_active:
@@ -120,19 +120,26 @@ class ConfirmView(BaseGithubAuthView):
         from gim.core.limpyd_models import Token
         token_object, __ = Token.get_or_connect(token=token)
         token_object.username.hset(user.username)
+        # set the scopes too
+        token_object.scopes.delete()
+        token_object.scopes.sadd(*scopes)
+        token_object.valid_scopes.hset(1)
 
         # remove other tokens for this username that are not valid anymore
+        new_user = True
         for user_token in list(Token.collection(username=user.username).instances()):
-            if user_token.token.hget() != token and not user_token.valid_scopes.hget():
-                user_token.delete()
+            if user_token.token.hget() != token:
+                new_user = False
+                if not user_token.valid_scopes.hget():
+                    user_token.delete()
 
         # add a job to fetch available repositories
-        job = FetchAvailableRepositoriesJob.add_job(user.id, inform_user=1)
+        FetchAvailableRepositoriesJob.add_job(user.id, inform_user=1)
 
-        if job.status == STATUSES.DELAYED:
-            return True, "Authentication successful, welcome back!"
-        else:
+        if new_user:
             return True, "Authentication successful, we are currently fetching repositories you can subscribe to (ones you own, collaborate to, or in your organizations)"
+        else:
+            return True, "Authentication successful, welcome back!"
 
     def get_redirect_url(self):
         auth_valid, message = self.complete_auth()

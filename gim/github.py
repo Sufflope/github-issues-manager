@@ -129,7 +129,7 @@ class GitHub(object):
             kw['state'] = state
         return 'https://github.com/login/oauth/authorize?%s' % _encode_params(kw)
 
-    def get_access_token(self, code, state=None, timeout=None):
+    def get_access_token_and_scopes(self, code, state=None, timeout=None):
         '''
         In callback url: http://host/callback?code=123&state=xyz
 
@@ -149,7 +149,7 @@ class GitHub(object):
             r = _parse_json(response.read())
             if 'error' in r:
                 raise ApiAuthError(str(r.error))
-            return str(r.access_token)
+            return str(r.access_token), SCOPE_SPLITTER.split(r.get('scope', ''))
         except urllib2.HTTPError:
             raise ApiAuthError('HTTPError when get access token')
 

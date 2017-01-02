@@ -10,7 +10,7 @@ from gim.ws import publisher, sign
 
 def auth_keys(request):
 
-    if not request.user or request.user.is_anonymous():
+    if not request.user or request.user.is_anonymous:
         return {}
 
     return {
@@ -56,7 +56,7 @@ def user_context(request):
         'auth_keys': auth_keys(request),
     }
 
-    if request.user and request.user.is_authenticated():
+    if request.user and request.user.is_authenticated:
         from gim.front.github_notifications.views import GithubNotifications
 
         context.update({

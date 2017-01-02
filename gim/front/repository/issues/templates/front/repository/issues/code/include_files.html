@@ -116,7 +116,7 @@
                     </span>
                 </div>
                 <ul class="box-toolbar">
-                    {% if file.reviewed_locally != None %}
+                    {% if file.reviewed_locally is not None %}
                         <li class="toolbar-link">
                             <a class="locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ toggle_locally_reviewed_url }}">
                                 <span>
@@ -136,7 +136,7 @@
             <div class="box-content collapse {% if file.reviewed_locally %}is-reviewed{% else %}in{% endif %}" id="code-file-{{ file.id }}-content">
                 {% if file.patch %}
                     <div class="box-section code-diff">
-                        {% include "front/repository/issues/code/include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url can_add_new_entry_point=True %}
+                        {% include "./include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url can_add_new_entry_point=True %}
                     </div>
                 {% else %}
                     <div class="box-section no-diff">

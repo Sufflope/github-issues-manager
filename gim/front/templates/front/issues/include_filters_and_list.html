@@ -19,7 +19,7 @@
         <div class="issues-list-title{% block list-title-classes %}{% endblock %}" title="{% block list-title-description %}{{ list_description|default_if_none:""|capfirst }}{% endblock %}"{%  block list-title-attrs %}{% endblock %}>{%  block list-title-content %}{{ list_title|capfirst }}{% endblock %}</div>
     {% endif %}
     {% include view.options_template_name %}
-    {% include "front/issues/include_quicksearch.html" %}
+    {% include "./include_quicksearch.html" %}
     <div id="issues-list-{{ list_uuid }}" class='{% block issues-list-classes %}issues-list{% endblock %}' data-quicksearch="#issues-list-search-{{ list_uuid }} input" data-group_by-key="{{ issues_filter.objects.group_by|group_by_filter_key }}" data-url="{{ current_issues_url }}?{{ view.request.META.QUERY_STRING }}" data-base-url="{{ current_issues_url }}" data-sort-field="{{ issues_filter.parts.sort }}" data-sort-direction="{{ issues_filter.parts.direction }}"{% block issues-additional-data %}{% endblock issues-additional-data %}>
         {% if not issues_count %}
             <div class="alert alert-info no-issues">

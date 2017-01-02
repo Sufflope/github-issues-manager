@@ -10,12 +10,12 @@ import hashlib
 from django.db import models, IntegrityError
 from django.utils.functional import cached_property
 
-from jsonfield import JSONField
-
 from ..managers import (
     PullRequestFileManager,
     WithCommitManager,
 )
+
+from ..utils import JSONField
 
 from .base import (
     GithubObject,

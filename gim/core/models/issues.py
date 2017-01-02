@@ -12,15 +12,14 @@ from collections import OrderedDict
 from datetime import datetime
 import re
 
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes import generic
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
 
 from extended_choices import Choices
-from jsonfield import JSONField
 
 from gim.core.graphql_utils import (
     compose_query,
@@ -36,6 +35,8 @@ from ..managers import (
     LabelTypeManager,
     WithRepositoryManager,
 )
+
+from ..utils import JSONField
 
 from .base import (
     GithubObject,
@@ -81,7 +82,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     base_sha = models.CharField(max_length=256, blank=True, null=True)
     head_label = models.TextField(blank=True, null=True)
     head_sha = models.CharField(max_length=256, blank=True, null=True, db_index=True)
-    last_head_commit = models.ForeignKey('Commit', related_name='', blank=True, null=True)
+    last_head_commit = models.ForeignKey('Commit', related_name='last_head_prs', blank=True, null=True)
     last_head_status = models.PositiveSmallIntegerField(
         default=GITHUB_COMMIT_STATUS_CHOICES.NOTHING, choices=GITHUB_COMMIT_STATUS_CHOICES)
     merged_at = models.DateTimeField(blank=True, null=True)
@@ -752,7 +753,7 @@ class IssueEvent(WithIssueMixin, GithubObjectWithId):
 
     related_content_type = models.ForeignKey(ContentType, blank=True, null=True)
     related_object_id = models.PositiveIntegerField(blank=True, null=True, db_index=True)
-    related_object = generic.GenericForeignKey('related_content_type',
+    related_object = GenericForeignKey('related_content_type',
                                                'related_object_id')
 
     objects = IssueEventManager()

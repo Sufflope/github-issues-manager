@@ -40,6 +40,7 @@ DATETIME_FORMAT = "N j, Y P"  # Aug. 6, 2012 1:55 p.m.
 LANGUAGE_CODE = 'en-us'
 
 SITE_ID = 1
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
@@ -80,25 +81,42 @@ STATICFILES_DIRS = (
 
 # List of finder classes that know how to find static files in
 # various locations.
-STATICFILES_FINDERS = (
+STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
-)
+]
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.CachedStaticFilesStorage'
 
-# Make this unique, and don't share it with anybody.
 
-# List of callables that know how to import templates from various sources.
-TEMPLATE_LOADERS = (
-    ('django.template.loaders.cached.Loader', (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
-#     'django.template.loaders.eggs.Loader',
-    )),
-)
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'OPTIONS': {
+            'context_processors': [
+                "django.contrib.auth.context_processors.auth",
+                "django.template.context_processors.debug",
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.tz",
+                "django.contrib.messages.context_processors.messages",
+                "gim.front.context_processors.default_context_data",
+                "gim.front.context_processors.user_context",
+            ],
+            'loaders': [
+                ('django.template.loaders.cached.Loader', (
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                    # 'django.template.loaders.eggs.Loader',
+                )),
+            ]
+        }
+    }
+]
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE_CLASSES = [
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -108,35 +126,16 @@ MIDDLEWARE_CLASSES = (
     'async_messages.middleware.AsyncMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
-)
+]
 
 ROOT_URLCONF = 'gim.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = 'gim.wsgi.application'
 
-TEMPLATE_DIRS = (
-    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
-    # Always use forward slashes, even on Windows.
-    # Don't forget to use absolute paths, not relative paths.
-)
-
-TEMPLATE_CONTEXT_PROCESSORS = (
-    "django.contrib.auth.context_processors.auth",
-    "django.core.context_processors.debug",
-    "django.core.context_processors.i18n",
-    "django.core.context_processors.media",
-    "django.core.context_processors.static",
-    "django.core.context_processors.tz",
-    "django.contrib.messages.context_processors.messages",
-    "gim.front.context_processors.default_context_data",
-    "gim.front.context_processors.user_context",
-)
-
-
 AUTH_USER_MODEL = 'core.GithubUser'
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sites',
@@ -147,10 +146,6 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
-
-    'south',
-
-    'jsonfield',
     'adv_cache_tag',
     'macros',
 
@@ -176,7 +171,7 @@ INSTALLED_APPS = (
     'gim.front.repository.issues',
     'gim.front.repository.dashboard',
     'gim.front.repository.board',
-)
+]
 
 DEBUG_TOOLBAR_PANELS = [
     'debug_toolbar.panels.versions.VersionsPanel',
@@ -258,10 +253,10 @@ LOGGING = {
     }
 }
 
-AUTHENTICATION_BACKENDS = (
+AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'gim.front.auth.backends.GithubBackend',
-)
+]
 
 LOGIN_URL = reverse_lazy('front:auth:login')
 
@@ -313,10 +308,10 @@ GITHUB_CLIENT_SECRET = get_env_variable('GITHUB_CLIENT_SECRET')
 
 GITHUB_HOOK_URL = get_env_variable('GITHUB_HOOK_URL', default=None)
 
-DATABASES = {  # default to a sqlite db "gim.db"
+DATABASES = {  # default to a postgresql db named "gim"
     'default': {
-        'ENGINE': get_env_variable('DB_ENGINE', default='django.db.backends.sqlite3'),
-        'NAME': get_env_variable('DB_NAME', default=os.path.normpath(os.path.join(GIM_ROOT, '..', 'db', 'gim.db'))),
+        'ENGINE': get_env_variable('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': get_env_variable('DB_NAME', default='gim'),
         'USER': get_env_variable('DB_USER', default=''),
         'PASSWORD': get_env_variable('DB_PASSWORD', default=''),
         'HOST': get_env_variable('DB_HOST', default=''),
@@ -387,11 +382,17 @@ FAVICON_DYN_TEXT_COLOR = get_env_variable('FAVICON_DYN_TEXT_COLOR', default='#ff
 HEADWAYAPP_ACCOUNT = get_env_variable('HEADWAYAPP_ACCOUNT', default=None)
 
 DEBUG_TOOLBAR = False
+_TEMPLATE_LOADERS = None
+_TEMPLATE_DEBUG = None
 try:
     from .local_settings import *
 except ImportError:
     pass
 else:
     if DEBUG_TOOLBAR:
-        INSTALLED_APPS += ('debug_toolbar', 'template_timings_panel', )
-        MIDDLEWARE_CLASSES += ('debug_toolbar.middleware.DebugToolbarMiddleware', )
+        INSTALLED_APPS += ['debug_toolbar', 'template_timings_panel', ]
+        MIDDLEWARE_CLASSES += ['debug_toolbar.middleware.DebugToolbarMiddleware', ]
+    if _TEMPLATE_LOADERS is not None:
+        TEMPLATES[0]['OPTIONS']['loaders'] = _TEMPLATE_LOADERS
+    if _TEMPLATE_DEBUG is not None:
+        TEMPLATES[0]['OPTIONS']['debug'] = _TEMPLATE_DEBUG

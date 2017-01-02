@@ -1,17 +1,13 @@
 from datetime import datetime, timedelta
 
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes import generic
 from django.db import models
 
-from jsonfield import JSONField
-
 from gim.core.models import Repository, Issue
-from gim.core.utils import contribute_to_model
+from gim.core.utils import contribute_to_model, JSONField
 
 from .renderers import IssueRenderer
-
-import django_m2m_descriptor_hack  # replace clear+add by remove+add
 
 
 class EventManager(models.Manager):
@@ -55,7 +51,7 @@ class Event(models.Model):
 
     related_content_type = models.ForeignKey(ContentType, blank=True, null=True)
     related_object_id = models.PositiveIntegerField(blank=True, null=True, db_index=True)
-    related_object = generic.GenericForeignKey('related_content_type',
+    related_object = GenericForeignKey('related_content_type',
                                                'related_object_id')
 
     RENDERERS = {

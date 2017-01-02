@@ -17,7 +17,7 @@
         </ul>
     </nav>
     <article class='issue-content' data-issue-id="{{ current_issue.pk }}" data-issue-number="{{ current_issue.number|default_if_none:'' }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}" data-can-add-pr-review="{{ can_add_pr_reviews|yesno:"true,false" }}">
-        {% include 'front/repository/issues/issue_header.html' %}
+        {% include './issue_header.html' %}
         <div class="issue-tabs no-scroll-left no-scroll-right">
             <a href='#' title="Show one tab one the left" class="arrow scroll-left"><span class="badge badge-gray">0</span><i class="fa fa-chevron-left"> </i></a>
             <ul class="nav nav-tabs">
@@ -79,54 +79,54 @@
         </div>
         <div class="tab-content">
             <div class="tab-pane active issue-discussion" data-tab="issue-discussion" id="issue-{{ current_issue.pk }}-discussion">
-                {% include 'front/repository/issues/issue_description.html' %}
+                {% include './issue_description.html' %}
                 {% if current_issue.number %}
                 <aside>
                     <ul class="unstyled chat-box timeline issue-activity" id="issue-activity-{{ current_issue.number }}">
                         {% for event in current_issue_activity %}
                             {% if event.event %}{# IssueEvent #}
                                 {% if event.event == 'closed' %}
-                                    {% include "front/repository/issues/activity/include_closed_comment.html" with comment=event %}
+                                    {% include "./activity/include_closed_comment.html" with comment=event %}
                                 {% elif event.event == 'merged' %}
-                                    {% include "front/repository/issues/activity/include_merged_comment.html" with comment=event %}
+                                    {% include "./activity/include_merged_comment.html" with comment=event %}
                                 {% elif event.event == 'reopened' %}
-                                    {% include "front/repository/issues/activity/include_reopened_comment.html" with comment=event %}
+                                    {% include "./activity/include_reopened_comment.html" with comment=event %}
                                 {% comment %}
                                 {% elif event.event == 'assigned' %}
-                                    {% include "front/repository/issues/activity/include_assigned_comment.html" with comment=event %}
+                                    {% include "./activity/include_assigned_comment.html" with comment=event %}
                                 {% endcomment %}
                                 {% elif event.event == 'head_ref_deleted' %}
-                                    {% include "front/repository/issues/activity/include_head_ref_deleted_comment.html" with comment=event %}
+                                    {% include "./activity/include_head_ref_deleted_comment.html" with comment=event %}
                                 {% elif event.event == 'head_ref_restored' %}
-                                    {% include "front/repository/issues/activity/include_head_ref_restored_comment.html" with comment=event %}
+                                    {% include "./activity/include_head_ref_restored_comment.html" with comment=event %}
                                 {% elif event.event == 'head_ref_force_pushed' %}
-                                    {% include "front/repository/issues/activity/include_head_ref_force_pushed_comment.html" with comment=event %}
+                                    {% include "./activity/include_head_ref_force_pushed_comment.html" with comment=event %}
                                 {% elif event.event == 'referenced' and event.commit_sha %}
-                                    {% include "front/repository/issues/activity/include_referenced_in_commit_comment.html" with comment=event %}
+                                    {% include "./activity/include_referenced_in_commit_comment.html" with comment=event %}
                                 {% elif event.event == 'referenced_by_issue' %}
-                                    {% include "front/repository/issues/activity/include_referenced_by_issue_comment.html" with comment=event %}
+                                    {% include "./activity/include_referenced_by_issue_comment.html" with comment=event %}
                                 {% elif event.event == 'referenced_by_issuecomment' %}
-                                    {% include "front/repository/issues/activity/include_referenced_by_issuecomment_comment.html" with comment=event %}
+                                    {% include "./activity/include_referenced_by_issuecomment_comment.html" with comment=event %}
                                 {% elif event.event == 'referenced_by_pullrequestcomment' %}
-                                    {% include "front/repository/issues/activity/include_referenced_by_pullrequestcomment_comment.html" with comment=event %}
+                                    {% include "./activity/include_referenced_by_pullrequestcomment_comment.html" with comment=event %}
                                 {% elif event.event == 'referenced_by_milestone' %}
-                                    {% include "front/repository/issues/activity/include_referenced_by_milestone_comment.html" with comment=event %}
+                                    {% include "./activity/include_referenced_by_milestone_comment.html" with comment=event %}
                                 {% endif %}
                             {% elif event.is_commits_group %}{# GroupedCommits #}
-                                {% include "front/repository/issues/commits/include_commits_groups.html" with groups=event|tolist id_prefix="pr-disc-" with_ago=True repository_source=current_issue.repository collapsed=True with_icon=True %}
+                                {% include "./commits/include_commits_groups.html" with groups=event|tolist id_prefix="pr-disc-" with_ago=True repository_source=current_issue.repository collapsed=True with_icon=True %}
                             {% elif event.is_pr_comments_group %}{# GroupedPullRequestComments #}
-                                {% include "front/repository/issues/activity/include_pr_comments_group.html" with group=event with_ago=True %}
+                                {% include "./activity/include_pr_comments_group.html" with group=event with_ago=True %}
                             {% elif event.is_commit_comments_group %}{# GroupedCommitComments #}
-                                {% include "front/repository/issues/activity/include_commit_comments_group.html" with group=event with_ago=True %}
+                                {% include "./activity/include_commit_comments_group.html" with group=event with_ago=True %}
                             {% elif event.is_pull_request_review  %}{# PullRequestReview  #}
-                                {% include "front/repository/issues/activity/include_pr_review.html" with review=event comment=event %}
+                                {% include "./activity/include_pr_review.html" with review=event comment=event %}
                             {% elif event.get_parts %}{# Event #}
-                                {% include "front/repository/issues/activity/include_change_event.html" %}
+                                {% include "./activity/include_change_event.html" %}
                             {% else %}{# IssueComment #}
-                                {% include "front/repository/issues/comments/include_issue_comment.html" with comment=event include_create_form=False %}
+                                {% include "./comments/include_issue_comment.html" with comment=event include_create_form=False %}
                             {% endif %}
                         {% endfor %}
-                        {% include "front/repository/issues/comments/include_issue_comment_create.html" with use_current_user=True with_pr_review_buttons=can_add_pr_reviews %}
+                        {% include "./comments/include_issue_comment_create.html" with use_current_user=True with_pr_review_buttons=can_add_pr_reviews %}
                         {% if current_issue.is_pull_request and not current_issue.repository.pr_reviews_activated and not view.request.user.is_anonymous and view.request.user != current_issue.user %}
                             <li class="alert alert-info alert-pr-reviews-not-activated">
                                 Pull requests reviews are not yet activated on this repository.
@@ -145,7 +145,7 @@
                         </div>
                         <p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p>
                     {% else %}
-                        {% include "front/repository/issues/commits/include_issue_commits.html" %}
+                        {% include "./commits/include_issue_commits.html" %}
                     {% endif %}
                 </div>
                 <div class="tab-pane issue-files code-files" data-tab="issue-files" id="issue-{{ current_issue.pk }}-files" data-url="{{ current_issue.ajax_files_url }}">
@@ -155,7 +155,7 @@
                         </div>
                         <p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p>
                     {% else %}
-                        {% include "front/repository/issues/code/include_issue_files.html" %}
+                        {% include "./code/include_issue_files.html" %}
                     {% endif %}
                 </div>
                 <div class="tab-pane issue-review" data-tab="issue-review" id="issue-{{ current_issue.pk }}-review" data-url="{{ current_issue.ajax_review_url }}">
@@ -165,11 +165,11 @@
                         </div>
                         <p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p>
                     {% else %}
-                        {% include "front/repository/issues/comments/include_pr_review.html" %}
+                        {% include "./comments/include_pr_review.html" %}
                     {% endif %}
                 </div>
             {% endif %}
-            <table class="code-comments-template" style="display: none"><tbody>{% include "front/repository/issues/comments/include_code_comments.html" with surround=True include_create_form=False %}</tbody></table>
+            <table class="code-comments-template" style="display: none"><tbody>{% include "./comments/include_code_comments.html" with surround=True include_create_form=False %}</tbody></table>
             <div class="tab-pane commit-files code-files template" style="display: none">
                 <div class="content empty">
                     Loading diff...
