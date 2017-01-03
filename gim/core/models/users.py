@@ -502,7 +502,11 @@ class GithubUser(GithubObjectWithId, AbstractUser):
         ).order_by(
             '-updated_at'
         ).select_related(
+            'issue__user',
+            'issue__closed_by',
             'issue__repository__owner'
+        ).prefetch_related(
+            'issue__assignees'
         )[:10])
 
     @cached_property

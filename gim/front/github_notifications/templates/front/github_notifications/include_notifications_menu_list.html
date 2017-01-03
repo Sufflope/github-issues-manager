@@ -1,21 +1,48 @@
+{% load frontutils %}
 {% if user.unread_notifications_count %}
     <ul class="dropdown-menu" id="github-notifications-menu-list">
         {% if user.unread_notifications_count > 10 %}
             <li class="disabled"><a tabindex="-1" href="#">Last 10 unread notifications</a></li>
-            <li class="divider"></li>
         {% endif %}
         {% for notification in user.last_github_notifications %}
             <li class="dropdown-submenu">{% with issue=notification.issue url=notification.issue.get_absolute_url %}
                 <a href="{{ url }}" class="issue-link" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository_id }}" data-issue-id="{{ issue_id }}" data-issue-number="{{ issue.number }}">
-                    <small>{{ issue.repository.full_name }}</small>
+                    <small>
+                        {{ issue.repository.full_name }}
+                        <span class="github-notifications-menu-times">
+                            <span title="Created on {{ issue.created_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.created_at|date:'r' }}">{{ issue.created_at|ago:True }}</span>
+                            {% if issue.state == 'closed' %}
+                                {% if issues.updated_at > issue.closed_at %}
+                                    <i class="fa fa-caret-right"> </i> <span title="Closed{% if issue.closed_by %} by {{ issue.closed_by.username }}{% endif %} on {{ issue.closed_at|date:"DATETIME_FORMAT" }}, updated on {{ issue.updated_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.updated_at|date:'r' }}">{{ issue.updated_at|ago:True }}</span>
+                                {% else %}
+                                    <i class="fa fa-caret-right"> </i> <span title="Closed{% if issue.closed_by %} by {{ issue.closed_by.username }}{% endif %} on {{ issue.closed_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.closed_at|date:'r' }}">{{ issue.closed_at|ago:True }}</span>
+                                {% endif %}
+                            {% else %}
+                                {% if issue.updated_at and issue.created_at != issue.updated_at %}
+                                    <i class="fa fa-caret-right"> </i> <span title="Updated on {{ issue.updated_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.updated_at|date:'r' }}">{{ issue.updated_at|ago:True }}</span>
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </small>
                     <i class="fa{% if issue.is_pull_request %} fa-code{% endif %} fa-fw"> </i>
+                    <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ issue.user.full_avatar_url|avatar_size:16 }}" alt="{{ issue.user.username }}" title="Created by {{ issue.user.username }}" />
                     <span class="text-{{ issue.state }}">#{{ issue.number }}</span> - {{ issue.title }}
+                    {% with assignees=issue.assignees.all|slice:":3" %}
+                        {% if assignees %}
+                            <span class="github-notifications-menu-assignees">
+                            <i class="fa fa-hand-o-right"> </i>
+                            {% for assignee in assignees %}
+                                <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ assignee.full_avatar_url|avatar_size:16 }}" title="Assigned to {{ assignee.username }}" />
+                            {% endfor %}
+                            </span>
+                        {% endif %}
+                    {% endwith %}
                 </a>
                 <ul class="dropdown-menu" data-edit-url="{{ notification.get_edit_url }}">
-                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="true">Mark as read and keep active</a></li>
-                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="false">Mark as read and set inactive</a></li>
+                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="true"><i class="fa fa-square-o fa-fw"> </i> Mark as read and keep active</a></li>
+                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="false"><i class="fa fa-square-o fa-fw"> </i> Mark as read and set inactive</a></li>
                     <li class="divider"></li>
-                    <li><a href="{{ url }}" class="issue-link hoverable-issue" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository_id }}" data-issue-id="{{ issue_id }}" data-issue-number="{{ issue.number }}">Preview</a></li>
+                    <li><a href="{{ url }}" class="issue-link hoverable-issue" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository_id }}" data-issue-id="{{ issue_id }}" data-issue-number="{{ issue.number }}"><i class="fa fa-eye fa-fw"> </i> Preview</a></li>
                 </ul>
             {% endwith %}</li>
         {% endfor %}
