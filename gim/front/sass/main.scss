@@ -97,6 +97,7 @@ body {
         }
         > a {
             padding: 3px 5px 5px 20px;
+            overflow: auto;
             &:after {
                 margin-top: -4px;
                 margin-left: -15px;
@@ -104,6 +105,7 @@ body {
             .github-notifications-menu-assignees {
                 float: right;
                 font-size: 10px;
+                max-width: 99px;
                 > i {
                     position: relative;
                     top: 2px;

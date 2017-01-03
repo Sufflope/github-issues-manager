@@ -27,7 +27,7 @@
                     <i class="fa{% if issue.is_pull_request %} fa-code{% endif %} fa-fw"> </i>
                     <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ issue.user.full_avatar_url|avatar_size:16 }}" alt="{{ issue.user.username }}" title="Created by {{ issue.user.username }}" />
                     <span class="text-{{ issue.state }}">#{{ issue.number }}</span> - {{ issue.title }}
-                    {% with assignees=issue.assignees.all|slice:":3" %}
+                    {% with assignees=issue.assignees.all %}
                         {% if assignees %}
                             <span class="github-notifications-menu-assignees">
                             <i class="fa fa-hand-o-right"> </i>
