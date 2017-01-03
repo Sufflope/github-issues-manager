@@ -35,15 +35,15 @@ body {
             display: inline-block;
         }
         .user-avatar {
-            .img-rounded {
+            > a .img-rounded {
                 @include border-radius(6px);
             }
-            .dropdown-menu {
-                a {
+            > .dropdown-menu > li {
+                > a {
                     padding-right: 55px;
-                }
-                .label {
-                    margin-right: -40px;
+                    .label {
+                        margin-right: -40px;
+                    }
                 }
                 i {
                     color: inherit;
@@ -90,9 +90,32 @@ body {
     }
 }
 #github-notifications-menu-list {
-    > li > a:after {
-        margin-top: -5px;
-        margin-left: -15px;
+    padding: 0;
+    > li:not(.disabled):not(.divider) {
+        &:not(:first-of-type) {
+            border-top: solid #ddd 1px;
+        }
+        > a {
+            padding: 3px 5px 5px 20px;
+            &:after {
+                margin-top: -4px;
+                margin-left: -15px;
+            }
+            .github-notifications-menu-assignees {
+                float: right;
+                font-size: 10px;
+                > i {
+                    position: relative;
+                    top: 2px;
+                }
+            }
+            .github-notifications-menu-times {
+                float: right;
+            }
+            .img-circle {
+                @include border-radius(500px);
+            }
+        }
     }
     small {
         display: block;
