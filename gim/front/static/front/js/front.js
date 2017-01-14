@@ -1829,7 +1829,7 @@ $().ready(function() {
         this.$container_node = this.$node.closest(IssuesList.container_selector);
         this.$container_node[0].IssuesList = this;
         this.$empty_node = this.$node.children('.no-issues');
-        this.$search_input = this.$node.find('.quicksearch');
+        this.$search_input = this.$container_node.find('.issues-quicksearch .quicksearch');
         if (!this.$search_input.length && this.$node.data('quicksearch')) {
             this.$search_input = $(this.$node.data('quicksearch'));
         }
@@ -1921,9 +1921,7 @@ $().ready(function() {
         if (this.$search_input.length && !this.$search_input.data('events-done')) {
             this.$search_input.data('events-done', true);
             this.$search_input.on('quicksearch.after', $.proxy(this.on_filter_done, this));
-            this.$search_input.on('keydown', jwerty.event('↑', this.go_to_previous_item, this));
-            this.$search_input.on('keydown', jwerty.event('↓', this.go_to_next_item, this));
-            this.$search_input.on('keydown', jwerty.event('return', this.go_to_first_issue, this))
+            this.$search_input.on('keydown', jwerty.event('↓/↩', this.go_to_first_group, this));
         }
     }); // IssuesList__init_quicksearch_events
 
