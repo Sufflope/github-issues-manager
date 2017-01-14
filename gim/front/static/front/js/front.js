@@ -971,8 +971,9 @@ $().ready(function() {
         return stop ? Ev.stop_event_decorate(decorator) : decorator;
     }); // IssuesListIssue_on_issue_node_event
 
-    IssuesListIssue.on_current_issue_key_event = (function IssuesListIssue_on_current_issue_key_event (issue_method, param) {
-        var decorator = function() {
+    IssuesListIssue.on_current_issue_key_event = (function IssuesListIssue_on_current_issue_key_event (issue_method, param, ignore_if_dropdown) {
+        var decorator = function(ev) {
+            if (ignore_if_dropdown && $(ev.target).closest('.dropdown-menu').length) { return; }
             if (!IssuesList.current) { return; }
             if (!IssuesList.current.current_group) { return; }
             if (!IssuesList.current.current_group.current_issue) { return; }
@@ -983,8 +984,8 @@ $().ready(function() {
 
     IssuesListIssue.init_events = (function IssuesListIssue_init_events () {
         $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true, true));
-        jwerty.key('↩', IssuesListIssue.on_current_issue_key_event('open', true));
-        jwerty.key('space', IssuesListIssue.on_current_issue_key_event('toggle_details', true));
+        jwerty.key('↩', IssuesListIssue.on_current_issue_key_event('open', true, true));
+        jwerty.key('space', IssuesListIssue.on_current_issue_key_event('toggle_details', false, true));
     });
 
     IssuesListIssue.prototype.open = (function IssuesListIssue__open (ev) {
@@ -1908,8 +1909,9 @@ $().ready(function() {
         }
     }); // IssuesList_update_time_ago
 
-    IssuesList.on_current_list_key_event = (function IssuesList_on_current_list_key_event (list_method, current_panel) {
-        var decorator = function() {
+    IssuesList.on_current_list_key_event = (function IssuesList_on_current_list_key_event (list_method, current_panel, ignore_if_dropdown) {
+        var decorator = function(ev) {
+            if (ignore_if_dropdown && $(ev.target).closest('.dropdown-menu').length) { return; }
             if (!IssuesList.current) { return; }
             if (current_panel && (!PanelsSwapper.current_panel || PanelsSwapper.current_panel.obj != IssuesList.current)) { return; }
             return IssuesList.current[list_method]();
@@ -1926,14 +1928,15 @@ $().ready(function() {
     }); // IssuesList__init_quicksearch_events
 
     IssuesList.init_events = (function IssuesList_init_event () {
-        jwerty.key('p/k/↑', IssuesList.on_current_list_key_event('go_to_previous_item'));
-        jwerty.key('n/j/↓', IssuesList.on_current_list_key_event('go_to_next_item'));
-        jwerty.key('⇞', IssuesList.on_current_list_key_event('go_to_first_group'));
-        jwerty.key('⇟', IssuesList.on_current_list_key_event('go_to_last_group'));
-        jwerty.key('f', IssuesList.on_current_list_key_event('focus_search_input'));
-        jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input'));
-        jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details'));
-        jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true));
+        jwerty.key('p/k/↑', IssuesList.on_current_list_key_event('go_to_previous_item', null, true));
+        jwerty.key('n/j/↓', IssuesList.on_current_list_key_event('go_to_next_item', null, true));
+        jwerty.key('⇞', IssuesList.on_current_list_key_event('go_to_first_group', null, true));
+        jwerty.key('⇟', IssuesList.on_current_list_key_event('go_to_last_group', null, true));
+        jwerty.key('f', IssuesList.on_current_list_key_event('focus_search_input', null, true));
+        jwerty.key('m', IssuesList.on_current_list_key_event('toggle_multiselect', null, true));
+        jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input', null, true));
+        jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details', null, true));
+        jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true, true));
         for (var i = 0; i < IssuesList.all.length; i++) {
             IssuesList.all[i].init_quicksearch_events();
         }
