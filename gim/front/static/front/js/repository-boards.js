@@ -796,7 +796,7 @@ $().ready(function() {
             init: function() {
                 if (!Board.container) { return; }
 
-                var $refresh_list_item = $('#issues-list-options-board-main').find('a.refresh-list').parent();
+                var $refresh_list_item = $(Board.filters.options_selector).find('a.refresh-list').parent();
                 if (Board.mode == 'project' && Board.editable) {
                     $refresh_list_item.after(
                         '<li><a href="#" class="add-column">Add a column</a></li>'
