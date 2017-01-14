@@ -6707,7 +6707,7 @@ $().ready(function() {
             var $forms = $(GithubNotifications.item_selector + ' form:not(.js-managed)'),
                 $checkboxes = $forms.find('input[type=checkbox]');
             $forms.each(function() { GithubNotifications.save_values($(this));});
-            $checkboxes.iCheck({checkboxClass: 'icheckbox_flat-aero'});
+            $checkboxes.iCheck({checkboxClass: 'icheckbox_flat-blue'});
             $checkboxes.on('ifChecked ifUnchecked ifToggled', GithubNotifications.on_checkbox_changed);
             $forms.on('click', '.spin-holder', Ev.cancel);
             $forms.addClass('js-managed');
