@@ -1594,6 +1594,16 @@ $().ready(function() {
                 Board.filters.$options_node.find('li.dropdown-options').replaceWith($new_options_node.find('li.dropdown-options'));
                 IssuesFilters.remove_waiting(Board.filters. $options_node);
 
+                var $refresh_list_item = $(Board.filters.options_selector).find('a.refresh-list').parent();
+                if (Board.mode == 'project' && Board.editable) {
+                    $refresh_list_item.after(
+                        '<li><a href="#" class="add-column">Add a column</a></li>'
+                    );
+                }
+                $refresh_list_item.after(
+                    '<li><a href="#" class="restore-closed-lists">Restore hidden columns</a></li>'
+                );
+
                 if (!this.no_history) {
                     Board.filters.add_history(this.url);
                 }
