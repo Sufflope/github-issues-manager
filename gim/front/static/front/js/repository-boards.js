@@ -1645,10 +1645,10 @@ $().ready(function() {
             }, // update_list_search
 
             on_list_filter_done: function() {
-                // `this` is the list object
-                for (var i = 0; i < this.groups.length; i++) {
-                    var group = this.groups[i];
-                    group.update_filtered_issues();
+                var list = this;
+                for (var i = 0; i < list.groups.length; i++) {
+                    var group = list.groups[i];
+                    group.ask_for_filtered_issues_update();
                 }
             }, // on_list_filter_done
 
