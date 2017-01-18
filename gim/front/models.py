@@ -7,7 +7,7 @@ from operator import attrgetter
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.urlresolvers import reverse_lazy
+from django.core.urlresolvers import reverse, reverse_lazy
 from django.db import models
 from django.db.models import FieldDoesNotExist
 from django.template import loader
@@ -192,6 +192,13 @@ class _Repository(models.Model):
         from gim.front.repository.board.views import ProjectCreateView
         return self.get_view_url(ProjectCreateView.url_name)
 
+    def get_multiselect_base_url(self):
+        from gim.front.repository.issues.multiselect.views import MultiSelectListLabelsView
+        url = reverse('front:repository:multiselect:%s' % MultiSelectListLabelsView.url_name, kwargs = self.get_reverse_kwargs())
+        base_url = url[:-12]
+        assert base_url.endswith('/multiselect/')
+        return base_url
+
     def delete(self, using=None):
         pk = self.pk
 
@@ -237,6 +244,10 @@ class _Repository(models.Model):
 
     def all_metrics(self):
         return self.label_types.filter(is_metric=True)
+
+    @cached_property
+    def project_columns(self):
+        return core_models.Column.objects.filter(project__repository=self)
 
 
 class _LabelType(Hashable, models.Model):

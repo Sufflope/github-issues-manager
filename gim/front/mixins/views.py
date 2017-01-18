@@ -915,6 +915,7 @@ class BaseIssuesView(object):
                 'list_uuid': self.list_uuid,
                 'current_issues_url': self.base_url,
                 'can_show_shortcuts': True,
+                'can_multiselect': False,
                 'no_limit': self.request.GET.get('limit') == 'no',
             })
 

@@ -911,23 +911,30 @@ $().ready(function() {
 
     var IssuesListIssue = (function IssuesListIssue__constructor (node, issues_list_group) {
         this.group = issues_list_group;
-        this.prepare(node);
+        var $node = $(node);
         this.set_issue_ident({
-            number: this.$node.data('issue-number'),
-            id: this.$node.data('issue-id'),
-            repository: this.$node.data('repository'),
-            repository_id: this.$node.data('repository-id')
+            number: $node.data('issue-number'),
+            id: $node.data('issue-id'),
+            repository: $node.data('repository'),
+            repository_id: $node.data('repository-id')
         });
+        this.prepare($node);
     }); // IssuesListIssue__constructor
 
     IssuesListIssue.selector = '.issue-item';
     IssuesListIssue.link_selector = '.issue-link';
 
-    IssuesListIssue.prototype.prepare = (function IssuesListIssue__prepare (node) {
-        var i, href, project_number, column_id_and_card_position;
+    IssuesListIssue.prototype.prepare = (function IssuesListIssue__prepare (node, selected) {
+        var i, href, project_number, column_id_and_card_position, $node;
+        if (node.jquery) {
+            $node = node;
+            node = $node[0];
+        } else {
+            $node = $(node);
+        }
         this.node = node;
         this.node.IssuesListIssue = this;
-        this.$node = $(node);
+        this.$node = $node;
         this.$link = this.$node.find(IssuesListIssue.link_selector);
         if (this.$link.length) {
             href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + encodeURIComponent(window.location.href.split("#")[0]);
@@ -944,6 +951,9 @@ $().ready(function() {
                 'column_id': parseInt(column_id_and_card_position[0], 10),
                 'card_position': parseInt(column_id_and_card_position[1], 10)
             };
+        }
+        if (this.group && this.is_real_issue()) {
+            this.toggle_selectable(undefined, selected);
         }
     }); // IssuesListIssue__prepare
 
@@ -989,7 +999,11 @@ $().ready(function() {
     IssuesListIssue.init_events = (function IssuesListIssue_init_events () {
         $document.on('click', IssuesListIssue.selector, IssuesListIssue.on_issue_node_event('on_click', true, true));
         jwerty.key('↩', IssuesListIssue.on_current_issue_key_event('open', true, true));
-        jwerty.key('space', IssuesListIssue.on_current_issue_key_event('toggle_details', false, true));
+        jwerty.key('space', IssuesListIssue.on_current_issue_key_event('on_space_key', false, true));
+        jwerty.key('shift+space', IssuesListIssue.on_current_issue_key_event('on_space_key', true, true));
+        jwerty.key('x', IssuesListIssue.on_current_issue_key_event('on_x_key_to_select', false, true));
+        jwerty.key('shift+x', IssuesListIssue.on_current_issue_key_event('on_x_key_to_select', true, true));
+        $document.on('ifChecked ifUnchecked ifToggled', IssuesListIssue.selector + ' .selector input', IssuesListIssue.on_selector_toggled);
     });
 
     IssuesListIssue.prototype.open = (function IssuesListIssue__open (ev) {
@@ -997,7 +1011,15 @@ $().ready(function() {
         return false; // stop event propagation
     }); // IssuesListIssue__open
 
-    IssuesListIssue.prototype.toggle_details = (function IssuesListIssue__toggle_details (ev) {
+    IssuesListIssue.prototype.on_space_key = (function IssuesListIssue__on_space_key (shift) {
+        if (this.$node.hasClass('selectable')) {
+            return this.on_x_key_to_select(shift);
+        } else if (!shift) {
+            return this.toggle_details();
+        }
+    }); // IssuesListIssue__on_space_key
+
+    IssuesListIssue.prototype.toggle_details = (function IssuesListIssue__toggle_details () {
         this.$node.toggleClass('details-toggled');
         return false; // stop event propagation
     }); // IssuesListIssue__toggle_details
@@ -1254,13 +1276,14 @@ $().ready(function() {
                 group = issue.group,
                 is_issue_active = issue.$node.hasClass('active'),
                 is_group_active = issue.group.$node.hasClass('active'),
-                is_group_current = group.is_current();
+                is_group_current = group.is_current(),
+                is_selected = issue.is_selected();
 
             if (!$containers.length && (!kwargs.front_uuid || !front_uuid_exists)) { $data.addClass('recent'); }
             if (is_issue_active) { $data.addClass('active'); }
 
             issue.$node.replaceWith($data);
-            issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0]);
+            issue.prepare(issue.group.$node.find(IssuesListIssue.selector + '[data-issue-id=' + kwargs['id'] + ']')[0], is_selected);
 
             // check if we have to change group
             var list = issue.group.list,
@@ -1407,6 +1430,69 @@ $().ready(function() {
         return null;
     }); // IssuesListIssue__get_sort_value
 
+    IssuesListIssue.prototype.toggle_selectable = (function IssuesListIssue__toggle_selectable(activated, selected) {
+        if (!this.is_real_issue()) { return; }
+        if (typeof activated == 'undefined') {
+            activated = this.group.list.$container_node.hasClass('multiselect-mode');
+        }
+        this.$node.toggleClass('selectable', activated);
+        if (activated) {
+            if (this.$node.children('.selector').length) { return; }
+            var $selector = $('<div class="selector not-hoverable"><input type="checkbox" value="' + this.issue_ident.id + '" />');
+            this.$node.prepend($selector);
+            var $input = $selector.find('input');
+            $input.iCheck({checkboxClass: 'icheckbox_flat-blue'});
+            $selector.find('.iCheck-helper').off('mouseover mouseout').on('mousedown keydown', IssuesListIssue.on_selector_icheck_helper_action_start);
+            if (selected) {
+                $input.iCheck('check');
+            }
+            this.group.list.ask_for_selected_count_update();
+        } else {
+            this.$node.children('.selector').remove();
+        }
+    }); // IssuesListIssue__toggle_selectable
+
+    IssuesListIssue.prototype.on_x_key_to_select = (function IssuesListIssue__on_x_key_to_select (shift) {
+        this.toggle_selected(undefined, !!shift);
+        return false;
+    }); // IssuesListIssue__on_x_key_to_select
+
+    IssuesListIssue.on_selector_icheck_helper_action_start = (function IssuesListIssue_on_selector_icheck_helper_action_start(ev) {
+        var $input = $(this).prev();
+        $input.data('shift-used', ev.shiftKey);
+        var issue = $input.closest(IssuesListIssue.selector)[0].IssuesListIssue;
+    }); // IssuesListIssue_on_selector_icheck_helper_action_start
+
+    IssuesListIssue.prototype.is_selected = (function IssuesListIssue__is_selected() {
+        if (!this.$node.hasClass('selectable')) { return false; }
+        return this.$node.find('.selector input').prop('checked');
+    }); // IssuesListIssue__is_selected
+
+    IssuesListIssue.on_selector_toggled = function(ev) {
+        var $input = $(this),
+            shift = $input.data('shift-used'),
+            issue = $input.closest(IssuesListIssue.selector)[0].IssuesListIssue,
+            selected, issues;
+        $input.data('shift-used', null);
+        if (shift) {
+            selected = $input.prop('checked');
+            issues = issue.group.list.get_issues_between(issue.group.list.last_directly_touched_selectable_issue, issue);
+            for (var i = 0; i < issues.length; i++) {
+                issues[i].toggle_selected(selected, null);
+            }
+        }
+        issue.group.list.last_directly_touched_selectable_issue = issue;
+        issue.group.list.ask_for_selected_count_update();
+    };
+
+    IssuesListIssue.prototype.toggle_selected = (function IssuesListIssue__toggle_selected (selected, shift) {
+        if (!this.is_real_issue()) { return; }
+        if (!this.$node.hasClass('selectable')) { return; }
+        var action = typeof selected == 'undefined' ? 'toggle' : (selected ? 'check' : 'uncheck'),
+            $input = this.$node.find('.selector input');
+        $input.data('shift-used', shift);
+        $input.iCheck(action);
+    }); // IssuesListIssue__toggle_selected
 
     var IssuesListGroup = (function IssuesListGroup__constructor (node, issues_list) {
         this.list = issues_list;
@@ -1679,6 +1765,9 @@ $().ready(function() {
         var filtered_length = this.filtered_issues.length,
             total_length = this.issues.length;
         this.$count_node.text(filtered_length == total_length ? total_length : filtered_length + '/' + total_length);
+        if (this.list) {
+            this.list.ask_for_selected_count_update();
+        }
     }); // IssuesListGroup__update_filtered_issues
 
     IssuesListGroup.prototype.add_issue = (function IssuesListGroup__add_issue (issue, prepend_node) {
@@ -1690,6 +1779,8 @@ $().ready(function() {
         this.list.ask_for_quicksearch_results_reinit();
         this.ask_for_filtered_issues_update();
         this.ask_for_reorder();
+        issue.toggle_selectable();
+        this.list.ask_for_selected_count_update();
     }); // IssuesListGroup__add_issue
 
     IssuesListGroup.prototype.remove_issue = (function IssuesListGroup__remove_issue (issue) {
@@ -1704,6 +1795,7 @@ $().ready(function() {
         } else {
             this.current_issue = null;
             this.ask_for_filtered_issues_update();
+            this.list.ask_for_selected_count_update();
         }
     }); // IssuesListGroup__remove_issue
 
@@ -1785,9 +1877,16 @@ $().ready(function() {
         this.ask_for_filtered_issues_update();
     }); // IssuesListGroup__reorder
 
+    IssuesListGroup.prototype.toggle_multiselect = (function IssuesListGroup__toggle_multiselect(activated) {
+        for (var i = 0; i < this.issues.length; i++) {
+            this.issues[i].toggle_selectable(activated);
+        }
+    }); // IssuesListGroup__toggle_multiselect
+
 
     var IssuesList = (function IssuesList__constructor (node) {
         this.reinit_quicksearch_results_counter = 0;
+        this.update_selected_count_counter = 0;
         this.set_node($(node));
     }); // IssuesList__constructor
     IssuesList.IssuesListIssue = IssuesListIssue;
@@ -1950,6 +2049,19 @@ $().ready(function() {
     }); // IssuesList__init_quicksearch_events
 
     IssuesList.init_events = (function IssuesList_init_event () {
+
+        // keyboard events on multi-select info
+        $document.on('ifChecked ifUnchecked ifToggled', IssuesList.container_selector + ' .multiselect-info input[name=select-all]', IssuesList.on_issues_selector_toggled);
+        $document.on('focus', '.multiselect-info .ms-action > .dropdown-toggle', IssuesList.on_ms_action_focus);
+        $document.on('click', '.multiselect-info .ms-action button.ms-action-reset', IssuesList.on_ms_action_reset);
+        $document.on('click', '.multiselect-info .ms-action button.ms-action-apply:not(.disabled)', IssuesList.on_ms_action_apply);
+        $document.on('ifToggled', '.multiselect-info .ms-action input[type=checkbox][indeterminate]', IssuesList.on_ms_action_checkbox_indeterminate_selector_toggled);
+        $document.on('ifToggled', '.multiselect-info .ms-action input[type=radio]', IssuesList.on_ms_action_radio_selector_toggled);
+        $document.on('click', '.multiselect-info .ms-action-choice a', IssuesList.on_ms_action_choice_click);
+        jwerty.key('↩/space/x', IssuesList.on_ms_action_choice_keyboard_activate);
+        jwerty.key('f', IssuesList.on_ms_action_focus_search_input);
+
+        // keyboard events on list
         jwerty.key('p/k/↑', IssuesList.on_current_list_key_event('go_to_previous_item', null, true));
         jwerty.key('n/j/↓', IssuesList.on_current_list_key_event('go_to_next_item', null, true));
         jwerty.key('⇞', IssuesList.on_current_list_key_event('go_to_first_group', null, true));
@@ -1959,12 +2071,15 @@ $().ready(function() {
         jwerty.key('ctrl+u', IssuesList.on_current_list_key_event('clear_search_input', null, true));
         jwerty.key('d', IssuesList.on_current_list_key_event('toggle_details', null, true));
         jwerty.key('r', IssuesList.on_current_list_key_event('refresh', true, true));
+        jwerty.key('ctrl+a', IssuesList.on_current_list_key_event('select_all_issues', null, true));
+        jwerty.key('shift+ctrl+a', IssuesList.on_current_list_key_event('unselect_all_issues', null, true));
         for (var i = 0; i < IssuesList.all.length; i++) {
             IssuesList.all[i].init_quicksearch_events();
         }
 
-        // keyboard events
+        // events from options
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_details')));
+        $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .toggle-multi-select', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('toggle_multiselect')));
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('refresh')));
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
@@ -2088,7 +2203,6 @@ $().ready(function() {
         IssuesList.on_update_card_alert(topic, args, kwargs);
     }); // IssuesList_on_delete_card_alert
 
-
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
         if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
 
@@ -2176,6 +2290,9 @@ $().ready(function() {
             this.create_empty_node();
             this.$empty_node.show();
         }
+
+        this.ask_for_quicksearch_results_reinit();
+        this.ask_for_selected_count_update();
     }); // IssuesList__remove_group
 
     IssuesList.prototype.get_group_for_value = (function IssuesList__get_group_for_value (value) {
@@ -2256,7 +2373,7 @@ $().ready(function() {
             this.go_to_first_group();
             this.$search_input.focus();
         }
-
+        this.ask_for_selected_count_update();
     }); // on_filter_done
 
     IssuesList.prototype.focus_search_input = (function IssuesList__focus_search_input () {
@@ -2504,7 +2621,661 @@ $().ready(function() {
     IssuesList.prototype.reinit_quicksearch_results = (function IssuesList__reinit_quicksearch_results () {
         this.init_quicksearch_events();
         this.$search_input.data('quicksearch').cache();
+        this.ask_for_selected_count_update();
     }); // IssuesList__reinit_quicksearch_results
+
+    IssuesList.prototype.toggle_multiselect = (function IssuesList__toggle_multiselect (activated) {
+        if (typeof activated == 'undefined') {
+            this.$container_node.toggleClass('multiselect-mode');
+            activated = this.$container_node.hasClass('multiselect-mode');
+        } else {
+            activated = !!activated;
+            if (activated == this.$container_node.hasClass('multiselect-mode')) {
+                return;
+            }
+            this.$container_node.toggleClass('multiselect-mode', activated);
+        }
+        for (var i = 0; i < this.groups.length; i++) {
+            this.groups[i].toggle_multiselect(activated);
+        }
+        this.last_directly_touched_selectable_issue = null;
+
+        if (activated) {
+            var $multiselect_header = this.$container_node.children('.multiselect-info');
+            if (!$multiselect_header.length) {
+                $multiselect_header = IssuesList.get_multiselect_info_node();
+                this.$node.before($multiselect_header);
+                $multiselect_header.find('input[name=select-all]').iCheck({checkboxClass: 'icheckbox_flat-blue'});
+            }
+        } else {
+            this.$container_node.find('.multiselect-info').remove();
+        }
+
+        return false; // stop event propagation
+    }); // IssuesList__toggle_multiselect
+
+    IssuesList.get_multiselect_info_node = (function IssuesList_get_multiselect_info_node() {
+        var $template = $('#main .multiselect-info.template');
+        if (!$template.length) {
+            $template = $('\
+                <div class="multiselect-info template" style="display: none">\
+                    <div class="ms-selector" title="Click to select/unselect all"><input type="checkbox" name="select-all"/></div>\
+                    <span class="ms-counter">Nothing selected</span>\
+                    <nav class="navbar navbar-no-rounded ms-actions">\
+                        <div class="navbar-inner">\
+                            <ul class="nav">\
+                                <li class="dropdown ms-action ms-labels" data-action="labels">\
+                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change labels"><span><i class="fa fa-tags"> </i><span class="ms-action-name">Labels</span><b class="caret"></b></span></a>\
+                                    <div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
+                                </li>\
+                                <li class="divider-vertical"></li>\
+                                <li class="dropdown ms-action ms-milestone" data-action="milestone">\
+                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change milestone"><span><i class="fa fa-tasks"> </i><span class="ms-action-name">Milestone</span><b class="caret"></b></span></a>\
+                                    <div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
+                                </li>\
+                                <li class="divider-vertical"></li>\
+                                <li class="dropdown ms-action ms-assignees" data-action="assignees">\
+                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change assignees"><span><i class="fa fa-hand-o-right"> </i><span class="ms-action-name">Assignees</span><b class="caret"></b></span></a>\
+                                    <div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
+                                </li>\
+                                <li class="divider-vertical"></li>\
+                                <li class="dropdown ms-action ms-projects" data-action="projects">\
+                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change projects"><span><i class="fa fa-align-left fa-rotate-90"> </i><span class="ms-action-name">Projects</span><b class="caret"></b></span></a>\
+                                    <div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
+                                </li>\
+                            </ul>\
+                        </div>\
+                    </nav>\
+                </div>\
+            ');
+            $('#main').append($template);
+        }
+
+        var $result = $template.clone();
+        $result.attr('style', '').removeClass('template');
+        return $result;
+
+    }); // IssuesList_get_multiselect_info_node
+
+    IssuesList.toggle_multiselect = (function IssuesList_toggle_multiselect(activated) {
+        for (var i = 0; i < IssuesList.all.length; i++) {
+            var list = IssuesList.all[i];
+            list.toggle_multiselect(activated);
+        }
+        return false; // stop event propagation
+    }); // IssuesList_toggle_multiselect
+
+    IssuesList.prototype.ask_for_selected_count_update = (function IssuesList__ask_for_selected_count_update () {
+        // idea from `_rearrange` in jquery-ui sortable
+        // if (!this.$container_node.hasClass('multiselect-mode')) { return; }  # may be called to often, let the check be done in `update_selected_count`
+        this.update_selected_count_counter += 1;
+        var counter = this.update_selected_count_counter;
+        setTimeout(function() {
+            if (counter != this.update_selected_count_counter) {
+                // during the way another update was asked
+                return;
+            }
+            this.update_selected_count();
+        }.bind(this), 100)
+    }); // IssuesList__ask_for_selected_count_update
+
+    IssuesList.get_selected_count_to_display = (function IssuesList_get_selected_count_to_display (count, count_hidden, total_count) {
+        var result = 'Nothing selected';
+        if (count > 1) {
+            result = count + '&nbsp;issues';
+            if (count_hidden > 0) {
+                result += '&nbsp;selected<br /><span>';
+                if (count_hidden == count) {
+                    result += ' (all filtered out)';
+                } else {
+                    result += ' (including ' + count_hidden + ' filtered out)';
+                }
+                result += '</span>';
+            } else {
+                result += ' selected';
+            }
+        } else if (count > 0) {
+            if (count_hidden > 0) {
+            result = '1&nbsp;filtered&nbsp;out issue selected';
+
+            } else {
+                result = '1&nbsp;issue selected';
+            }
+        }
+        return result;
+    }); // IssuesList_get_selected_count_to_display
+
+    IssuesList.set_select_all_input_state = (function IssuesList_set_select_all_input_state ($input, count, count_hidden, total_count) {
+        var checked = $input.prop('checked');
+        if (count && count == total_count) {
+            $input.iCheck('determinate');
+            if (!checked) {
+                $input.iCheck('check');
+            }
+        } else if (count <= 0) {
+            $input.iCheck('determinate');
+            if (checked) {
+                $input.iCheck('uncheck');
+            }
+        } else {
+            $input.iCheck('indeterminate');
+        }
+
+        $input.closest('.multiselect-info').find('.ms-action').data('selection-changed', true);
+
+        $input.data('selected-count', {
+            count: count,
+            count_hidden: count_hidden,
+            total_count: total_count
+        });
+    }); // IssuesList_set_select_all_input_state
+
+    IssuesList.prototype.update_selected_count = (function IssuesList__update_selected_count () {
+        if (!this.$container_node.hasClass('multiselect-mode')) { return; }
+        var count = 0, count_hidden = 0, total_count = 0;
+
+        for (var i = 0; i < this.groups.length; i++) {
+            var group = this.groups[i];
+            for (var j = 0; j < group.issues.length; j++) {
+                var issue = group.issues[j];
+                if (!issue.is_real_issue()) { continue; }
+                total_count += 1;
+                if (issue.is_selected()) {
+                    count += 1;
+                    count_hidden += 1;
+                }
+            }
+            for (var k = 0; k < group.filtered_issues.length; k++) {
+                var issue = group.filtered_issues[k];
+                if (!issue.is_real_issue()) { continue; }
+                if (issue.is_selected()) {
+                    count_hidden -= 1;
+                }
+            }
+        }
+
+        this.$container_node.find('.multiselect-info .ms-counter').html(IssuesList.get_selected_count_to_display(count, count_hidden, total_count));
+        var $input = this.$container_node.find('.multiselect-info input[name=select-all]');
+        IssuesList.set_select_all_input_state($input, count, count_hidden, total_count);
+    }); // IssuesList__update_selected_count
+
+    IssuesList.prototype.get_issues_between = (function IssuesList__get_issues_between (issue1, issue2) {
+        if (issue1 && !issue2) {
+            return [issue1];
+        }
+        if (issue2 && !issue1) {
+            return [issue2];
+        }
+        var started = false, finished = false, end = null, issues = [];
+        for (var i = 0; i < this.groups.length; i++) {
+            var group = this.groups[i];
+            for (var j = 0; j < group.filtered_issues.length; j++) {
+                var issue = group.filtered_issues[j];
+                if (!issue.is_real_issue()) { continue; }
+                if (started) {
+                    issues.push(issue);
+                    if (issue == end) {
+                        finished = true;
+                        break;
+                    }
+                } else {
+                    if (issue == issue1) {
+                        end = issue2;
+                    } else if (issue == issue2) {
+                        end = issue1;
+                    }
+                    if (end) {
+                        started = true;
+                        issues.push(issue);
+                    }
+                }
+            }
+            if (finished) {
+                break;
+            }
+        }
+
+        if (!(started && finished)) {
+            // both entries where not in filtered issues
+            return [issue2];
+        }
+
+        return issues;
+    }); // IssuesList__get_issues_between
+
+    IssuesList.prototype.select_all_issues = (function IssuesList__select_all_issues (unselect) {
+        if (!this.$container_node.hasClass('multiselect-mode')) { return; }
+        for (var i = 0; i < this.groups.length; i++) {
+            var group = this.groups[i];
+            for (var j = 0; j < group.filtered_issues.length; j++) {
+                var issue = group.filtered_issues[j];
+                if (!issue.is_real_issue()) { continue; }
+                issue.toggle_selected(!unselect, null);
+            }
+        }
+        this.last_directly_touched_selectable_issue = null;
+        this.ask_for_selected_count_update();
+        return false;
+    }); // IssuesList__select_all_issues
+
+    IssuesList.prototype.unselect_all_issues = (function IssuesList__unselect_all_issues () {
+        this.select_all_issues(true);
+    }); // IssuesList__unselect_all_issues
+
+    IssuesList.on_issues_selector_toggled = (function IssuesList_on_issues_selector_toggled () {
+        var $input = $(this),
+            list = $input.closest(IssuesList.container_selector)[0].IssuesList;
+        if ($input.prop('checked')) {
+            return list.select_all_issues();
+        } else {
+            return list.unselect_all_issues();
+        }
+    }); // IssuesList_on_issues_selector_toggled
+
+    IssuesList.get_selected_issues_ids = (function IssuesList__get_selected_issues ($element) {
+        var $holder = $element.closest('.issues-list');
+        if (!$holder.length) {
+            $holder = $body;
+        }
+        var $inputs = $holder.find('.issue-item .selector input:checked');
+        var ids = [];
+        for (var i = 0; i < $inputs.length; i++) {
+            ids.push($inputs[i].value);
+        }
+        return ids;
+    }); // IssuesList__get_selected_issues
+
+    IssuesList.load_multiselect_list = (function IssuesList_load_multiselect_list ($dropdown) {
+        var $selector_all = $dropdown.closest('.multiselect-info').find('.ms-selector input[name=select-all]'),
+            $dropdown_menu = $dropdown.find('.dropdown-menu').first(),
+            selected_count = $selector_all.data('selected-count'),
+            uuid, action, url, data, context;
+
+        if (!selected_count || !selected_count.count) {
+            $dropdown_menu.empty().append('<li class="disabled"><a href="#">Nothing selected</a></li>');
+            $dropdown.removeClass('loaded');
+            return;
+        }
+        if ($dropdown.data('selection-changed')) {
+            $dropdown.data('selection-changed', false);
+        } else {
+            if ($dropdown.data('loading')) {
+                return;
+            }
+            if ($dropdown.data('loaded')) {
+                setTimeout(function() { $dropdown.find('.quicksearch-widget input').focus(); }, 200);
+                return;
+            }
+            uuid = $dropdown.data('loading-uuid');
+        }
+
+        $dropdown.data('loading', true);
+        $dropdown.data('loaded', false);
+
+        if (!uuid) {
+            uuid = UUID.generate();
+            $dropdown.data('loading-uuid', uuid);
+        }
+
+        $dropdown_menu.empty().append('<li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li>');
+        $dropdown.removeClass('loaded');
+
+        action = $dropdown.data('action');
+        url = $body.data('repository-multiselect-base-url') + action + '/list/';
+        data = {
+            issues: IssuesList.get_selected_issues_ids($dropdown),
+            csrfmiddlewaretoken: $body.data('csrf')
+        };
+
+        context = {
+            action: action,
+            uuid: uuid,
+            $dropdown: $dropdown,
+            $dropdown_menu: $dropdown_menu
+        };
+
+        $.post(url, data)
+            .done($.proxy(IssuesList.multiselect_list_loaded, context))
+            .fail($.proxy(IssuesList.multiselect_list_failed, context));
+
+    }); // IssuesList_load_multiselect_list
+
+    IssuesList.multiselect_list_loaded = (function IssuesList_multiselect_list_loaded (data) {
+        if (this.uuid != this.$dropdown.data('loading-uuid')) { return; }
+        this.$dropdown_menu.replaceWith(data);
+        this.$dropdown.data('loading', false);
+        this.$dropdown.data('loaded', true);
+
+        this.$dropdown_menu = this.$dropdown.find('.dropdown-menu').first();
+
+        if (this.$dropdown_menu.hasClass('empty')) {
+            return;
+        }
+        this.$dropdown.addClass('loaded');
+
+        var $inputs = this.$dropdown_menu.find('input[type=checkbox], input[type=radio]');
+        for (var i = 0; i < $inputs.length; i++) {
+            var $input = $($inputs[i]);
+            if ($inputs[i].type == 'checkbox') {
+                $input.iCheck({checkboxClass: 'icheckbox_flat-blue'});
+            } else {
+                $input.iCheck({radioClass: 'iradio_flat-blue'});
+            }
+            if ($input.attr('indeterminate')) {
+                $input.iCheck('indeterminate');
+                $input.data('previously-indeterminate', true);
+            }
+        }
+
+        var $quicksearch_input = this.$dropdown_menu.find('.quicksearch-widget input');
+        if ($quicksearch_input.length) {
+            $quicksearch_input.on('click', function(ev) { ev.stopPropagation(); });
+
+            // $quicksearch_input.focus();
+            setTimeout(function() { $quicksearch_input.focus(); }, 200);
+            $quicksearch_input.on('quicksearch.after', IssuesList.on_ms_quicksearch);
+        }
+
+        // only way to bypass bootstrap taking hand over the "arrow up" key
+        this.$dropdown.on('keydown', jwerty.event('↑', IssuesList.on_ms_action_go_up_from_first_item));
+
+
+    }); // IssuesList_multiselect_list_loaded
+
+    IssuesList.on_ms_quicksearch = (function IssuesList_on_ms_quicksearch () {
+        var $input = $(this),
+            $dropdown_menu = $input.closest('.dropdown-menu'),
+            $groups = $dropdown_menu.find('[data-group]'),
+            group_length = {},
+            first_divider_checked = false;
+
+        for (var i = 0; i < $groups.length; i++) {
+            var $group = $($groups[i]),
+                group = $group.data('group');
+            if (typeof group_length[group] == 'undefined') {
+                group_length[group] = $dropdown_menu.find('[data-related-to=' + group + ']:not(.hidden)').length;
+            }
+            var visible = !!group_length[group];
+            $group.toggle(visible);
+            if (visible && !first_divider_checked) {
+                first_divider_checked = true;
+                if ($group.hasClass('divider')) {
+                    $group.hide();
+                }
+            }
+        }
+    }); // IssuesList_on_ms_quicksearch
+
+    IssuesList.multiselect_list_failed = (function IssuesList_multiselect_list_failed (xhr, data) {
+        if (this.uuid != this.$dropdown.data('loading-uuid')) { return; }
+        this.$dropdown_menu.empty().append('<li class="disabled"><a href="#">Loading failed</a></li>')
+        this.$dropdown.data('loading', false);
+        this.$dropdown.data('loaded', false);
+    }); // IssuesList_multiselect_list_failed
+
+    IssuesList.on_ms_action_focus = (function IssuesList_on_ms_action_focus () {
+        var $dropdown = $(this).closest('.dropdown');
+        IssuesList.load_multiselect_list($dropdown);
+    }); // IssuesList_on_ms_action_focus
+
+    IssuesList.on_ms_action_reset = (function IssuesList_on_ms_action_reset () {
+        var $dropdown = $(this).closest('.dropdown');
+        $dropdown.data('loaded', false);
+        IssuesList.load_multiselect_list($dropdown);
+        return false;
+    }); // IssuesList_on_ms_action_reset
+
+    IssuesList.on_ms_action_apply = (function IssuesList_on_ms_action_apply () {
+        var $dropdown_menu = $(this).closest('.dropdown-menu'),
+            action = $dropdown_menu.closest('.dropdown').data('action'),
+            issues_count = $dropdown_menu.data('issues-count'),
+            types = ['u2c', 'c2u', 'i2c', 'i2u'],
+            action_classes = {
+                added: 'text-open',
+                removed: 'text-closed'
+            },
+            action_rules = {
+                labels: {},
+                milestone: {
+                    reverse: true,
+                },
+                assignees: {
+                    added: 'assigned',
+                    removed: 'unassigned'
+                },
+                projects: {
+                    reverse: true,
+                }
+            },
+            rules = {
+                // unchecked to checked
+                'u2c': {'final': 'set', 'action': 'added', $inputs: $dropdown_menu.find('.ms-action-choice input:not([indeterminate]):not([checked]):checked'), counter: function() { return issues_count; }},
+                // checked to unchecked
+                'c2u': {'final': 'unset', 'action': 'removed', $inputs: $dropdown_menu.find('.ms-action-choice input:not([indeterminate])[checked]:not(:checked)'), counter: function() { return issues_count; }},
+                // indeterminate to checked
+                'i2c': {'final': 'set', 'action': 'added', $inputs: $dropdown_menu.find('.ms-action-choice input[indeterminate]:not(:indeterminate):checked'), counter: function(count) { return issues_count - count; }},
+                // indeterminate to unchecked
+                'i2u': {'final': 'unset', 'action': 'removed', $inputs: $dropdown_menu.find('.ms-action-choice input[indeterminate]:not(:indeterminate):not(:checked)'), counter: function(count) { return count; }}
+            },
+            $modal = IssuesList.get_multiselect_action_confirm_modal_node(),
+            $modal_header = $modal.find('.modal-header h6'),
+            $summary_container = $modal.find('.modal-body > ul'),
+            $modal_confirm_btn = $modal.find('.btn-confirm'),
+            data = {'set': [], 'unset': []},
+            actions_count = 0,
+            i, j, type, rule, action_rule, action_string, issues_string, $input, count, value, $summary, $info;
+
+        for (i = 0; i < types.length; i++) {
+            type = types[i];
+            rule = rules[type];
+            action_rule = action_rules[action];
+            for (j = 0; j < rule.$inputs.length; j++) {
+                actions_count += 1;
+                $input = $(rule.$inputs[j]);
+                value = $input.attr('value');
+                if ((action == 'milestone' || action == 'projects') && value == "0") { continue; } // special "no milestone" case
+                count = rule.counter($input.data('count') || 0);
+
+                action_string = ' will be <strong class="' + action_classes[rule.action] + '">' + (action_rule[rule.action] || rule.action) + '</strong> ' + (rule.action == 'added' ? 'to' : 'from') + ' ';
+                issues_string = '<strong>' + count + '</strong> issue'  + (count > 1 ? 's' : '');
+                $info = $input.closest('.ms-action-choice').find('.ms-action-content').clone();
+                $info.find('.hidden').removeClass('hidden');
+
+                $summary = $('<li></li>');
+                $summary.prepend(action_rule.reverse ? issues_string : $info);
+                $summary.append(action_string);
+                $summary.append(action_rule.reverse ? $info : issues_string);
+                $summary_container.append($summary);
+
+                data[rule.final].push(value);
+            }
+        }
+
+        if (actions_count) {
+            $summary_container.before("<p>Please verify and confirm:</p>");
+
+            data.issues = $dropdown_menu.data('issues');
+            data.hash = $dropdown_menu.data('issues-hash');
+            data.csrfmiddlewaretoken = $body.data('csrf');
+            data.front_uuid = UUID.generate();
+
+            $modal_confirm_btn.on('click', {
+                action: action,
+                post_data: data
+            }, IssuesList.on_ms_action_confirm);
+
+        } else {
+            $summary_container.before("<p style='text-align: center'>It appears that there's nothing to do!</p>");
+            $summary_container.remove();
+            $modal_confirm_btn.remove();
+        }
+
+        $modal_header.text('Multi-changes of ' + action);
+        $body.append($modal);
+        $modal.modal('show').on('hidden.modal', function() { $modal.remove() });
+
+        return false;
+
+    }); // IssuesList_on_ms_action_apply
+
+    IssuesList.on_ms_action_confirm = (function IssuesList_on_ms_action_confirm (ev) {
+        var $button = $(this), $modal, modal, url, context;
+
+        if ($button.hasClass('disabled ')) { return; }
+
+        $button.addClass('loading disabled');
+
+        // Forbid closing the modal
+        $modal = $button.closest('.modal');
+        modal = $modal.data('modal');
+        modal.options.keyboard = false;
+        modal.$element.off('keyup');
+        modal.$backdrop.off('click');
+        $modal.find('.btn[data-dismiss]').hide();
+
+        url = $body.data('repository-multiselect-base-url') + ev.data.action + '/apply/';
+
+        context = {
+            $modal: $modal,
+            action: ev.data.action
+        };
+
+        $.post(url, ev.data.post_data)
+            .done($.proxy(IssuesList.multiselect_confirm_done, context))
+            .fail($.proxy(IssuesList.multiselect_confirm_failed, context));
+
+        // Forbid reuse of list
+        $('.ms-action.ms-' + ev.data.action + ' .ms-action-apply').addClass('disabled').attr('title', 'This list needs to be reset');
+        $('.ms-action.ms-' + ev.data.action + ' input').iCheck('disable').attr('title', 'This list needs to be reset');
+
+    });
+
+    IssuesList.multiselect_confirm_done = (function IssuesList_multiselect_confirm_done (data) {
+        var $modal_body = this.$modal.find('.modal-body'),
+            $ul = $modal_body.children('ul'),
+            $ul_failures;
+        $modal_body.children('p').text('Recap:');
+        $ul.empty();
+        if (data.count_success) {
+            $ul.append('<li><strong class="text-open">' + data.count_success + ' issue' + (data.count_success > 1 ? 's</strong> are' : '</strong> is') + ' currently being updated</li>');
+        }
+        if (data.failures.length > 0) {
+            $ul.append('<li><strong class="text-closed">' + data.failures.length + ' issue' + (data.failures.length > 1 ? 's' : '') + "</strong> couldn't be updated:<ul></ul></li>");
+            $ul_failures = $ul.find('ul');
+            for (var i = 0; i < data.failures.length; i++) {
+                var number = data.failures[i][0],
+                     who = data.failures[i][1];
+                $ul_failures.append('<li><strong>#' + number + '</strong> is being updated by <strong>' + who + '</strong></li>');
+            }
+        }
+        this.$modal.find('.btn-confirm').replaceWith('<button class="btn btn-blue" data-dismiss="modal">Close</button>');
+        this.$modal.data('modal').options.keyboard = true;
+        $('.ms-action.ms-' + this.action + ' .ms-action-reset').click();
+    }); // IssuesList_multiselect_confirm_done
+
+    IssuesList.multiselect_confirm_failed = (function IssuesList_multiselect_confirm_failed () {
+        this.$modal.find('.modal-body').empty().append('<div class="alert alert-error">There was an error while processing your request.</div>');
+        this.$modal.find('.btn-confirm').replaceWith('<button class="btn btn-blue" data-dismiss="modal">Close</button>');
+        this.$modal.data('modal').options.keyboard = true;
+        $('.ms-action.ms-' + this.action + ' .ms-action-apply').removeClass('disabled').removeAttr('title');
+        $('.ms-action.ms-' + this.action + ' input').iCheck('enable').removeAttr('title');
+    }); // IssuesList_multiselect_confirm_failed
+
+    IssuesList.get_multiselect_action_confirm_modal_node = (function IssuesList_get_multiselect_action_confirm_modal_node () {
+        var $template = $('#main .ms-action-confirm-modal');
+        if (!$template.length) {
+            $template = $('\
+                <div class="modal fancy template hide ms-action-confirm-modal">\
+                    <div class="modal-header"><h6></h6></div>\
+                    <div class="modal-body">\
+                    <ul></ul>\
+                    </div>\
+                    <div class="modal-footer">\
+                        <div class="row-fluid auto-align">\
+                            <div class="span6">\
+                                <button class="btn btn-blue btn-loading btn-confirm">Confirm <i class="fa fa-spinner fa-spin"> </i></button>\
+                            </div>\
+                            <div class="span6">\
+                                <button class="btn btn-default" data-dismiss="modal">Cancel</button>\
+                            </div>\
+                        </div>\
+                    </div>\
+                </div>\
+            ');
+            $('#main').append($template);
+        }
+
+        var $result = $template.clone();
+        $result.attr('style', '').removeClass('template');
+        return $result;
+
+
+    }); // IssuesList_get_multiselect_action_confirm_modal_node
+
+    IssuesList.on_ms_action_choice_click = (function IssuesList_on_ms_action_choice_click (ev) {
+        var $input = $(this).find('input');
+        if (!$input.prop('disabled')) {
+            $input.iCheck('toggle');
+        }
+        ev.stopPropagation();
+    }); // IssuesList_on_ms_action_choice_click
+
+    IssuesList.on_ms_action_choice_keyboard_activate = (function IssuesList_on_ms_action_choice_keyboard_activate (ev) {
+        var $link = $(ev.target).closest('.multiselect-info .ms-action-choice');
+        if ($link.length) {
+            IssuesList.on_ms_action_choice_click.bind($link[0])(ev);
+            ev.stopPropagation();
+            return false;
+        }
+    }); // IssuesList_on_ms_action_choice_keyboard_activate
+
+    IssuesList.on_ms_action_focus_search_input = (function IssuesList_on_ms_action_focus_search_input (ev) {
+        var $this = $(ev.target);
+        if ($this.is('input')) { return; }
+        var $dropdown = $this.closest('.ms-action');
+        if ($dropdown.length) {
+            $dropdown.find('.quicksearch-widget input').focus();
+            ev.stopPropagation();
+            return false;
+        }
+    });
+
+    IssuesList.on_ms_action_go_up_from_first_item = (function IssuesList_on_ms_action_go_up_from_first_item (ev) {
+        var $this = $(ev.target);
+        if ($this.is('a') && $this.is('.ms-action-choice a')) {
+            var $dropdown = $this.closest('.dropdown');
+            if ($dropdown.find('.ms-action-choice:not(.hidden) a').first()[0] == $this[0]) {
+                var $quicksearch = $dropdown.find('.quicksearch');
+                if ($quicksearch.length) {
+                    $quicksearch.focus();
+                    ev.stopPropagation();
+                    return false;
+                }
+            }
+        }
+    });
+
+    IssuesList.on_ms_action_checkbox_indeterminate_selector_toggled = (function IssuesList_on_ms_action_checkbox_indeterminate_selector_toggled (ev) {
+        // cycle: indeterminate => checked => unchecked => indeterminate => ...
+        var $input = $(this);
+        if (!$input.prop('checked')) {
+            $input.data('previously-indeterminate', false);
+        } else {
+            if (!$input.data('previously-indeterminate')) {
+                $input.iCheck('indeterminate');
+                $input.data('previously-indeterminate', true);
+            } else {
+                $input.data('previously-indeterminate', false);
+            }
+        }
+    }); // IssuesList_on_ms_action_checkbox_indeterminate_selector_toggled
+
+    IssuesList.on_ms_action_radio_selector_toggled = (function IssuesList_on_ms_action_radio_selector_toggled (ev) {
+        var $input = $(this);
+        if ($input.prop('checked')) {
+            $input.closest('.dropdown-menu').find('input[name=' + $input.attr('name') + ']').iCheck('determinate');
+        }
+    });
 
     IssuesList.init_all();
     window.IssuesList = IssuesList;
@@ -2645,6 +3416,8 @@ $().ready(function() {
                 return;
             }
 
+            current_list.$container_node.removeClass('multiselect-mode');
+
             if (!this.no_history) {
                 IssuesFilters.add_history(this.list_index, this.url);
             }
@@ -2656,6 +3429,8 @@ $().ready(function() {
             this.$issues_list_node.replaceWith($new_issues_list_node);
 
             current_list.replace_by_node($new_issues_list_node.children(IssuesList.selector));
+
+            return current_list;
 
         }), // on_filters_and_list_loaded
 

@@ -648,7 +648,8 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
             context.update({
                 'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
                 'metric_stats': self.metric_stats,
-                'all_metrics': list(self.repository.all_metrics())
+                'all_metrics': list(self.repository.all_metrics()),
+                'can_multiselect': context['current_repository_edit_level'] == 'full',
             })
             context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True, milestones=self.milestones))
 

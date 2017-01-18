@@ -1,0 +1,42 @@
+{% extends './list_base.html' %}
+
+{% block data-list %}
+
+    {% for label_type in label_types %}
+
+        {% if not forloop.first %}
+            <li class="divider" data-group="{{ label_type.pk }}"></li>
+        {% endif %}
+
+        <li class="disabled" data-group="{{ label_type.pk }}"><a href="#" tabindex="-1">{{ label_type.name }}</a></li>
+
+        {% for label in label_type.labels.all %}
+            <li class="ms-action-choice" data-related-to="{{ label_type.pk }}">
+                <a href="#" t>
+                    {% include './list_include_input.html' with type='checkbox' pk=label.pk count=label.multiselect_pre_count  %}
+                    <span class="ms-action-content" data-search="{{ label.name }}"><span class="label-object" style="border-bottom-color: #{{ label.color }};"><span class="hidden"><strong>{{ label_type.name }}</strong>: </span>{{ label.typed_name }}</span></span>
+                    {% include './list_include_count.html' with count=label.multiselect_pre_count  %}
+                </a>
+            </li>
+        {% endfor %}
+
+    {% endfor %}
+
+    {% if label_types and simple_labels %}
+        <li class="divider" data-group="simple-labels"></li>
+        <li class="disabled" data-group="simple-labels" tabindex="-1"><a href="#">Other labels</a></li>
+    {% endif %}
+
+    {% for label in simple_labels %}
+        <li class="ms-action-choice" data-related-to="simple-labels">
+            <a href="#">
+                {% include './list_include_input.html' with type='checkbox' pk=label.pk count=label.multiselect_pre_count  %}
+                <span class="ms-action-content label-object" data-search="{{ label.name }}" style="border-bottom-color: #{{ label.color }};">{{ label.name }}</span>
+                {% include './list_include_count.html' with count=label.multiselect_pre_count  %}
+            </a>
+        </li>
+    {% endfor %}
+
+{% endblock data-list %}
+
+{% block no-data %}No available labels{% endblock no-data %}

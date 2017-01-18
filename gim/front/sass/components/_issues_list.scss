@@ -3,6 +3,7 @@
 @import "compass/css3/_hyphenation.scss";
 @import "compass/css3/transition";
 @import "compass/css3/transform";
+@import "mixins";
 @import "metric_stats";
 @import "charts_modal";
 @import "widgets/icheck_aero_blue";
@@ -10,6 +11,7 @@
 
 $issues-list-options-height: 47px;
 $issues-quicksearch-height: 29px;
+$issues-multiselect-info-height: 34px;
 
 // style of the options navbar
 .issues-list-options {
@@ -175,6 +177,9 @@ nav.issues-list-options .dropdown-toggle .caret {
 .issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {
     padding: 5px;
     padding-left: 8px;
+    &.selectable {
+        padding-left: 39px;
+    }
     min-height: 20px;
     .issue-item-header, .avatar, .issue-item-footer {
         display: none;
@@ -200,6 +205,9 @@ nav.issues-list-options .dropdown-toggle .caret {
     }
     &.active {
         padding-left: 3px;
+        &.selectable {
+            padding-left: 34px;
+        }
         .issue-item-repository {
             margin-left: -3px;
             padding-left: 4px;
@@ -481,6 +489,49 @@ nav.issues-list-options .dropdown-toggle .caret {
             bottom: 0;
             right: 0;
             background: rgba(0, 0, 0, 0.5);
+        }
+    }
+
+    > .selector {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 24px;
+        padding: 0 5px;
+        background: #6da7cb;
+        overflow: hidden;
+        .icheckbox_flat-blue {
+            position: absolute;
+            @include calc(top, '50% - 10px');
+            @include calc(left, '50% - 10px');
+        }
+        .iCheck-helper {
+            top: -200px !important;
+            left: -200px !important;
+            bottom: -200px !important;
+            right: -200px !important;
+            width: auto !important;
+            height: auto !important;
+        }
+        &:before {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            @include calc(top, '50% - 8px');
+            @include calc(left, '50% - 8px');
+            background: #fbfbfb;
+            content: '';
+        }
+    }
+
+    &.selectable {
+        padding-left: 39px;
+        &.active {
+            padding-left: 34px;
+            > .selector {
+                left: -5px;
+            }
         }
     }
 }

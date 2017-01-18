@@ -656,3 +656,31 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
         display: none;
     }
 }
+
+#main > .row-header {
+    .multiselect-info {
+        > .ms-selector {
+            padding: 3px;
+        }
+        > .ms-counter {
+            line-height: 27px;
+        }
+        > .ms-actions {
+            > .navbar-inner {
+                min-height: 23px;
+                > .nav {
+                    margin: 0;
+                    > li {
+                        > a {
+                            padding-top: 2px;
+                            padding-bottom: 3px;
+                        }
+                    }
+                }
+            }
+            .divider-vertical {
+                height: 24px;
+            }
+        }
+    }
+}

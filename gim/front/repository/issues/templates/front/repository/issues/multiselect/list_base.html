@@ -1,0 +1,33 @@
+{% load frontutils %}
+{% if has_data %}
+    {% with action_uuid=new_uuid %}
+
+        <div class="dropdown-menu {% block dropdown-classes %}{% endblock %}" role="menu" id="ms-action-{{ action_uuid }}" data-issues-count="{{ issues_count }}" data-issues="{{ issues_pks }}" data-issues-hash="{{ issues_hash }}">
+
+            {% if data_count > 10 %}
+                {% include "front/include_quicksearch.html" with id="filter-ms-action-"|concat:action_uuid target="#ms-action-"|concat:action_uuid|concat:" li.ms-action-choice" content=".ms-action-content" content_data="search" only %}
+            {% endif %}
+
+            <ul class="unstyled">
+                {% block data-list %}{% endblock %}
+            </ul>
+
+            <div class="buttons">
+                <button class="btn btn-default ms-action-reset">Reset</button>
+                <button class="btn btn-blue ms-action-apply pull-right">Apply</button>
+            </div>
+
+            {% if data_count > 10 %}
+                <script data-cfasync="false" type="text/javascript">
+                    setTimeout(function() { window.activate_quicksearches($('#filter-ms-action-{{ action_uuid }} input.quicksearch')); }, 250);
+                </script>
+            {% endif %}
+
+        </div>
+
+    {% endwith %}
+{% else %}
+    <ul class="dropdown-menu empty">
+        <li class="disabled"><a href="#">{% block no-data %}{% endblock %}</a></li>
+    </ul>
+{% endif %}

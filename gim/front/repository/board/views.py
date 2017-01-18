@@ -324,6 +324,7 @@ class BoardView(BoardMixin, IssuesFilters, BaseRepositoryView):
             'current_issues_url': self.base_url,
             'filters_title': 'Filters for all columns',
             'can_show_shortcuts': True,
+            'can_multiselect': context['current_repository_edit_level'] == 'full',
             'force_display_groups_options': True,
         })
 
