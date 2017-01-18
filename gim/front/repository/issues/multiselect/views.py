@@ -24,28 +24,51 @@ from gim.ws import sign
 
 class MultiSelectViewBase(WithAjaxRestrictionViewMixin, RepositoryViewMixin):
 
+    def __init__(self, *args, **kwargs):
+        self.issues_pks = []
+        super(MultiSelectViewBase, self).__init__(*args, **kwargs)
+
     http_method_names = ['post']
     ajax_only = True
     allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
 
-    def get_issues_from_ids(self, ids):
+    def convert_issues_pks_from_post(self):
+        self.issues_pks = []
+        done = set()
+        try:
+            for pk in self.request.POST.getlist('issues[]'):
+                converted_pk = int(pk)
+                if converted_pk in done:
+                    continue
+                self.issues_pks.append(converted_pk)
+                done.add(converted_pk)
+        except Exception:
+            raise SuspiciousOperation
+
+    def get_issues_from_pks(self, pks):
         return self.repository.issues.filter(
-            id__in=set(ids)
+            id__in=set(pks)
         )
+
+    @staticmethod
+    def order_issue_from_pk_list(issues, pks):
+        by_pk = {issue.pk: issue for issue in issues}
+        result = []
+        for pk in pks:
+            if pk in by_pk:
+                result.append(by_pk[pk])
+        return result
 
 
 class ListViewBase(MultiSelectViewBase, TemplateView):
 
     def post(self, request, *args, **kwargs):
+        self.convert_issues_pks_from_post()
         context = self.get_context_data(**kwargs)
         return self.render_to_response(context)
 
-    def get_issues_from_post(self):
-        return self.get_issues_from_ids(self.request.POST.getlist('issues[]'))
-
-    @staticmethod
-    def get_issues_info(issues):
-        issues_pks = sorted([issue.pk for issue in issues])
+    def get_issues_info(self, issues):
+        issues_pks = [issue.pk for issue in self.order_issue_from_pk_list(issues, self.issues_pks)]
         issues_pks_json = json.dumps(issues_pks)
         return {
             'issues_pks': issues_pks_json,
@@ -62,7 +85,7 @@ class MultiSelectListAssigneesView(ListViewBase):
     def get_context_data(self, **kwargs):
         context = super(MultiSelectListAssigneesView, self).get_context_data(**kwargs)
 
-        issues = self.get_issues_from_post().prefetch_related('assignees')
+        issues = self.get_issues_from_pks(self.issues_pks).prefetch_related('assignees')
 
         collaborators = list(self.repository.collaborators.all())
 
@@ -92,7 +115,7 @@ class MultiSelectListLabelsView(ListViewBase):
     def get_context_data(self, **kwargs):
         context = super(MultiSelectListLabelsView, self).get_context_data(**kwargs)
 
-        issues = self.get_issues_from_post().prefetch_related('labels')
+        issues = self.get_issues_from_pks(self.issues_pks).prefetch_related('labels')
 
         label_types = list(self.label_types)
         simple_labels = list(self.repository.labels.filter(label_type_id__isnull=True).order_by('lower_name'))
@@ -135,7 +158,7 @@ class MultiSelectListMilestonesView(ListViewBase):
     def get_context_data(self, **kwargs):
         context = super(MultiSelectListMilestonesView, self).get_context_data(**kwargs)
 
-        issues = self.get_issues_from_post()
+        issues = self.get_issues_from_pks(self.issues_pks)
 
         milestones = list(self.milestones)
         milestones_by_pk = {milestone.pk: milestone for milestone in milestones}
@@ -173,7 +196,7 @@ class MultiSelectListProjectsView(ListViewBase):
 
         context = super(MultiSelectListProjectsView, self).get_context_data(**kwargs)
 
-        issues = self.get_issues_from_post().prefetch_related('cards__column')
+        issues = self.get_issues_from_pks(self.issues_pks).prefetch_related('cards__column')
 
         projects = list(self.projects)
 
@@ -218,6 +241,7 @@ class ApplyViewBase(MultiSelectViewBase, View):
     fuzzy_delta = timedelta(seconds=120)
 
     def post(self, request, *args, **kwargs):
+        self.convert_issues_pks_from_post()
         issues, to_set, to_unset, front_uuid = self.get_data()
         count_success, failures = self.process_data(issues, to_set, to_unset, front_uuid)
         return HttpResponse(
@@ -228,31 +252,29 @@ class ApplyViewBase(MultiSelectViewBase, View):
             content_type='application/json',
         )
 
-    @staticmethod
-    def verify_issues_info(issues_pks, issues_hash):
-        try:
-            issues_pks = sorted([int(issue_pk) for issue_pk in issues_pks])
-        except (ValueError, TypeError):
+    def convert_issues_pks_from_post(self):
+        super(ApplyViewBase, self).convert_issues_pks_from_post()
+        if not self.issues_pks or sign(self.issues_pks) != self.request.POST.get('hash'):
             raise SuspiciousOperation
-        if sign(issues_pks) != issues_hash:
-            raise SuspiciousOperation
-        return issues_pks
 
     def verify_related(self, pks):
         if not self.repository_relation:
             raise NotImplementedError
-        objects = getattr(self.repository, self.repository_relation).filter(pk__in=pks)
-        if len(pks) != len(objects):
+
+        converted_pks = []
+        try:
+            for pk in pks:
+                converted_pks.append(int(pk))
+        except Exception:
+            raise SuspiciousOperation
+
+        objects = getattr(self.repository, self.repository_relation).filter(pk__in=converted_pks)
+
+        if len(converted_pks) != len(objects):
             raise SuspiciousOperation
         return objects
 
     def get_data(self):
-        issues_pks = self.request.POST.getlist('issues[]')
-        issues_hash = self.request.POST.get('hash')
-
-        issues_pks = self.verify_issues_info(issues_pks, issues_hash)
-        if not issues_pks:
-            raise SuspiciousOperation
 
         try:
             to_set = self.verify_related([int(value) for value in self.request.POST.getlist('set[]')])
@@ -261,7 +283,7 @@ class ApplyViewBase(MultiSelectViewBase, View):
             raise SuspiciousOperation
 
         return (
-            self.get_issues_from_ids(issues_pks),
+            self.get_issues_from_pks(self.issues_pks),
             to_set,
             to_unset,
             str(self.request.POST.get('front_uuid', '') or '')[:36]
@@ -358,7 +380,7 @@ class MultiSelectApplyAssigneesView(ApplyViewBase):
         count_success = 0
         failures = []
 
-        for issue in issues:
+        for issue in self.order_issue_from_pk_list(issues, self.issues_pks):
             assignees = set(issue.assignees.all())
             touched = False
             for assignee in to_set:
@@ -396,7 +418,7 @@ class MultiSelectApplyLabelsView(ApplyViewBase):
         count_success = 0
         failures = []
 
-        for issue in issues:
+        for issue in self.order_issue_from_pk_list(issues, self.issues_pks):
             labels = set(issue.labels.all())
             touched = False
             for label in to_set:
@@ -435,7 +457,7 @@ class MultiSelectApplyMilestoneView(ApplyViewBase):
         failures = []
 
         new_milestone = None if not to_set else to_set[0]
-        for issue in issues:
+        for issue in self.order_issue_from_pk_list(issues, self.issues_pks):
             if issue.milestone != new_milestone:
                 current_update_by = self.update_issue(issue, new_milestone, front_uuid)
                 if current_update_by:
@@ -462,7 +484,7 @@ class MultiSelectApplyProjectsView(ApplyViewBase):
         count_success = 0
         failures = []
 
-        for issue in issues:
+        for issue in self.order_issue_from_pk_list(issues, self.issues_pks):
             columns = set([card.column for card in issue.cards.all()])
             touched = False
             for column in to_set:
