@@ -1255,6 +1255,9 @@ $().ready(function() {
             }, // create_placeholder
 
             on_drag_update: function(ev, ui) {
+                if (!Board.dragger.dragging) {
+                    return;
+                }
                 var $new_group = ui.item.parent(),
                     new_group, issue;
 
@@ -1444,6 +1447,7 @@ $().ready(function() {
             }, // check_issue_movable
 
             on_check_issue_movable_failure: function(xhr, data) {
+                Board.dragger.dragging = false;
                 $(this.sortable_node).sortable('cancel');
                 var ui_item = this.ui_item;
                 setTimeout(function() {
