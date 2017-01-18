@@ -1647,7 +1647,6 @@ class IssueEditProjects(IssueEditFieldMixin):
         `move_between_columns` entries.
         We encode this dict as json to be stored in the job single field
         """
-        value = form.cleaned_data['columns']
         data = getattr(self.object, '_columns_to_update', {})
         return bool(data), json.dumps(data)
 
