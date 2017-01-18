@@ -955,6 +955,10 @@ $().ready(function() {
         this.repository_id = issue_ident.repository_id;
     }); // IssuesListIssue__set_issue_ident
 
+    IssuesListIssue.prototype.is_real_issue = (function IssuesList__is_real_issue () {
+        return parseInt(this.id) == this.id;
+    }); // IssuesList__is_real_issue
+
     IssuesListIssue.on_issue_node_event = (function IssuesListIssue_on_issue_node_event (issue_method, stop, pass_event) {
         var decorator = function(e) {
             // ignore filter links
