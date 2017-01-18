@@ -1295,7 +1295,7 @@ $().ready(function() {
 
                         // remove the existing duplicate(s)
                         $duplicates = new_list.$node.find('#issue-' + issue.id + '.issue-item:not(.ui-sortable-placeholder):not(.ui-sortable-helper)').not(issue.$node);
-                        for (var i = 0; i < $duplicates.length; i++) {
+                        for (i = 0; i < $duplicates.length; i++) {
                             $duplicates[i].IssuesListIssue.clean();
                         }
 
@@ -1397,7 +1397,7 @@ $().ready(function() {
                         old_list.remove_group(old_group);
                     }
                 });
-            }, // on_drag_receive
+            }, // on_drag_update
 
             remote_move_issue: function(issue, old_list, new_list, position) {
                 var new_key = new_list.$container_node.data('key'),
@@ -2089,7 +2089,6 @@ $().ready(function() {
 
                 if (Board.project_editor.create_mode) {
                     Board.project_editor.$modal.one('shown.modal', function() {
-                        console.log('shown');
                         var $input =  Board.project_editor.$modal_body.find('input[name=name]');
                         $input.focus();
                         FormTools.move_cursor_at_the_end($input);
