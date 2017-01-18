@@ -2190,6 +2190,10 @@ $().ready(function() {
         message_conf = message_conf || {};
 
         $.get(kwargs.url + '?referer=' + window.encodeURIComponent(list.url)).done(function(data) {
+
+            // continue only if not already done
+            if (list.get_issue_by_id(kwargs.id)) { return; }
+
             var $data = $(data),
                 issue = new IssuesListIssue($data[0], null),
                 filter, group,
