@@ -1266,7 +1266,7 @@ $().ready(function() {
                 group = list.get_group_for_value(filter.value) || list.create_group(filter.value, filter.text, filter.description);
                 if (group != issue.group) {
                     same_group = false;
-                    list.change_issue_group(issue, group);
+                    issue.move_to_group(group);
                     if (!$containers.length && (!kwargs.front_uuid || !front_uuid_exists)) {
                         group.$node.addClass('recent');
                     }
@@ -1359,6 +1359,24 @@ $().ready(function() {
         }
         return {value: filter_value, text: filter_text, description: filter_description};
     });  // IssuesListIssue__get_filter_for
+
+    IssuesListIssue.prototype.move_to_group = (function IssuesListIssue__move_to_group (new_group) {
+        var orig_group = this.group,
+            orig_list = orig_group.list,
+            new_list = new_group.list;
+
+        var index = orig_group.issues.indexOf(this);
+        if (index > -1) {
+            orig_group.issues.splice(index, 1);
+        }
+        new_group.add_issue(this, true);
+        if (!orig_group.issues.length) {
+            orig_list.remove_group(orig_group);
+        } else {
+            new_list.ask_for_quicksearch_results_reinit();
+            orig_group.ask_for_filtered_issues_update();
+        }
+    }); // IssuesListIssue__move_to_group
 
     IssuesListIssue.prototype.clean = (function IssuesListIssue__clean () {
         this.node.IssuesListIssue = null;
@@ -2164,23 +2182,6 @@ $().ready(function() {
         }
         return null;
     }); // IssuesList__get_group_for_value
-
-    IssuesList.prototype.change_issue_group = (function IssuesList__change_issue_group (issue, new_group) {
-        var orig_group = issue.group;
-
-        var index = orig_group.issues.indexOf(issue);
-        if (index > -1) {
-            orig_group.issues.splice(index, 1);
-        }
-        new_group.add_issue(issue, true);
-        if (!orig_group.issues.length) {
-            this.remove_group(orig_group);
-        } else {
-            orig_group.list.ask_for_quicksearch_results_reinit();
-            orig_group.ask_for_filtered_issues_update();
-        }
-
-    }); // IssuesList__change_issue_group
 
     IssuesList.prototype.on_issue_create_alert = (function IssuesList__on_issue_create_alert (topic, args, kwargs, message_conf) {
         var list = this,

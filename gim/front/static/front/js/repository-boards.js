@@ -1379,7 +1379,7 @@ $().ready(function() {
                         filter = issue.get_filter_for(new_list.group_by_key);
                         new_group = new_list.get_group_for_value(filter.value) || new_list.create_group(filter.value, filter.text, filter.description);
                         if (new_group != issue.group) {
-                            new_list.change_issue_group(issue, new_group);
+                            issue.move_to_group(new_group);
                         }
                     }
 
