@@ -397,3 +397,5 @@ else:
         TEMPLATES[0]['OPTIONS']['loaders'] = local_settings._TEMPLATE_LOADERS
     if local_settings._TEMPLATE_DEBUG is not None:
         TEMPLATES[0]['OPTIONS']['debug'] = local_settings._TEMPLATE_DEBUG
+    if local_settings._CONTEXT_PROCESSORS:
+        TEMPLATES[0]['OPTIONS']['context_processors'] += local_settings._CONTEXT_PROCESSORS
