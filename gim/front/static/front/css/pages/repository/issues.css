@@ -1689,51 +1689,55 @@ nav.issues-list-options .dropdown-toggle .caret {
   color: white;
   margin-right: 1ex;
   line-height: 14px;
-  flex-shrink: 0.7;
+  flex-shrink: 1;
   flex-grow: 1;
   flex-basis: 0;
+  min-width: 150px;
 }
-/* line 95, ../../../../../sass/components/_issues_full_list.scss */
+/* line 97, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-counter span {
   font-size: smaller;
   white-space: nowrap;
 }
-/* line 100, ../../../../../sass/components/_issues_full_list.scss */
+/* line 105, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions {
   flex-shrink: 1;
   margin-right: 2px;
   margin-bottom: 0;
   position: relative;
+  min-width: 124px;
 }
-/* line 105, ../../../../../sass/components/_issues_full_list.scss */
+/* line 111, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner {
   padding: 0;
   min-height: 28px;
 }
-/* line 108, ../../../../../sass/components/_issues_full_list.scss */
+/* line 114, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav {
   margin: 0;
   line-height: 0;
   font-size: 0;
   position: static;
+  display: flex;
+  max-width: 100%;
 }
-/* line 114, ../../../../../sass/components/_issues_full_list.scss */
+/* line 122, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li > a {
   padding: 4px 5px;
 }
-/* line 116, ../../../../../sass/components/_issues_full_list.scss */
+/* line 124, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span {
   display: flex;
   align-items: center;
 }
-/* line 119, ../../../../../sass/components/_issues_full_list.scss */
+/* line 127, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .fa {
   flex-shrink: 0;
   margin-right: 4px;
   width: 14px;
   text-align: center;
 }
-/* line 125, ../../../../../sass/components/_issues_full_list.scss */
+/* line 133, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .ms-action-name {
   white-space: nowrap;
   overflow: hidden;
@@ -1741,44 +1745,53 @@ nav.issues-list-options .dropdown-toggle .caret {
   -o-text-overflow: ellipsis;
   text-overflow: ellipsis;
 }
-/* line 128, ../../../../../sass/components/_issues_full_list.scss */
+/* line 136, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .caret {
   margin-left: 4px;
   margin-top: 0;
 }
-/* line 135, ../../../../../sass/components/_issues_full_list.scss */
+/* line 143, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions > .navbar-inner > .nav > li.disabled a, .multiselect-info > .ms-actions > .navbar-inner > .nav > li.disabled:hover a {
   color: #777;
 }
-/* line 142, ../../../../../sass/components/_issues_full_list.scss */
+/* line 150, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info > .ms-actions .divider-vertical {
   height: 28px;
   margin: 0;
 }
-/* line 147, ../../../../../sass/components/_issues_full_list.scss */
+/* line 156, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info.with-projects > .ms-counter {
+  min-width: 110px;
+}
+/* line 160, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info.with-projects > .ms-actions {
+  min-width: 166px;
+}
+/* line 164, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action {
   font-size: 13px;
+  min-width: 40px;
 }
-/* line 150, ../../../../../sass/components/_issues_full_list.scss */
+/* line 168, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu ul {
   max-height: 50vh;
   overflow: auto;
   padding-bottom: 7px;
 }
-/* line 156, ../../../../../sass/components/_issues_full_list.scss */
+/* line 174, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li > a {
   display: flex;
   padding: 3px 10px;
   clear: both;
   line-height: 20px;
 }
-/* line 161, ../../../../../sass/components/_issues_full_list.scss */
+/* line 179, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li > a > :first-child {
   flex-basis: 20px;
   width: 20px;
   flex-shrink: 0;
 }
-/* line 166, ../../../../../sass/components/_issues_full_list.scss */
+/* line 184, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li > a > :nth-child(2) {
   flex-grow: 1;
   white-space: nowrap;
@@ -1787,42 +1800,42 @@ nav.issues-list-options .dropdown-toggle .caret {
   -o-text-overflow: ellipsis;
   text-overflow: ellipsis;
 }
-/* line 170, ../../../../../sass/components/_issues_full_list.scss */
+/* line 188, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li > a .label {
   font-weight: normal;
   font-size: 11px;
   margin-left: 10px;
 }
-/* line 176, ../../../../../sass/components/_issues_full_list.scss */
+/* line 194, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li.divider {
   margin: 6px 1px 3px;
 }
-/* line 180, ../../../../../sass/components/_issues_full_list.scss */
+/* line 198, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li.disabled a {
   cursor: default;
   color: #999;
 }
-/* line 183, ../../../../../sass/components/_issues_full_list.scss */
+/* line 201, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li.disabled a:hover, .multiselect-info .ms-action > .dropdown-menu li.disabled a:focus {
   color: #999;
 }
-/* line 187, ../../../../../sass/components/_issues_full_list.scss */
+/* line 205, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action > .dropdown-menu li.disabled:hover a, .multiselect-info .ms-action > .dropdown-menu li.disabled a:hover {
   background: transparent;
   text-decoration: none;
   cursor: default;
 }
-/* line 195, ../../../../../sass/components/_issues_full_list.scss */
+/* line 213, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .icheckbox_flat-blue, .multiselect-info .ms-action .iradio_flat-blue {
   margin-right: 1ex;
 }
-/* line 198, ../../../../../sass/components/_issues_full_list.scss */
+/* line 216, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action.loaded {
   position: static;
 }
-/* line 200, ../../../../../sass/components/_issues_full_list.scss */
+/* line 218, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action.loaded > .dropdown-menu {
-  left: 0 !important;
+  left: auto !important;
   right: 0 !important;
   float: none !important;
   margin-top: 0;
@@ -1830,38 +1843,42 @@ nav.issues-list-options .dropdown-toggle .caret {
   -moz-border-radius: 0 0 6px 6px;
   -webkit-border-radius: 0;
   border-radius: 0 0 6px 6px;
-  min-wdith: 130px;
+  min-width: -moz-calc(100% - 2px);
+  min-width: -o-calc(100% - 2px);
+  min-width: -webkit-calc(100% - 2px);
+  min-width: calc(100% - 2px);
+  max-width: 300px;
 }
-/* line 208, ../../../../../sass/components/_issues_full_list.scss */
+/* line 227, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action.loaded > .dropdown-menu:before, .multiselect-info .ms-action.loaded > .dropdown-menu:after {
   display: none;
 }
-/* line 214, ../../../../../sass/components/_issues_full_list.scss */
+/* line 233, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .icheckbox_flat-blue.indeterminate:after, .multiselect-info .ms-action .iradio_flat-blue.indeterminate:after {
   border-color: #6da7cb;
 }
-/* line 218, ../../../../../sass/components/_issues_full_list.scss */
+/* line 237, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget {
   margin-top: -5px;
 }
-/* line 220, ../../../../../sass/components/_issues_full_list.scss */
+/* line 239, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget label {
   width: 100%;
 }
-/* line 223, ../../../../../sass/components/_issues_full_list.scss */
+/* line 242, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget input {
   width: -moz-calc(100% - 68px);
   width: -o-calc(100% - 68px);
   width: -webkit-calc(100% - 68px);
   width: calc(100% - 68px);
 }
-/* line 226, ../../../../../sass/components/_issues_full_list.scss */
+/* line 245, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget .add-on {
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 229, ../../../../../sass/components/_issues_full_list.scss */
+/* line 248, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget .btn-default {
   width: 8px;
   padding: 4px 10px;
@@ -1869,129 +1886,129 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 234, ../../../../../sass/components/_issues_full_list.scss */
+/* line 253, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .quicksearch-widget + ul {
   padding-top: 10px;
 }
-/* line 238, ../../../../../sass/components/_issues_full_list.scss */
+/* line 257, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .buttons {
   -moz-box-shadow: 0 -1px 2px #DADADA;
   -webkit-box-shadow: 0 -1px 2px #DADADA;
   box-shadow: 0 -1px 2px #DADADA;
   padding: 5px 5px 0;
 }
-/* line 241, ../../../../../sass/components/_issues_full_list.scss */
+/* line 260, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-action .buttons button {
   margin-top: 0;
 }
-/* line 246, ../../../../../sass/components/_issues_full_list.scss */
+/* line 265, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-labels {
-  max-width: -moz-calc(30px + 0.1976 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -o-calc(30px + 0.1976 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -webkit-calc(30px + 0.1976 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: calc(30px + 0.1976 * (100% - (3 * 2px + 4 * 30px)));
+  max-width: -moz-calc(40px + 3.4em);
+  max-width: -o-calc(40px + 3.4em);
+  max-width: -webkit-calc(40px + 3.4em);
+  max-width: calc(40px + 3.4em);
 }
-/* line 248, ../../../../../sass/components/_issues_full_list.scss */
+/* line 267, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-labels a .label {
   top: 2px;
 }
-/* line 251, ../../../../../sass/components/_issues_full_list.scss */
+/* line 270, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-labels .label-object {
   border-bottom: solid 3px transparent;
   position: relative;
   top: -1px;
 }
-/* line 257, ../../../../../sass/components/_issues_full_list.scss */
+/* line 276, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-milestone {
-  max-width: -moz-calc(30px + 0.2819 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -o-calc(30px + 0.2819 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -webkit-calc(30px + 0.2819 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: calc(30px + 0.2819 * (100% - (3 * 2px + 4 * 30px)));
+  max-width: -moz-calc(40px + 5em);
+  max-width: -o-calc(40px + 5em);
+  max-width: -webkit-calc(40px + 5em);
+  max-width: calc(40px + 5em);
 }
-/* line 259, ../../../../../sass/components/_issues_full_list.scss */
+/* line 278, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-milestone .fa-tasks:not(.text-open):not(.text-closed) {
   color: inherit;
 }
-/* line 263, ../../../../../sass/components/_issues_full_list.scss */
+/* line 282, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-assignees {
-  max-width: -moz-calc(30px + 0.2831 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -o-calc(30px + 0.2831 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -webkit-calc(30px + 0.2831 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: calc(30px + 0.2831 * (100% - (3 * 2px + 4 * 30px)));
+  max-width: -moz-calc(40px + 5em);
+  max-width: -o-calc(40px + 5em);
+  max-width: -webkit-calc(40px + 5em);
+  max-width: calc(40px + 5em);
 }
-/* line 266, ../../../../../sass/components/_issues_full_list.scss */
+/* line 285, ../../../../../sass/components/_issues_full_list.scss */
 .multiselect-info .ms-projects {
-  max-width: -moz-calc(30px + 0.2374 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -o-calc(30px + 0.2374 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: -webkit-calc(30px + 0.2374 * (100% - (3 * 2px + 4 * 30px)));
-  max-width: calc(30px + 0.2374 * (100% - (3 * 2px + 4 * 30px)));
+  max-width: -moz-calc(40px + 4.1em);
+  max-width: -o-calc(40px + 4.1em);
+  max-width: -webkit-calc(40px + 4.1em);
+  max-width: calc(40px + 4.1em);
 }
 
-/* line 271, ../../../../../sass/components/_issues_full_list.scss */
+/* line 290, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .ms-action-content {
   font-weight: 600;
 }
-/* line 274, ../../../../../sass/components/_issues_full_list.scss */
+/* line 293, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .label-object {
   padding-bottom: 2px;
   border-bottom: solid 3px transparent;
 }
-/* line 279, ../../../../../sass/components/_issues_full_list.scss */
+/* line 298, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .modal-body strong {
   font-weight: 700;
 }
-/* line 282, ../../../../../sass/components/_issues_full_list.scss */
+/* line 301, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .modal-body ul {
   max-height: 60vh;
 }
-/* line 285, ../../../../../sass/components/_issues_full_list.scss */
+/* line 304, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .modal-body li {
   line-height: 30px;
 }
-/* line 288, ../../../../../sass/components/_issues_full_list.scss */
+/* line 307, ../../../../../sass/components/_issues_full_list.scss */
 .ms-action-confirm-modal .modal-body .alert {
   margin-bottom: 0;
 }
 
-/* line 295, ../../../../../sass/components/_issues_full_list.scss */
+/* line 314, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container {
   border-top: solid #FAFAFA 5px;
 }
-/* line 297, ../../../../../sass/components/_issues_full_list.scss */
+/* line 316, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .multiselect-info {
   position: absolute;
   top: 76px;
   width: 100%;
 }
-/* line 303, ../../../../../sass/components/_issues_full_list.scss */
+/* line 322, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.multiselect-mode .issues-list {
   top: 110px;
 }
-/* line 307, ../../../../../sass/components/_issues_full_list.scss */
+/* line 326, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title {
   border-top-color: #ddd;
 }
-/* line 309, ../../../../../sass/components/_issues_full_list.scss */
+/* line 328, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-list-options {
   top: 20px;
 }
-/* line 312, ../../../../../sass/components/_issues_full_list.scss */
+/* line 331, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-quicksearch {
   top: 67px;
 }
-/* line 315, ../../../../../sass/components/_issues_full_list.scss */
+/* line 334, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-list {
   top: 96px;
 }
-/* line 318, ../../../../../sass/components/_issues_full_list.scss */
+/* line 337, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .multiselect-info {
   top: 96px;
 }
-/* line 322, ../../../../../sass/components/_issues_full_list.scss */
+/* line 341, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title.multiselect-mode .issues-list {
   top: 130px;
 }
-/* line 327, ../../../../../sass/components/_issues_full_list.scss */
+/* line 346, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert {
   margin: 0;
   padding-right: 14px;
@@ -2002,13 +2019,13 @@ nav.issues-list-options .dropdown-toggle .caret {
   font-weight: normal;
   line-height: 15px;
 }
-/* line 334, ../../../../../sass/components/_issues_full_list.scss */
+/* line 353, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert .btn {
   margin: 8px auto 0;
   display: block;
   max-width: 13em;
 }
-/* line 339, ../../../../../sass/components/_issues_full_list.scss */
+/* line 358, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert + .box {
   border-top-width: 1px;
 }

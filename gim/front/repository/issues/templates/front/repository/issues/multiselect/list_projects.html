@@ -15,7 +15,7 @@
         <li class="ms-action-choice" data-related-to="{{ project.pk }}">
             <a href="#">
                 {% include './list_include_input.html' with type='radio' pk=0 count=project.multiselect_absent_count name_suffix=project.pk %}
-                <span class="ms-action-content" data-search="{{ project.name }}: not in this project"><span class="hidden"><strong>{{ project.name }}</strong>: </span><em>(not in this project)</em></span>
+                <span class="ms-action-content" data-search="{{ project.name }}: not in project"><span class="hidden"><strong>{{ project.name }}</strong>: </span><em>(not in project)</em></span>
                 {% include './list_include_count.html' with count=project.multiselect_absent_count  %}
             </a>
         </li>

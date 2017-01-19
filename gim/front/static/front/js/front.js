@@ -2657,42 +2657,50 @@ $().ready(function() {
     IssuesList.get_multiselect_info_node = (function IssuesList_get_multiselect_info_node() {
         var $template = $('#main .multiselect-info.template');
         if (!$template.length) {
-            $template = $('\
-                <div class="multiselect-info template" style="display: none">\
-                    <div class="ms-selector" title="Click to select/unselect all"><input type="checkbox" name="select-all"/></div>\
-                    <span class="ms-counter">Nothing selected</span>\
-                    <nav class="navbar navbar-no-rounded ms-actions">\
-                        <div class="navbar-inner">\
-                            <ul class="nav">\
-                                <li class="dropdown ms-action ms-labels" data-action="labels">\
-                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change labels"><span><i class="fa fa-tags"> </i><span class="ms-action-name">Labels</span><b class="caret"></b></span></a>\
-                                    <div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
-                                </li>\
-                                <li class="divider-vertical"></li>\
-                                <li class="dropdown ms-action ms-milestone" data-action="milestone">\
-                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change milestone"><span><i class="fa fa-tasks"> </i><span class="ms-action-name">Milestone</span><b class="caret"></b></span></a>\
-                                    <div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
-                                </li>\
-                                <li class="divider-vertical"></li>\
-                                <li class="dropdown ms-action ms-assignees" data-action="assignees">\
-                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change assignees"><span><i class="fa fa-hand-o-right"> </i><span class="ms-action-name">Assignees</span><b class="caret"></b></span></a>\
-                                    <div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
-                                </li>\
-                                <li class="divider-vertical"></li>\
-                                <li class="dropdown ms-action ms-projects" data-action="projects">\
-                                    <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change projects"><span><i class="fa fa-align-left fa-rotate-90"> </i><span class="ms-action-name">Projects</span><b class="caret"></b></span></a>\
-                                    <div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>\
-                                </li>\
-                            </ul>\
-                        </div>\
-                    </nav>\
-                </div>\
-            ');
+            $template = $(
+                '<div class="multiselect-info template" style="display: none">' +
+                    '<div class="ms-selector" title="Click to select/unselect all"><input type="checkbox" name="select-all"/></div>' +
+                    '<span class="ms-counter">Nothing selected</span>' +
+                    '<nav class="navbar navbar-no-rounded ms-actions">' +
+                        '<div class="navbar-inner">' +
+                            '<ul class="nav">' +
+                                '<li class="dropdown ms-action ms-labels" data-action="labels">' +
+                                    '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change labels"><span><i class="fa fa-tags"></i><span class="ms-action-name">Labels</span><b class="caret"></b></span></a>' +
+                                    '<div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                '</li>' +
+                                '<li class="divider-vertical"></li>' +
+                                '<li class="dropdown ms-action ms-milestone" data-action="milestone">' +
+                                    '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change milestone"><span><i class="fa fa-tasks"></i><span class="ms-action-name">Milestone</span><b class="caret"></b></span></a>' +
+                                    '<div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                '</li>' +
+                                '<li class="divider-vertical"></li>' +
+                                '<li class="dropdown ms-action ms-assignees" data-action="assignees">' +
+                                    '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change assignees"><span><i class="fa fa-hand-o-right"></i><span class="ms-action-name">Assignees</span><b class="caret"></b></span></a>' +
+                                    '<div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                '</li>' +
+                                '<li class="divider-vertical"></li>' +
+                                '<li class="dropdown ms-action ms-projects" data-action="projects">' +
+                                    '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change projects"><span><i class="fa fa-align-left fa-rotate-90"></i><span class="ms-action-name">Projects</span><b class="caret"></b></span></a>' +
+                                    '<div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                '</li>' +
+                            '</ul>' +
+                        '</div>' +
+                    '</nav>' +
+                '</div>'
+            );
             $('#main').append($template);
         }
 
         var $result = $template.clone();
         $result.attr('style', '').removeClass('template');
+        if ($body.data('repository-has-projects')) {
+            $result.addClass('with-projects');
+        } else {
+            var $projects_dropdown = $result.find('.ms-projects');
+            $projects_dropdown.prev('.divider-vertical').remove();
+            $projects_dropdown.remove();
+            $result.find('.ms-milestone .dropdown-menu').addClass('pull-right');
+        }
         return $result;
 
     }); // IssuesList_get_multiselect_info_node

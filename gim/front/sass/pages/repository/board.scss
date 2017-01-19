@@ -76,7 +76,7 @@ body#repository_board #main-inner {
     @include box-sizing(border-box);
     background: #f0f0f0;
     position: relative;
-    min-width: 300px;
+    min-width: 320px;
     width: 500px;
     overflow: hidden;
     &.hidden {
@@ -663,7 +663,9 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
             padding: 3px;
         }
         > .ms-counter {
-            line-height: 27px;
+            max-height: 28px;
+            margin-top: -1px;
+            margin-bottom: -1px;
         }
         > .ms-actions {
             > .navbar-inner {

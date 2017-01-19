@@ -89,19 +89,25 @@ $list-title-height: 20px;
         color: white;
         margin-right: 1ex;
         line-height: 14px;
-        flex-shrink: 0.7;
+        flex-shrink: 1;
         flex-grow: 1;
         flex-basis: 0;
+        min-width: 150px;
+
         span {
             font-size: smaller;
             white-space: nowrap;
         }
     }
+    $ms-action-white-space-width: 40px;
+    $ms-action-divider-width: 2px;
+    $ms-actions-count: 3;
     > .ms-actions {
         flex-shrink: 1;
         margin-right: 2px;
         margin-bottom: 0;
         position: relative;
+        min-width: $ms-actions-count * $ms-action-white-space-width + ($ms-actions-count - 1) * $ms-action-divider-width;
         > .navbar-inner {
             padding: 0;
             min-height: 28px;
@@ -110,6 +116,8 @@ $list-title-height: 20px;
                 line-height: 0;
                 font-size: 0;
                 position: static;
+                display: flex;
+                max-width: 100%;
                 > li {
                     > a {
                         padding: 4px 5px;
@@ -144,8 +152,18 @@ $list-title-height: 20px;
             margin: 0;
         }
     }
+    &.with-projects {
+        > .ms-counter {
+            min-width: 110px
+        }
+        $ms-actions-count: 4;
+        > .ms-actions {
+            min-width: $ms-actions-count * $ms-action-white-space-width + ($ms-actions-count - 1) * $ms-action-divider-width;
+        }
+    }
     .ms-action {
         font-size: 13px;
+        min-width: $ms-action-white-space-width;
         > .dropdown-menu {
             ul {
                 max-height: 50vh;
@@ -198,13 +216,14 @@ $list-title-height: 20px;
         &.loaded {
             position: static;
             > .dropdown-menu {
-                left: 0 !important;
+                left: auto !important;
                 right: 0 !important;
                 float: none !important;
                 margin-top: 0;
                 border-top: none;
                 @include border-radius(0 0 6px 6px);
-                min-wdith: 130px;
+                @include calc(min-width, "100% - 2px");
+                max-width: 300px;
                 &:before, &:after {
                     display: none;
                 }
@@ -244,7 +263,7 @@ $list-title-height: 20px;
         }
     }
     .ms-labels {
-        @include calc(max-width, "30px + 0.1976 * (100% - (3 * 2px + 4 * 30px))");
+        @include calc(max-width, "#{$ms-action-white-space-width} + 3.4em");
         a .label {
             top: 2px;
         }
@@ -255,16 +274,16 @@ $list-title-height: 20px;
         }
     }
     .ms-milestone {
-        @include calc(max-width, "30px + 0.2819 * (100% - (3 * 2px + 4 * 30px))");
+        @include calc(max-width, "#{$ms-action-white-space-width} + 5em");
         .fa-tasks:not(.text-open):not(.text-closed) {
             color: inherit;
         }
     }
     .ms-assignees {
-        @include calc(max-width, "30px + 0.2831 * (100% - (3 * 2px + 4 * 30px))");
+        @include calc(max-width, "#{$ms-action-white-space-width} + 5em");
     }
     .ms-projects {
-        @include calc(max-width, "30px + 0.2374 * (100% - (3 * 2px + 4 * 30px))");
+        @include calc(max-width, "#{$ms-action-white-space-width} + 4.1em");
     }
 }
 .ms-action-confirm-modal {
