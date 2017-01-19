@@ -7623,7 +7623,7 @@ $().ready(function() {
                 if (data) {
                     if (!$list.length) {
                         GithubNotifications.$menu_node.addClass('dropdown-submenu pull-left');
-                        $list = $('<ul class="dropdown-menu" id="github-notifications-menu-list"></ul>');
+                        $list = $('<ul class="dropdown-menu" id="github-notifications-menu-list" title=""></ul>');
                         GithubNotifications.$menu_node.append($list);
                     }
                     $list.replaceWith(data);

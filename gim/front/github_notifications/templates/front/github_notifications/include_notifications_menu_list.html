@@ -1,6 +1,6 @@
 {% load frontutils %}
 {% if user.unread_notifications_count %}
-    <ul class="dropdown-menu" id="github-notifications-menu-list">
+    <ul class="dropdown-menu" id="github-notifications-menu-list" title="">
         {% if user.unread_notifications_count > 10 %}
             <li class="disabled"><a tabindex="-1" href="#">Last 10 unread notifications</a></li>
         {% endif %}
@@ -9,7 +9,7 @@
                 <a href="{{ url }}" class="issue-link" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository_id }}" data-issue-id="{{ issue_id }}" data-issue-number="{{ issue.number }}">
                     <small>
                         {{ issue.repository.full_name }}
-                        <span class="github-notifications-menu-times">
+                        <span class="times">
                             <span title="Created on {{ issue.created_at|date:"DATETIME_FORMAT" }}" class="ago ago-short" data-datetime="{{ issue.created_at|date:'r' }}">{{ issue.created_at|ago:True }}</span>
                             {% if issue.state == 'closed' %}
                                 {% if issues.updated_at > issue.closed_at %}
@@ -24,12 +24,14 @@
                             {% endif %}
                         </span>
                     </small>
-                    <i class="fa{% if issue.is_pull_request %} fa-code{% endif %} fa-fw"> </i>
-                    <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ issue.user.full_avatar_url|avatar_size:16 }}" alt="{{ issue.user.username }}" title="Created by {{ issue.user.username }}" />
-                    <span class="text-{{ issue.state }}">#{{ issue.number }}</span> - {{ issue.title }}
+                    <span class="main-info">
+                        <i class="fa{% if issue.is_pull_request %} fa-code{% endif %} fa-fw"> </i>
+                        <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ issue.user.full_avatar_url|avatar_size:16 }}" alt="{{ issue.user.username }}" title="Created by {{ issue.user.username }}" />
+                        <span class="text-{{ issue.state }}">#{{ issue.number }}</span> - {{ issue.title }}
+                    </span>
                     {% with assignees=issue.assignees.all %}
                         {% if assignees %}
-                            <span class="github-notifications-menu-assignees">
+                            <span class="assignees">
                             <i class="fa fa-hand-o-right"> </i>
                             {% for assignee in assignees %}
                                 <img class="avatar-micro img-circle lazyload" src="{{ default_avatar }}" data-src="{{ assignee.full_avatar_url|avatar_size:16 }}" title="Assigned to {{ assignee.username }}" />
