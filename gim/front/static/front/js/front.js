@@ -2676,11 +2676,16 @@ $().ready(function() {
                                 '<li class="divider-vertical"></li>' +
                                 '<li class="dropdown ms-action ms-assignees" data-action="assignees">' +
                                     '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change assignees"><span><i class="fa fa-hand-o-right"></i><span class="ms-action-name">Assignees</span><b class="caret"></b></span></a>' +
-                                    '<div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                    '<div class="dropdown-menu" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
                                 '</li>' +
                                 '<li class="divider-vertical"></li>' +
                                 '<li class="dropdown ms-action ms-projects" data-action="projects">' +
                                     '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change projects"><span><i class="fa fa-align-left fa-rotate-90"></i><span class="ms-action-name">Projects</span><b class="caret"></b></span></a>' +
+                                    '<div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
+                                '</li>' +
+                                '<li class="divider-vertical"></li>' +
+                                '<li class="dropdown ms-action ms-state" data-action="state">' +
+                                    '<a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown" title="Change state"><span><i class="fa fa-dot-circle-o"></i><span class="ms-action-name">State</span><b class="caret"></b></span></a>' +
                                     '<div class="dropdown-menu pull-right" role="menu"><ul><li class="disabled"><a href="#"><i class="fa fa-spinner fa-spin"> </i> Loading</a></li></ul></div>' +
                                 '</li>' +
                             '</ul>' +
@@ -2699,7 +2704,7 @@ $().ready(function() {
             var $projects_dropdown = $result.find('.ms-projects');
             $projects_dropdown.prev('.divider-vertical').remove();
             $projects_dropdown.remove();
-            $result.find('.ms-milestone .dropdown-menu').addClass('pull-right');
+            $result.find('.ms-assignees .dropdown-menu').addClass('pull-right');
         }
         return $result;
 
@@ -2730,13 +2735,13 @@ $().ready(function() {
     IssuesList.get_selected_count_to_display = (function IssuesList_get_selected_count_to_display (count, count_hidden, total_count) {
         var result = 'Nothing selected';
         if (count > 1) {
-            result = count + '&nbsp;issues';
+            result = count;
             if (count_hidden > 0) {
                 result += '&nbsp;selected<br /><span>';
                 if (count_hidden == count) {
-                    result += ' (all filtered out)';
+                    result += ' (filtered&nbsp;out)';
                 } else {
-                    result += ' (including ' + count_hidden + ' filtered out)';
+                    result += ' (' + count_hidden + '&nbsp;filtered&nbsp;out)';
                 }
                 result += '</span>';
             } else {
@@ -2744,10 +2749,10 @@ $().ready(function() {
             }
         } else if (count > 0) {
             if (count_hidden > 0) {
-            result = '1&nbsp;filtered&nbsp;out issue selected';
+            result = '1&nbsp;selected, filtered&nbsp;out';
 
             } else {
-                result = '1&nbsp;issue selected';
+                result = '1 selected';
             }
         }
         return result;
@@ -3053,7 +3058,13 @@ $().ready(function() {
                 },
                 projects: {
                     reverse: true,
-                }
+                },
+                state: {
+                    reverse: true,
+                    no_detail: true,
+                    added: 'reopened',
+                    removed: 'closed',
+                },
             },
             rules = {
                 // unchecked to checked
@@ -3081,18 +3092,25 @@ $().ready(function() {
                 actions_count += 1;
                 $input = $(rule.$inputs[j]);
                 value = $input.attr('value');
-                if ((action == 'milestone' || action == 'projects') && value == "0") { continue; } // special "no milestone" case
+                if (value == "0") { continue; } // no milestone, not in project, state closed
                 count = rule.counter($input.data('count') || 0);
 
-                action_string = ' will be <strong class="' + action_classes[rule.action] + '">' + (action_rule[rule.action] || rule.action) + '</strong> ' + (rule.action == 'added' ? 'to' : 'from') + ' ';
+                action_string = ' will be <strong class="' + action_classes[rule.action] + '">' + (action_rule[rule.action] || rule.action) + '</strong> ';
+                if (!action_rule.no_detail) {
+                    action_string += (rule.action == 'added' ? 'to' : 'from') + ' ';
+                }
                 issues_string = '<strong>' + count + '</strong> issue'  + (count > 1 ? 's' : '');
                 $info = $input.closest('.ms-action-choice').find('.ms-action-content').clone();
                 $info.find('.hidden').removeClass('hidden');
 
                 $summary = $('<li></li>');
-                $summary.prepend(action_rule.reverse ? issues_string : $info);
+                if (action_rule.reverse || !action-rule.no_detail) {
+                    $summary.prepend(action_rule.reverse ? issues_string : $info);
+                }
                 $summary.append(action_string);
-                $summary.append(action_rule.reverse ? $info : issues_string);
+                if (!action_rule.reverse || !action-rule.no_detail) {
+                    $summary.append(action_rule.reverse ? $info : issues_string);
+                }
                 $summary_container.append($summary);
 
                 data[rule.final].push(value);

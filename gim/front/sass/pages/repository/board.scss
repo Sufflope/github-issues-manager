@@ -165,6 +165,16 @@ body#repository_board #main-inner {
             }
         }
     }
+    .multiselect-info {
+        > .ms-counter {
+            min-width: 110px;
+        }
+        &.with-project {
+            > .ms-counter {
+                min-width: 68px;
+            }
+        }
+    }
 }
 
 .issues-list-container {
@@ -663,9 +673,9 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
             padding: 3px;
         }
         > .ms-counter {
-            max-height: 28px;
-            margin-top: -1px;
-            margin-bottom: -1px;
+            br {
+                display: none;
+            }
         }
         > .ms-actions {
             > .navbar-inner {

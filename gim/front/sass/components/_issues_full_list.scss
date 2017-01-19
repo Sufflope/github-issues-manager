@@ -92,7 +92,6 @@ $list-title-height: 20px;
         flex-shrink: 1;
         flex-grow: 1;
         flex-basis: 0;
-        min-width: 150px;
 
         span {
             font-size: smaller;
@@ -101,7 +100,7 @@ $list-title-height: 20px;
     }
     $ms-action-white-space-width: 40px;
     $ms-action-divider-width: 2px;
-    $ms-actions-count: 3;
+    $ms-actions-count: 4;
     > .ms-actions {
         flex-shrink: 1;
         margin-right: 2px;
@@ -153,10 +152,7 @@ $list-title-height: 20px;
         }
     }
     &.with-projects {
-        > .ms-counter {
-            min-width: 110px
-        }
-        $ms-actions-count: 4;
+        $ms-actions-count: 5;
         > .ms-actions {
             min-width: $ms-actions-count * $ms-action-white-space-width + ($ms-actions-count - 1) * $ms-action-divider-width;
         }
@@ -171,26 +167,6 @@ $list-title-height: 20px;
                 padding-bottom: 7px;
             }
             li {
-                > a {
-                    display: flex;
-                    padding: 3px 10px;
-                    clear: both;
-                    line-height: 20px;
-                    > :first-child {
-                        flex-basis: 20px;
-                        width: 20px;
-                        flex-shrink: 0;
-                    }
-                    > :nth-child(2) {
-                        flex-grow: 1;
-                        @include ellipsis();
-                    }
-                    .label {
-                        font-weight: normal;
-                        font-size: 11px;
-                        margin-left: 10px;
-                    }
-                }
                 &.divider {
                     margin: 6px 1px 3px;
                 }
@@ -213,6 +189,15 @@ $list-title-height: 20px;
         .icheckbox_flat-blue, .iradio_flat-blue {
             margin-right: 1ex;
         }
+        &:not(.loaded) {
+            > .dropdown-menu {
+                width: 120px;
+                min-width: 120px;
+                li > a {
+                    padding: 3px 10px;
+                }
+            }
+        }
         &.loaded {
             position: static;
             > .dropdown-menu {
@@ -226,6 +211,28 @@ $list-title-height: 20px;
                 max-width: 300px;
                 &:before, &:after {
                     display: none;
+                }
+                li {
+                    > a {
+                        display: flex;
+                        padding: 3px 10px;
+                        clear: both;
+                        line-height: 20px;
+                        > :first-child {
+                            flex-basis: 20px;
+                            width: 20px;
+                            flex-shrink: 0;
+                        }
+                        > :nth-child(2) {
+                            flex-grow: 1;
+                            @include ellipsis();
+                        }
+                        .label {
+                            font-weight: normal;
+                            font-size: 11px;
+                            margin-left: 10px;
+                        }
+                    }
                 }
             }
         }
@@ -284,6 +291,9 @@ $list-title-height: 20px;
     }
     .ms-projects {
         @include calc(max-width, "#{$ms-action-white-space-width} + 4.1em");
+    }
+    .ms-state {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 2.8em");
     }
 }
 .ms-action-confirm-modal {

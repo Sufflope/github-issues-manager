@@ -14,6 +14,7 @@ from gim.core.tasks.issue import (
     IssueEditLabelsJob,
     IssueEditMilestoneJob,
     IssueEditProjectsJob,
+    IssueEditStateJob,
 )
 from gim.front.repository.issues.forms import update_columns
 from gim.front.repository.views import RepositoryViewMixin
@@ -231,6 +232,30 @@ class MultiSelectListProjectsView(ListViewBase):
         return context
 
 
+class MultiSelectListStatesView(ListViewBase):
+
+    template_name = 'front/repository/issues/multiselect/list_states.html'
+    url_name = 'list-state'
+
+    def get_context_data(self, **kwargs):
+        context = super(MultiSelectListStatesView, self).get_context_data(**kwargs)
+
+        issues = self.get_issues_from_pks(self.issues_pks)
+        states = {'open': {'key': 1, 'multiselect_pre_count': 0}, 'closed': {'key': 0, 'multiselect_pre_count': 0}}
+
+        for issue in issues:
+            states[issue.state]['multiselect_pre_count'] += 1
+
+        context.update({
+            'states': states,
+            'has_data': True,
+            'data_count': 2,
+        })
+        context.update(self.get_issues_info(issues))
+
+        return context
+
+
 class ApplyViewBase(MultiSelectViewBase, View):
 
     repository_relation = None
@@ -257,7 +282,7 @@ class ApplyViewBase(MultiSelectViewBase, View):
         if not self.issues_pks or sign(self.issues_pks) != self.request.POST.get('hash'):
             raise SuspiciousOperation
 
-    def verify_related(self, pks):
+    def verify_values(self, pks):
         if not self.repository_relation:
             raise NotImplementedError
 
@@ -277,8 +302,8 @@ class ApplyViewBase(MultiSelectViewBase, View):
     def get_data(self):
 
         try:
-            to_set = self.verify_related([int(value) for value in self.request.POST.getlist('set[]')])
-            to_unset = self.verify_related([int(value) for value in self.request.POST.getlist('unset[]')])
+            to_set = self.verify_values([int(value) for value in self.request.POST.getlist('set[]')])
+            to_unset = self.verify_values([int(value) for value in self.request.POST.getlist('unset[]')])
         except (ValueError, TypeError):
             raise SuspiciousOperation
 
@@ -363,7 +388,7 @@ class ApplyViewBase(MultiSelectViewBase, View):
         self.job_model.add_job(issue.pk, gh=self.user_gh, value=self.format_value_for_job(value_for_job))
 
     def format_value_for_job(self, value):
-        raise NotImplementedError
+        return value
 
 
 class MultiSelectApplyAssigneesView(ApplyViewBase):
@@ -511,5 +536,33 @@ class MultiSelectApplyProjectsView(ApplyViewBase):
         return json.dumps(value)  # result of `update_columns` called in `save_value`
 
 
+class MultiSelectApplyStateView(ApplyViewBase):
+    url_name = 'apply-state'
+    repository_relation = None
+    job_model = IssueEditStateJob
+    field_name = 'state'
+    is_related_field = False
+    change_updated_at = 'fuzzy'
 
+    def verify_values(self, pks):
+        if pks and pks != [1]:
+            raise SuspiciousOperation
+        return pks
 
+    def process_data(self, issues, to_set, to_unset, front_uuid):
+        count_success = 0
+        failures = []
+
+        if to_set and to_unset:
+            raise SuspiciousOperation
+
+        new_state = 'open' if to_set else 'closed'
+        for issue in self.order_issue_from_pk_list(issues, self.issues_pks):
+            if issue.state != new_state:
+                current_update_by = self.update_issue(issue, new_state, front_uuid)
+                if current_update_by:
+                    failures.append((issue.number, current_update_by))
+                else:
+                    count_success += 1
+
+        return count_success, failures

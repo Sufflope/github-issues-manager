@@ -1,7 +1,7 @@
 {% extends './list_base.html' %}
 {% load frontutils %}
 
-{% block dropdown-classes %}pull-right{% endblock %}
+{% block dropdown-classes %}{% if not current_repository.has_projects %}pull-right{% endif %}{% endblock %}
 
 {% block data-list %}
 
