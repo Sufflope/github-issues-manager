@@ -1,4 +1,4 @@
-from django.conf.urls import url
+from django.conf.urls import include, url
 
 from .views import (
     IssuesView, IssueView, IssueSummaryView, IssuePreviewView,
@@ -17,6 +17,8 @@ from .views import (
 
 urlpatterns = [
     url(r'^$', IssuesView.as_view(), name=IssuesView.url_name),
+
+    url(r'^multiselect/', include('gim.front.repository.issues.multiselect.urls', namespace='multiselect')),
 
     # deferrable filters
     url(r'^filter/creators/', IssuesFilterCreators.as_view(), name=IssuesFilterCreators.url_name),

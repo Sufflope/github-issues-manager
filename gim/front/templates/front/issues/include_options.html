@@ -93,6 +93,9 @@
                 </a>
                 <ul class="dropdown-menu pull-right" role="menu" aria-label="Options">
                     <li><a href="#" class="toggle-issues-details">Toggle details</a></li>
+                    {% if can_multiselect %}
+                        <li><a href="#" class="toggle-multi-select">Toggle multi-select mode</a></li>
+                    {% endif %}
                     <li><a href="#" class="refresh-list">{% block option-refresh-list-name %}Refresh list{% endblock %}</a></li>
                     {% if force_display_groups_options or issues_filter.parts.group_by %}
                         <li><a href="#" class="close-all-groups">Close all groups</a></li>

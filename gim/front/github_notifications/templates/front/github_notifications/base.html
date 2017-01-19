@@ -11,11 +11,6 @@
     <link href="{% static "front/css/pages/github-notifications.css" %}" rel="stylesheet">
 {% endblock extra_css %}
 
-{% block js_pre_footer %}
-    {{ block.super }}
-    <script src="{% static "front/js/jquery.icheck.js" %}" type="text/javascript"></script>
-{% endblock js_pre_footer %}
-
 {% block main %}
     {% include "front/issues/base.html" %}
 {% endblock main %}

@@ -648,7 +648,8 @@ class IssuesView(BaseIssuesView, IssuesFilters, BaseRepositoryView):
             context.update({
                 'current_metric': self.metric_stats['metric'] if self.metric_stats else None,
                 'metric_stats': self.metric_stats,
-                'all_metrics': list(self.repository.all_metrics())
+                'all_metrics': list(self.repository.all_metrics()),
+                'can_multiselect': context['current_repository_edit_level'] == 'full',
             })
             context.update(self.repository.get_milestones_for_select(key='number', with_graph_url=True, milestones=self.milestones))
 
@@ -1647,7 +1648,6 @@ class IssueEditProjects(IssueEditFieldMixin):
         `move_between_columns` entries.
         We encode this dict as json to be stored in the job single field
         """
-        value = form.cleaned_data['columns']
         data = getattr(self.object, '_columns_to_update', {})
         return bool(data), json.dumps(data)
 

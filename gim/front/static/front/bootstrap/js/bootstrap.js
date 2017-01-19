@@ -740,7 +740,7 @@
         return $this.click()
       }
 
-      $items = $('[role=menu] li:not(.divider):visible a', $parent)
+      $items = $('[role=menu] li:not(.divider):not(.disabled):visible a', $parent)
 
       if (!$items.length) return
 

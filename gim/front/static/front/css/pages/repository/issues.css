@@ -664,55 +664,161 @@ p.state-closed {
   display: inline-block;
 }
 
-/* line 14, ../../../../../sass/components/_issues_list.scss */
+/* iCheck plugin Flat skin, blue
+----------------------------------- */
+/* line 3, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue,
+.iradio_flat-blue {
+  display: inline-block;
+  *display: inline;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  background: url('/static/front/css/images/blue.png?1484081708') no-repeat;
+  border: none;
+  cursor: pointer;
+  position: relative;
+}
+
+/* line 18, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue {
+  background-position: 0 0;
+}
+
+/* line 21, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue.checked {
+  background-position: -22px 0;
+}
+
+/* line 24, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue.disabled {
+  background-position: -44px 0;
+  cursor: default;
+}
+
+/* line 28, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue.checked.disabled {
+  background-position: -66px 0;
+}
+
+/* line 31, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue.indeterminate {
+  background-position: 0 0;
+}
+
+/* line 34, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.icheckbox_flat-blue.indeterminate:after {
+  content: " ";
+  position: absolute;
+  top: 9px;
+  left: 5px;
+  right: 5px;
+  border: solid white 1px;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+
+/* line 45, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue {
+  background-position: -88px 0;
+}
+
+/* line 48, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue.checked {
+  background-position: -110px 0;
+}
+
+/* line 51, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue.disabled {
+  background-position: -132px 0;
+  cursor: default;
+}
+
+/* line 55, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue.checked.disabled {
+  background-position: -154px 0;
+}
+
+/* line 58, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue.indeterminate {
+  background-position: -88px 0;
+}
+
+/* line 61, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+.iradio_flat-blue.indeterminate:after {
+  content: " ";
+  position: absolute;
+  top: 9px;
+  left: 6px;
+  right: 6px;
+  border: solid white 1px;
+  -moz-border-radius: 3px;
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+
+/* HiDPI support */
+@media (-o-min-device-pixel-ratio: 5 / 4), (-webkit-min-device-pixel-ratio: 1.25), (min-resolution: 120dpi) {
+  /* line 73, ../../../../../sass/widgets/_icheck_aero_blue.scss */
+  .icheckbox_flat-blue,
+  .iradio_flat-blue {
+    background-image: url('/static/front/css/images/blue@2x.png?1484081704');
+    -webkit-background-size: 176px 22px;
+    background-size: 176px 22px;
+  }
+}
+/* line 17, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options {
   margin: 0;
 }
-/* line 16, ../../../../../sass/components/_issues_list.scss */
+/* line 19, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .navbar-inner {
   border-top: none;
 }
-/* line 19, ../../../../../sass/components/_issues_list.scss */
+/* line 22, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav {
   float: none;
   margin-right: 0;
 }
-/* line 23, ../../../../../sass/components/_issues_list.scss */
+/* line 26, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav > li[class*="span"] {
   width: 33.33333%;
   margin-left: 0;
   margin-right: 0;
   height: 47px;
 }
-/* line 28, ../../../../../sass/components/_issues_list.scss */
+/* line 31, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .nav > li[class*="span"] a {
   padding-top: 3px;
   padding-bottom: 3px;
 }
 
-/* line 35, ../../../../../sass/components/_issues_list.scss */
+/* line 38, ../../../../../sass/components/_issues_list.scss */
 nav.issues-list-options .dropdown-toggle .caret {
   margin-top: 9px;
 }
 
-/* line 38, ../../../../../sass/components/_issues_list.scss */
+/* line 41, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection {
   line-height: 40px;
 }
-/* line 41, ../../../../../sass/components/_issues_list.scss */
+/* line 44, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection span {
   vertical-align: middle;
 }
-/* line 43, ../../../../../sass/components/_issues_list.scss */
+/* line 46, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options a.no-selection span.caret {
   margin-top: -1px !important;
 }
 
-/* line 48, ../../../../../sass/components/_issues_list.scss */
+/* line 51, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options li.active a {
   position: relative;
 }
-/* line 50, ../../../../../sass/components/_issues_list.scss */
+/* line 53, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options li.active a i.fa-times {
   position: absolute;
   left: 5px;
@@ -723,7 +829,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   transform: translateY(-50%);
 }
 
-/* line 57, ../../../../../sass/components/_issues_list.scss */
+/* line 60, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .dropdown-toggle > span:not(.selection) {
   text-align: center;
   display: block;
@@ -731,7 +837,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   white-space: nowrap;
 }
 
-/* line 64, ../../../../../sass/components/_issues_list.scss */
+/* line 67, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection {
   display: block;
   font-weight: normal;
@@ -740,18 +846,18 @@ nav.issues-list-options .dropdown-toggle .caret {
   color: #999;
   text-align: center;
 }
-/* line 72, ../../../../../sass/components/_issues_list.scss */
+/* line 75, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection span {
   padding-right: 0.5ex;
 }
-/* line 75, ../../../../../sass/components/_issues_list.scss */
+/* line 78, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options span.selection i {
   font-size: smaller;
   position: relative;
   top: -1px;
 }
 
-/* line 81, ../../../../../sass/components/_issues_list.scss */
+/* line 84, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .navbar-inner {
   padding-left: 0;
   padding-right: 0;
@@ -763,18 +869,18 @@ nav.issues-list-options .dropdown-toggle .caret {
   box-sizing: border-box;
 }
 
-/* line 91, ../../../../../sass/components/_issues_list.scss */
+/* line 94, ../../../../../sass/components/_issues_list.scss */
 .issues-list-options .divider-vertical {
   margin-left: -1px;
   margin-right: -1px;
   height: 46px;
 }
 
-/* line 100, ../../../../../sass/components/_issues_list.scss */
+/* line 103, ../../../../../sass/components/_issues_list.scss */
 .issues-list {
   background: #fbfbfb;
 }
-/* line 102, ../../../../../sass/components/_issues_list.scss */
+/* line 105, ../../../../../sass/components/_issues_list.scss */
 .issues-list .box {
   margin-bottom: 0;
   -moz-border-radius: 0;
@@ -784,59 +890,59 @@ nav.issues-list-options .dropdown-toggle .caret {
   border-left-width: 0;
   border-right-width: 0;
 }
-/* line 109, ../../../../../sass/components/_issues_list.scss */
+/* line 112, ../../../../../sass/components/_issues_list.scss */
 .issues-list .box-content {
   margin-bottom: 0;
 }
-/* line 112, ../../../../../sass/components/_issues_list.scss */
+/* line 115, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.js-filter-trigger {
   cursor: default;
 }
-/* line 115, ../../../../../sass/components/_issues_list.scss */
+/* line 118, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header {
   padding-left: 7px;
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
   border-radius: 0;
 }
-/* line 118, ../../../../../sass/components/_issues_list.scss */
+/* line 121, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .title {
   font-size: 13px;
   padding-top: 5px;
   padding-bottom: 5px;
   text-transform: capitalize;
 }
-/* line 123, ../../../../../sass/components/_issues_list.scss */
+/* line 126, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .title span {
   font-weight: normal;
   text-transform: none;
 }
-/* line 129, ../../../../../sass/components/_issues_list.scss */
+/* line 132, ../../../../../sass/components/_issues_list.scss */
 .issues-list a.box-header .box-toolbar > li {
   line-height: 27px;
   padding-right: 5px;
 }
-/* line 135, ../../../../../sass/components/_issues_list.scss */
+/* line 138, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group {
   -moz-box-shadow: 0 2px 2px #ccc;
   -webkit-box-shadow: 0 2px 2px #ccc;
   box-shadow: 0 2px 2px #ccc;
 }
-/* line 137, ../../../../../sass/components/_issues_list.scss */
+/* line 140, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group .box-toolbar {
   position: relative;
   top: 1px;
 }
-/* line 141, ../../../../../sass/components/_issues_list.scss */
+/* line 144, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group:first-child .box-header {
   border-top: 0;
 }
-/* line 144, ../../../../../sass/components/_issues_list.scss */
+/* line 147, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group.active a.box-header {
   padding-left: 2px;
   border-left: solid #7BC8D7 5px;
 }
-/* line 149, ../../../../../sass/components/_issues_list.scss */
+/* line 152, ../../../../../sass/components/_issues_list.scss */
 .issues-list .issues-group.recent:not(.active) .issues-count {
   font-weight: normal;
   background-image: none;
@@ -844,76 +950,84 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-animation: breathing-recent-issues-count 5s infinite normal;
   animation: breathing-recent-issues-count 5s infinite normal;
 }
-/* line 157, ../../../../../sass/components/_issues_list.scss */
+/* line 160, ../../../../../sass/components/_issues_list.scss */
 .issues-list .loading-mask {
   margin-top: -5px;
 }
-/* line 162, ../../../../../sass/components/_issues_list.scss */
+/* line 165, ../../../../../sass/components/_issues_list.scss */
 .issues-list .alert.no-issues, .issues-list .alert.too-many-issues {
   text-align: center;
   position: relative;
   overflow: hidden;
 }
-/* line 167, ../../../../../sass/components/_issues_list.scss */
+/* line 170, ../../../../../sass/components/_issues_list.scss */
 .issues-list .alert.too-many-issues {
   line-height: 18px;
 }
 
-/* line 174, ../../../../../sass/components/_issues_list.scss */
+/* line 177, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled), .issues-list:not(.without-details) .issue-item.details-toggled, .issue-item.force-without-details {
   padding: 5px;
   padding-left: 8px;
   min-height: 20px;
 }
-/* line 178, ../../../../../sass/components/_issues_list.scss */
+/* line 180, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).selectable, .issues-list:not(.without-details) .issue-item.details-toggled.selectable, .issue-item.force-without-details.selectable {
+  padding-left: 39px;
+}
+/* line 184, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-header, .issues-list.without-details .issue-item:not(.details-toggled) .avatar, .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-footer, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-header, .issues-list:not(.without-details) .issue-item.details-toggled .avatar, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-footer, .issue-item.force-without-details .issue-item-header, .issue-item.force-without-details .avatar, .issue-item.force-without-details .issue-item-footer {
   display: none;
 }
-/* line 181, ../../../../../sass/components/_issues_list.scss */
+/* line 187, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .news-content, .issues-list:not(.without-details) .issue-item.details-toggled .news-content, .issue-item.force-without-details .news-content {
   margin-left: 0;
   margin-right: 0;
 }
-/* line 185, ../../../../../sass/components/_issues_list.scss */
+/* line 191, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .news-title, .issues-list:not(.without-details) .issue-item.details-toggled .news-title, .issue-item.force-without-details .news-title {
   margin-bottom: 0;
   min-height: 0;
 }
-/* line 189, ../../../../../sass/components/_issues_list.scss */
+/* line 195, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository, .issue-item.force-without-details .issue-item-repository {
   margin-top: -6px;
   margin-bottom: 6px;
   margin-left: -8px;
 }
-/* line 193, ../../../../../sass/components/_issues_list.scss */
+/* line 199, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-repository:not(.is-private), .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-repository:not(.is-private), .issue-item.force-without-details .issue-item-repository:not(.is-private) {
   padding-left: 9px;
 }
-/* line 197, ../../../../../sass/components/_issues_list.scss */
+/* line 203, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled) .issue-item-checks, .issues-list:not(.without-details) .issue-item.details-toggled .issue-item-checks, .issue-item.force-without-details .issue-item-checks {
   display: none;
 }
-/* line 200, ../../../../../sass/components/_issues_list.scss */
+/* line 206, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled).active, .issues-list:not(.without-details) .issue-item.details-toggled.active, .issue-item.force-without-details.active {
   padding-left: 3px;
 }
-/* line 202, ../../../../../sass/components/_issues_list.scss */
+/* line 208, ../../../../../sass/components/_issues_list.scss */
+.issues-list.without-details .issue-item:not(.details-toggled).active.selectable, .issues-list:not(.without-details) .issue-item.details-toggled.active.selectable, .issue-item.force-without-details.active.selectable {
+  padding-left: 34px;
+}
+/* line 211, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled).active .issue-item-repository, .issues-list:not(.without-details) .issue-item.details-toggled.active .issue-item-repository, .issue-item.force-without-details.active .issue-item-repository {
   margin-left: -3px;
   padding-left: 4px;
 }
-/* line 207, ../../../../../sass/components/_issues_list.scss */
+/* line 216, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled):after, .issues-list:not(.without-details) .issue-item.details-toggled:after, .issue-item.force-without-details:after {
   width: 3px;
 }
-/* line 211, ../../../../../sass/components/_issues_list.scss */
+/* line 220, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled).recent:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent:after, .issue-item.force-without-details.recent:after {
   border-left: solid transparent 6px;
   -moz-animation: breathing-recent-issue-without-details 5s infinite normal;
   -webkit-animation: breathing-recent-issue-without-details 5s infinite normal;
   animation: breathing-recent-issue-without-details 5s infinite normal;
 }
-/* line 216, ../../../../../sass/components/_issues_list.scss */
+/* line 225, ../../../../../sass/components/_issues_list.scss */
 .issues-list.without-details .issue-item:not(.details-toggled).recent.active:after, .issues-list:not(.without-details) .issue-item.details-toggled.recent.active:after, .issue-item.force-without-details.recent.active:after {
   -moz-animation: breathing-recent-issue-without-details-active 5s infinite normal;
   -webkit-animation: breathing-recent-issue-without-details-active 5s infinite normal;
@@ -1100,7 +1214,7 @@ nav.issues-list-options .dropdown-toggle .caret {
     background: #7BC8D7;
   }
 }
-/* line 300, ../../../../../sass/components/_issues_list.scss */
+/* line 309, ../../../../../sass/components/_issues_list.scss */
 .issue-item {
   padding: 5px;
   padding-top: 0;
@@ -1117,11 +1231,11 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-hyphens: auto;
   hyphens: auto;
 }
-/* line 313, ../../../../../sass/components/_issues_list.scss */
+/* line 322, ../../../../../sass/components/_issues_list.scss */
 .issue-item.with-repository {
   min-height: 100px;
 }
-/* line 317, ../../../../../sass/components/_issues_list.scss */
+/* line 326, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-repository {
   background: #eee;
   border-bottom: solid 1px #e6e6e6;
@@ -1135,12 +1249,12 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-transition: border-bottom-color 0.35s ease;
   transition: border-bottom-color 0.35s ease;
 }
-/* line 325, ../../../../../sass/components/_issues_list.scss */
+/* line 334, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-repository .fa-lock {
   width: 9px;
   margin-left: -12px;
 }
-/* line 333, ../../../../../sass/components/_issues_list.scss */
+/* line 342, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-header {
   margin-top: -1px;
   margin-bottom: 5px;
@@ -1148,11 +1262,11 @@ nav.issues-list-options .dropdown-toggle .caret {
   font-size: 11px;
   line-height: 15px;
 }
-/* line 339, ../../../../../sass/components/_issues_list.scss */
+/* line 348, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-header a {
   color: inherit;
 }
-/* line 343, ../../../../../sass/components/_issues_list.scss */
+/* line 352, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request,
 .issue-item .issue-item-milestone,
 .issue-item .issue-item-project-column,
@@ -1160,7 +1274,7 @@ nav.issues-list-options .dropdown-toggle .caret {
 .issue-item .issue-item-repository {
   text-shadow: 0 1px rgba(255, 255, 255, 0.5);
 }
-/* line 350, ../../../../../sass/components/_issues_list.scss */
+/* line 359, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request {
   float: left;
   padding: 1px 0 2px;
@@ -1173,23 +1287,23 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 359, ../../../../../sass/components/_issues_list.scss */
+/* line 368, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-pull-request i {
   font-size: 14px;
 }
-/* line 363, ../../../../../sass/components/_issues_list.scss */
+/* line 372, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone-and-project-columns {
   margin-left: 50px;
   margin-right: 95px;
 }
-/* line 367, ../../../../../sass/components/_issues_list.scss */
+/* line 376, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone,
 .issue-item .issue-item-project-columns {
   padding: 0;
   overflow: hidden;
   display: inline-block;
 }
-/* line 372, ../../../../../sass/components/_issues_list.scss */
+/* line 381, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone > span,
 .issue-item .issue-item-project-columns > span {
   font-weight: bold;
@@ -1200,23 +1314,23 @@ nav.issues-list-options .dropdown-toggle .caret {
   -webkit-border-radius: 0;
   border-radius: 0 0 2px 2px;
 }
-/* line 379, ../../../../../sass/components/_issues_list.scss */
+/* line 388, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-milestone i,
 .issue-item .issue-item-project-columns i {
   position: relative;
   top: 1px;
   margin-right: 5px;
 }
-/* line 385, ../../../../../sass/components/_issues_list.scss */
+/* line 394, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-project-columns > span {
   margin-left: 3px;
   font-weight: normal;
 }
-/* line 388, ../../../../../sass/components/_issues_list.scss */
+/* line 397, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-project-columns > span strong {
   font-weight: bold;
 }
-/* line 392, ../../../../../sass/components/_issues_list.scss */
+/* line 401, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-times {
   float: right;
   white-space: nowrap;
@@ -1227,7 +1341,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   border-radius: 0 0 0 2px;
   cursor: default;
 }
-/* line 399, ../../../../../sass/components/_issues_list.scss */
+/* line 408, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-times i {
   font-size: inherit;
   color: inherit;
@@ -1235,91 +1349,91 @@ nav.issues-list-options .dropdown-toggle .caret {
   margin: 0 1px 0 2px;
   opacity: 0.5;
 }
-/* line 407, ../../../../../sass/components/_issues_list.scss */
+/* line 416, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-checks {
   display: inline-block;
   white-space: nowrap;
 }
-/* line 410, ../../../../../sass/components/_issues_list.scss */
+/* line 419, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-checks i {
   width: 1.1em;
   text-align: center;
   line-height: 20px;
 }
-/* line 416, ../../../../../sass/components/_issues_list.scss */
+/* line 425, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-content {
   margin-right: 5px;
 }
-/* line 419, ../../../../../sass/components/_issues_list.scss */
+/* line 428, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-title {
   font-size: 14px;
   margin-bottom: 5px;
 }
-/* line 422, ../../../../../sass/components/_issues_list.scss */
+/* line 431, ../../../../../sass/components/_issues_list.scss */
 .issue-item .news-title .label {
   margin-left: 3px;
 }
-/* line 426, ../../../../../sass/components/_issues_list.scss */
+/* line 435, ../../../../../sass/components/_issues_list.scss */
 .issue-item .avatar {
   margin-bottom: 5px;
 }
-/* line 429, ../../../../../sass/components/_issues_list.scss */
+/* line 438, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-link {
   outline: none !important;
   text-decoration: none !important;
 }
-/* line 433, ../../../../../sass/components/_issues_list.scss */
+/* line 442, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-footer {
   overflow: auto;
 }
-/* line 436, ../../../../../sass/components/_issues_list.scss */
+/* line 445, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-footer.with-labels {
   clear: both;
 }
-/* line 439, ../../../../../sass/components/_issues_list.scss */
+/* line 448, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-comments-count {
   float: right;
   margin-right: 5px;
   line-height: 24px;
   cursor: default;
 }
-/* line 444, ../../../../../sass/components/_issues_list.scss */
+/* line 453, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-comments-count i {
   margin-right: 2px;
 }
-/* line 448, ../../../../../sass/components/_issues_list.scss */
+/* line 457, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-assignees {
   float: right;
   margin-right: 5px;
 }
-/* line 451, ../../../../../sass/components/_issues_list.scss */
+/* line 460, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-assignees i {
   position: relative;
   top: 2px;
   margin-right: 2px;
 }
-/* line 457, ../../../../../sass/components/_issues_list.scss */
+/* line 466, ../../../../../sass/components/_issues_list.scss */
 .issue-item .issue-item-labels {
   padding-right: 5px;
   display: inline;
 }
-/* line 465, ../../../../../sass/components/_issues_list.scss */
+/* line 474, ../../../../../sass/components/_issues_list.scss */
 .issue-item.recent .issue-item-times {
   -moz-animation: breathing-recent-issue-item-times 5s infinite normal;
   -webkit-animation: breathing-recent-issue-item-times 5s infinite normal;
   animation: breathing-recent-issue-item-times 5s infinite normal;
 }
-/* line 470, ../../../../../sass/components/_issues_list.scss */
+/* line 479, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-helper {
   -moz-box-shadow: 0 4px 5px 0 #888;
   -webkit-box-shadow: 0 4px 5px 0 #888;
   box-shadow: 0 4px 5px 0 #888;
 }
-/* line 474, ../../../../../sass/components/_issues_list.scss */
+/* line 483, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-placeholder {
   border-top-color: #aaa;
 }
-/* line 476, ../../../../../sass/components/_issues_list.scss */
+/* line 485, ../../../../../sass/components/_issues_list.scss */
 .issue-item.ui-sortable-placeholder .mask {
   position: absolute;
   top: 0;
@@ -1328,36 +1442,96 @@ nav.issues-list-options .dropdown-toggle .caret {
   right: 0;
   background: rgba(0, 0, 0, 0.5);
 }
+/* line 495, ../../../../../sass/components/_issues_list.scss */
+.issue-item > .selector {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 24px;
+  padding: 0 5px;
+  background: #6da7cb;
+  overflow: hidden;
+}
+/* line 504, ../../../../../sass/components/_issues_list.scss */
+.issue-item > .selector .icheckbox_flat-blue {
+  position: absolute;
+  top: -moz-calc(50% - 10px);
+  top: -o-calc(50% - 10px);
+  top: -webkit-calc(50% - 10px);
+  top: calc(50% - 10px);
+  left: -moz-calc(50% - 10px);
+  left: -o-calc(50% - 10px);
+  left: -webkit-calc(50% - 10px);
+  left: calc(50% - 10px);
+}
+/* line 509, ../../../../../sass/components/_issues_list.scss */
+.issue-item > .selector .iCheck-helper {
+  top: -200px !important;
+  left: -200px !important;
+  bottom: -200px !important;
+  right: -200px !important;
+  width: auto !important;
+  height: auto !important;
+}
+/* line 517, ../../../../../sass/components/_issues_list.scss */
+.issue-item > .selector:before {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: -moz-calc(50% - 8px);
+  top: -o-calc(50% - 8px);
+  top: -webkit-calc(50% - 8px);
+  top: calc(50% - 8px);
+  left: -moz-calc(50% - 8px);
+  left: -o-calc(50% - 8px);
+  left: -webkit-calc(50% - 8px);
+  left: calc(50% - 8px);
+  background: #fbfbfb;
+  content: '';
+}
+/* line 528, ../../../../../sass/components/_issues_list.scss */
+.issue-item.selectable {
+  padding-left: 39px;
+}
+/* line 530, ../../../../../sass/components/_issues_list.scss */
+.issue-item.selectable.active {
+  padding-left: 34px;
+}
+/* line 532, ../../../../../sass/components/_issues_list.scss */
+.issue-item.selectable.active > .selector {
+  left: -5px;
+}
 
-/* line 487, ../../../../../sass/components/_issues_list.scss */
+/* line 539, ../../../../../sass/components/_issues_list.scss */
 .issue-item {
   background: #fbfbfb;
   padding-left: 13px;
 }
-/* line 491, ../../../../../sass/components/_issues_list.scss */
+/* line 543, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active {
   padding-left: 8px;
   border-left: solid #7BC8D7 5px;
   border-top-color: #f0fcff;
 }
-/* line 495, ../../../../../sass/components/_issues_list.scss */
+/* line 547, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active .issue-item-repository {
   background: transparent;
   margin-left: -8px;
   padding-left: 12px;
   border-bottom-color: rgba(0, 0, 0, 0.05);
 }
-/* line 500, ../../../../../sass/components/_issues_list.scss */
+/* line 552, ../../../../../sass/components/_issues_list.scss */
 .issue-item.active .issue-item-repository.is-private {
   padding-left: 17px;
 }
 
-/* line 509, ../../../../../sass/components/_issues_list.scss */
+/* line 561, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch {
   margin: 0;
   padding: 0;
 }
-/* line 512, ../../../../../sass/components/_issues_list.scss */
+/* line 564, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch label {
   margin: 0;
   padding: 0;
@@ -1367,7 +1541,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   height: 28px;
   background: white;
 }
-/* line 521, ../../../../../sass/components/_issues_list.scss */
+/* line 573, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on, .issues-quicksearch input, .issues-quicksearch .btn {
   border: 0;
   -moz-border-radius: 0;
@@ -1376,14 +1550,14 @@ nav.issues-list-options .dropdown-toggle .caret {
   position: absolute;
   top: 0;
 }
-/* line 527, ../../../../../sass/components/_issues_list.scss */
+/* line 579, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .add-on {
   border-right: solid 1px #d4d4d4;
   left: 0;
   width: 16px;
   z-index: 10;
 }
-/* line 533, ../../../../../sass/components/_issues_list.scss */
+/* line 585, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch input {
   display: block;
   width: 100%;
@@ -1398,7 +1572,7 @@ nav.issues-list-options .dropdown-toggle .caret {
   height: 28px;
   z-index: 20;
 }
-/* line 545, ../../../../../sass/components/_issues_list.scss */
+/* line 597, ../../../../../sass/components/_issues_list.scss */
 .issues-quicksearch .btn {
   border-left: solid 1px #d4d4d4;
   right: 0;
@@ -1452,26 +1626,400 @@ nav.issues-list-options .dropdown-toggle .caret {
 }
 
 /* line 48, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info {
+  display: flex;
+  background: #6da7cb;
+  border: none;
+  line-height: 10px;
+  padding: 2px 0;
+  align-items: center;
+}
+/* line 55, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info:after {
+  content: "";
+  display: block;
+  clear: both;
+}
+/* line 60, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-selector {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  width: 24px;
+  height: 20px;
+  padding: 5px;
+}
+/* line 68, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-selector:before {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: -moz-calc(50% - 8px);
+  top: -o-calc(50% - 8px);
+  top: -webkit-calc(50% - 8px);
+  top: calc(50% - 8px);
+  left: -moz-calc(50% - 8px);
+  left: -o-calc(50% - 8px);
+  left: -webkit-calc(50% - 8px);
+  left: calc(50% - 8px);
+  background: #fbfbfb;
+  content: '';
+}
+/* line 77, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-selector .icheckbox_flat-blue {
+  position: absolute;
+  top: -moz-calc(50% - 10px);
+  top: -o-calc(50% - 10px);
+  top: -webkit-calc(50% - 10px);
+  top: calc(50% - 10px);
+  left: -moz-calc(50% - 10px);
+  left: -o-calc(50% - 10px);
+  left: -webkit-calc(50% - 10px);
+  left: calc(50% - 10px);
+  vertical-align: middle;
+}
+/* line 82, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-selector .icheckbox_flat-blue.indeterminate:after {
+  border-color: #6da7cb;
+}
+/* line 87, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-counter {
+  vertical-align: middle;
+  color: white;
+  margin-right: 1ex;
+  line-height: 14px;
+  flex-shrink: 1;
+  flex-grow: 1;
+  flex-basis: 0;
+}
+/* line 96, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-counter span {
+  font-size: smaller;
+  white-space: nowrap;
+}
+/* line 104, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions {
+  flex-shrink: 1;
+  margin-right: 2px;
+  margin-bottom: 0;
+  position: relative;
+  min-width: 166px;
+}
+/* line 110, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner {
+  padding: 0;
+  min-height: 28px;
+}
+/* line 113, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav {
+  margin: 0;
+  line-height: 0;
+  font-size: 0;
+  position: static;
+  display: flex;
+  max-width: 100%;
+}
+/* line 121, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li > a {
+  padding: 4px 5px;
+}
+/* line 123, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span {
+  display: flex;
+  align-items: center;
+}
+/* line 126, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .fa {
+  flex-shrink: 0;
+  margin-right: 4px;
+  width: 14px;
+  text-align: center;
+}
+/* line 132, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .ms-action-name {
+  white-space: nowrap;
+  overflow: hidden;
+  -ms-text-overflow: ellipsis;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+}
+/* line 135, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li > a > span .caret {
+  margin-left: 4px;
+  margin-top: 0;
+}
+/* line 142, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions > .navbar-inner > .nav > li.disabled a, .multiselect-info > .ms-actions > .navbar-inner > .nav > li.disabled:hover a {
+  color: #777;
+}
+/* line 149, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info > .ms-actions .divider-vertical {
+  height: 28px;
+  margin: 0;
+}
+/* line 156, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info.with-projects > .ms-actions {
+  min-width: 208px;
+}
+/* line 160, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action {
+  font-size: 13px;
+  min-width: 40px;
+}
+/* line 164, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action > .dropdown-menu ul {
+  max-height: 50vh;
+  overflow: auto;
+  padding-bottom: 7px;
+}
+/* line 170, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action > .dropdown-menu li.divider {
+  margin: 6px 1px 3px;
+}
+/* line 174, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action > .dropdown-menu li.disabled a {
+  cursor: default;
+  color: #999;
+}
+/* line 177, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action > .dropdown-menu li.disabled a:hover, .multiselect-info .ms-action > .dropdown-menu li.disabled a:focus {
+  color: #999;
+}
+/* line 181, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action > .dropdown-menu li.disabled:hover a, .multiselect-info .ms-action > .dropdown-menu li.disabled a:hover {
+  background: transparent;
+  text-decoration: none;
+  cursor: default;
+}
+/* line 189, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .icheckbox_flat-blue, .multiselect-info .ms-action .iradio_flat-blue {
+  margin-right: 1ex;
+}
+/* line 193, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action:not(.loaded) > .dropdown-menu {
+  width: 120px;
+  min-width: 120px;
+}
+/* line 196, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action:not(.loaded) > .dropdown-menu li > a {
+  padding: 3px 10px;
+}
+/* line 201, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded {
+  position: static;
+}
+/* line 203, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu {
+  left: auto !important;
+  right: 0 !important;
+  float: none !important;
+  margin-top: 0;
+  border-top: none;
+  -moz-border-radius: 0 0 6px 6px;
+  -webkit-border-radius: 0;
+  border-radius: 0 0 6px 6px;
+  min-width: -moz-calc(100% - 2px);
+  min-width: -o-calc(100% - 2px);
+  min-width: -webkit-calc(100% - 2px);
+  min-width: calc(100% - 2px);
+  max-width: 300px;
+}
+/* line 212, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu:before, .multiselect-info .ms-action.loaded > .dropdown-menu:after {
+  display: none;
+}
+/* line 216, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu li > a {
+  display: flex;
+  padding: 3px 10px;
+  clear: both;
+  line-height: 20px;
+}
+/* line 221, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu li > a > :first-child {
+  flex-basis: 20px;
+  width: 20px;
+  flex-shrink: 0;
+}
+/* line 226, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu li > a > :nth-child(2) {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  -ms-text-overflow: ellipsis;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+}
+/* line 230, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action.loaded > .dropdown-menu li > a .label {
+  font-weight: normal;
+  font-size: 11px;
+  margin-left: 10px;
+}
+/* line 240, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .icheckbox_flat-blue.indeterminate:after, .multiselect-info .ms-action .iradio_flat-blue.indeterminate:after {
+  border-color: #6da7cb;
+}
+/* line 244, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget {
+  margin-top: -5px;
+}
+/* line 246, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget label {
+  width: 100%;
+}
+/* line 249, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget input {
+  width: -moz-calc(100% - 68px);
+  width: -o-calc(100% - 68px);
+  width: -webkit-calc(100% - 68px);
+  width: calc(100% - 68px);
+}
+/* line 252, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget .add-on {
+  -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+}
+/* line 255, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget .btn-default {
+  width: 8px;
+  padding: 4px 10px;
+  -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+}
+/* line 260, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .quicksearch-widget + ul {
+  padding-top: 10px;
+}
+/* line 264, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .buttons {
+  -moz-box-shadow: 0 -1px 2px #DADADA;
+  -webkit-box-shadow: 0 -1px 2px #DADADA;
+  box-shadow: 0 -1px 2px #DADADA;
+  padding: 5px 5px 0;
+}
+/* line 267, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-action .buttons button {
+  margin-top: 0;
+}
+/* line 272, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-labels {
+  max-width: -moz-calc(40px + 3.4em);
+  max-width: -o-calc(40px + 3.4em);
+  max-width: -webkit-calc(40px + 3.4em);
+  max-width: calc(40px + 3.4em);
+}
+/* line 274, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-labels a .label {
+  top: 2px;
+}
+/* line 277, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-labels .label-object {
+  border-bottom: solid 3px transparent;
+  position: relative;
+  top: -1px;
+}
+/* line 283, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-milestone {
+  max-width: -moz-calc(40px + 5em);
+  max-width: -o-calc(40px + 5em);
+  max-width: -webkit-calc(40px + 5em);
+  max-width: calc(40px + 5em);
+}
+/* line 285, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-milestone .fa-tasks:not(.text-open):not(.text-closed) {
+  color: inherit;
+}
+/* line 289, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-assignees {
+  max-width: -moz-calc(40px + 5em);
+  max-width: -o-calc(40px + 5em);
+  max-width: -webkit-calc(40px + 5em);
+  max-width: calc(40px + 5em);
+}
+/* line 292, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-projects {
+  max-width: -moz-calc(40px + 4.1em);
+  max-width: -o-calc(40px + 4.1em);
+  max-width: -webkit-calc(40px + 4.1em);
+  max-width: calc(40px + 4.1em);
+}
+/* line 295, ../../../../../sass/components/_issues_full_list.scss */
+.multiselect-info .ms-state {
+  max-width: -moz-calc(40px + 2.8em);
+  max-width: -o-calc(40px + 2.8em);
+  max-width: -webkit-calc(40px + 2.8em);
+  max-width: calc(40px + 2.8em);
+}
+
+/* line 300, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .ms-action-content {
+  font-weight: 600;
+}
+/* line 303, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .label-object {
+  padding-bottom: 2px;
+  border-bottom: solid 3px transparent;
+}
+/* line 308, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .modal-body strong {
+  font-weight: 700;
+}
+/* line 311, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .modal-body ul {
+  max-height: 60vh;
+}
+/* line 314, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .modal-body li {
+  line-height: 30px;
+}
+/* line 317, ../../../../../sass/components/_issues_full_list.scss */
+.ms-action-confirm-modal .modal-body .alert {
+  margin-bottom: 0;
+}
+
+/* line 324, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container {
   border-top: solid #FAFAFA 5px;
 }
-/* line 50, ../../../../../sass/components/_issues_full_list.scss */
+/* line 326, ../../../../../sass/components/_issues_full_list.scss */
+.issues-list-container .multiselect-info {
+  position: absolute;
+  top: 76px;
+  width: 100%;
+}
+/* line 332, ../../../../../sass/components/_issues_full_list.scss */
+.issues-list-container.multiselect-mode .issues-list {
+  top: 110px;
+}
+/* line 336, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title {
   border-top-color: #ddd;
 }
-/* line 52, ../../../../../sass/components/_issues_full_list.scss */
+/* line 338, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-list-options {
   top: 20px;
 }
-/* line 55, ../../../../../sass/components/_issues_full_list.scss */
+/* line 341, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-quicksearch {
   top: 67px;
 }
-/* line 58, ../../../../../sass/components/_issues_full_list.scss */
+/* line 344, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container.with-title .issues-list {
   top: 96px;
 }
-/* line 62, ../../../../../sass/components/_issues_full_list.scss */
+/* line 347, ../../../../../sass/components/_issues_full_list.scss */
+.issues-list-container.with-title .multiselect-info {
+  top: 96px;
+}
+/* line 351, ../../../../../sass/components/_issues_full_list.scss */
+.issues-list-container.with-title.multiselect-mode .issues-list {
+  top: 130px;
+}
+/* line 356, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert {
   margin: 0;
   padding-right: 14px;
@@ -1482,13 +2030,13 @@ nav.issues-list-options .dropdown-toggle .caret {
   font-weight: normal;
   line-height: 15px;
 }
-/* line 69, ../../../../../sass/components/_issues_full_list.scss */
+/* line 363, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert .btn {
   margin: 8px auto 0;
   display: block;
   max-width: 13em;
 }
-/* line 74, ../../../../../sass/components/_issues_full_list.scss */
+/* line 368, ../../../../../sass/components/_issues_full_list.scss */
 .issues-list-container .alert + .box {
   border-top-width: 1px;
 }

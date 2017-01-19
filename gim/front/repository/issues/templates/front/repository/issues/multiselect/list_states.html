@@ -1,0 +1,17 @@
+{% extends './list_base.html' %}
+
+{% block dropdown-classes %}pull-right{% endblock %}
+
+{% block data-list %}
+
+    {% for state, state_info in states.items %}
+        <li class="ms-action-choice">
+            <a href="#">
+                {% include './list_include_input.html' with type='radio' pk=state_info.key count=state_info.multiselect_pre_count  %}
+                <span class="ms-action-content"><i class="fa fa-tasks text-{{ state }}"> </i> {{ state }}</span>
+                {% include './list_include_count.html' with count=state_info.multiselect_pre_count  %}
+            </a>
+        </li>
+    {% endfor %}
+
+{% endblock data-list %}

@@ -9,3 +9,17 @@ _TEMPLATE_LOADERS = [
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
 ]
+
+_CONTEXT_PROCESSORS = [
+    'gim.settings.local_settings.override_ws_uri',
+]
+
+
+def override_ws_uri(request):
+    from gim.ws import publisher
+    return {
+        'WS': {
+            'uri': 'localhost:8889/ws',
+            'last_msg_id': publisher.get_last_msg_id(),
+        }
+    }

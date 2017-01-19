@@ -76,7 +76,7 @@ body#repository_board #main-inner {
     @include box-sizing(border-box);
     background: #f0f0f0;
     position: relative;
-    min-width: 300px;
+    min-width: 320px;
     width: 500px;
     overflow: hidden;
     &.hidden {
@@ -162,6 +162,16 @@ body#repository_board #main-inner {
                         display: none;
                     }
                 }
+            }
+        }
+    }
+    .multiselect-info {
+        > .ms-counter {
+            min-width: 110px;
+        }
+        &.with-project {
+            > .ms-counter {
+                min-width: 68px;
             }
         }
     }
@@ -654,5 +664,35 @@ $noteBackgroundLightColor: rgba(252, 248, 227, 0.7);
     }
     .modal-footer:empty {
         display: none;
+    }
+}
+
+#main > .row-header {
+    .multiselect-info {
+        > .ms-selector {
+            padding: 3px;
+        }
+        > .ms-counter {
+            br {
+                display: none;
+            }
+        }
+        > .ms-actions {
+            > .navbar-inner {
+                min-height: 23px;
+                > .nav {
+                    margin: 0;
+                    > li {
+                        > a {
+                            padding-top: 2px;
+                            padding-bottom: 3px;
+                        }
+                    }
+                }
+            }
+            .divider-vertical {
+                height: 24px;
+            }
+        }
     }
 }

@@ -796,7 +796,7 @@ $().ready(function() {
             init: function() {
                 if (!Board.container) { return; }
 
-                var $refresh_list_item = $('#issues-list-options-board-main').find('a.refresh-list').parent();
+                var $refresh_list_item = $(Board.filters.options_selector).find('a.refresh-list').parent();
                 if (Board.mode == 'project' && Board.editable) {
                     $refresh_list_item.after(
                         '<li><a href="#" class="add-column">Add a column</a></li>'
@@ -1043,6 +1043,7 @@ $().ready(function() {
                     group.$issues_node.addClass('in');
                     group.collapsed = false;
                     group.list.groups = [];  // we don't count it in groups to avoid navigating in it
+                    group.list.ask_for_selected_count_update();
                 }
             }, // prepare_list_if_empty
 
@@ -1255,6 +1256,9 @@ $().ready(function() {
             }, // create_placeholder
 
             on_drag_update: function(ev, ui) {
+                if (!Board.dragger.dragging) {
+                    return;
+                }
                 var $new_group = ui.item.parent(),
                     new_group, issue;
 
@@ -1292,7 +1296,7 @@ $().ready(function() {
 
                         // remove the existing duplicate(s)
                         $duplicates = new_list.$node.find('#issue-' + issue.id + '.issue-item:not(.ui-sortable-placeholder):not(.ui-sortable-helper)').not(issue.$node);
-                        for (var i = 0; i < $duplicates.length; i++) {
+                        for (i = 0; i < $duplicates.length; i++) {
                             $duplicates[i].IssuesListIssue.clean();
                         }
 
@@ -1304,7 +1308,6 @@ $().ready(function() {
                         old_group.update_issues_list(true);
                     }
                     new_group.update_issues_list(true);
-
 
                     if (group_changed && was_current_issue) {
                         issue.set_current();
@@ -1376,7 +1379,7 @@ $().ready(function() {
                         filter = issue.get_filter_for(new_list.group_by_key);
                         new_group = new_list.get_group_for_value(filter.value) || new_list.create_group(filter.value, filter.text, filter.description);
                         if (new_group != issue.group) {
-                            new_list.change_issue_group(issue, new_group);
+                            issue.move_to_group(new_group);
                         }
                     }
 
@@ -1394,7 +1397,7 @@ $().ready(function() {
                         old_list.remove_group(old_group);
                     }
                 });
-            }, // on_drag_receive
+            }, // on_drag_update
 
             remote_move_issue: function(issue, old_list, new_list, position) {
                 var new_key = new_list.$container_node.data('key'),
@@ -1444,6 +1447,7 @@ $().ready(function() {
             }, // check_issue_movable
 
             on_check_issue_movable_failure: function(xhr, data) {
+                Board.dragger.dragging = false;
                 $(this.sortable_node).sortable('cancel');
                 var ui_item = this.ui_item;
                 setTimeout(function() {
@@ -1545,16 +1549,19 @@ $().ready(function() {
             quicksearch_selector: '#issues-list-search-board-main',
             $search_input: null,
             last_search: '',
+            update_selected_count_counter: 0,
 
             on_filter_or_option_click: function() {
                 return Board.filters.reload_filters_and_lists(this.href);
             }, // on_filter_click
 
             reload_filters_and_lists: function(url, no_history) {
+
                 $.get(url)
                     .done($.proxy(Board.filters.on_filters_loaded, {no_history: no_history, url: url}))
                     .fail(function() { window.location.href = url; });
 
+                Board.filters.reset_multiselect();
                 IssuesFilters.add_waiting($(Board.filters.filters_selector));
                 IssuesFilters.add_waiting(Board.filters. $options_node);
 
@@ -1593,6 +1600,16 @@ $().ready(function() {
                 Board.filters.$options_node.find('li.dropdown-groupby').replaceWith($new_options_node.find('li.dropdown-groupby'));
                 Board.filters.$options_node.find('li.dropdown-options').replaceWith($new_options_node.find('li.dropdown-options'));
                 IssuesFilters.remove_waiting(Board.filters. $options_node);
+
+                var $refresh_list_item = $(Board.filters.options_selector).find('a.refresh-list').parent();
+                if (Board.mode == 'project' && Board.editable) {
+                    $refresh_list_item.after(
+                        '<li><a href="#" class="add-column">Add a column</a></li>'
+                    );
+                }
+                $refresh_list_item.after(
+                    '<li><a href="#" class="restore-closed-lists">Restore hidden columns</a></li>'
+                );
 
                 if (!this.no_history) {
                     Board.filters.add_history(this.url);
@@ -1635,16 +1652,108 @@ $().ready(function() {
             }, // update_list_search
 
             on_list_filter_done: function() {
-                // `this` is the list object
-                for (var i = 0; i < this.groups.length; i++) {
-                    var group = this.groups[i];
-                    group.update_filtered_issues();
+                var list = this;
+                for (var i = 0; i < list.groups.length; i++) {
+                    var group = list.groups[i];
+                    group.ask_for_filtered_issues_update();
                 }
             }, // on_list_filter_done
 
             on_column_loaded: function () {
                 Board.filters.update_list_search(this.IssuesList);
             }, // on_column_loaded
+
+            toggle_multiselect: function () {
+                var $this = $(this);
+                var activated = !$this.data('multiselect-mode');
+                $this.data('multiselect-mode', activated);
+                IssuesList.toggle_multiselect(activated);
+
+                if (activated) {
+                    var $board_selector_container = $('#s2id_board-selector').parent(),
+                        $project_detail_container = $board_selector_container.next('.span2');
+                        $options_container = $('#issues-list-options-board-main').parent(),
+                        $header = $board_selector_container.parent(),
+                        $multiselect_header = $header.find('.multiselect-info');
+
+                    if (!$multiselect_header.length) {
+                        $multiselect_header = IssuesList.get_multiselect_info_node();
+                        var $multiselect_header_container = $('<div class="span6"></div>');
+                        $multiselect_header_container.append($multiselect_header);
+
+                        $board_selector_container.addClass('hidden');
+                        if ($project_detail_container.length) {
+                            $project_detail_container.addClass('hidden');
+                        } else {
+                            $options_container.removeClass('span8').addClass('span6');
+                        }
+                        $header.prepend($multiselect_header_container);
+
+                        $multiselect_header.find('input[name=select-all]').iCheck({checkboxClass: 'icheckbox_flat-blue'});
+                    }
+                } else {
+                    Board.filters.reset_multiselect();
+                }
+
+            }, // toggle_multiselect
+
+            reset_multiselect: function() {
+                var $board_selector_container = $('#s2id_board-selector').parent(),
+                    $project_detail_container = $board_selector_container.next('.span2');
+                    $options_container = $('#issues-list-options-board-main').parent(),
+                    $header = $board_selector_container.parent(),
+                    $multiselect_header = $header.find('.multiselect-info');
+
+                $multiselect_header.parent().remove();
+                if ($project_detail_container.length) {
+                    $project_detail_container.removeClass('hidden');
+                } else {
+                $options_container.removeClass('span6').addClass('span8');
+                        }
+                $board_selector_container.removeClass('hidden');
+
+            }, // reset_multiselect
+
+            is_in_multiselect_mode: function () {
+                return !!Board.filters.$options_node.find('.toggle-multi-select').data('multiselect-mode');
+            }, // is_in_multiselect_mode
+
+            on_issues_selector_toggled: function () {
+                if (!Board.filters.is_in_multiselect_mode()) { return; }
+                var $input = $(this);
+                $('.board-column.loaded:not(.hidden):not(.mini) ' + IssuesList.container_selector + ' .multiselect-info input[name=select-all]').iCheck($input.prop('checked') ? 'check' : 'uncheck');
+            }, // on_issues_selector_toggled
+
+            ask_for_selected_count_update: function () {
+                // idea from `_rearrange` in jquery-ui sortable
+                if (!Board.filters.is_in_multiselect_mode()) { return; }
+                Board.filters.update_selected_count_counter += 1;
+                var counter = Board.filters.update_selected_count_counter;
+                setTimeout(function() {
+                    if (counter != Board.filters.update_selected_count_counter) {
+                        // during the way another update was asked
+                        return;
+                    }
+                    Board.filters.update_selected_count();
+                }.bind(this), 100)
+            }, // ask_for_selected_count_update
+
+            update_selected_count: function() {
+                if (!Board.filters.is_in_multiselect_mode()) { return; }
+                var $inputs = $(IssuesList.container_selector + ' .multiselect-info input[name=select-all]');
+                var count = 0, count_hidden = 0, total_count = 0;
+                for (var i = 0; i < $inputs.length; i++) {
+                    var data = $($inputs[i]).data('selected-count');
+                    if (data) {
+                        count += data.count;
+                        count_hidden += data.count_hidden;
+                        total_count += data.total_count;
+                    }
+                }
+                $('#main > .row-header .multiselect-info .ms-counter').html(IssuesList.get_selected_count_to_display(count, count_hidden, total_count));
+                var $input = $('#main > .row-header .multiselect-info input[name=select-all]');
+                IssuesList.set_select_all_input_state($input, count, count_hidden, total_count);
+            }, // update_selected_count
 
             init: function() {
                 if (!Board.$columns.length) { return; }
@@ -1656,6 +1765,7 @@ $().ready(function() {
                 Board.filters.$options_node.on('click', '.dropdown-sort ul a, .dropdown-groupby ul a, .dropdown-metric ul a',  Ev.stop_event_decorate_dropdown(Board.filters.on_filter_or_option_click));
 
                 Board.filters.$options_node.on('click', '.toggle-issues-details', Ev.stop_event_decorate_dropdown(IssuesList.toggle_details));
+                Board.filters.$options_node.on('click', '.toggle-multi-select', Ev.stop_event_decorate_dropdown(Board.filters.toggle_multiselect));
                 Board.filters.$options_node.on('click', '.refresh-list', Ev.stop_event_decorate_dropdown(IssuesList.refresh));
                 Board.filters.$options_node.on('click', '.close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.close_all_groups));
                 Board.filters.$options_node.on('click', '.open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.open_all_groups));
@@ -1663,6 +1773,7 @@ $().ready(function() {
                 $document.on('click', Board.filters.quicksearch_selector, Ev.cancel);
                 $document.on('quicksearch.after', Board.filters.quicksearch_selector, Board.filters.on_search);
                 $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200));
+                $document.on('ifChecked ifUnchecked ifToggled', '#main > .row-header .multiselect-info input[name=select-all]', Board.filters.on_issues_selector_toggled);
 
                 Board.filters.add_history(window.location.href, true);
                 window.HistoryManager.callbacks['BoardFilters'] = Board.filters.on_history_pop_state;
@@ -2075,7 +2186,6 @@ $().ready(function() {
 
                 if (Board.project_editor.create_mode) {
                     Board.project_editor.$modal.one('shown.modal', function() {
-                        console.log('shown');
                         var $input =  Board.project_editor.$modal_body.find('input[name=name]');
                         $input.focus();
                         FormTools.move_cursor_at_the_end($input);
@@ -2538,6 +2648,23 @@ $().ready(function() {
 
         return false;
     }); // IssuesList_on_before_delete_card_alert
+
+    IssuesList.prototype.update_selected_count_original = IssuesList.prototype.update_selected_count;
+    IssuesList.prototype.update_selected_count = (function IssuesList__update_selected_count () {
+        this.update_selected_count_original();
+        Board.filters.ask_for_selected_count_update();
+    }); // IssuesList__update_selected_count
+
+    IssuesFilters.on_filters_and_list_loaded_original = IssuesFilters.on_filters_and_list_loaded;
+
+    IssuesFilters.on_filters_and_list_loaded = (function IssuesFilters_on_filters_and_list_loaded (data) {
+        var current_list = IssuesFilters.on_filters_and_list_loaded_original.bind(this)(data);
+        if (!current_list) { return; }
+        if (Board.filters.is_in_multiselect_mode()) {
+            current_list.toggle_multiselect(true);
+        }
+    }); // IssuesFilters_on_filters_and_list_loaded
+
 
     Math.easeInOutQuad = function (t, b, c, d) {
       t /= d/2;

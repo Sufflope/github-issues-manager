@@ -45,8 +45,294 @@ $list-title-height: 20px;
     overflow: auto;
 }
 
+.multiselect-info {
+    display: flex;
+    background: #6da7cb;
+    border: none;
+    line-height: 10px;
+    padding: 2px 0;
+    align-items: center;
+    &:after {
+        content: "";
+        display: block;
+        clear: both;
+    }
+    > .ms-selector {
+        flex-shrink: 0;
+        display: inline-block;
+        vertical-align: middle;
+        position: relative;
+        width: 24px;
+        height: 20px;
+        padding: 5px;
+        &:before {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            @include calc(top, '50% - 8px');
+            @include calc(left, '50% - 8px');
+            background: #fbfbfb;
+            content: '';
+        }
+        .icheckbox_flat-blue {
+            position: absolute;
+            @include calc(top, '50% - 10px');
+            @include calc(left, '50% - 10px');
+            vertical-align: middle;
+            &.indeterminate:after {
+                border-color: #6da7cb;
+            }
+        }
+    }
+    > .ms-counter {
+        vertical-align: middle;
+        color: white;
+        margin-right: 1ex;
+        line-height: 14px;
+        flex-shrink: 1;
+        flex-grow: 1;
+        flex-basis: 0;
+
+        span {
+            font-size: smaller;
+            white-space: nowrap;
+        }
+    }
+    $ms-action-white-space-width: 40px;
+    $ms-action-divider-width: 2px;
+    $ms-actions-count: 4;
+    > .ms-actions {
+        flex-shrink: 1;
+        margin-right: 2px;
+        margin-bottom: 0;
+        position: relative;
+        min-width: $ms-actions-count * $ms-action-white-space-width + ($ms-actions-count - 1) * $ms-action-divider-width;
+        > .navbar-inner {
+            padding: 0;
+            min-height: 28px;
+            > .nav {
+                margin: 0;
+                line-height: 0;
+                font-size: 0;
+                position: static;
+                display: flex;
+                max-width: 100%;
+                > li {
+                    > a {
+                        padding: 4px 5px;
+                        > span {
+                            display: flex;
+                            align-items: center;
+                            .fa {
+                                flex-shrink: 0;
+                                margin-right: 4px;
+                                width: 14px;
+                                text-align: center;
+                            }
+                            .ms-action-name {
+                                @include ellipsis();
+                            }
+                            .caret {
+                                margin-left: 4px;
+                                margin-top: 0;
+                            }
+                        }
+                    }
+                    &.disabled, &.disabled:hover {
+                        a {
+                            color: #777;
+                        }
+                    }
+                }
+            }
+        }
+        .divider-vertical {
+            height: 28px;
+            margin: 0;
+        }
+    }
+    &.with-projects {
+        $ms-actions-count: 5;
+        > .ms-actions {
+            min-width: $ms-actions-count * $ms-action-white-space-width + ($ms-actions-count - 1) * $ms-action-divider-width;
+        }
+    }
+    .ms-action {
+        font-size: 13px;
+        min-width: $ms-action-white-space-width;
+        > .dropdown-menu {
+            ul {
+                max-height: 50vh;
+                overflow: auto;
+                padding-bottom: 7px;
+            }
+            li {
+                &.divider {
+                    margin: 6px 1px 3px;
+                }
+                &.disabled {
+                    a {
+                        cursor: default;
+                        color: #999;
+                        &:hover, &:focus {
+                            color: #999;
+                        }
+                    }
+                    &:hover a, a:hover {
+                        background: transparent;
+                        text-decoration: none;
+                        cursor: default;
+                    }
+                }
+            }
+        }
+        .icheckbox_flat-blue, .iradio_flat-blue {
+            margin-right: 1ex;
+        }
+        &:not(.loaded) {
+            > .dropdown-menu {
+                width: 120px;
+                min-width: 120px;
+                li > a {
+                    padding: 3px 10px;
+                }
+            }
+        }
+        &.loaded {
+            position: static;
+            > .dropdown-menu {
+                left: auto !important;
+                right: 0 !important;
+                float: none !important;
+                margin-top: 0;
+                border-top: none;
+                @include border-radius(0 0 6px 6px);
+                @include calc(min-width, "100% - 2px");
+                max-width: 300px;
+                &:before, &:after {
+                    display: none;
+                }
+                li {
+                    > a {
+                        display: flex;
+                        padding: 3px 10px;
+                        clear: both;
+                        line-height: 20px;
+                        > :first-child {
+                            flex-basis: 20px;
+                            width: 20px;
+                            flex-shrink: 0;
+                        }
+                        > :nth-child(2) {
+                            flex-grow: 1;
+                            @include ellipsis();
+                        }
+                        .label {
+                            font-weight: normal;
+                            font-size: 11px;
+                            margin-left: 10px;
+                        }
+                    }
+                }
+            }
+        }
+        .icheckbox_flat-blue, .iradio_flat-blue {
+            &.indeterminate:after {
+                border-color: #6da7cb;
+            }
+        }
+        .quicksearch-widget {
+            margin-top: -5px;
+            label {
+                width: 100%;
+            }
+            input {
+                @include calc(width, "100% - 68px");
+            }
+            .add-on {
+                @include border-radius(0);
+            }
+            .btn-default {
+                width: 8px;
+                padding: 4px 10px;
+                @include border-radius(0);
+            }
+            + ul {
+                padding-top: 10px;
+            }
+        }
+        .buttons {
+            @include box-shadow(0 -1px 2px #DADADA);
+            padding: 5px 5px 0;
+            button {
+                margin-top: 0;
+            }
+        }
+    }
+    .ms-labels {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 3.4em");
+        a .label {
+            top: 2px;
+        }
+        .label-object {
+            border-bottom: solid 3px transparent;
+            position: relative;
+            top: -1px;
+        }
+    }
+    .ms-milestone {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 5em");
+        .fa-tasks:not(.text-open):not(.text-closed) {
+            color: inherit;
+        }
+    }
+    .ms-assignees {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 5em");
+    }
+    .ms-projects {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 4.1em");
+    }
+    .ms-state {
+        @include calc(max-width, "#{$ms-action-white-space-width} + 2.8em");
+    }
+}
+.ms-action-confirm-modal {
+    .ms-action-content {
+        font-weight: 600;
+    }
+    .label-object {
+        padding-bottom: 2px;
+        border-bottom: solid 3px transparent;
+    }
+    .modal-body {
+        strong {
+            font-weight: 700;
+        }
+        ul {
+            max-height: 60vh;
+        }
+        li {
+            line-height: 30px;
+        }
+        .alert {
+            margin-bottom: 0;
+        }
+    }
+}
+
+
 .issues-list-container {
   border-top: solid #FAFAFA 5px;
+  .multiselect-info {
+    position: absolute;
+    top: $issues-list-options-height + $issues-quicksearch-height;
+    width: 100%;
+  }
+  &.multiselect-mode {
+      .issues-list {
+          top: $issues-list-options-height + $issues-quicksearch-height + $issues-multiselect-info-height;
+      }
+  }
   &.with-title {
     border-top-color: #ddd;
     .issues-list-options {
@@ -57,6 +343,14 @@ $list-title-height: 20px;
     }
     .issues-list {
       top: $issues-list-options-height + $issues-quicksearch-height + $list-title-height;
+    }
+    .multiselect-info {
+        top: $issues-list-options-height + $issues-quicksearch-height + $list-title-height;
+    }
+    &.multiselect-mode {
+        .issues-list {
+          top: $issues-list-options-height + $issues-quicksearch-height + $list-title-height + $issues-multiselect-info-height;
+        }
     }
   }
   .alert {

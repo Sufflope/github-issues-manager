@@ -1,0 +1,18 @@
+{% extends './list_base.html' %}
+{% load frontutils %}
+
+{% block dropdown-classes %}{% if not current_repository.has_projects %}pull-right{% endif %}{% endblock %}
+
+{% block data-list %}
+
+    {% for user in collaborators %}
+        <li class="ms-action-choice">
+            <a href="#">
+                {% include './list_include_input.html' with type='checkbox' pk=user.pk count=user.multiselect_pre_count  %}
+                <span class="ms-action-content" data-search="{{ user.username }}"><img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:24 }}" /> {{ user.username }}</span>
+                {% include './list_include_count.html' with count=user.multiselect_pre_count  %}
+            </a>
+        </li>
+    {% endfor %}
+
+{% endblock data-list %}
