@@ -273,6 +273,50 @@ def requeue_unqueued_delayed_jobs(dry_run=False):
                         maintenance_logger.info('Requeued: %s (%s)', job.ident, priority)
 
 
+def requeue_unqueued_errored_jobs(dry_run=False):
+    """
+    Requeue all jobs that are marked as errored but not in a queue
+    """
+
+    for JobModel in get_job_models():
+        errored_job_ids = list(JobModel.collection(queued=1, status=STATUSES.ERROR))
+        queues = Queue.collection(name=JobModel.queue_name).instances()
+
+        for job_id in errored_job_ids:
+
+            try:
+                job = JobModel.get(job_id)
+            except JobModel.DoesNotExist:
+                continue
+
+            if job.ident in job.queue.delayed.zmembers():
+                continue
+            if job.ident in job.queue.waiting.lmembers():
+                continue
+
+            found = False
+            for queue in queues:
+                if job.ident in queue.delayed.zmembers():
+                    found = True
+                    break
+                if job.ident in queue.waiting.lmembers():
+                    found = True
+                    break
+
+            if not found:
+                # one more check
+                if job.ident not in job.queue.delayed.zmembers() and job.ident not in job.queue.waiting.lmembers():
+
+                    priority = int(job.priority.hget() or 0)
+
+                    if dry_run:
+                        maintenance_logger.info('Not queued: %s (%s)', job.ident, priority)
+                    else:
+                        job.status.hset('w')
+                        job.queue.enqueue_job(job)
+                        maintenance_logger.info('Requeued: %s (%s)', job.ident, priority)
+
+
 def get_last_error_for_job(job, index=0, date=None):
     """
     Return the last (or last-index if index is given) error for the given job,
@@ -476,6 +520,8 @@ def maintenance(include_users_and_repositories=True):
     requeue_unqueued_waiting_jobs()
     maintenance_logger.info('    requeue_unqueued_delayed_jobs...')
     requeue_unqueued_delayed_jobs()
+    maintenance_logger.info('    requeue_unqueued_errored_jobs...')
+    requeue_unqueued_errored_jobs()
     maintenance_logger.info('    delete_empty_queues...')
     delete_empty_queues()
     if include_users_and_repositories:
