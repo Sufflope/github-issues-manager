@@ -25,6 +25,7 @@ from gim.core.graphql_utils import (
     compose_query,
     encode_graphql_id_for_object,
     fetch_graphql,
+    GraphQLError,
     GraphQLGithubInternalError,
     GITHUB_TYPES,
 )
@@ -656,8 +657,19 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
             try:
                 data = fetch_graphql(gh, self.GRAPHQL_FETCH_REVIEWS, variables, 'PullRequestReviews', debug_context)
-            except GraphQLGithubInternalError:
-                # In general it happens when the author of a review is now deleted
+            except GraphQLError as e:
+                if e.code not in (500, 400):
+                    raise
+
+                if e.code == 400:
+                    errors = e.response.json.get('errors', [])
+                    if not errors:
+                        raise
+                    for error in errors:
+                        if error.get('message') != u'Cannot return null for non-nullable field PullRequestReview.author':
+                            raise
+
+                # In general we are here when the author of a review is now deleted
                 # So will try to fetch only half the size, until it fails for
                 # only one item. At this moment, we'll refetch the review without
                 # the author, and a deleted user will be assigned at create time
