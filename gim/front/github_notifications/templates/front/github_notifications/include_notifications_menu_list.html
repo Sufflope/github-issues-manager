@@ -41,8 +41,8 @@
                     {% endwith %}
                 </a>
                 <ul class="dropdown-menu" data-edit-url="{{ notification.get_edit_url }}">
-                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="true"><i class="fa fa-square-o fa-fw"> </i> Mark as read and keep active</a></li>
-                    <li class="with-mark-notification-as-read-link"><a href="#" data-active="false"><i class="fa fa-square-o fa-fw"> </i> Mark as read and set inactive</a></li>
+                    <li class="with-mark-notification-as-read-link btn-loading"><a href="#" data-active="true"><i class="fa fa-square-o fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i> Mark as read and keep active</a></li>
+                    <li class="with-mark-notification-as-read-link btn-loading"><a href="#" data-active="false"><i class="fa fa-square-o fa-fw"> </i><i class='fa fa-spinner fa-spin fa-fw'> </i> Mark as read and set inactive</a></li>
                     <li class="divider"></li>
                     <li><a href="{{ url }}" class="issue-link hoverable-issue" data-repository="{{ issue.repository.full_name }}" data-repository-id="{{ issue.repository_id }}" data-issue-id="{{ issue_id }}" data-issue-number="{{ issue.number }}"><i class="fa fa-eye fa-fw"> </i> Preview</a></li>
                 </ul>
