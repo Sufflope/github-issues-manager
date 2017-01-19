@@ -7428,11 +7428,18 @@ $().ready(function() {
                     active: $link.data('active') ? 1 : 0,
                     csrfmiddlewaretoken: $body.data('csrf')
                 },
-                $ul = $link.closest('ul'),
+                $li = $link.parent(),
+                $ul = $li.parent(),
                 action = $ul.data('edit-url'),
                 $form = null;
 
             if (!action) { return; }
+
+            ev.stopPropagation();
+            ev.preventDefault();
+
+            if ($li.hasClass('disabled')) { return; }
+            $li.addClass('loading');
 
             $ul.find('li.with-mark-notification-as-read-link').addClass('disabled');
 
@@ -7449,7 +7456,7 @@ $().ready(function() {
                 .done($.proxy(GithubNotifications.on_post_submit_done, $form))
                 .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
                 .fail(function() {
-                    $ul.find('li.with-mark-notification-as-read-link').removeClass('disabled');
+                    $ul.find('li.with-mark-notification-as-read-link').removeClass('disabled loading');
                 })
                 .always(function () {if ($form) { GithubNotifications.enable_form($form); }});
 
@@ -7623,7 +7630,7 @@ $().ready(function() {
                 if (data) {
                     if (!$list.length) {
                         GithubNotifications.$menu_node.addClass('dropdown-submenu pull-left');
-                        $list = $('<ul class="dropdown-menu" id="github-notifications-menu-list"></ul>');
+                        $list = $('<ul class="dropdown-menu" id="github-notifications-menu-list" title=""></ul>');
                         GithubNotifications.$menu_node.append($list);
                     }
                     $list.replaceWith(data);
