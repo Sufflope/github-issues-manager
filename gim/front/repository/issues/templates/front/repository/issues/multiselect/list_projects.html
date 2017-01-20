@@ -1,0 +1,37 @@
+{% extends './list_base.html' %}
+
+{% block dropdown-classes %}pull-right{% endblock %}
+
+{% block data-list %}
+
+    {% for project in projects %}
+
+        {% if not forloop.first %}
+            <li class="divider" data-group="{{ project.pk }}"></li>
+        {% endif %}
+
+        <li class="disabled" data-group="{{ project.pk }}"><a href="#" tabindex="-1">{{ project.name }}</a></li>
+
+        <li class="ms-action-choice" data-related-to="{{ project.pk }}">
+            <a href="#">
+                {% include './list_include_input.html' with type='radio' pk=0 count=project.multiselect_absent_count name_suffix=project.pk %}
+                <span class="ms-action-content" data-search="{{ project.name }}: not in project"><span class="hidden"><strong>{{ project.name }}</strong>: </span><em>(not in project)</em></span>
+                {% include './list_include_count.html' with count=project.multiselect_absent_count  %}
+            </a>
+        </li>
+
+        {% for column in project.columns.all %}
+            <li class="ms-action-choice" data-related-to="{{ project.pk }}">
+                <a href="#" t>
+                    {% include './list_include_input.html' with type='radio' pk=column.pk count=column.multiselect_pre_count name_suffix=project.pk %}
+                    <span class="ms-action-content" data-search="{{ project.name }}: {{ column.name }}"><span class="hidden"><strong>{{ project.name }}</strong>: </span>{{ column.name }}</span>
+                    {% include './list_include_count.html' with count=column.multiselect_pre_count  %}
+                </a>
+            </li>
+        {% endfor %}
+
+    {% endfor %}
+
+{% endblock data-list %}
+
+{% block no-data %}No available projects{% endblock no-data %}

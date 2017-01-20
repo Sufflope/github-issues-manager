@@ -99,10 +99,14 @@ body {
             padding: 3px 5px 5px 20px;
             overflow: auto;
             &:after {
-                margin-top: -4px;
+                clear: both;
+                margin-top: -23px;
                 margin-left: -15px;
             }
-            .github-notifications-menu-assignees {
+            .main-info {
+                float: left;
+            }
+            .assignees {
                 float: right;
                 font-size: 10px;
                 max-width: 99px;
@@ -111,17 +115,24 @@ body {
                     top: 2px;
                 }
             }
-            .github-notifications-menu-times {
-                float: right;
-            }
             .img-circle {
                 @include border-radius(500px);
+                margin-left: 2px;
+                margin-right: 2px;
             }
         }
+    }
+    .loading i.fa-square-o {
+        display: none;
     }
     small {
         display: block;
         margin-left: 19px;
+        position: relative;
+        .times {
+            position: absolute;
+            right: 0;
+        }
     }
 }
 
@@ -459,6 +470,10 @@ ol, ul {
 .fa-align-left.fa-rotate-90 {
     position: relative;
     left: -2px;
+}
+
+.hidden {
+    display: none !important;
 }
 
 

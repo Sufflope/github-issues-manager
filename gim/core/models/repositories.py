@@ -967,7 +967,7 @@ class Repository(GithubObjectWithId):
 
         count = 0
 
-        failing_prs = []
+        failing_prs = {}
         while len(prs) and (not max_prs or count < max_prs):
             current_prs, prs = prs[:nb_prs_by_query], prs[nb_prs_by_query:]
 
@@ -991,7 +991,7 @@ class Repository(GithubObjectWithId):
                 })
             except GraphQLGithubInternalError:
                 # we'll try them later
-                failing_prs += current_prs
+                failing_prs.update({pr.pk: pr for pr in current_prs})
                 continue
             except GraphQLComplexityError as e:
                 # reset list to restart with a lower nb of prs by query
@@ -1022,32 +1022,37 @@ class Repository(GithubObjectWithId):
                                             # will delete the issue if it does not exist anymore
                                             FetchIssueByNumber.add_job('%s#%s' % (issue.repository_id, issue.number))
 
+                            elif error.get('message') == u'Cannot return null for non-nullable field PullRequestReview.author':
+                                failing_prs.update({pr.pk: pr for pr in current_prs})
+                                do_raise = False
                 except:
                     pass
 
                 if do_raise:
                     raise
                 else:
-                    data = e.response.json.get('data', {})
+                    data = e.response.json.get('data', None) or {}
                     if data:
                         for node_key in remove_from_data:
                             data.pop(node_key, None)
                         data = convert_ids_from_graphql_result(data)
 
             for node_key, node_data in data.iteritems():
+                pr = prs_by_id[int(node_key[4:])]
+                failing_prs.pop(pr.pk, None)
                 self._manage_pr_reviews_from_fetch(
                     gh,
-                    prs_by_id[int(node_key[4:])],
+                    pr,
                     node_data.get('reviews', {})
                 )
                 count += 1
 
         if failing_prs:
             if nb_prs_by_query / 2 > 1:
-                count += self.fetch_updated_pr_reviews(gh, failing_prs, nb_prs_by_query / 2)[0]
+                count += self.fetch_updated_pr_reviews(gh, failing_prs.values(), nb_prs_by_query / 2)[0]
             else:
                 # fetch the reviews one by one
-                for pr in failing_prs:
+                for pr in failing_prs.values():
                     pr.fetch_pr_reviews(gh)
                     count += 1
 

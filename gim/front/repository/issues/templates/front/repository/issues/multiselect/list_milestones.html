@@ -1,0 +1,46 @@
+{% extends './list_base.html' %}
+
+{% block data-list %}
+
+    <li class="ms-action-choice">
+        <a href="#">
+            {% include './list_include_input.html' with type='radio' pk=0 count=count_without_milestones  %}
+            <span class="ms-action-content" data-search="No milestone"><i class="fa fa-tasks"> </i> No milestone</span>
+            {% include './list_include_count.html' with count=count_without_milestones  %}
+        </a>
+    </li>
+
+    {% if milestones.open %}
+
+        <li class="divider" data-group="open"></li>
+        <li class="disabled" data-group="open"><a href="#" tabindex="-1">Open milestones</a></li>
+
+        {% for milestone in milestones.open %}
+            <li class="ms-action-choice" data-related-to="open">
+                <a href="#">
+                    {% include './list_include_input.html' with type='radio' pk=milestone.pk count=milestone.multiselect_pre_count  %}
+                    <span class="ms-action-content" data-search="{{ milestone.title }}"><i class="fa fa-tasks text-{{ milestone.state }}"> </i> {{ milestone.title }}</span>
+                    {% include './list_include_count.html' with count=milestone.multiselect_pre_count  %}
+                </a>
+            </li>
+        {% endfor %}
+
+    {% endif %}
+
+    {% if milestones.closed %}
+
+        <li class="divider" data-group="closed"></li>
+        <li class="disabled" data-group="closed"><a href="#" tabindex="-1">Closed milestones</a></li>
+
+        {% for milestone in milestones.closed %}
+            <li class="ms-action-choice" data-related-to="closed">
+                <a href="#">
+                    {% include './list_include_input.html' with type='radio' pk=milestone.pk count=milestone.multiselect_pre_count  %}
+                    <span class="ms-action-content" data-search="{{ milestone.title }}"><i class="fa fa-tasks text-{{ milestone.state }}"> </i> {{ milestone.title }}</span>
+                    {% include './list_include_count.html' with count=milestone.multiselect_pre_count  %}
+                </a>
+            </li>
+        {% endfor %}
+
+    {% endif %}
+{% endblock data-list %}

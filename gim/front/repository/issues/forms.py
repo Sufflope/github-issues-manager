@@ -204,6 +204,106 @@ class IssueLabelsFormPart(object):
         return data.items()
 
 
+def update_columns(issue, new_columns):
+
+    actual_columns = Column.objects.filter(cards__issue=issue)
+    actual_columns_by_id = {c.id: c for c in actual_columns}
+    actual_projects_ids = {c.project_id for c in actual_columns}
+
+    new_columns = new_columns
+    new_columns_by_id = {c.id: c for c in new_columns}
+    new_projects_ids = {c.project_id for c in new_columns}
+
+    projects_to_add = new_projects_ids - actual_projects_ids
+    projects_to_remove = actual_projects_ids - new_projects_ids
+    projects_to_move = new_projects_ids.intersection(actual_projects_ids)
+
+    columns_to_add = {c.id for c in new_columns if c.project_id in projects_to_add}
+    columns_to_remove = {c.id for c in actual_columns if c.project_id in projects_to_remove}
+    columns_to_move = {}
+    for project_id in projects_to_move:
+        actual_column_id = [c.id for c in actual_columns if c.project_id == project_id][0]
+        new_column_id = [c.id for c in new_columns if c.project_id == project_id][0]
+        if actual_column_id != new_column_id:
+            columns_to_move[actual_column_id] = new_column_id
+
+    update_data = {
+        'remove_from_columns': {},
+        'add_to_columns': list(columns_to_add),  # a set cannot be saved as json for the job
+        'move_between_columns': columns_to_move,
+    }
+
+    cards_to_remove = {}
+    if columns_to_remove:
+        cards_to_remove = issue.cards.filter(column_id__in=columns_to_remove)
+        update_data['remove_from_columns'] = dict(cards_to_remove.values_list('column_id', 'github_id'))
+
+    now = datetime.utcnow()
+
+    def update_card(card, position_delta=None, position_exact=None, status=GITHUB_STATUS_CHOICES.WAITING_UPDATE):
+        card.position = position_exact if position_exact else card.position + position_delta
+        card.updated_at = now
+        card.github_status = status
+        card.front_uuid = issue.front_uuid
+        card.skip_status_check_to_publish = True
+        card.save()
+
+    if columns_to_remove:
+        for card in cards_to_remove:
+            # decrement cards position after the current one in the original column
+            if card.position:
+                cards_to_update = card.column.cards.filter(position__gt=card.position)
+                for sibling_card in cards_to_update:
+                    update_card(sibling_card, position_delta=-1)
+            # and delete the card
+            card.front_uuid = issue.front_uuid
+            card.skip_status_check_to_publish = True
+            card.delete()
+
+    if columns_to_add:
+        for column_id in columns_to_add:
+            column = new_columns_by_id[column_id]
+            last_card = column.cards.order_by('position').only('position').last()
+            position = last_card.position + 1 if last_card is not None else 1
+            card = Card(
+                type=Card.CARDTYPE.ISSUE,
+                created_at=now,
+                issue=issue,
+                column=column,
+            )
+            card.is_new = True
+            card.skip_status_check_to_publish = True
+            update_card(card, position_exact=position, status=GITHUB_STATUS_CHOICES.WAITING_CREATE)
+            # and we increment all the cards after this one
+            cards_to_update = column.cards.filter(position__gte=position).exclude(id=card.id)
+            for sibling_card in cards_to_update:
+                update_card(sibling_card, position_delta=1)
+
+    if columns_to_move:
+        for actual_column_id, new_column_id in columns_to_move.items():
+            actual_column = actual_columns_by_id[actual_column_id]
+            new_column = new_columns_by_id[new_column_id]
+            card = issue.cards.get(column_id=actual_column_id)
+            actual_position = card.position
+            last_card = new_column.cards.order_by('position').only('position').last()
+            new_position = last_card.position + 1 if last_card is not None else 1
+            # update card
+            card.column = new_column
+            update_card(card, position_exact=new_position)
+            # increment cards position after the current one in the new column
+            if new_position:
+                cards_to_update = new_column.cards.filter(position__gte=new_position).exclude(id=card.id)
+                for sibling_card in cards_to_update:
+                    update_card(sibling_card, position_delta=1)
+            # decrement cards position after the current one in the original column
+            if actual_position:
+                cards_to_update = actual_column.cards.filter(position__gt=actual_position)
+                for sibling_card in cards_to_update:
+                    update_card(sibling_card, position_delta=-1)
+
+    return update_data
+
+
 class IssueProjectsFormPart(object):
 
     columns = forms.ModelMultipleChoiceField(queryset=Column.objects.none(), required=False)
@@ -258,118 +358,18 @@ class IssueProjectsFormPart(object):
             seen_projects.add(column.project.number)
         return columns
 
-    def update_columns(self, instance):
-
-        actual_columns =  Column.objects.filter(cards__issue=instance)
-        actual_columns_by_id = {c.id: c for c in actual_columns}
-        actual_projects_ids = {c.project_id for c in actual_columns}
-
-        new_columns = self.cleaned_data['columns']
-        new_columns_by_id = {c.id: c for c in new_columns}
-        new_projects_ids = {c.project_id for c in new_columns}
-
-
-        projects_to_add = new_projects_ids - actual_projects_ids
-        projects_to_remove = actual_projects_ids - new_projects_ids
-        projects_to_move = new_projects_ids.intersection(actual_projects_ids)
-
-        columns_to_add = {c.id for c in new_columns if c.project_id in projects_to_add}
-        columns_to_remove = {c.id for c in actual_columns if c.project_id in projects_to_remove}
-        columns_to_move = {}
-        for project_id in projects_to_move:
-            actual_column_id = [c.id for c in actual_columns if c.project_id == project_id][0]
-            new_column_id = [c.id for c in new_columns if c.project_id == project_id][0]
-            if actual_column_id != new_column_id:
-                columns_to_move[actual_column_id] = new_column_id
-
-        update_data = {
-            'remove_from_columns': {},
-            'add_to_columns': list(columns_to_add),  # a set cannot be saved as json for the job
-            'move_between_columns': columns_to_move,
-        }
-
-        cards_to_remove = {}
-        if columns_to_remove:
-            cards_to_remove = instance.cards.filter(column_id__in=columns_to_remove)
-            update_data['remove_from_columns'] = dict(cards_to_remove.values_list('column_id', 'github_id'))
-
-        now = datetime.utcnow()
-
-        def update_card(card, position_delta=None, position_exact=None, status=GITHUB_STATUS_CHOICES.WAITING_UPDATE):
-            card.position = position_exact if position_exact else card.position + position_delta
-            card.updated_at = now
-            card.github_status = status
-            card.front_uuid = instance.front_uuid,
-            card.skip_status_check_to_publish = True
-            card.save()
-
-        if columns_to_remove:
-            for card in cards_to_remove:
-                # decrement cards position after the current one in the original column
-                if card.position:
-                    cards_to_update = card.column.cards.filter(position__gt=card.position)
-                    for sibling_card in cards_to_update:
-                        update_card(sibling_card, position_delta=-1)
-                # and delete the card
-                card.front_uuid = instance.front_uuid,
-                card.skip_status_check_to_publish = True
-                card.delete()
-
-        if columns_to_add:
-            for column_id in columns_to_add:
-                column = new_columns_by_id[column_id]
-                last_card = column.cards.order_by('position').only('position').last()
-                position = last_card.position + 1 if last_card is not None else 1
-                card = Card(
-                    type=Card.CARDTYPE.ISSUE,
-                    created_at=now,
-                    issue=instance,
-                    column=column,
-                )
-                card.is_new = True
-                card.skip_status_check_to_publish = True
-                update_card(card, position_exact=position, status=GITHUB_STATUS_CHOICES.WAITING_CREATE)
-                # and we increment all the cards after this one
-                cards_to_update = column.cards.filter(position__gte=position).exclude(id=card.id)
-                for sibling_card in cards_to_update:
-                    update_card(sibling_card, position_delta=1)
-
-        if columns_to_move:
-            for actual_column_id, new_column_id in columns_to_move.items():
-                actual_column = actual_columns_by_id[actual_column_id]
-                new_column = new_columns_by_id[new_column_id]
-                card = instance.cards.get(column_id=actual_column_id)
-                actual_position = card.position
-                last_card = new_column.cards.order_by('position').only('position').last()
-                new_position = last_card.position + 1 if last_card is not None else 1
-                # update card
-                card.column = new_column
-                update_card(card, position_exact=new_position)
-                # increment cards position after the current one in the new column
-                if new_position:
-                    cards_to_update = new_column.cards.filter(position__gte=new_position).exclude(id=card.id)
-                    for sibling_card in cards_to_update:
-                        update_card(sibling_card, position_delta=1)
-                # decrement cards position after the current one in the original column
-                if actual_position:
-                    cards_to_update = actual_column.cards.filter(position__gt=actual_position)
-                    for sibling_card in cards_to_update:
-                        update_card(sibling_card, position_delta=-1)
-
-        return update_data
-
     def save(self, commit=True):
         is_new = not bool(self.instance.pk)
 
         update_data = {}
 
         if not is_new:
-            update_data = self.update_columns(self.instance)
+            update_data = update_columns(self.instance, self.cleaned_data['columns'])
 
         instance = super(IssueProjectsFormPart, self).save(commit=commit)
 
         if is_new:
-            update_data = self.update_columns(instance)
+            update_data = update_columns(instance, self.cleaned_data['columns'])
 
         instance._columns_to_update = update_data
 
