@@ -3064,7 +3064,7 @@ $().ready(function() {
                     no_detail: true,
                     added: 'reopened',
                     removed: 'closed',
-                },
+                }
             },
             rules = {
                 // unchecked to checked
@@ -3104,11 +3104,11 @@ $().ready(function() {
                 $info.find('.hidden').removeClass('hidden');
 
                 $summary = $('<li></li>');
-                if (action_rule.reverse || !action-rule.no_detail) {
+                if (action_rule.reverse || !action_rule.no_detail) {
                     $summary.prepend(action_rule.reverse ? issues_string : $info);
                 }
                 $summary.append(action_string);
-                if (!action_rule.reverse || !action-rule.no_detail) {
+                if (!action_rule.reverse || !action_rule.no_detail) {
                     $summary.append(action_rule.reverse ? $info : issues_string);
                 }
                 $summary_container.append($summary);
