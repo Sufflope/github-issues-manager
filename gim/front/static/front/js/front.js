@@ -3606,7 +3606,11 @@ $().ready(function() {
             var number = issue_ident.number.toString(),
                 result = '/' + issue_ident.repository + '/issues/';
             if (number.indexOf('pk-') == 0) {
-                result += 'created/' + number.substr(3);
+                if (!issue_ident.repository) {
+                    result = '/issue/' + number.substr(3);
+                } else {
+                    result += 'created/' + number.substr(3);
+                }
             } else {
                 result += number;
             }
@@ -3800,7 +3804,7 @@ $().ready(function() {
 
         is_issue_ident_for_node: (function IssueDetail__is_issue_ident_for_node($node, issue_ident) {
             var existing_ident = IssueDetail.get_issue_ident($node);
-            return (existing_ident.number == issue_ident.number && existing_ident.repository == issue_ident.repository);
+            return (existing_ident.number == issue_ident.number && (existing_ident.repository || '') == (issue_ident.repository || ''));
         }), // is_issue_ident_for_node
 
         get_issue_ident: (function IssueDetail__get_issue_ident($node) {
@@ -5104,6 +5108,22 @@ $().ready(function() {
         on_delete_alert: (function IssueDetail__on_delete_alert (topic, args, kwargs, subscription) {
             IssueEditor.on_delete_alert(topic, args, kwargs, subscription);
         }), // on_delete_alert
+
+        open_issue_by_id: (function IssueDetail__open_issue_by_id (issue_id, force_popup) {
+            if (!force_popup && IssueDetail.$main_container.length) {
+                IssueDetail.hide_modal();
+                var $issue_to_select = $('#issue-' + issue_id);
+                if ($issue_to_select.length && $issue_to_select[0].IssuesListIssue) {
+                    $issue_to_select.removeClass('active');
+                    $issue_to_select[0].IssuesListIssue.set_current(true, true);
+                    return;
+                }
+            }
+            IssuesListIssue.open_issue({
+                number: 'pk-' + issue_id,
+                repository: main_repository
+            }, force_popup);
+        }), // open_issue_by_id
 
         init: (function IssueDetail__init () {
             // init modal container
