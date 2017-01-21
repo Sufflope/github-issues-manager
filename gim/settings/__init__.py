@@ -124,6 +124,7 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'gim.front.middleware.AddMessagesToAjaxResponseMiddleware',
     'async_messages.middleware.AsyncMiddleware',
+    'gim.front.middleware.VaryOnAcceptHeaderMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

@@ -1230,7 +1230,7 @@ class AskFetchIssueView(WithAjaxRestrictionViewMixin, IssueView):
         return ['front/messages.html']
 
 
-class CreatedIssueView(IssueView):
+class  CreatedIssueView(IssueView):
     url_name = 'issue.created'
 
     def redirect_to_created_issue(self, wait_if_failure=0):

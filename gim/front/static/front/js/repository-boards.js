@@ -1612,29 +1612,10 @@ $().ready(function() {
                 );
 
                 if (!this.no_history) {
-                    Board.filters.add_history(this.url);
+                    HistoryManager.add_history(this.url);
                 }
 
             }, // on_filters_loaded
-
-            add_history: function(url, replace) {
-                if (window.history && window.history.pushState) {
-                    window.history[replace ? 'replaceState' : 'pushState']({
-                        type: 'BoardFilters',
-                        body_id: body_id,
-                        main_repository_id: main_repository_id,
-                        filters_url: url
-                    }, $document.attr('title'), url);
-                }
-            }, // add_history
-
-            on_history_pop_state: function  (state) {
-                if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
-                    return false;
-                }
-                Board.filters.reload_filters_and_lists(state.filters_url, true);
-                return true;
-            }, // on_history_pop_state
 
             on_search: function() {
                 var loaded_lists = IssuesList.get_loaded_lists();
@@ -1775,8 +1756,6 @@ $().ready(function() {
                 $document.on('focus', '.issues-list-search-main-board-trigger', Ev.set_focus(function () { return Board.filters.$seach_input; }, 200));
                 $document.on('ifChecked ifUnchecked ifToggled', '#main > .row-header .multiselect-info input[name=select-all]', Board.filters.on_issues_selector_toggled);
 
-                Board.filters.add_history(window.location.href, true);
-                window.HistoryManager.callbacks['BoardFilters'] = Board.filters.on_history_pop_state;
         } // init
 
         }, // Board.filters
@@ -2449,6 +2428,10 @@ $().ready(function() {
         } // init
 
     }; // Board
+
+    HistoryManager.load_url = function(state) {
+        Board.filters.reload_filters_and_lists(state.url, true);
+    }; // load_url
 
     IssuesList.prototype.close = function close () {
         Board.arranger.hide_column(this.$container_node.closest('.board-column'));
