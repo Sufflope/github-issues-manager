@@ -58,6 +58,17 @@ $().ready(function() {
             }
             UrlParser.node.href = url;
             return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
+        },
+        remove_hash: function(url) {
+            var previous = UrlParser.node ? UrlParser.node.href : null,
+                parsed = UrlParser.parse(url);
+            if (parsed.hash) {
+                url = url.slice(0, url.length - parsed.hash.length);
+            }
+            if (previous) {
+                UrlParser.parse(previous);
+            }
+            return url;
         }
     };
     window.UrlParser = UrlParser;
