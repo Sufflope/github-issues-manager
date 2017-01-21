@@ -3865,6 +3865,13 @@ $().ready(function() {
             container.$window.modal("show");
         }), // IssueDetail__show_modal
 
+        hide_modal: (function IssueDetail__hide_modal () {
+            var container = IssueDetail.get_container(true);
+            if (container.$window.data('modal')) {
+                container.$window.modal("hide");
+            }
+        }), // IssueDetail__hide_mocal
+
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
             return $('.issue-container:visible').filter(function() {
                 var $this = $(this),
