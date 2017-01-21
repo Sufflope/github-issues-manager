@@ -58,6 +58,17 @@ $().ready(function() {
             }
             UrlParser.node.href = url;
             return UrlParser.node; // access property: host, hostname, hash, href, pathname, port, protocol, search
+        },
+        remove_hash: function(url) {
+            var previous = UrlParser.node ? UrlParser.node.href : null,
+                parsed = UrlParser.parse(url);
+            if (parsed.hash) {
+                url = url.slice(0, url.length - parsed.hash.length);
+            }
+            if (previous) {
+                UrlParser.parse(previous);
+            }
+            return url;
         }
     };
     window.UrlParser = UrlParser;
@@ -768,6 +779,146 @@ $().ready(function() {
     }; // WS
     WS.init();
     window.WS = WS;
+
+
+    var HistoryManager = {
+        re_hash: new RegExp('^#(modal\-)?issue\-(\\d+)$'),
+        previous_state: null,
+
+        on_pop_state: function(ev) {
+            var state = ev.state || history.state;
+            if (!HistoryManager.on_history_pop_state(state)) {
+                window.location.reload();
+            }
+            HistoryManager.previous_state = state;
+        }, // on_pop_state
+
+        on_history_pop_state: function (state) {
+            if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
+                return false;
+            }
+            if (!HistoryManager.allow_load_url(state) || !HistoryManager.allow_load_issue(state)) {
+                return false;
+            }
+            if (HistoryManager.is_url_changed(state)) {
+                HistoryManager.load_url(state);
+            }
+            if (HistoryManager.is_issue_changed(state)) {
+                HistoryManager.load_issue(state);
+            }
+            return true;
+        }, // on_history_pop_state
+
+        allow_load_url: function(state) {
+            return true;
+        }, // allow_load_url
+
+        is_url_changed: function(state) {
+            return !(
+                HistoryManager.previous_state
+                && HistoryManager.previous_state.body_id == state.body_id
+                && HistoryManager.previous_state.main_repository_id == state.main_repository_id
+                && HistoryManager.previous_state.url == state.url
+            );
+        }, // is_url_changed
+
+        load_url: function(state) {
+            if (IssuesList.all.length) {
+                var $issues_list_node = IssuesList.all[0].$container_node;
+                var $filters_node = $issues_list_node.prev(IssuesFilters.selector);
+                IssuesFilters.reload_filters_and_list(state.url, $filters_node, $issues_list_node, true);
+            }
+        }, // load_url
+
+        allow_load_issue: function(state) {
+            return true;
+        }, // allow_load_issue
+
+        is_issue_changed: function(state) {
+            return !(
+                HistoryManager.previous_state
+                && HistoryManager.previous_state.body_id == state.body_id
+                && HistoryManager.previous_state.main_repository_id == state.main_repository_id
+                && HistoryManager.previous_state.issue_id == state.issue_id
+                && HistoryManager.previous_state.issue_in_modal == state.issue_in_modal
+            );
+        }, // is_issue_changed
+
+        load_issue: function(state) {
+            if (state.issue_id) {
+                IssueDetail.open_issue_by_id(state.issue_id, !!state.issue_in_modal);
+            } else {
+                IssueDetail.clear_container(null, false);
+                IssueDetail.hide_modal();
+            }
+        }, // load_issue
+
+        get_issue_url_hash: function (issue_id, for_modal) {
+            return '#' + (for_modal ? 'modal-' : '') + 'issue-' + issue_id;
+        }, // get_issue_url_hash
+
+        add_history: function (url, issue_id, issue_in_modal, replace) {
+            if (!window.history || !window.history.pushState) { return; }
+
+            var current_issue_id = null,
+                current_issue_in_modal = null,
+                current_hash = window.location.hash,
+                current_url = UrlParser.remove_hash(window.location.href),
+                final_url;
+
+            if (current_hash && HistoryManager.re_hash.test(current_hash)) {
+                var re_result = HistoryManager.re_hash.exec(current_hash);
+                current_issue_id = re_result[2];
+                current_issue_in_modal = !!re_result[1];
+            }
+
+            if (!issue_id) {
+                if (issue_id === false) {
+                    issue_id = null;
+                    issue_in_modal = null;
+                } else {
+                    issue_id = current_issue_id;
+                    issue_in_modal = current_issue_in_modal
+                }
+            } else {
+                issue_in_modal = !!issue_in_modal;
+            }
+
+            if (!url) {
+                url = current_url;
+            } else {
+                url = UrlParser.remove_hash(url);
+            }
+
+            if (issue_id == current_issue_id && issue_in_modal == current_issue_in_modal && url == current_url) {
+                replace = true;
+            }
+
+            final_url = url;
+            if (issue_id) {
+                final_url += HistoryManager.get_issue_url_hash(issue_id, issue_in_modal);
+            }
+
+            HistoryManager.previous_state = {
+                type: 'IssuesFilters',
+                body_id: body_id,
+                main_repository_id: main_repository_id,
+                url: url,
+                issue_id: issue_id,
+                issue_in_modal: issue_in_modal
+            };
+
+            window.history[replace ? 'replaceState' : 'pushState'](HistoryManager.previous_state, $document.attr('title'), final_url);
+
+        }, // add_history
+
+        init: function() {
+            window.onpopstate = HistoryManager.on_pop_state;
+            HistoryManager.add_history(null, null, null, true);
+        }
+    }; // HistoryManager
+    HistoryManager.init();
+    window.HistoryManager = HistoryManager;
 
 
     var FilterManager = {
@@ -3444,8 +3595,8 @@ $().ready(function() {
 
             current_list.$container_node.removeClass('multiselect-mode');
 
-            if (!this.no_history) {
-                IssuesFilters.add_history(this.list_index, this.url);
+            if (!this.no_history && IssuesList.all.length == 1) {
+                HistoryManager.add_history(this.url);
             }
 
             $new_filters_node.find('.deferrable').deferrable();
@@ -3460,31 +3611,6 @@ $().ready(function() {
 
         }), // on_filters_and_list_loaded
 
-        on_history_pop_state: (function IssuesFilters__on_history_pop_state (state) {
-            var list, $filters_node, $issues_list_node;
-            if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
-                return false;
-            }
-            try {
-                list = IssuesList.all[state.list_index];
-            } catch(e) {}
-            if (!list) { return false; }
-            $issues_list_node = list.$container_node;
-            $filters_node = $issues_list_node.prev(IssuesFilters.selector);
-            IssuesFilters.reload_filters_and_list(state.filters_url, $filters_node, $issues_list_node, true);
-            return true;
-        }), // on_history_pop_state
-        add_history: (function IssuesFilters__add_history(list_index, url, replace) {
-            if (window.history && window.history.pushState) {
-                window.history[replace ? 'replaceState' : 'pushState']({
-                    type: 'IssuesFilters',
-                    list_index: list_index,
-                    body_id: body_id,
-                    main_repository_id: main_repository_id,
-                    filters_url: url
-                }, $document.attr('title'), url);
-            }
-        }), // add_history
         init: function() {
             var active = false;
             IssuesFilters.lists_count = $(IssuesFilters.selector).length;
@@ -3503,9 +3629,6 @@ $().ready(function() {
                 $document.on('click', '.dropdown-sort ul a, .dropdown-groupby ul a, .dropdown-metric ul a, .metric-stats a:not(.milestone-graph-link), a.no-limit-btn',
                     Ev.stop_event_decorate_dropdown(IssuesFilters.on_list_filter_click));
                 active = true;
-            }
-            if (active) {
-                IssuesFilters.add_history(0, window.location.href, true);
             }
         } // init
     };
@@ -3606,7 +3729,11 @@ $().ready(function() {
             var number = issue_ident.number.toString(),
                 result = '/' + issue_ident.repository + '/issues/';
             if (number.indexOf('pk-') == 0) {
-                result += 'created/' + number.substr(3);
+                if (!issue_ident.repository) {
+                    result = '/issue/' + number.substr(3);
+                } else {
+                    result += 'created/' + number.substr(3);
+                }
             } else {
                 result += number;
             }
@@ -3632,6 +3759,7 @@ $().ready(function() {
             IssueDetail.set_issue_waypoints($node, is_modal);
             IssueDetail.scroll_tabs($node, true);
             IssueDetail.subscribe_updates($node);
+            HistoryManager.add_history(null, complete_issue_ident.id, is_modal);
         }), // on_issue_loaded
 
         get_scroll_context: (function IssueDetail__get_scroll_context ($node, is_modal) {
@@ -3800,7 +3928,7 @@ $().ready(function() {
 
         is_issue_ident_for_node: (function IssueDetail__is_issue_ident_for_node($node, issue_ident) {
             var existing_ident = IssueDetail.get_issue_ident($node);
-            return (existing_ident.number == issue_ident.number && existing_ident.repository == issue_ident.repository);
+            return (existing_ident.number == issue_ident.number && (existing_ident.repository || '') == (issue_ident.repository || ''));
         }), // is_issue_ident_for_node
 
         get_issue_ident: (function IssueDetail__get_issue_ident($node) {
@@ -3849,6 +3977,13 @@ $().ready(function() {
             // open the popup with its loading spinner
             container.$window.modal("show");
         }), // IssueDetail__show_modal
+
+        hide_modal: (function IssueDetail__hide_modal () {
+            var container = IssueDetail.get_container(true);
+            if (container.$window.data('modal')) {
+                container.$window.modal("hide");
+            }
+        }), // IssueDetail__hide_mocal
 
         get_containers_for_ident: (function IssueDetail__get_containers_for_ident (issue_ident) {
             return $('.issue-container:visible').filter(function() {
@@ -4802,6 +4937,13 @@ $().ready(function() {
             IssueDetail.unsubscribe_updates($node);
             PanelsSwapper.select_panel($modal.data('previous-panel'));
             $modal.data('$container').html('');
+
+            if (IssueDetail.$main_container.length) {
+                var ident = IssueDetail.get_issue_ident(IssueDetail.$main_container);
+                HistoryManager.add_history(null, ident.id || false);  // false to force not getting it from the current url
+            } else {
+                HistoryManager.add_history(null, false);
+            }
         }), // on_modal_hidden
 
         on_files_list_key_event:  (function IssueDetail__on_files_list_key_event (method) {
@@ -5105,6 +5247,22 @@ $().ready(function() {
             IssueEditor.on_delete_alert(topic, args, kwargs, subscription);
         }), // on_delete_alert
 
+        open_issue_by_id: (function IssueDetail__open_issue_by_id (issue_id, force_popup) {
+            if (!force_popup && IssueDetail.$main_container.length) {
+                IssueDetail.hide_modal();
+                var $issue_to_select = $('#issue-' + issue_id);
+                if ($issue_to_select.length && $issue_to_select[0].IssuesListIssue) {
+                    $issue_to_select.removeClass('active');
+                    $issue_to_select[0].IssuesListIssue.set_current(true, true);
+                    return;
+                }
+            }
+            IssuesListIssue.open_issue({
+                number: 'pk-' + issue_id,
+                repository: main_repository
+            }, force_popup);
+        }), // open_issue_by_id
+
         init: (function IssueDetail__init () {
             // init modal container
             IssueDetail.$modal_body = IssueDetail.$modal.children('.modal-body');
@@ -5394,37 +5552,32 @@ $().ready(function() {
     PanelsSwapper.init();
     window.PanelsSwapper = PanelsSwapper;
 
-
     // select the issue given in the url's hash, or an active one in the html,
     // or the first item of the current list
     if (IssuesList.all.length) {
-        IssuesList.all[0].set_current();
-        var re = new RegExp('^#issue\-(\\d+)$'),
-            issue_to_select = null,
-            issue_id = null;
-        if (window.location.hash && re.test(window.location.hash)) {
-            issue_to_select = $(window.location.hash);
-            if (!issue_to_select.length) {
-                issue_to_select = null;
-                issue_id = re.exec(window.location.hash)[1];
+        (function () {
+            IssuesList.all[0].set_current();
+            var done = false;
+
+            if (window.location.hash && HistoryManager.re_hash.test(window.location.hash)) {
+                var re_result = HistoryManager.re_hash.exec(window.location.hash),
+                    issue_id = re_result[2],
+                    is_modal = !!re_result[1];
+                HistoryManager.add_history(null, issue_id, is_modal, false);
+                IssueDetail.open_issue_by_id(issue_id, is_modal);
+                done = true;
+            } else {
+                var $issue_to_select = $(IssuesListIssue.selector + '.active');
+                if ($issue_to_select.length) {
+                    $issue_to_select.removeClass('active');
+                    $issue_to_select[0].IssuesListIssue.set_current(true, true);
+                    done = true;
+                }
             }
-        } else {
-            issue_to_select = $(IssuesListIssue.selector + '.active');
-            if (!issue_to_select.length) {
-                issue_to_select = null;
+            if (!done) {
+                IssuesList.current.go_to_next_item();
             }
-        }
-        if (issue_to_select && issue_to_select.length && issue_to_select[0].IssuesListIssue) {
-            issue_to_select.removeClass('active');
-            issue_to_select[0].IssuesListIssue.set_current(true, true);
-        } else if (issue_id && main_repository_id) {
-            IssuesListIssue.open_issue({
-                number: 'pk-' + issue_id,
-                repository: main_repository
-            });
-        } else {
-            IssuesList.current.go_to_next_item();
-        }
+        })();
     }
 
     var activate_quicksearches = (function activate_quicksearches ($inputs) {
@@ -7664,29 +7817,6 @@ $().ready(function() {
     }); // GithubNotifications
 
     GithubNotifications.init();
-
-    var HistoryManager = {
-        callbacks: {
-            'IssuesFilters': IssuesFilters.on_history_pop_state
-        },
-        on_pop_state: function(ev) {
-            var done = true;
-            if (ev.state && ev.state.type) {
-                if (HistoryManager.callbacks[ev.state.type]) {
-                    done = HistoryManager.callbacks[ev.state.type](ev.state)
-                }
-            }
-            if (!done) {
-                window.location.reload();
-            }
-        }, // on_pop_state
-
-        init: function() {
-            window.onpopstate = HistoryManager.on_pop_state;
-        }
-    }; // HistoryManager
-    HistoryManager.init();
-    window.HistoryManager = HistoryManager;
 
     // disable clicking on disabled item
     $document.on('click', '.disabled, [disabled], .disabled > *, [disabled] > *', function(e) {
