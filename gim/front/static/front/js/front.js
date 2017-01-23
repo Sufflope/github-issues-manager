@@ -6608,6 +6608,7 @@ $().ready(function() {
             $modal_submit: null,
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
+            url: $body.data('create-issue-url'),
 
             get_form: function() {
                 return $('#issue-create-form');
@@ -6629,7 +6630,7 @@ $().ready(function() {
                 IssueEditor.create.$modal_submit.removeClass('loading');
                 $body.append(IssueEditor.create.$modal); // move at the end to manage zindex
                 IssueEditor.create.$modal.modal('show');
-                $.get(window.create_issue_url)
+                $.get(IssueEditor.create.url)
                     .done(IssueEditor.create.on_load_done)
                     .fail(IssueEditor.create.on_load_failed);
                 IssueEditor.create.$modal_footer.find('.alert').remove();

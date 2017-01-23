@@ -2,7 +2,7 @@
 {% load repository_tags %}
 
 {% block body_classes %}repository{% endblock %}
-{% block body_attributes %} data-repository="{{ current_repository.full_name }}" data-repository-id="{{ current_repository.id }}" data-repository-has-projects="{{ current_repository.has_projects|yesno:"true,false" }}"{% if current_repository_edit_level == 'full' %} data-repository-multiselect-base-url="{{ current_repository.get_multiselect_base_url }}"{% endif %}{% endblock %}
+{% block body_attributes %} data-repository="{{ current_repository.full_name }}" data-repository-id="{{ current_repository.id }}" {% if can_add_issues %}data-create-issue-url="{{ current_repository.get_create_issue_url }}"{% endif %} data-repository-has-projects="{{ current_repository.has_projects|yesno:"true,false" }}"{% if current_repository_edit_level == 'full' %} data-repository-multiselect-base-url="{{ current_repository.get_multiselect_base_url }}"{% endif %}{% endblock %}
 {% block title %}{{ current_repository }} | {{ view.name }}{% endblock title %}
 
 {% block header_nav %}{% spaceless %}
@@ -82,12 +82,3 @@
     </div>
     {% endif %}
 {% endblock %}
-
-{% block js_footer %}
-    {{ block.super }}
-    {% if can_add_issues %}
-    <script type='text/javascript'>
-        var create_issue_url = "{{ current_repository.get_create_issue_url }}";
-    </script>
-    {% endif %}
-{% endblock js_footer %}
