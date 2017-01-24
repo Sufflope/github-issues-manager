@@ -1,5 +1,15 @@
 $().ready(function() {
 
+    AppGlobal.loadScript = function(url, callback) {
+        var script = document.createElement("script");
+        script.type = 'text/javascript';
+        if (callback) {
+            script.onload = callback;
+        }
+        script.src = url;
+        document.head.appendChild(script);
+    }; // loadScript
+
     var UUID = (function() {
         /**
          * Fast UUID generator, RFC4122 version 4 compliant.
@@ -5889,12 +5899,7 @@ $().ready(function() {
                         on_one_done();
                     }
                 });
-                $.ajax({
-                    url: AppGlobal.InitData.select2_statics.js,
-                    dataType: 'script',
-                    cache: true,
-                    success: on_one_done
-                });
+                AppGlobal.loadScript(AppGlobal.InitData.select2_statics.js, on_one_done);
             } else {
                 callback();
             }
