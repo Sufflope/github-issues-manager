@@ -18,6 +18,7 @@ var AppGlobal = {
             version: "{{ gim_version }}"
         },
         select2_statics: {css: '{% static "front/css/select.2.css" %}', js: '{% static "front/js/select.2.js" %}'},
+        plotly_statics: {js: '{% static "front/js/plotly.min.js" %}'},
         auth_keys: {
             key1: "{{ auth_keys.key1 }}",
             key2: "{{ auth_keys.key2 }}"

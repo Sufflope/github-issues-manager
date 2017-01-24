@@ -9,6 +9,10 @@
         current_metric: null,
         current_issues_type: null,
         all_milestones: $('body').data('all-milestones'),
+        plotly: {
+            loading: false,
+            loaded: false
+        },
 
         open_from_link: function(ev) {
             ev.preventDefault();
@@ -32,6 +36,7 @@
             }).done($.proxy(ChartManager.on_chart_load_success, {number: ChartManager.current_number}))
                 .fail(ChartManager.on_chart_load_failure)
                 .always(function() { $.ajaxSetup({cache: false}); });
+            ChartManager.load_plotly();
         }, // open_chart
 
         close_chart: function() {
@@ -41,7 +46,72 @@
         on_chart_load_success: function(data) {
             if (this.number != ChartManager.current_number) { return; }
             ChartManager.$modal_body.html(data);
+            setTimeout(ChartManager.run_chart, 100);
         }, // on_chart_load_success
+
+        load_plotly: function() {
+            if (ChartManager.plotly.loading || ChartManager.plotly.loaded) { return; }
+            ChartManager.plotly.loading = true;
+            AppGlobal.loadScript(AppGlobal.InitData.plotly_statics.js, function() {
+                ChartManager.plotly.loaded = true;
+                ChartManager.plotly.loading = false;
+            });
+        }, // load_plotly
+
+        run_chart: function() {
+            if (!ChartManager.plotly.loaded) {
+                ChartManager.load_plotly();
+                setTimeout(ChartManager.run_chart, 100);
+                return;
+            }
+            var $graph = $('#milestone-graph');
+            $graph.on('plotly_afterplot', function(ev) {
+                // remove spinner
+                $graph.find('.empty-area').remove();
+                // remove unwanted buttons
+                var $button_groups = $('.modebar-group'),
+                    $buttons = $button_groups.find('a');
+                for (var i = 1; i < $buttons.length; i++) {
+                    $buttons[i].remove();
+                }
+                for (var j = 1; j < $button_groups.length; j++) {
+                    $button_groups[j].remove();
+                }
+            });
+
+            var hover = false;
+            var hover_right = false;
+            var $hover_text_node = null;
+
+            function force_hover_text_left() {
+                if (!hover) { return; }
+                if ($hover_text_node.attr('text-anchor') == 'end') {
+                    if (!hover) { return; }
+                    hover_right = true;
+                    try {
+                        var width = $hover_text_node[0].getBBox().width;
+                        $hover_text_node.attr('x', $hover_text_node.attr('x') - width);
+                        $hover_text_node.attr('text-anchor', 'start');
+                    } catch (e) {}
+                    if (!hover) { return; }
+                }
+                if (hover_right) {
+                    requestNextAnimationFrame(force_hover_text_left);
+                }
+            }
+
+            $graph.on('plotly_hover', function() {
+                hover = true;
+                $hover_text_node = $graph.find('.hoverlayer .hovertext text');
+                force_hover_text_left();
+            });
+            $graph.on('plotly_unhover', function() {
+                hover = false;
+                hover_right = false;
+            });
+
+            Plotly.plot('milestone-graph', $graph.data('graph-graphs'), $graph.data('graph-layout'));
+        }, /// run_chart
 
         on_chart_load_failure: function(xhr, data) {
             ChartManager.$modal_body.find('.empty-area').text('Not enough data to generate this chart');
