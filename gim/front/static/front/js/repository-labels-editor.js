@@ -463,6 +463,7 @@ $().ready(function() {
         on_load_done: function($link, data) {
             LabelTypeForm.update_modal_body_and_show($link, data);
             $('.label-type .box-header .title .label').remove();
+            LabelTypeForm.update();
         },
         on_load_failed: function($link) {
             LabelTypeForm.update_modal_body_and_show($link, '<div class="alert alert-error">A problem prevented us to display the form</div>');
@@ -567,5 +568,6 @@ $().ready(function() {
             LabelTypeForm.init_deletion();
         }
     }; // LabelTypeForm
+    LabelTypeForm.init();
 
 });
