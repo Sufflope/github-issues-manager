@@ -35,7 +35,6 @@
     <script src="{% static "front/js/chart_modal.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/repository-dashboard.js" %}" type="text/javascript"></script>
     <script type="text/javascript">
-        var all_milestones = {{ milestones_json|safe }};
         $().ready(function() {
             MilestoneForm.init();
             HookToggleForm.init();

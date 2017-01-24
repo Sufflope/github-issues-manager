@@ -7,6 +7,7 @@ var ChartManager = {
     current_number: null,
     current_metric: null,
     current_issues_type: null,
+    all_milestones: $('body').data('all-milestones'),
 
     open_from_link: function(ev) {
         ev.preventDefault();
@@ -60,7 +61,7 @@ var ChartManager = {
             if (state.children) {
                 return state.text.charAt(0).toUpperCase() + state.text.substring(1) + ' milestones';
             }
-            var data = all_milestones[state.id];
+            var data = ChartManager.all_milestones[state.id];
             if (data) {
                 var result = '<i class="fa fa-tasks text-' + data.state + '"> </i> <strong>' + (data.title.length > 50 ? data.title.substring(0, 45) + '…' : data.title);
                 if (include_title) {
@@ -103,7 +104,7 @@ var ChartManager = {
     on_milestone_selector_change: function(ev) {
         ev.preventDefault();
         var number = ChartManager.$modal_milestone_select.val(),
-            url = all_milestones[number].graph_url;
+            url = ChartManager.all_milestones[number].graph_url;
         ChartManager.open_chart(number, url);
     }, // on_milestone_selector_change
 
