@@ -1,5 +1,10 @@
 $().ready(function() {
 
+    // disable eval in jquery (won't execute js loaded from ajax
+    $.extend({
+        globalEval: function() {}
+    });
+
     AppGlobal.loadScript = function(url, callback) {
         var script = document.createElement("script");
         script.type = 'text/javascript';
