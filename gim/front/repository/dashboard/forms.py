@@ -365,7 +365,7 @@ class MainMetricForm(forms.ModelForm):
         super(MainMetricForm, self).__init__(*args, **kwargs)
         self.fields['main_metric'].queryset = self.instance.label_types.filter(
             is_metric=True, edit_mode__in=LABELTYPE_EDITMODE.MAYBE_METRIC.values.keys())
-        self.fields['main_metric'].empty_label = '--- No main metric---'
+        self.fields['main_metric'].empty_label = '--- No main metric ---'
 
     def save(self, commit=True):
         self.instance.save(update_fields=['main_metric'])
