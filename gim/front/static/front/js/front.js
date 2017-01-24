@@ -5728,19 +5728,16 @@ $().ready(function() {
         $node: null,
         template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
-        extract: (function MessagesManager__extract (html) {
+        extract: (function MessagesManager__extract ($node) {
             // Will extract message from ajax requests to put them
             // on the main messages container
-            var $fake_node = $('<div />');
-            $fake_node.html(html);
-            var $new_messages = $fake_node.find(MessagesManager.selector);
-            if ($new_messages.length) {
-                $new_messages.remove();
-                MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
-                return $fake_node.html();
-            } else {
-                return html;
+            var $new_messages = $node.find(MessagesManager.selector);
+            if (!$new_messages.length) {
+                return false;
             }
+            $new_messages.remove();
+            MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
+            return true;
         }), // extract
 
         make_message: (function MessagesManager__make_message (content, type) {
@@ -5817,13 +5814,26 @@ $().ready(function() {
 
     }; // MessagesManager
 
-    $.ajaxSetup({
-        converters: {
-            "text html": MessagesManager.extract
-        } // converts
-    }); // ajaxSetup
     MessagesManager.init();
     window.MessagesManager = MessagesManager;
+
+    $.ajaxSetup({
+        converters: {
+            "text html": function(html) {
+                var $fake_node = $('<div />'),
+                    updated = false;
+                $fake_node.html(html);
+
+                updated = updated || MessagesManager.extract($fake_node);
+
+                if (updated) {
+                    return $fake_node.html();
+                } else {
+                    return html;
+                }
+            }
+        } // converters
+    }); // ajaxSetup
 
     var FormTools = {
         disable_form: (function FormTools__disable_form ($form) {
