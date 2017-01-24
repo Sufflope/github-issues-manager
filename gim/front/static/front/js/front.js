@@ -7194,12 +7194,17 @@ $().ready(function() {
             }
         }), // init_feeds
 
+        on_reloaded: (function Activity__on_reloaded() {
+            Activity.delay_check_new_activity($(this));
+        }), // on_reloaded
+
         init_events: (function Activity__init_events () {
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.issue_link, Ev.stop_event_decorate(Activity.on_issue_link_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.buttons.refresh, Ev.stop_event_decorate(Activity.on_refresh_button_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.buttons.more, Ev.stop_event_decorate(Activity.on_more_button_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.filter_links, Ev.stop_event_decorate(Activity.on_filter_link_click));
             $document.on('change', Activity.selectors.main + ' ' + Activity.selectors.filter_checkboxes, Ev.stop_event_decorate(Activity.on_filter_change));
+            $document.on('reloaded', Activity.selectors.main, Activity.on_reloaded);
         }), // init_events
 
         init: (function Activity__init () {
