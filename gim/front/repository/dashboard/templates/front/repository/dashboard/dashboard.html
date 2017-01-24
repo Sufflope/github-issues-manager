@@ -1,6 +1,7 @@
 {% extends "./base.html" %}
 {% load frontutils staticfiles %}
 {% block body_classes %}{{block.super}} dashboard-2cols{% endblock %}
+{% block body_attributes %}{{ block.super }} data-graph_data_urls-issues_by_day="{% url 'graphs:issues_by_day_for_repo' repository_id=99999 %}"{% endblock body_attributes%}
 
 {% block dashboard-content %}
     <div class="row-fluid">
@@ -42,10 +43,6 @@
     </script>
     <script type="text/javascript" src="{% static "graphs/js/jquery.sparkline.min.js" %}" ></script>
     <script type="text/javascript" src="{% static "graphs/js/graphs.js" %}" ></script>
-    <script type="text/javascript">
-        var graph_data_urls = graph_data_urls || {};
-        graph_data_urls.issues_by_day = "{% url 'graphs:issues_by_day_for_repo' repository_id=99999 %}";
-    </script>
 {% endblock js_footer %}
 
 {% block modal-windows %}
