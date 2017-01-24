@@ -31,7 +31,7 @@ $().ready(function() {
         };
         return self;
     })();
-    window.UUID = UUID;
+    AppGlobal.UUID = UUID;
 
     function GetVendorAttribute(prefixedAttributes) {
        var tmp = document.createElement("div");
@@ -71,7 +71,7 @@ $().ready(function() {
             return url;
         }
     };
-    window.UrlParser = UrlParser;
+    AppGlobal.UrlParser = UrlParser;
 
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
@@ -85,8 +85,8 @@ $().ready(function() {
                     animation: 'popFade',
                     position: 'down',
                     type: 'circle',
-                    bgColor: InitData.dynamic_favicon_colors.background,
-                    textColor: InitData.dynamic_favicon_colors.text,
+                    bgColor: AppGlobal.InitData.dynamic_favicon_colors.background,
+                    textColor: AppGlobal.InitData.dynamic_favicon_colors.text,
                     fontStyle: '600',
                     fontFamily: 'sans-serif'
                 });
@@ -105,7 +105,6 @@ $().ready(function() {
         } // set
 
     }; // Favicon
-    window.Favicon = Favicon;
 
     var Ev = {
         stop_event_decorate: (function stop_event_decorate(callback) {
@@ -185,7 +184,7 @@ $().ready(function() {
             }
         }) // set_focus
     };
-    window.Ev = Ev;
+    AppGlobal.Ev = Ev;
 
 
     // globally manage escape key to close modal
@@ -207,8 +206,8 @@ $().ready(function() {
             queue: []
         },
 
-        last_msg_id: InitData.WS_last_msg_id,
-        user_topic_key: InitData.WS_user_topic_key,
+        last_msg_id: AppGlobal.InitData.WS_last_msg_id,
+        user_topic_key: AppGlobal.InitData.WS_user_topic_key,
 
         subscriptions: {},
 
@@ -623,8 +622,8 @@ $().ready(function() {
         }), // receive_ping
 
         check_software_version: (function WS__check_version (last_version) {
-            if (last_version != InitData.software.version) {
-                InitData.software.bad_version = true;
+            if (last_version != AppGlobal.InitData.software.version) {
+                AppGlobal.InitData.software.bad_version = true;
                 try {
                     WS.connection.close();
                 } catch (e) {}
@@ -637,13 +636,13 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(AppGlobal.InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
             Favicon.set_val('↻');
         }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
             if (method === 'wampcra') {
-                return autobahn.auth_cra.sign(InitData.auth_keys.key2, extra.challenge);
+                return autobahn.auth_cra.sign(AppGlobal.InitData.auth_keys.key2, extra.challenge);
             }
         }), // onchallenge
 
@@ -679,7 +678,7 @@ $().ready(function() {
                     }
                 }
             }
-            if (InitData.software.bad_version) { return;}
+            if (AppGlobal.InitData.software.bad_version) { return;}
             var message, timeout;
             switch (reason) {
                 case 'closed':
@@ -746,7 +745,7 @@ $().ready(function() {
         }), // on_window_unload
 
         init: (function WS__init () {
-            if (!InitData.auth_keys.key1) {
+            if (!AppGlobal.InitData.auth_keys.key1) {
                 // no websocket if not authenticated
                 return;
             }
@@ -757,12 +756,12 @@ $().ready(function() {
             WS.alert('Connecting for real-time capabilities...', 'waiting');
             Favicon.set_val('···');
 
-            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + InitData.WS_uri;
+            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + AppGlobal.InitData.WS_uri;
             WS.connection = new autobahn.Connection({
                 url: WS.URI,
                 realm: 'gim',
                 authmethods: ["wampcra"],
-                authid: InitData.auth_keys.key1,
+                authid: AppGlobal.InitData.auth_keys.key1,
                 onchallenge: WS.onchallenge,
                 max_retries: -1,
                 max_retry_delay: 30,
@@ -778,7 +777,6 @@ $().ready(function() {
         }) // init
     }; // WS
     WS.init();
-    window.WS = WS;
 
 
     var HistoryManager = {
@@ -918,7 +916,7 @@ $().ready(function() {
         }
     }; // HistoryManager
     HistoryManager.init();
-    window.HistoryManager = HistoryManager;
+    AppGlobal.HistoryManager = HistoryManager;
 
 
     var FilterManager = {
@@ -1088,7 +1086,7 @@ $().ready(function() {
         this.$node = $node;
         this.$link = this.$node.find(IssuesListIssue.link_selector);
         if (this.$link.length) {
-            href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + encodeURIComponent(window.location.href.split("#")[0]);
+            href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0]);
             this.$link.attr('href', href);
         }
         this.created_at = this.$node.data('created_at');
@@ -1269,7 +1267,7 @@ $().ready(function() {
         IssueDetail.fill_container(container,
             '<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
                 '<li>You are not allowed to see this issue</li>' +
-                '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
+                '<li>This issue is not on a repository you subscribed on ' + AppGlobal.InitData.software.name + '</li>' +
                 '<li>The issue may have been deleted</li>' +
                 '<li>Connectivity problems</li>' +
             '</ul></div>');
@@ -2235,8 +2233,8 @@ $().ready(function() {
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
 
-        if (window.ChartManager) {
-            $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
+        if (AppGlobal.ChartManager) {
+            $document.on('click', 'a.milestone-graph-link', AppGlobal.ChartManager.open_from_link);
         }
     }); // IssuesList_init_event
 
@@ -3455,7 +3453,7 @@ $().ready(function() {
     });
 
     IssuesList.init_all();
-    window.IssuesList = IssuesList;
+    AppGlobal.IssuesList = IssuesList;
 
     var IssuesFilters = {
         selector: '.issues-filters',
@@ -3518,8 +3516,8 @@ $().ready(function() {
                 return true;
             }
 
-            if (window.ChartManager) {
-                window.ChartManager.close_chart();
+            if (AppGlobal.ChartManager) {
+                AppGlobal.ChartManager.close_chart();
             }
 
             $filters_node = $issues_list_node.prev(IssuesFilters.selector);
@@ -3633,7 +3631,7 @@ $().ready(function() {
         } // init
     };
     IssuesFilters.init();
-    window.IssuesFilters = IssuesFilters;
+    AppGlobal.IssuesFilters = IssuesFilters;
 
     var $IssueByNumberWindow = $('#go-to-issue-window');
     var IssueByNumber = {
@@ -5550,7 +5548,7 @@ $().ready(function() {
 
     }; // PanelsSwapper
     PanelsSwapper.init();
-    window.PanelsSwapper = PanelsSwapper;
+    AppGlobal.PanelsSwapper = PanelsSwapper;
 
     // select the issue given in the url's hash, or an active one in the html,
     // or the first item of the current list
@@ -5637,7 +5635,6 @@ $().ready(function() {
             }
         });
     }); // activate_quicksearches
-    window.activate_quicksearches = activate_quicksearches;
     activate_quicksearches();
 
     if ($().deferrable) {
@@ -5817,7 +5814,7 @@ $().ready(function() {
     }; // MessagesManager
 
     MessagesManager.init();
-    window.MessagesManager = MessagesManager;
+    AppGlobal.MessagesManager = MessagesManager;
 
     $.ajaxSetup({
         converters: {
@@ -5884,7 +5881,7 @@ $().ready(function() {
                         }
                     };
                 $.ajax({
-                    url: InitData.select2_statics.css,
+                    url: AppGlobal.InitData.select2_statics.css,
                     dataType: 'text',
                     cache: true,
                     success: function(data) {
@@ -5893,7 +5890,7 @@ $().ready(function() {
                     }
                 });
                 $.ajax({
-                    url: InitData.select2_statics.js,
+                    url: AppGlobal.InitData.select2_statics.js,
                     dataType: 'script',
                     cache: true,
                     success: on_one_done
@@ -5968,7 +5965,7 @@ $().ready(function() {
             return context;
         }) // handle_form
     };
-    window.FormTools = FormTools;
+    AppGlobal.FormTools = FormTools;
 
     var IssueEditor = {
 
@@ -7213,7 +7210,6 @@ $().ready(function() {
         }) // init
     }; // Activity
     Activity.init();
-    window.Activity = Activity;
 
     var HoverIssue = {
         selector: '.hoverable-issue',
@@ -7319,7 +7315,7 @@ $().ready(function() {
                             if (xhr.status) { // if no status, it's an abort
                                 that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>' +
                                     '<li>You are not allowed to see this issue</li>' +
-                                    '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
+                                    '<li>This issue is not on a repository you subscribed on ' + AppGlobal.InitData.software.name + '</li>' +
                                     '<li>The issue may have been deleted</li>' +
                                     '<li>Connectivity problems</li>' +
                                     '</ul></div>');
@@ -7516,7 +7512,7 @@ $().ready(function() {
 
     }; // HoverIssue
     HoverIssue.init();
-    window.HoverIssue = HoverIssue;
+    AppGlobal.HoverIssue = HoverIssue;
 
     $.extend(GithubNotifications, {
         item_selector: '.issue-item-notification',

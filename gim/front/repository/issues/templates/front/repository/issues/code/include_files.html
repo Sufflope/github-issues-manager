@@ -49,7 +49,7 @@
                 </div>
             {% endif %}
         </nav>
-        <a href="#" class="files-list-summary"{% if nb_changed_files > 1 %} title="Click to toogle the list of files" data-toggle="collapse" data-target="#{{ id_prefix }}-files-list"{% else %} onclick="Ev.cancel"{% endif %}>
+        <a href="#" class="files-list-summary"{% if nb_changed_files > 1 %} title="Click to toogle the list of files" data-toggle="collapse" data-target="#{{ id_prefix }}-files-list"{% else %} onclick="AppGlobal.Ev.cancel"{% endif %}>
             <strong>{{ nb_changed_files }} file{{ nb_changed_files|pluralize }} changed</strong>
             with <strong>{{ nb_additions }} addition{{ nb_additions|pluralize }}</strong>
              and <strong>{{ nb_deletions }} </strong>

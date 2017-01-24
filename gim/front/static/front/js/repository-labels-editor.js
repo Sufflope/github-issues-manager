@@ -370,7 +370,7 @@ $().ready(function() {
     TestButton.init();
 
 
-    window.LabelTypeForm = {
+    var LabelTypeForm = {
         $modal: $('#label-type-edit-form'),
         $modal_body: null,
         $modal_footer: null,
