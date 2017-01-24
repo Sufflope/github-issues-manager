@@ -85,8 +85,8 @@ $().ready(function() {
                     animation: 'popFade',
                     position: 'down',
                     type: 'circle',
-                    bgColor: dynamic_favicon_colors.background,
-                    textColor: dynamic_favicon_colors.text,
+                    bgColor: InitData.dynamic_favicon_colors.background,
+                    textColor: InitData.dynamic_favicon_colors.text,
                     fontStyle: '600',
                     fontFamily: 'sans-serif'
                 });
@@ -207,8 +207,8 @@ $().ready(function() {
             queue: []
         },
 
-        last_msg_id: window.WS_last_msg_id,
-        user_topic_key: window.WS_user_topic_key,
+        last_msg_id: InitData.WS_last_msg_id,
+        user_topic_key: InitData.WS_user_topic_key,
 
         subscriptions: {},
 
@@ -623,8 +623,8 @@ $().ready(function() {
         }), // receive_ping
 
         check_software_version: (function WS__check_version (last_version) {
-            if (last_version != window.software.version) {
-                window.software.bad_version = true;
+            if (last_version != InitData.software.version) {
+                InitData.software.bad_version = true;
                 try {
                     WS.connection.close();
                 } catch (e) {}
@@ -637,13 +637,13 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
             Favicon.set_val('↻');
         }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
             if (method === 'wampcra') {
-                return autobahn.auth_cra.sign(window.auth_keys.key2, extra.challenge);
+                return autobahn.auth_cra.sign(InitData.auth_keys.key2, extra.challenge);
             }
         }), // onchallenge
 
@@ -679,7 +679,7 @@ $().ready(function() {
                     }
                 }
             }
-            if (window.software.bad_version) { return;}
+            if (InitData.software.bad_version) { return;}
             var message, timeout;
             switch (reason) {
                 case 'closed':
@@ -746,7 +746,7 @@ $().ready(function() {
         }), // on_window_unload
 
         init: (function WS__init () {
-            if (!window.auth_keys.key1) {
+            if (!InitData.auth_keys.key1) {
                 // no websocket if not authenticated
                 return;
             }
@@ -757,12 +757,12 @@ $().ready(function() {
             WS.alert('Connecting for real-time capabilities...', 'waiting');
             Favicon.set_val('···');
 
-            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.WS_uri;
+            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + InitData.WS_uri;
             WS.connection = new autobahn.Connection({
                 url: WS.URI,
                 realm: 'gim',
                 authmethods: ["wampcra"],
-                authid: window.auth_keys.key1,
+                authid: InitData.auth_keys.key1,
                 onchallenge: WS.onchallenge,
                 max_retries: -1,
                 max_retry_delay: 30,
@@ -1269,7 +1269,7 @@ $().ready(function() {
         IssueDetail.fill_container(container,
             '<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
                 '<li>You are not allowed to see this issue</li>' +
-                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
                 '<li>The issue may have been deleted</li>' +
                 '<li>Connectivity problems</li>' +
             '</ul></div>');
@@ -5884,7 +5884,7 @@ $().ready(function() {
                         }
                     };
                 $.ajax({
-                    url: window.select2_statics.css,
+                    url: InitData.select2_statics.css,
                     dataType: 'text',
                     cache: true,
                     success: function(data) {
@@ -5893,7 +5893,7 @@ $().ready(function() {
                     }
                 });
                 $.ajax({
-                    url: window.select2_statics.js,
+                    url: InitData.select2_statics.js,
                     dataType: 'script',
                     cache: true,
                     success: on_one_done
@@ -7319,7 +7319,7 @@ $().ready(function() {
                             if (xhr.status) { // if no status, it's an abort
                                 that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>' +
                                     '<li>You are not allowed to see this issue</li>' +
-                                    '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                                    '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
                                     '<li>The issue may have been deleted</li>' +
                                     '<li>Connectivity problems</li>' +
                                     '</ul></div>');
