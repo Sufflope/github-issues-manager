@@ -149,6 +149,7 @@ INSTALLED_APPS = [
     # 'django.contrib.admindocs',
     'adv_cache_tag',
     'macros',
+    'jsonify',
 
     'gim.core',
     'gim.subscriptions',
