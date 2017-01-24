@@ -5581,62 +5581,64 @@ $().ready(function() {
     }
 
     var activate_quicksearches = (function activate_quicksearches ($inputs) {
+        if (!$inputs) {
+            $inputs = $('input.quicksearch');
+        }
         $inputs.each(function() {
             var $input, target, content, content_data, options, qs;
             $input = $(this);
-            if (!$input.data('quicksearch')) {
-                target = $input.data('target');
-                if (!target) { return; }
+            if ($input.data('quicksearch')) { return; }
+            target = $input.data('target');
+            if (!target) { return; }
 
-                options = {
-                    bind: 'keyup quicksearch.refresh',
-                    removeDiacritics: true,
-                    show: function () {
-                        this.style.display = "";
-                        $(this).removeClass('hidden');
-                    },
-                    hide: function() {
-                        this.style.display = "none";
-                        $(this).addClass('hidden');
-                    },
-                    onBefore: function() {
-                        $input.trigger('quicksearch.before');
-                    },
-                    onAfter: function() {
-                        $input.trigger('quicksearch.after');
-                    }
-                };
-
-                content = $input.data('content');
-                if (content) {
-                    options.selector = content;
+            options = {
+                bind: 'keyup quicksearch.refresh',
+                removeDiacritics: true,
+                show: function () {
+                    this.style.display = "";
+                    $(this).removeClass('hidden');
+                },
+                hide: function() {
+                    this.style.display = "none";
+                    $(this).addClass('hidden');
+                },
+                onBefore: function() {
+                    $input.trigger('quicksearch.before');
+                },
+                onAfter: function() {
+                    $input.trigger('quicksearch.after');
                 }
-                content_data = $input.data('content-data');
-                if (content_data) {
-                    options.selector_data = content_data;
-                }
+            };
 
-                qs = $input.quicksearch(target, options);
-                $input.data('quicksearch', qs);
+            content = $input.data('content');
+            if (content) {
+                options.selector = content;
+            }
+            content_data = $input.data('content-data');
+            if (content_data) {
+                options.selector_data = content_data;
+            }
 
-                var clear_input = function(e) {
-                    $input.val('');
-                    $input.trigger('quicksearch.refresh');
-                    $input.focus();
-                    return Ev.cancel(e);
-                };
-                $input.on('keydown', jwerty.event('ctrl+u', clear_input));
+            qs = $input.quicksearch(target, options);
+            $input.data('quicksearch', qs);
 
-                var clear_btn = $input.next('.btn');
-                if (clear_btn.length) {
-                    clear_btn.on('click', clear_input);
-                    clear_btn.on('keyup', jwerty.event('space', clear_input));
-                }
+            var clear_input = function(e) {
+                $input.val('');
+                $input.trigger('quicksearch.refresh');
+                $input.focus();
+                return Ev.cancel(e);
+            };
+            $input.on('keydown', jwerty.event('ctrl+u', clear_input));
+
+            var clear_btn = $input.next('.btn');
+            if (clear_btn.length) {
+                clear_btn.on('click', clear_input);
+                clear_btn.on('keyup', jwerty.event('space', clear_input));
             }
         });
     }); // activate_quicksearches
     window.activate_quicksearches = activate_quicksearches;
-    activate_quicksearches($('input.quicksearch'));
+    activate_quicksearches();
 
     if ($().deferrable) {
         $('.deferrable').deferrable();
@@ -5834,6 +5836,10 @@ $().ready(function() {
             }
         } // converters
     }); // ajaxSetup
+
+    $document.ajaxComplete(function(event, request, settings) {
+        setTimeout(activate_quicksearches, 250);
+    });
 
     var FormTools = {
         disable_form: (function FormTools__disable_form ($form) {

@@ -74,9 +74,4 @@
             <div class="empty-area">No milestones for this repository</div>
         {% endif %}
     </div>{# .box-content #}
-    {% if view.request.is_ajax and milestones|length > 1 %}
-        <script data-cfasync="false" type="text/javascript">
-            setTimeout(function() { window.activate_quicksearches($('#milestones input.quicksearch')); }, 250);
-        </script>
-    {% endif %}
 </div>{# .box#milestones #}

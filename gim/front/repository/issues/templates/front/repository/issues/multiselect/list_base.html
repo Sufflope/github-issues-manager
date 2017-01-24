@@ -17,12 +17,6 @@
                 <button class="btn btn-blue ms-action-apply pull-right">Apply</button>
             </div>
 
-            {% if data_count > 10 %}
-                <script data-cfasync="false" type="text/javascript">
-                    setTimeout(function() { window.activate_quicksearches($('#filter-ms-action-{{ action_uuid }} input.quicksearch')); }, 250);
-                </script>
-            {% endif %}
-
         </div>
 
     {% endwith %}
