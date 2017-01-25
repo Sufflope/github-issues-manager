@@ -12,6 +12,7 @@ django-adv-cache-tag>=0.3.0,<1
 django-decorator-include>=1.2
 django-extended-choices==1.0.7
 django-templates-macros>=0.2
+django-jsonify==0.3.0
 ghdiff_class>=0.1
 
 ipython>=4

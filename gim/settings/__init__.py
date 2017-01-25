@@ -104,6 +104,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "gim.front.context_processors.default_context_data",
                 "gim.front.context_processors.user_context",
+                "gim.front.context_processors.js_data",
             ],
             'loaders': [
                 ('django.template.loaders.cached.Loader', (
@@ -149,6 +150,7 @@ INSTALLED_APPS = [
     # 'django.contrib.admindocs',
     'adv_cache_tag',
     'macros',
+    'jsonify',
 
     'gim.core',
     'gim.subscriptions',

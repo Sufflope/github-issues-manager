@@ -6,6 +6,7 @@
 {% block extra_css %}
     <link href="{% static "front/css/pages/dashboard/dashboard-home.css" %}" rel="stylesheet">
 {% endblock extra_css %}
+{% block body_attributes %}{{ block.super }} data-graph_data_urls-issues_by_day="{% url 'graphs:issues_by_day_for_repo' repository_id=99999 %}"{% endblock body_attributes%}
 
 {% block dashboard-header %}
     <div class="header">
@@ -97,25 +98,7 @@
     {{ block.super }}
     <script type="text/javascript" src="{% static "graphs/js/jquery.sparkline.min.js" %}" ></script>
     <script type="text/javascript" src="{% static "graphs/js/graphs.js" %}" ></script>
-    <script type="text/javascript">
-        var graph_data_urls = graph_data_urls || {};
-        graph_data_urls.issues_by_day = "{% url 'graphs:issues_by_day_for_repo' repository_id=99999 %}";
-        var get_graph = function () {
-            var $repo_node = $('#subscribed_repositories .box-section[data-repo-id]:not(.has-graph):not(.hidden)').first();
-            if (!$repo_node.length) {
-                $repo_node = $('#subscribed_repositories .box-section[data-repo-id]:not(.has-graph)').first();
-            }
-            if ($repo_node.length) {
-                IssuesByDayGraph.fetch_and_make_graph($repo_node.data('repo-id'), 40, $repo_node.children('.news-content'), function() {
-                    $repo_node.addClass('has-graph');
-                    get_graph();
-                });
-            }
-        };
-        $().ready(function() {
-            get_graph();
-        });
-    </script>
+    <script src="{% static "front/js/main-dashboard.js" %}" type="text/javascript"></script>
 {% endblock js_footer %}
 
 {% block modal-windows %}

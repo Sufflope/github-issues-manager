@@ -1,5 +1,7 @@
 from django.conf.urls import include, url
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from django.views.generic import TemplateView
 
 from decorator_include import decorator_include
 
@@ -7,6 +9,7 @@ from gim.front.views import HomeView, RedirectToIssueFromPK
 
 urlpatterns = [
     url(r'^$', HomeView.as_view(), name='home'),
+    url(r'^init.js$', never_cache(TemplateView.as_view(template_name='front/init.js')), name='init.js'),
     url(r'^auth/', include('gim.front.auth.urls', namespace='auth')),
     url(r'^github-notifications/', decorator_include(login_required, u'gim.front.github_notifications.urls', namespace='github-notifications')),
     url(r'^dashboard/', decorator_include(login_required, u'gim.front.dashboard.urls', namespace='dashboard')),

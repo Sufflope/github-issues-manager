@@ -17,8 +17,4 @@
         </li>
     {% endfor %}
 </ul>
-{% if view.request.is_ajax and count > MIN_FOR_FILTER %}
-    <script data-cfasync="false" type="text/javascript">
-        setTimeout(function() { window.activate_quicksearches($('#filter-{{ view.relation }}-{{ list_uuid }} input.quicksearch')); }, 250);
-    </script>
-{% endif %}{% endspaceless %}
+{% endspaceless %}

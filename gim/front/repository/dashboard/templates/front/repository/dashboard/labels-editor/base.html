@@ -89,6 +89,8 @@
 
     </div>
 
+</div>
+
 {% endblock dashboard-content %}
 
 {% block js_footer %}
@@ -96,10 +98,4 @@
     <script src="{% static "front/js/select.2.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/spectrum.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/repository-labels-editor.js" %}" type="text/javascript"></script>
-
-    <script type="text/javascript">
-        $().ready(function() {
-            LabelTypeForm.init();
-        });
-    </script>
 {% endblock js_footer %}
