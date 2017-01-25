@@ -67,7 +67,7 @@ $().ready(function() {
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
 
-    AppGlobal.InitData = $body.data('init-data');
+    AppGlobal.InitData = $body.data('js-init-data');
     if (AppGlobal.InitData.HW_config) {
         window.HW_config = AppGlobal.InitData.HW_config;
         AppGlobal.loadScript('//cdn.headwayapp.co/widget.js');
