@@ -11,15 +11,23 @@ _TEMPLATE_LOADERS = [
 ]
 
 _CONTEXT_PROCESSORS = [
-    'gim.settings.local_settings.override_ws_uri',
+    'gim.settings.local_settings.js_data',
 ]
 
 
-def override_ws_uri(request):
-    from gim.ws import publisher
+def js_data(request):
+    # in a func to execute it only when needed
+
+    def get_json():
+        import json
+        from django.utils.safestring import mark_safe
+        from gim.front.context_processors import get_js_data
+
+        data = get_js_data(request)
+        data['ws']['uri'] = 'localhost:8889/ws'
+
+        return mark_safe(json.dumps(data))
+
     return {
-        'WS': {
-            'uri': 'localhost:8889/ws',
-            'last_msg_id': publisher.get_last_msg_id(),
-        }
+        'js_data': get_json
     }

@@ -1,3 +1,5 @@
+var AppGlobal = {};  // accessible on window.
+
 $().ready(function() {
 
     // disable eval in jquery (won't execute js loaded from ajax
@@ -64,6 +66,12 @@ $().ready(function() {
         main_repository = $body.data('repository'),
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
+
+    AppGlobal.InitData = $body.data('init-data');
+    if (AppGlobal.InitData.HW_config) {
+        window.HW_config = AppGlobal.InitData.HW_config;
+        AppGlobal.loadScript('//cdn.headwayapp.co/widget.js');
+    }
 
     var UrlParser = { // http://stackoverflow.com/a/6944772
         node: null,
@@ -221,8 +229,8 @@ $().ready(function() {
             queue: []
         },
 
-        last_msg_id: AppGlobal.InitData.WS_last_msg_id,
-        user_topic_key: AppGlobal.InitData.WS_user_topic_key,
+        last_msg_id: AppGlobal.InitData.ws.last_msg_id,
+        user_topic_key: AppGlobal.InitData.ws.user_topic_key,
 
         subscriptions: {},
 
@@ -771,7 +779,7 @@ $().ready(function() {
             WS.alert('Connecting for real-time capabilities...', 'waiting');
             Favicon.set_val('···');
 
-            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + AppGlobal.InitData.WS_uri;
+            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + AppGlobal.InitData.ws.uri;
             WS.connection = new autobahn.Connection({
                 url: WS.URI,
                 realm: 'gim',
