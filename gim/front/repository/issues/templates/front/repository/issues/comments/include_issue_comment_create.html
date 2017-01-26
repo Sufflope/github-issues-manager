@@ -9,6 +9,7 @@
 {% endblock comment_info %}
 
 {% block comment_inner_body %}
+    {% include "front/form-protection.html" %}
     <form class="comment-form comment-create-form" method="post" action="{% block form_action %}{{ current_issue.issue_comment_create_url }}{% endblock %}" {% block form_data %}data-issue-number="{{ current_issue.number }}" data-issue-id="{{ current_issue.id }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}"{% if current_issue.is_pull_request %} data-pr-url="{{ current_issue.pr_comment_create_url }}"{% if with_pr_review_buttons %} data-with-pr-review-buttons="true" data-pr-review-url="{{ current_issue.pr_review_create_url }}"{% endif %}{% endif %}{% endblock %}>
         {% csrf_token %}
         <div><textarea name="body" placeholder="Leave a comment on this {% if current_repository.private %}private{% else %}public{% endif %} repository..."></textarea></div>

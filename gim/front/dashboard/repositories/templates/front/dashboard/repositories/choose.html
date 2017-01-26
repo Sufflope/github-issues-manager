@@ -8,6 +8,7 @@
 {% endblock extra_css %}
 
 {% block dashboard-header %}
+    {% include "front/form-protection.html" %}
     <form action="{% url "front:dashboard:repositories:ask-fetch" %}" method="post" id="ask-fetch">
         <button type="submit" class="btn btn-large btn-blue btn-loading">Update available repositories <i class='fa fa-spinner fa-spin'> </i></button>
         <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />

@@ -1,5 +1,6 @@
 {% extends "./include_base_note.html" %}
 {% block note-content %}
+    {% include "front/form-protection.html" %}
     <form class="note-form note-edit-form"  method="post" action="{{ note.get_edit_url }}">
         {% csrf_token %}
         <div>{{ form.note }}</div>

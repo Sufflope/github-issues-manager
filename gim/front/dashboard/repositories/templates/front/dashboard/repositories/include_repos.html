@@ -95,12 +95,14 @@
             <td title="You already asked to subscribe to this repository">
                 {% with subscription=waiting_subscriptions|dict_item:repo_name %}
                     {% if subscription.can_add_again %}
+                        {% include "front/form-protection.html" %}
                         <form action="{{ repository_add_url }}" method="post" class="toggle-form">
                             <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />
                             <input id="id_name" name="name" type="hidden" value="{{ repo_name }}" />
                             <button type="submit" class="btn btn-mini btn-green btn-loading" title="Subscribe to this repository again"><i class="fa fa-plus"> </i><i class='fa fa-spinner fa-spin'> </i></button>
                         </form>
                     {% endif %}
+                    {% include "front/form-protection.html" %}
                     <form action="{{ repository_remove_url }}" method="post" class="toggle-form">
                         <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />
                         <input id="id_name" name="name" type="hidden" value="{{ repo_name }}" />
@@ -111,6 +113,7 @@
         {% elif repo_name in subscribed_repositories %}
             <td title="You already subscribed to this repository">
                 {% with subscription=subscribed_repositories|dict_item:repo_name %}
+                    {% include "front/form-protection.html" %}
                     <form action="{{ repository_remove_url }}" method="post" class="toggle-form">
                         <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />
                         <input id="id_name" name="name" type="hidden" value="{{ repo_name }}" />
@@ -120,6 +123,7 @@
             </td>
         {% else %}
             <td>
+                {% include "front/form-protection.html" %}
                 <form action="{{ repository_add_url }}" method="post" class="toggle-form">
                     <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />
                     <input id="id_name" name="name" type="hidden" value="{{ repo_name }}" />

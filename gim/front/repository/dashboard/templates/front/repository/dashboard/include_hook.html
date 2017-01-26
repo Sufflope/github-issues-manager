@@ -24,6 +24,7 @@
                 </li>
             </ul>
         {% endwith %}
+        {% include "front/form-protection.html" %}
         <form style='display: none' method='post' action='{{ hook_toggle_url }}' id='hook-toggle-form'>
             <input type='hidden' name='csrfmiddlewaretoken' value='{{ csrf_token }}' />
             {{ hook_toggle_form.as_p }}

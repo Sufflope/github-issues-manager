@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form class="column-form column-create-form"  method="post" action="{{ current_project.get_create_column_url }}">
     {% csrf_token %}
     <div><input type="text" name="name" placeholder="Enter a column name" /></div>

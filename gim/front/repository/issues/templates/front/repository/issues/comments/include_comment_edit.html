@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block comment_inner_body %}
+    {% include "front/form-protection.html" %}
     <form class="comment-form comment-edit-form"  method="post" action="{{ comment.get_edit_url }}">
         {% csrf_token %}
         <div>{{ form.body }}</div>

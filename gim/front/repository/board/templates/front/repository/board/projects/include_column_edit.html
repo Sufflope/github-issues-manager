@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form class="column-form column-edit-form"  method="post" action="{{ column.get_edit_url}}">
     {% csrf_token %}
     <div>{{ form.name }}</div>

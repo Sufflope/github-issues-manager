@@ -68,6 +68,7 @@
     </div>{# #label-type-edit-form #}
 
     <div id="label-edit-form" class="hide" data-edit-url="{{ base_label_edit_url }}" data-delete-url="{{ base_label_delete_url }}" data-create-url="{{ label_create_url }}">
+        {% include "front/form-protection.html" %}
         <form method="post" class="fill-up label-edit-form hide-order hide-note" data-id="%(id)s">
             {% csrf_token %}
             <input name='label_type' type='hidden' value="%(label_type_id)s" />
