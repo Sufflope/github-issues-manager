@@ -7619,11 +7619,13 @@ $().ready(function() {
         },
 
         post_form: function ($form) {
-            var data = $form.serialize();
-            var action = $form.attr('action');
+            var data = $form.serialize(),
+                action = $form.attr('action'),
+                context = {$form: $form};
+
             $.post(action, data)
-                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
-                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .done($.proxy(GithubNotifications.on_post_submit_done, context))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, context))
                 .always(function () { GithubNotifications.enable_form($form); });
         }, // post_form
 
@@ -7637,7 +7639,7 @@ $().ready(function() {
                 $li = $link.parent(),
                 $ul = $li.parent(),
                 action = $ul.data('edit-url'),
-                $form = null;
+                $form = null, context;
 
             if (!action) { return; }
 
@@ -7658,9 +7660,10 @@ $().ready(function() {
                 }
             }
 
+            context = {$form: $form};
             $.post(action, data)
-                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
-                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .done($.proxy(GithubNotifications.on_post_submit_done, context))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, context))
                 .fail(function() {
                     $ul.find('li.with-mark-notification-as-read-link').removeClass('disabled loading');
                 })
@@ -7669,12 +7672,12 @@ $().ready(function() {
         }, // on_mark_as_read_in_notification_menu_click
 
         on_post_submit_done: function (data) {
-            var $form = this;
+            var $form = this.$form;
             if (!data || !data.status) {
                 data = {status: 'KO', error_msg: default_error_msg};
             }
             if (data.status != 'OK') {
-                return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
+                return $.proxy(GithubNotifications.on_post_submit_failed, {$form: $form})({}, data);
             }
 
             if ($form) {
@@ -7694,7 +7697,7 @@ $().ready(function() {
         }, // on_post_submit_done
 
         on_post_submit_failed: function (xhr, data) {
-            var $form=this,
+            var $form=this.$form,
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
             MessagesManager.add_messages([MessagesManager.make_message(error_msg, 'error')]);
             if ($form) { GithubNotifications.apply_values($form, data.values); }
