@@ -92,6 +92,9 @@ def get_js_data(request):
             }
         }
 
+    if settings.GOOGLE_ANALYTICS_ID:
+        data['GA_id'] = settings.GOOGLE_ANALYTICS_ID
+
     return data
 
 

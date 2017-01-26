@@ -40,4 +40,5 @@
     //  "CACHE_ISSUES_TAG_PORT": 6379,
     //  "CACHE_ISSUES_TAG_DB": 2,
 
+    //  "GOOGLE_ANALYTICS_ID": "UA-XXXX-Y"
 }

@@ -73,6 +73,12 @@ $().ready(function() {
         AppGlobal.loadScript('//cdn.headwayapp.co/widget.js');
     }
 
+    if (InitData.GA_id) {
+          AppGlobal.loadScript('//www.google-analytics.com/analytics.js');
+          window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+          ga('create', InitData.GA_id, 'auto');
+          ga('send', 'pageview');
+    }
     var UrlParser = { // http://stackoverflow.com/a/6944772
         node: null,
         parse: function(url) {
