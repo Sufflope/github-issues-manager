@@ -78,6 +78,7 @@ $().ready(function() {
           AppGlobal.loadScript('//www.google-analytics.com/analytics.js');
           window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
           ga('create', InitData.GA_id, 'auto');
+          ga('set', 'transport', window.navigator && window.navigator.sendBeacon ? 'beacon' : 'xhr');
           ga('send', 'pageview');
     }
 
