@@ -104,6 +104,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "gim.front.context_processors.default_context_data",
                 "gim.front.context_processors.user_context",
+                "gim.front.context_processors.js_data",
             ],
             'loaders': [
                 ('django.template.loaders.cached.Loader', (
@@ -149,6 +150,7 @@ INSTALLED_APPS = [
     # 'django.contrib.admindocs',
     'adv_cache_tag',
     'macros',
+    'jsonify',
 
     'gim.core',
     'gim.subscriptions',
@@ -381,6 +383,7 @@ FAVICON_DYN_BACKGROUND_COLOR = get_env_variable('FAVICON_DYN_BACKGROUND_COLOR', 
 FAVICON_DYN_TEXT_COLOR = get_env_variable('FAVICON_DYN_TEXT_COLOR', default='#fff')
 
 HEADWAYAPP_ACCOUNT = get_env_variable('HEADWAYAPP_ACCOUNT', default=None)
+GOOGLE_ANALYTICS_ID = get_env_variable('GOOGLE_ANALYTICS_ID', default=None)
 
 DEBUG_TOOLBAR = False
 _TEMPLATE_LOADERS = None

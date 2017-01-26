@@ -66,7 +66,7 @@ $().ready(function() {
     var milestone_widget = MilestonesDashboardWidget();
     LabelsDashboardWidget();
 
-    window.MilestoneForm = {
+    var MilestoneForm = {
         $modal: $('#milestone-edit-form'),
         $modal_body: $('#milestone-edit-form .modal-body'),
         $modal_footer: $('#milestone-edit-form .modal-footer'),
@@ -218,8 +218,9 @@ $().ready(function() {
             MilestoneForm.init_deletion();
         }
     }; // MilestoneForm
+    MilestoneForm.init();
 
-    window.HookToggleForm = {
+    var HookToggleForm = {
         get_form: function() {
             return $('#hook-toggle-form');
         },
@@ -252,9 +253,13 @@ $().ready(function() {
             $document.on('click', '.hook-block a.btn-loading', HookToggleForm.on_button_click);
         }
     }; // HookToggleForm
-    
-    $document.on('click', '#milestones a.metric-stats', window.ChartManager.open_from_link);
+    HookToggleForm.init();
+
+    if (AppGlobal.ChartManager) {
+        $document.on('click', '#milestones a.metric-stats', AppGlobal.ChartManager.open_from_link);
+    }
 
     var $body = $('body');
     IssuesByDayGraph.fetch_and_make_graph($body.data('repository-id'), 40, $body.find('main > .row-header .area-top'));
+
 });

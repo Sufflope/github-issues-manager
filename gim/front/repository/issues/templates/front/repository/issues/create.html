@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form method="post" action="{{ current_repository.get_create_issue_url }}" id="issue-create-form" class="fill-up">
     {% csrf_token %}
     {% if form.non_field_errors %}

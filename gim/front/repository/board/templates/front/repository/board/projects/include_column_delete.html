@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form class="column-form column-delete-form"  method="post" action="{{ column.get_delete_url}}">
     {% csrf_token %}
     <div><input type="text" name="name" readonly="readonly" value="{{ column.name }}"/></div>

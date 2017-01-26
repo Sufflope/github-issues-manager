@@ -1,5 +1,6 @@
 {% extends "./include_base_note.html" %}
 {% block note-content %}
+    {% include "front/form-protection.html" %}
     <form class="note-form note-delete-form"  method="post" action="{{ note.get_delete_url }}">
         {% csrf_token %}
         <div class="row-fluid auto-align edit-buttons">

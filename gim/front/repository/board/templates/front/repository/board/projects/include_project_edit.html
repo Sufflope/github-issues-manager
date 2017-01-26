@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form class="fill-up project-form project-edit-form"  method="post" action="{{ project.get_edit_url}}" data-delete-url="{{ project.get_delete_url }}">
     {% csrf_token %}
 

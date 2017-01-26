@@ -1,9 +1,10 @@
 from django.core.urlresolvers import reverse_lazy
 from django.http import Http404, HttpResponseRedirect
+from django.utils.functional import cached_property
 from django.views.generic import DetailView, TemplateView
 
 from gim.core.models import Issue
-from gim.front.mixins.views import DependsOnSubscribedViewMixin
+from gim.front.mixins.views import WithIssueViewMixin
 
 
 class HomeView(TemplateView):
@@ -16,15 +17,22 @@ class HomeView(TemplateView):
         return super(HomeView, self).get(request, *args, **kwargs)
 
 
-class RedirectToIssueFromPK(DependsOnSubscribedViewMixin, DetailView):
+class RedirectToIssueFromPK(WithIssueViewMixin, DetailView):
     http_method_names = ['get']
     model = Issue
     pk_url_kwarg = 'issue_pk'
     url_name = 'issue-by-pk'
 
-    def get_queryset(self):
-        return super(RedirectToIssueFromPK, self).get_queryset().filter(repository__in=self.get_allowed_repositories())
+    @cached_property
+    def issue(self):
+        return self.object
+
+    @cached_property
+    def repository(self):
+        return self.issue.repository
 
     def render_to_response(self, context, **response_kwargs):
-        return HttpResponseRedirect(context['issue'].get_absolute_url())
+        if not self.is_repository_allowed(self.repository):
+            raise Http404
+        return HttpResponseRedirect(self.issue.get_absolute_url())
 

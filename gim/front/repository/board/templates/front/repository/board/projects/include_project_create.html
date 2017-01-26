@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form class="fill-up project-form project-create-form"  method="post" action="{{ current_repository.get_create_project_url}}">
     {% csrf_token %}
 

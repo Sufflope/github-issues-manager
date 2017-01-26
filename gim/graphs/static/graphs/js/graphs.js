@@ -1,5 +1,6 @@
 var IssuesByDayGraph = {
 
+    $body: $('body'),
     klass: 'issues-by-day',
 
     tooltip: '<div style="text-align:center; font-weight: bold; text-decoration: underline; margin-bottom: 3px;">%(date)s</div>'
@@ -31,7 +32,7 @@ var IssuesByDayGraph = {
     }), // make_graph
 
     fetch_and_make_graph: (function IssuesByDayGraph_fetch_and_make_graph(repo_id, height, $parent_node, callback) {
-        var url = graph_data_urls.issues_by_day.replace('99999', repo_id) + '?height=' + height,
+        var url = IssuesByDayGraph.$body.data('graph_data_urls-issues_by_day').replace('99999', repo_id) + '?height=' + height,
             $graph_node = IssuesByDayGraph.create_node();
         $parent_node.append($graph_node);
         $.get(url, function(data) {

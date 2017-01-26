@@ -1,4 +1,21 @@
+var AppGlobal = {};  // accessible on window.
+
 $().ready(function() {
+
+    // disable eval in jquery (won't execute js loaded from ajax
+    $.extend({
+        globalEval: function() {}
+    });
+
+    AppGlobal.loadScript = function(url, callback) {
+        var script = document.createElement("script");
+        script.type = 'text/javascript';
+        if (callback) {
+            script.onload = callback;
+        }
+        script.src = url;
+        document.head.appendChild(script);
+    }; // loadScript
 
     var UUID = (function() {
         /**
@@ -31,7 +48,7 @@ $().ready(function() {
         };
         return self;
     })();
-    window.UUID = UUID;
+    AppGlobal.UUID = UUID;
 
     function GetVendorAttribute(prefixedAttributes) {
        var tmp = document.createElement("div");
@@ -49,6 +66,29 @@ $().ready(function() {
         main_repository = $body.data('repository'),
         main_repository_id = $body.data('repository-id'),
         transform_attribute = GetVendorAttribute(["transform", "msTransform", "MozTransform", "WebkitTransform", "OTransform"]);
+
+    var InitData = $body.data('js-init-data');
+
+    if (InitData.HW_config) {
+        window.HW_config = InitData.HW_config;
+        AppGlobal.loadScript('//cdn.headwayapp.co/widget.js');
+    }
+
+    if (InitData.GA_id) {
+          AppGlobal.loadScript('//www.google-analytics.com/analytics.js');
+          window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+          ga('create', InitData.GA_id, 'auto');
+          ga('set', 'transport', window.navigator && window.navigator.sendBeacon ? 'beacon' : 'xhr');
+          ga('send', 'pageview');
+    }
+
+    $body.removeData('js-init-data');
+    $body.removeAttr('data-js-init-data');
+
+    // needed in other scripts than here
+    AppGlobal.InitData = {
+        'plotly_statics': InitData.plotly_statics
+    };
 
     var UrlParser = { // http://stackoverflow.com/a/6944772
         node: null,
@@ -71,7 +111,7 @@ $().ready(function() {
             return url;
         }
     };
-    window.UrlParser = UrlParser;
+    AppGlobal.UrlParser = UrlParser;
 
     var GithubNotifications = {
         on_page: (body_id == 'github_notifications')
@@ -85,8 +125,8 @@ $().ready(function() {
                     animation: 'popFade',
                     position: 'down',
                     type: 'circle',
-                    bgColor: dynamic_favicon_colors.background,
-                    textColor: dynamic_favicon_colors.text,
+                    bgColor: InitData.dynamic_favicon_colors.background,
+                    textColor: InitData.dynamic_favicon_colors.text,
                     fontStyle: '600',
                     fontFamily: 'sans-serif'
                 });
@@ -105,7 +145,6 @@ $().ready(function() {
         } // set
 
     }; // Favicon
-    window.Favicon = Favicon;
 
     var Ev = {
         stop_event_decorate: (function stop_event_decorate(callback) {
@@ -185,7 +224,7 @@ $().ready(function() {
             }
         }) // set_focus
     };
-    window.Ev = Ev;
+    AppGlobal.Ev = Ev;
 
 
     // globally manage escape key to close modal
@@ -207,8 +246,8 @@ $().ready(function() {
             queue: []
         },
 
-        last_msg_id: window.WS_last_msg_id,
-        user_topic_key: window.WS_user_topic_key,
+        last_msg_id: InitData.ws.last_msg_id,
+        user_topic_key: InitData.ws.user_topic_key,
 
         subscriptions: {},
 
@@ -623,8 +662,8 @@ $().ready(function() {
         }), // receive_ping
 
         check_software_version: (function WS__check_version (last_version) {
-            if (last_version != window.software.version) {
-                window.software.bad_version = true;
+            if (last_version != InitData.software.version) {
+                InitData.software.bad_version = true;
                 try {
                     WS.connection.close();
                 } catch (e) {}
@@ -637,13 +676,13 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(window.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
             Favicon.set_val('↻');
         }), // alert_bad_version
 
         onchallenge: (function WS__onchallenge (session, method, extra) {
             if (method === 'wampcra') {
-                return autobahn.auth_cra.sign(window.auth_keys.key2, extra.challenge);
+                return autobahn.auth_cra.sign(InitData.auth_keys.key2, extra.challenge);
             }
         }), // onchallenge
 
@@ -679,7 +718,7 @@ $().ready(function() {
                     }
                 }
             }
-            if (window.software.bad_version) { return;}
+            if (InitData.software.bad_version) { return;}
             var message, timeout;
             switch (reason) {
                 case 'closed':
@@ -746,7 +785,7 @@ $().ready(function() {
         }), // on_window_unload
 
         init: (function WS__init () {
-            if (!window.auth_keys.key1) {
+            if (!InitData.auth_keys.key1) {
                 // no websocket if not authenticated
                 return;
             }
@@ -757,12 +796,12 @@ $().ready(function() {
             WS.alert('Connecting for real-time capabilities...', 'waiting');
             Favicon.set_val('···');
 
-            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + window.WS_uri;
+            WS.URI = (window.location.protocol === "http:" ? "ws:" : "wss:") + "//" + InitData.ws.uri;
             WS.connection = new autobahn.Connection({
                 url: WS.URI,
                 realm: 'gim',
                 authmethods: ["wampcra"],
-                authid: window.auth_keys.key1,
+                authid: InitData.auth_keys.key1,
                 onchallenge: WS.onchallenge,
                 max_retries: -1,
                 max_retry_delay: 30,
@@ -778,7 +817,6 @@ $().ready(function() {
         }) // init
     }; // WS
     WS.init();
-    window.WS = WS;
 
 
     var HistoryManager = {
@@ -918,7 +956,7 @@ $().ready(function() {
         }
     }; // HistoryManager
     HistoryManager.init();
-    window.HistoryManager = HistoryManager;
+    AppGlobal.HistoryManager = HistoryManager;
 
 
     var FilterManager = {
@@ -1088,7 +1126,7 @@ $().ready(function() {
         this.$node = $node;
         this.$link = this.$node.find(IssuesListIssue.link_selector);
         if (this.$link.length) {
-            href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + encodeURIComponent(window.location.href.split("#")[0]);
+            href = this.$link.attr('href').split("#")[0].split('?')[0] + '?referer=' + window.encodeURIComponent(window.location.href.split("#")[0]);
             this.$link.attr('href', href);
         }
         this.created_at = this.$node.data('created_at');
@@ -1269,7 +1307,7 @@ $().ready(function() {
         IssueDetail.fill_container(container,
             '<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>'+
                 '<li>You are not allowed to see this issue</li>' +
-                '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
                 '<li>The issue may have been deleted</li>' +
                 '<li>Connectivity problems</li>' +
             '</ul></div>');
@@ -2235,8 +2273,8 @@ $().ready(function() {
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .close-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('close_all_groups')));
         $document.on('click', '.issues-list-options:not(#issues-list-options-board-main) .open-all-groups', Ev.stop_event_decorate_dropdown(IssuesList.on_current_list_key_event('open_all_groups')));
 
-        if (window.ChartManager) {
-            $document.on('click', 'a.milestone-graph-link', window.ChartManager.open_from_link);
+        if (AppGlobal.ChartManager) {
+            $document.on('click', 'a.milestone-graph-link', AppGlobal.ChartManager.open_from_link);
         }
     }); // IssuesList_init_event
 
@@ -3455,7 +3493,7 @@ $().ready(function() {
     });
 
     IssuesList.init_all();
-    window.IssuesList = IssuesList;
+    AppGlobal.IssuesList = IssuesList;
 
     var IssuesFilters = {
         selector: '.issues-filters',
@@ -3518,8 +3556,8 @@ $().ready(function() {
                 return true;
             }
 
-            if (window.ChartManager) {
-                window.ChartManager.close_chart();
+            if (AppGlobal.ChartManager) {
+                AppGlobal.ChartManager.close_chart();
             }
 
             $filters_node = $issues_list_node.prev(IssuesFilters.selector);
@@ -3633,7 +3671,7 @@ $().ready(function() {
         } // init
     };
     IssuesFilters.init();
-    window.IssuesFilters = IssuesFilters;
+    AppGlobal.IssuesFilters = IssuesFilters;
 
     var $IssueByNumberWindow = $('#go-to-issue-window');
     var IssueByNumber = {
@@ -5550,7 +5588,7 @@ $().ready(function() {
 
     }; // PanelsSwapper
     PanelsSwapper.init();
-    window.PanelsSwapper = PanelsSwapper;
+    AppGlobal.PanelsSwapper = PanelsSwapper;
 
     // select the issue given in the url's hash, or an active one in the html,
     // or the first item of the current list
@@ -5581,62 +5619,63 @@ $().ready(function() {
     }
 
     var activate_quicksearches = (function activate_quicksearches ($inputs) {
+        if (!$inputs) {
+            $inputs = $('input.quicksearch');
+        }
         $inputs.each(function() {
             var $input, target, content, content_data, options, qs;
             $input = $(this);
-            if (!$input.data('quicksearch')) {
-                target = $input.data('target');
-                if (!target) { return; }
+            if ($input.data('quicksearch')) { return; }
+            target = $input.data('target');
+            if (!target) { return; }
 
-                options = {
-                    bind: 'keyup quicksearch.refresh',
-                    removeDiacritics: true,
-                    show: function () {
-                        this.style.display = "";
-                        $(this).removeClass('hidden');
-                    },
-                    hide: function() {
-                        this.style.display = "none";
-                        $(this).addClass('hidden');
-                    },
-                    onBefore: function() {
-                        $input.trigger('quicksearch.before');
-                    },
-                    onAfter: function() {
-                        $input.trigger('quicksearch.after');
-                    }
-                };
-
-                content = $input.data('content');
-                if (content) {
-                    options.selector = content;
+            options = {
+                bind: 'keyup quicksearch.refresh',
+                removeDiacritics: true,
+                show: function () {
+                    this.style.display = "";
+                    $(this).removeClass('hidden');
+                },
+                hide: function() {
+                    this.style.display = "none";
+                    $(this).addClass('hidden');
+                },
+                onBefore: function() {
+                    $input.trigger('quicksearch.before');
+                },
+                onAfter: function() {
+                    $input.trigger('quicksearch.after');
                 }
-                content_data = $input.data('content-data');
-                if (content_data) {
-                    options.selector_data = content_data;
-                }
+            };
 
-                qs = $input.quicksearch(target, options);
-                $input.data('quicksearch', qs);
+            content = $input.data('content');
+            if (content) {
+                options.selector = content;
+            }
+            content_data = $input.data('content-data');
+            if (content_data) {
+                options.selector_data = content_data;
+            }
 
-                var clear_input = function(e) {
-                    $input.val('');
-                    $input.trigger('quicksearch.refresh');
-                    $input.focus();
-                    return Ev.cancel(e);
-                };
-                $input.on('keydown', jwerty.event('ctrl+u', clear_input));
+            qs = $input.quicksearch(target, options);
+            $input.data('quicksearch', qs);
 
-                var clear_btn = $input.next('.btn');
-                if (clear_btn.length) {
-                    clear_btn.on('click', clear_input);
-                    clear_btn.on('keyup', jwerty.event('space', clear_input));
-                }
+            var clear_input = function(e) {
+                $input.val('');
+                $input.trigger('quicksearch.refresh');
+                $input.focus();
+                return Ev.cancel(e);
+            };
+            $input.on('keydown', jwerty.event('ctrl+u', clear_input));
+
+            var clear_btn = $input.next('.btn');
+            if (clear_btn.length) {
+                clear_btn.on('click', clear_input);
+                clear_btn.on('keyup', jwerty.event('space', clear_input));
             }
         });
     }); // activate_quicksearches
-    window.activate_quicksearches = activate_quicksearches;
-    activate_quicksearches($('input.quicksearch'));
+    activate_quicksearches();
 
     if ($().deferrable) {
         $('.deferrable').deferrable();
@@ -5728,19 +5767,16 @@ $().ready(function() {
         $node: null,
         template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
-        extract: (function MessagesManager__extract (html) {
+        extract: (function MessagesManager__extract ($node) {
             // Will extract message from ajax requests to put them
             // on the main messages container
-            var $fake_node = $('<div />');
-            $fake_node.html(html);
-            var $new_messages = $fake_node.find(MessagesManager.selector);
-            if ($new_messages.length) {
-                $new_messages.remove();
-                MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
-                return $fake_node.html();
-            } else {
-                return html;
+            var $new_messages = $node.find(MessagesManager.selector);
+            if (!$new_messages.length) {
+                return false;
             }
+            $new_messages.remove();
+            MessagesManager.add_messages($new_messages.children().map(function() { return this.outerHTML; }).toArray());
+            return true;
         }), // extract
 
         make_message: (function MessagesManager__make_message (content, type) {
@@ -5817,13 +5853,30 @@ $().ready(function() {
 
     }; // MessagesManager
 
+    MessagesManager.init();
+    AppGlobal.MessagesManager = MessagesManager;
+
     $.ajaxSetup({
         converters: {
-            "text html": MessagesManager.extract
-        } // converts
+            "text html": function(html) {
+                var $fake_node = $('<div />'),
+                    updated = false;
+                $fake_node.html(html);
+
+                updated = updated || MessagesManager.extract($fake_node);
+
+                if (updated) {
+                    return $fake_node.html();
+                } else {
+                    return html;
+                }
+            }
+        } // converters
     }); // ajaxSetup
-    MessagesManager.init();
-    window.MessagesManager = MessagesManager;
+
+    $document.ajaxComplete(function(event, request, settings) {
+        setTimeout(activate_quicksearches, 250);
+    });
 
     var FormTools = {
         disable_form: (function FormTools__disable_form ($form) {
@@ -5868,7 +5921,7 @@ $().ready(function() {
                         }
                     };
                 $.ajax({
-                    url: window.select2_statics.css,
+                    url: InitData.select2_statics.css,
                     dataType: 'text',
                     cache: true,
                     success: function(data) {
@@ -5876,12 +5929,7 @@ $().ready(function() {
                         on_one_done();
                     }
                 });
-                $.ajax({
-                    url: window.select2_statics.js,
-                    dataType: 'script',
-                    cache: true,
-                    success: on_one_done
-                });
+                AppGlobal.loadScript(InitData.select2_statics.js, on_one_done);
             } else {
                 callback();
             }
@@ -5952,7 +6000,7 @@ $().ready(function() {
             return context;
         }) // handle_form
     };
-    window.FormTools = FormTools;
+    AppGlobal.FormTools = FormTools;
 
     var IssueEditor = {
 
@@ -6608,6 +6656,7 @@ $().ready(function() {
             $modal_submit: null,
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
+            url: $body.data('create-issue-url'),
 
             get_form: function() {
                 return $('#issue-create-form');
@@ -6629,7 +6678,7 @@ $().ready(function() {
                 IssueEditor.create.$modal_submit.removeClass('loading');
                 $body.append(IssueEditor.create.$modal); // move at the end to manage zindex
                 IssueEditor.create.$modal.modal('show');
-                $.get(window.create_issue_url)
+                $.get(IssueEditor.create.url)
                     .done(IssueEditor.create.on_load_done)
                     .fail(IssueEditor.create.on_load_failed);
                 IssueEditor.create.$modal_footer.find('.alert').remove();
@@ -7177,12 +7226,17 @@ $().ready(function() {
             }
         }), // init_feeds
 
+        on_reloaded: (function Activity__on_reloaded() {
+            Activity.delay_check_new_activity($(this));
+        }), // on_reloaded
+
         init_events: (function Activity__init_events () {
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.issue_link, Ev.stop_event_decorate(Activity.on_issue_link_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.buttons.refresh, Ev.stop_event_decorate(Activity.on_refresh_button_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.buttons.more, Ev.stop_event_decorate(Activity.on_more_button_click));
             $document.on('click', Activity.selectors.main + ' ' + Activity.selectors.filter_links, Ev.stop_event_decorate(Activity.on_filter_link_click));
             $document.on('change', Activity.selectors.main + ' ' + Activity.selectors.filter_checkboxes, Ev.stop_event_decorate(Activity.on_filter_change));
+            $document.on('reloaded', Activity.selectors.main, Activity.on_reloaded);
         }), // init_events
 
         init: (function Activity__init () {
@@ -7191,7 +7245,6 @@ $().ready(function() {
         }) // init
     }; // Activity
     Activity.init();
-    window.Activity = Activity;
 
     var HoverIssue = {
         selector: '.hoverable-issue',
@@ -7297,7 +7350,7 @@ $().ready(function() {
                             if (xhr.status) { // if no status, it's an abort
                                 that.setContent('<div class="alert alert-error"><p>Unable to get the issue. Possible reasons are:</p><ul>' +
                                     '<li>You are not allowed to see this issue</li>' +
-                                    '<li>This issue is not on a repository you subscribed on ' + window.software.name + '</li>' +
+                                    '<li>This issue is not on a repository you subscribed on ' + InitData.software.name + '</li>' +
                                     '<li>The issue may have been deleted</li>' +
                                     '<li>Connectivity problems</li>' +
                                     '</ul></div>');
@@ -7494,7 +7547,7 @@ $().ready(function() {
 
     }; // HoverIssue
     HoverIssue.init();
-    window.HoverIssue = HoverIssue;
+    AppGlobal.HoverIssue = HoverIssue;
 
     $.extend(GithubNotifications, {
         item_selector: '.issue-item-notification',
@@ -7566,11 +7619,13 @@ $().ready(function() {
         },
 
         post_form: function ($form) {
-            var data = $form.serialize();
-            var action = $form.attr('action');
+            var data = $form.serialize(),
+                action = $form.attr('action'),
+                context = {$form: $form};
+
             $.post(action, data)
-                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
-                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .done($.proxy(GithubNotifications.on_post_submit_done, context))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, context))
                 .always(function () { GithubNotifications.enable_form($form); });
         }, // post_form
 
@@ -7584,7 +7639,7 @@ $().ready(function() {
                 $li = $link.parent(),
                 $ul = $li.parent(),
                 action = $ul.data('edit-url'),
-                $form = null;
+                $form = null, context;
 
             if (!action) { return; }
 
@@ -7605,9 +7660,10 @@ $().ready(function() {
                 }
             }
 
+            context = {$form: $form};
             $.post(action, data)
-                .done($.proxy(GithubNotifications.on_post_submit_done, $form))
-                .fail($.proxy(GithubNotifications.on_post_submit_failed, $form))
+                .done($.proxy(GithubNotifications.on_post_submit_done, context))
+                .fail($.proxy(GithubNotifications.on_post_submit_failed, context))
                 .fail(function() {
                     $ul.find('li.with-mark-notification-as-read-link').removeClass('disabled loading');
                 })
@@ -7616,12 +7672,12 @@ $().ready(function() {
         }, // on_mark_as_read_in_notification_menu_click
 
         on_post_submit_done: function (data) {
-            var $form = this;
+            var $form = this.$form;
             if (!data || !data.status) {
                 data = {status: 'KO', error_msg: default_error_msg};
             }
             if (data.status != 'OK') {
-                return $.proxy(GithubNotifications.on_post_submit_failed, $form)({}, data);
+                return $.proxy(GithubNotifications.on_post_submit_failed, {$form: $form})({}, data);
             }
 
             if ($form) {
@@ -7641,7 +7697,7 @@ $().ready(function() {
         }, // on_post_submit_done
 
         on_post_submit_failed: function (xhr, data) {
-            var $form=this,
+            var $form=this.$form,
                 error_msg = data.error_msg || GithubNotifications.default_error_msg;
             MessagesManager.add_messages([MessagesManager.make_message(error_msg, 'error')]);
             if ($form) { GithubNotifications.apply_values($form, data.values); }

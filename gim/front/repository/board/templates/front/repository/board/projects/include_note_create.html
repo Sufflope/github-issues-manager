@@ -1,5 +1,6 @@
 {% extends "./include_base_note.html" %}
 {% block note-content %}
+    {% include "front/form-protection.html" %}
     <form class="note-form note-create-form"  method="post" action="{{ current_column.get_create_note_url }}">
         {% csrf_token %}
         <div><textarea name="note" placeholder="Leave a note on this project"></textarea></div>

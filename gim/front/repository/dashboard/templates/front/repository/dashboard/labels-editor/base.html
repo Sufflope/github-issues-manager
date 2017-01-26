@@ -68,6 +68,7 @@
     </div>{# #label-type-edit-form #}
 
     <div id="label-edit-form" class="hide" data-edit-url="{{ base_label_edit_url }}" data-delete-url="{{ base_label_delete_url }}" data-create-url="{{ label_create_url }}">
+        {% include "front/form-protection.html" %}
         <form method="post" class="fill-up label-edit-form hide-order hide-note" data-id="%(id)s">
             {% csrf_token %}
             <input name='label_type' type='hidden' value="%(label_type_id)s" />
@@ -89,6 +90,8 @@
 
     </div>
 
+</div>
+
 {% endblock dashboard-content %}
 
 {% block js_footer %}
@@ -96,10 +99,4 @@
     <script src="{% static "front/js/select.2.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/spectrum.js" %}" type="text/javascript"></script>
     <script src="{% static "front/js/repository-labels-editor.js" %}" type="text/javascript"></script>
-
-    <script type="text/javascript">
-        $().ready(function() {
-            LabelTypeForm.init();
-        });
-    </script>
 {% endblock js_footer %}

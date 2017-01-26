@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block comment_inner_body %}
+    {% include "front/form-protection.html" %}
     <form class="comment-form comment-delete-form"  method="post" action="{{ comment.get_delete_url }}">
         {% csrf_token %}
         <div class="row-fluid auto-align">

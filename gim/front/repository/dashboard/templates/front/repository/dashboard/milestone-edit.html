@@ -1,3 +1,4 @@
+{% include "front/form-protection.html" %}
 <form method="post" action="{% if form.instance.id %}{{ form.instance.get_edit_url }}{% else %}{{ milestone_create_url }}{% endif %}" method="post" class="fill-up" id="milestone-form"{% if form.instance.id %} data-delete-url="{{ form.instance.get_delete_url }}"{% endif %}>
 
     {% csrf_token %}

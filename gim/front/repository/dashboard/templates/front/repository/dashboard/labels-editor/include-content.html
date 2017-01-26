@@ -13,6 +13,7 @@
                 <br />
                 Leave empty if you don't want any metric to be displayed by default.
             </p>
+            {% include "front/form-protection.html" %}
             <form id="main_metric_form" method="post" action="{{ main_metric_set_url }}">{% csrf_token %}
                 {{ main_metric_form.main_metric.errors }}
                 <div>

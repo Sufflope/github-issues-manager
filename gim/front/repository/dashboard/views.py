@@ -371,14 +371,12 @@ class LabelTypeCreate(LabelTypeEditBase, CreateView):
 
 
 class LabelTypePreview(LabelTypeFormBaseViewSubscribed, UpdateView):
-    url_name = 'dashboard.labels.editor.label_type.edit'
+    url_name = 'dashboard.labels.editor.label_type.preview'
     template_name = 'front/repository/dashboard/labels-editor/label-type-preview.html'
     http_method_names = [u'post']
     form_class = LabelTypePreviewForm
 
     def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
         return LabelType(repository=self.repository)
 
     def get_form(self, form_class=None):

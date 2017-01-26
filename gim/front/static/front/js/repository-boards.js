@@ -1,5 +1,15 @@
 $().ready(function() {
 
+    var UUID = AppGlobal.UUID,
+        UrlParser = AppGlobal.UrlParser,
+        Ev = AppGlobal.Ev,
+        HistoryManager = AppGlobal.HistoryManager,
+        IssuesList = AppGlobal.IssuesList,
+        IssuesFilters = AppGlobal.IssuesFilters,
+        PanelsSwapper = AppGlobal.PanelsSwapper,
+        MessagesManager = AppGlobal.MessagesManager,
+        FormTools = AppGlobal.FormTools;
+
     var $document = $(document),
         $body = $('body'),
         body_id = $body.attr('id'),
@@ -2400,7 +2410,7 @@ $().ready(function() {
         }, // deactivate
 
         init: function() {
-            HoverIssue.delay_enter = 1000;
+            AppGlobal.HoverIssue.delay_enter = 1000;
 
             if (Board.$container.length) {
                 Board.container = Board.$container[0];
@@ -2658,6 +2668,5 @@ $().ready(function() {
       return -c/2 * (t*(t-2) - 1) + b;
     };
 
-    window.Board = Board;
     Board.init();
 });
