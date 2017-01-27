@@ -54,7 +54,11 @@ $().ready(function() {
             $document.on('click', '#milestones a[data-toggle=collapse]', function(ev) {
                 ev.preventDefault();
             });
-        } // init_events
+        }, // init_events
+        prepare_content: function() {
+            this.$super();
+            AppGlobal.MarkdownManager.update_links(this.$node);
+        }
     }); // MilestonesDashboardWidget
 
     var LabelsDashboardWidget = DashboardWidget.$extend({
