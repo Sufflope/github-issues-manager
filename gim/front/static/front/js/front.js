@@ -4816,7 +4816,9 @@ $().ready(function() {
         scroll_tabs_left: (function IssueDetail__scroll_tabs_left (ev) {
             var $node = $(ev.target).closest('.issue-container'),
                 $tabs_scroller = $node.find('.issue-tabs'),
-                next_tab = $tabs_scroller.data('next-left-tab');
+                next_tab;
+            if ($tabs_scroller.hasClass('no-scroll-left')) { return false; }
+            next_tab = $tabs_scroller.data('next-left-tab');
             if (next_tab) {
                 IssueDetail.scroll_tabs($node, false, $(next_tab));
             }
@@ -4826,7 +4828,9 @@ $().ready(function() {
         scroll_tabs_right: (function IssueDetail__scroll_tabs_right (ev) {
             var $node = $(ev.target).closest('.issue-container'),
                 $tabs_scroller = $node.find('.issue-tabs'),
-                next_tab = $tabs_scroller.data('next-right-tab');
+                next_tab;
+            if ($tabs_scroller.hasClass('no-scroll-right')) { return false; }
+            next_tab = $tabs_scroller.data('next-right-tab');
             if (next_tab) {
                 IssueDetail.scroll_tabs($node, false, $(next_tab));
             }
@@ -5339,8 +5343,8 @@ $().ready(function() {
             $document.on('show.tab', '.issue-tabs a', IssueDetail.before_load_tab);
             $document.on('shown.tab', '.issue-tabs a', IssueDetail.load_tab);
 
-            $document.on('click', '.issue-tabs:not(.no-scroll-left) .scroll-left', Ev.stop_event_decorate(IssueDetail.scroll_tabs_left));
-            $document.on('click', '.issue-tabs:not(.no-scroll-right) .scroll-right', Ev.stop_event_decorate(IssueDetail.scroll_tabs_right));
+            $document.on('click', '.issue-tabs .scroll-left', Ev.stop_event_decorate(IssueDetail.scroll_tabs_left));
+            $document.on('click', '.issue-tabs .scroll-right', Ev.stop_event_decorate(IssueDetail.scroll_tabs_right));
 
             $document.on('click', '.issue-tabs .closable i.fa-times', Ev.stop_event_decorate(IssueDetail.close_tab));
 
