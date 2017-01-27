@@ -462,7 +462,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class=""ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
             Favicon.set_val('×');
             WS.connection.close();
             WS.end_reconcile();
@@ -676,7 +676,7 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(InitData.software.name + ' was recently updated. Please <a href="#" class="ws-refresh-link">reload the whole page</a>.', 'waiting');
             Favicon.set_val('↻');
         }), // alert_bad_version
 
@@ -723,7 +723,7 @@ $().ready(function() {
             switch (reason) {
                 case 'closed':
                     timeout = 5000;  // to not display it if the page is closing
-                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>';
+                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class="ws-refresh-link">refresh the page</a>.</p>';
                     break;
                 case 'unsupported':
                     message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
@@ -812,6 +812,7 @@ $().ready(function() {
             WS.connection.onclose = WS.onclose;
             WS.connection.open();
 
+            $document.on('click', '.ws-refresh-link', Ev.stop_event_decorate(function() { window.location.reload(true); return false;}));
             $(window).on('unload', WS.on_window_unload);
 
         }) // init
@@ -5380,6 +5381,7 @@ $().ready(function() {
             jwerty.key('n/j', IssueDetail.on_files_list_key_event('go_to_next_file'));
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));
             jwerty.key('shift+n/shift+j', IssueDetail.on_files_list_key_event('go_to_next_file_comment'));
+            $document.on('click', '.files-list-summary:not([data-toggle])', Ev.cancel);
 
             // review navigation
             $document.on('click', 'li:not(.disabled) a.go-to-previous-review-comment', Ev.stop_event_decorate(IssueDetail.go_to_previous_review_comment));
