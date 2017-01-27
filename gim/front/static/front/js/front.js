@@ -939,7 +939,6 @@ $().ready(function() {
             }
 
             HistoryManager.previous_state = {
-                type: 'IssuesFilters',
                 body_id: body_id,
                 main_repository_id: main_repository_id,
                 url: url,
