@@ -823,9 +823,15 @@ $().ready(function() {
     var HistoryManager = {
         re_hash: new RegExp('^#(modal\-)?issue\-(\\d+)$'),
         previous_state: null,
+        history_in_browser: window.history && window.history.pushState,
 
         on_pop_state: function(ev) {
             var state = ev.state || history.state;
+            if (!window.location.hash && window.location.href.charAt(window.location.href.length-1) == '#') {
+                // it seems that the click event on a link with href='#' was not cancelled !
+                history.back();
+                return;
+            }
             if (!HistoryManager.on_history_pop_state(state)) {
                 window.location.reload();
             }
@@ -833,7 +839,7 @@ $().ready(function() {
         }, // on_pop_state
 
         on_history_pop_state: function (state) {
-            if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
+            if (!state || state.body_id != body_id || state.main_repository_id != main_repository_id) {
                 return false;
             }
             if (!HistoryManager.allow_load_url(state) || !HistoryManager.allow_load_issue(state)) {
@@ -897,7 +903,7 @@ $().ready(function() {
         }, // get_issue_url_hash
 
         add_history: function (url, issue_id, issue_in_modal, replace) {
-            if (!window.history || !window.history.pushState) { return; }
+            if (!HistoryManager.history_in_browser) { return; }
 
             var current_issue_id = null,
                 current_issue_in_modal = null,
