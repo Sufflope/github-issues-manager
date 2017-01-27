@@ -462,7 +462,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class=""ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
             Favicon.set_val('×');
             WS.connection.close();
             WS.end_reconcile();
@@ -676,7 +676,7 @@ $().ready(function() {
         }), // check_software_version
 
         alert_bad_version: (function WS__alert_bad_version () {
-            WS.alert(InitData.software.name + ' was recently updated. Please <a href="javascript:window.location.reload(true);">reload the whole page</a>.', 'waiting');
+            WS.alert(InitData.software.name + ' was recently updated. Please <a href="#" class="ws-refresh-link">reload the whole page</a>.', 'waiting');
             Favicon.set_val('↻');
         }), // alert_bad_version
 
@@ -723,7 +723,7 @@ $().ready(function() {
             switch (reason) {
                 case 'closed':
                     timeout = 5000;  // to not display it if the page is closing
-                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="javascript:window.location.reload(true);">refresh the page</a>.</p>';
+                    message = 'Connection closed!<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class="ws-refresh-link">refresh the page</a>.</p>';
                     break;
                 case 'unsupported':
                     message = 'Connection cannot be opened!<p>Real-time capabilities are unsupported by your browser.</p>';
@@ -812,6 +812,7 @@ $().ready(function() {
             WS.connection.onclose = WS.onclose;
             WS.connection.open();
 
+            $document.on('click', '.ws-refresh-link', Ev.stop_event_decorate(function() { window.location.reload(true); return false;}));
             $(window).on('unload', WS.on_window_unload);
 
         }) // init
@@ -822,9 +823,15 @@ $().ready(function() {
     var HistoryManager = {
         re_hash: new RegExp('^#(modal\-)?issue\-(\\d+)$'),
         previous_state: null,
+        history_in_browser: window.history && window.history.pushState,
 
         on_pop_state: function(ev) {
             var state = ev.state || history.state;
+            if (!window.location.hash && window.location.href.charAt(window.location.href.length-1) == '#') {
+                // it seems that the click event on a link with href='#' was not cancelled !
+                history.back();
+                return;
+            }
             if (!HistoryManager.on_history_pop_state(state)) {
                 window.location.reload();
             }
@@ -832,7 +839,7 @@ $().ready(function() {
         }, // on_pop_state
 
         on_history_pop_state: function (state) {
-            if (state.body_id != body_id || state.main_repository_id != main_repository_id) {
+            if (!state || state.body_id != body_id || state.main_repository_id != main_repository_id) {
                 return false;
             }
             if (!HistoryManager.allow_load_url(state) || !HistoryManager.allow_load_issue(state)) {
@@ -896,7 +903,7 @@ $().ready(function() {
         }, // get_issue_url_hash
 
         add_history: function (url, issue_id, issue_in_modal, replace) {
-            if (!window.history || !window.history.pushState) { return; }
+            if (!HistoryManager.history_in_browser) { return; }
 
             var current_issue_id = null,
                 current_issue_in_modal = null,
@@ -938,7 +945,6 @@ $().ready(function() {
             }
 
             HistoryManager.previous_state = {
-                type: 'IssuesFilters',
                 body_id: body_id,
                 main_repository_id: main_repository_id,
                 url: url,
@@ -4810,7 +4816,9 @@ $().ready(function() {
         scroll_tabs_left: (function IssueDetail__scroll_tabs_left (ev) {
             var $node = $(ev.target).closest('.issue-container'),
                 $tabs_scroller = $node.find('.issue-tabs'),
-                next_tab = $tabs_scroller.data('next-left-tab');
+                next_tab;
+            if ($tabs_scroller.hasClass('no-scroll-left')) { return false; }
+            next_tab = $tabs_scroller.data('next-left-tab');
             if (next_tab) {
                 IssueDetail.scroll_tabs($node, false, $(next_tab));
             }
@@ -4820,7 +4828,9 @@ $().ready(function() {
         scroll_tabs_right: (function IssueDetail__scroll_tabs_right (ev) {
             var $node = $(ev.target).closest('.issue-container'),
                 $tabs_scroller = $node.find('.issue-tabs'),
-                next_tab = $tabs_scroller.data('next-right-tab');
+                next_tab;
+            if ($tabs_scroller.hasClass('no-scroll-right')) { return false; }
+            next_tab = $tabs_scroller.data('next-right-tab');
             if (next_tab) {
                 IssueDetail.scroll_tabs($node, false, $(next_tab));
             }
@@ -5333,8 +5343,8 @@ $().ready(function() {
             $document.on('show.tab', '.issue-tabs a', IssueDetail.before_load_tab);
             $document.on('shown.tab', '.issue-tabs a', IssueDetail.load_tab);
 
-            $document.on('click', '.issue-tabs:not(.no-scroll-left) .scroll-left', Ev.stop_event_decorate(IssueDetail.scroll_tabs_left));
-            $document.on('click', '.issue-tabs:not(.no-scroll-right) .scroll-right', Ev.stop_event_decorate(IssueDetail.scroll_tabs_right));
+            $document.on('click', '.issue-tabs .scroll-left', Ev.stop_event_decorate(IssueDetail.scroll_tabs_left));
+            $document.on('click', '.issue-tabs .scroll-right', Ev.stop_event_decorate(IssueDetail.scroll_tabs_right));
 
             $document.on('click', '.issue-tabs .closable i.fa-times', Ev.stop_event_decorate(IssueDetail.close_tab));
 
@@ -5380,6 +5390,7 @@ $().ready(function() {
             jwerty.key('n/j', IssueDetail.on_files_list_key_event('go_to_next_file'));
             jwerty.key('shift+p/shift+k', IssueDetail.on_files_list_key_event('go_to_previous_file_comment'));
             jwerty.key('shift+n/shift+j', IssueDetail.on_files_list_key_event('go_to_next_file_comment'));
+            $document.on('click', '.files-list-summary:not([data-toggle])', Ev.cancel);
 
             // review navigation
             $document.on('click', 'li:not(.disabled) a.go-to-previous-review-comment', Ev.stop_event_decorate(IssueDetail.go_to_previous_review_comment));
