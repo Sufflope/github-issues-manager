@@ -987,7 +987,7 @@ class LabelType(models.Model):
         return bool(self.regex) and '(?P<order>\d+)' in self.regex
 
 
-class Label(WithRepositoryMixin, GithubObject):
+class Label(WithRepositoryMixin, GithubObjectWithId):
     repository = models.ForeignKey('Repository', related_name='labels')
     name = models.TextField(db_index=True)
     lower_name = models.TextField(db_index=True)
@@ -1000,12 +1000,12 @@ class Label(WithRepositoryMixin, GithubObject):
 
     objects = WithRepositoryManager()
 
-    github_matching = dict(GithubObject.github_matching)
+    github_matching = dict(GithubObjectWithId.github_matching)
     github_matching.update({
         'url': 'api_url'
     })
-    github_ignore = GithubObject.github_ignore + ('id', 'api_url', 'label_type', 'typed_name', 'order', )
-    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'name': 'name'}
+    github_ignore = GithubObjectWithId.github_ignore + ('api_url', 'label_type', 'typed_name', 'order', )
+    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'name': 'name'}  # TODO: remove once everything converted to GithubObjectWithId
     github_edit_fields = {
         'create': ('color', 'name', ),
         'update': ('color', 'name', )
