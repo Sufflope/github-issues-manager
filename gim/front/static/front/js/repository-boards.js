@@ -1802,6 +1802,7 @@ $().ready(function() {
                 Board.project_editor.$modal_header.empty().append($data.find('.modal-header').children());
                 Board.project_editor.$modal_body.empty().append($data.find('.modal-body').children());
                 Board.project_editor.$modal_footer.empty().append($data.find('.modal-footer').children());
+                AppGlobal.MarkdownManager.update_links(Board.project_editor.$modal_body);
             }, // on_summary_loaded
 
             on_summary_load_failed: function(xhr, data) {

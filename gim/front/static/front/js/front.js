@@ -3972,6 +3972,9 @@ $().ready(function() {
 
         is_issue_ident_for_node: (function IssueDetail__is_issue_ident_for_node($node, issue_ident) {
             var existing_ident = IssueDetail.get_issue_ident($node);
+            if (issue_ident.number && isNaN(issue_ident.number) && issue_ident.number.indexOf('pk-') === 0) {
+                return (issue_ident.number == existing_ident.number || issue_ident.number.slice(3) == existing_ident.id);
+            }
             return (existing_ident.number == issue_ident.number && (existing_ident.repository || '') == (issue_ident.repository || ''));
         }), // is_issue_ident_for_node
 
@@ -5708,7 +5711,7 @@ $().ready(function() {
         update_link: function(link) {
             link.setAttribute('data-managed', 'true');
             var $link = $(link);
-            $link.attr('target', '_blank');
+            $link.attr('target', '_blank').attr('rel', 'noopener');
             var matches = link.href.match(MarkdownManager.re);
             // handle link only if current repository
             if (matches) {
@@ -5719,11 +5722,11 @@ $().ready(function() {
         }, // update_link
         update_links: function($nodes) {
             if (!$nodes) {
-                $nodes = $('.issue-container');
+                $nodes = $('.issue-container, #milestones, .activity-feed');
             }
             $nodes.each(function() {
                 var $container = $(this),
-                    $base = $container.find('.issue-body, .issue-comment .content');
+                    $base = $container.find('.issue-body, .issue-comment .content, blockquote, .milestone-body, .project-description');
                 $base.find('a:not([data-managed])').each(function() {
                     MarkdownManager.update_link(this);
                 });
@@ -5770,6 +5773,7 @@ $().ready(function() {
         } // init
     }; // MarkdownManager
     MarkdownManager.init();
+    AppGlobal.MarkdownManager = MarkdownManager;
 
 
     var MessagesManager = {
@@ -7238,7 +7242,9 @@ $().ready(function() {
         }), // init_feeds
 
         on_reloaded: (function Activity__on_reloaded() {
-            Activity.delay_check_new_activity($(this));
+            var $node = $(this);
+            Activity.delay_check_new_activity($node);
+            MarkdownManager.update_links($node);
         }), // on_reloaded
 
         init_events: (function Activity__init_events () {
