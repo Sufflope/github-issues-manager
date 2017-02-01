@@ -1,8 +1,14 @@
 from datetime import datetime, timedelta
+from random import randint
 import logging
 
-from .base import Error, Queue
+from .base import Error, Job, Queue
 from . import JobRegistry
+
+
+__all__ = [
+    'CleanupJob',
+]
 
 
 logger = logging.getLogger('gim.maintenance')
@@ -101,3 +107,18 @@ def clean_all(log_step=1000, keep_days=7, batch_size=100, max_delete=None):
     clean_errors(log_step=log_step, keep_days=keep_days, batch_size=batch_size, max_delete=max_delete)
     for J in JobRegistry:
         clean_job_model(J, log_step=log_step, keep_days=keep_days, batch_size=batch_size, max_delete=max_delete)
+
+
+class CleanupJob(Job):
+    queue_name = 'cleanup'
+
+    def run(self, queue):
+        super(CleanupJob, self).run(queue)
+
+        # between 1000 and 3000
+        clean_all(keep_days=3, max_delete=1000 + randint(0, 2000))
+
+    def on_success(self, queue, result):
+        """ Clean again in 300s +- 60 """
+
+        self.clone(delayed_for=240 + randint(0, 120))
