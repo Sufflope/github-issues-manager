@@ -1005,7 +1005,6 @@ class Label(WithRepositoryMixin, GithubObjectWithId):
         'url': 'api_url'
     })
     github_ignore = GithubObjectWithId.github_ignore + ('api_url', 'label_type', 'typed_name', 'order', )
-    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'name': 'name'}  # TODO: remove once everything converted to GithubObjectWithId
     github_edit_fields = {
         'create': ('color', 'name', ),
         'update': ('color', 'name', )
