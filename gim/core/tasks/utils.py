@@ -496,13 +496,21 @@ def requeue_all_repositories():
 
 
 def requeue_all_users():
-    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications, CheckGraphQLAccesses
-    from gim.core.tasks.tokens import ResetTokenFlags
+    from gim.core.tasks.githubuser import FetchAvailableRepositoriesJob, FetchNotifications
 
     for user in GithubUser.objects.filter(token__isnull=False):
         FetchNotifications.add_job(user.id)
         FetchAvailableRepositoriesJob.add_job(user.id)
 
+
+def requeue_standalone_jobs():
+    from gim.core.tasks.cleanup import CleanupJob
+    from gim.core.tasks.general import ManageDeletedInstancesJob
+    from gim.core.tasks.githubuser import CheckGraphQLAccesses
+    from gim.core.tasks.tokens import ResetTokenFlags
+
+    CleanupJob.add_job(42)
+    ManageDeletedInstancesJob.add_job(42)
     CheckGraphQLAccesses.add_job(42)
     ResetTokenFlags.add_job(42)
 
@@ -523,6 +531,8 @@ def maintenance(include_users_and_repositories=True):
     maintenance_logger.info('    requeue_unqueued_errored_jobs...')
     requeue_unqueued_errored_jobs()
     maintenance_logger.info('    delete_empty_queues...')
+    maintenance_logger.info('    requeue standalone jobs...')
+    requeue_standalone_jobs()
     delete_empty_queues()
     if include_users_and_repositories:
         maintenance_logger.info('    requeue_all_users...')
