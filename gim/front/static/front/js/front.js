@@ -3972,6 +3972,9 @@ $().ready(function() {
 
         is_issue_ident_for_node: (function IssueDetail__is_issue_ident_for_node($node, issue_ident) {
             var existing_ident = IssueDetail.get_issue_ident($node);
+            if (issue_ident.number && isNaN(issue_ident.number) && issue_ident.number.indexOf('pk-') === 0) {
+                return (issue_ident.number == existing_ident.number || issue_ident.number.slice(3) == existing_ident.id);
+            }
             return (existing_ident.number == issue_ident.number && (existing_ident.repository || '') == (issue_ident.repository || ''));
         }), // is_issue_ident_for_node
 
