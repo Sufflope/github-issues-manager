@@ -7,6 +7,7 @@ class JobRegistry(set):
 JobRegistry = JobRegistry()
 
 
+from .cleanup import *
 from .comment import *
 from .commit import *
 from .event import *
