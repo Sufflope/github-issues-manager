@@ -912,10 +912,10 @@ class LabelTypeManager(models.Manager):
 
             result = None
             if found_label_type:
-                name, order = found_label_type.get_name_and_order(name)
+                typed_name, order = found_label_type.get_name_and_order(name)
                 result = (
                     found_label_type,
-                    name,
+                    typed_name,
                     int(order) if order is not None else None,
                 )
 
