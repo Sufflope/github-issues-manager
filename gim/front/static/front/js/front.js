@@ -818,6 +818,7 @@ $().ready(function() {
         }) // init
     }; // WS
     WS.init();
+    AppGlobal.WS = WS;
 
 
     var HistoryManager = {

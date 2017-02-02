@@ -8,7 +8,8 @@ $().ready(function() {
         IssuesFilters = AppGlobal.IssuesFilters,
         PanelsSwapper = AppGlobal.PanelsSwapper,
         MessagesManager = AppGlobal.MessagesManager,
-        FormTools = AppGlobal.FormTools;
+        FormTools = AppGlobal.FormTools,
+        WS = AppGlobal.WS;
 
     var $document = $(document),
         $body = $('body'),
