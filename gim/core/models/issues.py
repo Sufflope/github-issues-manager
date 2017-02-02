@@ -1004,7 +1004,7 @@ class Label(WithRepositoryMixin, GithubObjectWithId):
     github_matching.update({
         'url': 'api_url'
     })
-    github_ignore = GithubObjectWithId.github_ignore + ('api_url', 'label_type', 'typed_name', 'order', )
+    github_ignore = GithubObjectWithId.github_ignore + ('api_url', 'label_type', 'typed_name', 'order', 'default')
     github_edit_fields = {
         'create': ('color', 'name', ),
         'update': ('color', 'name', )
