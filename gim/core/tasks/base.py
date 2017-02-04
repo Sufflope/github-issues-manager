@@ -59,7 +59,12 @@ class Queue(LimpydQueue):
 
         def get_sort_key(queue):
             name, priority = queue.hmget('name', 'priority')
-            return (-int(priority or 0), ordered_names.get(name, 999999))
+            try:
+                priority = - int(priority or 0)  # `-` to sort easily
+            except ValueError:
+                priority = 0
+                queue.priority.hset(0)
+            return priority, ordered_names.get(name, 999999)
 
         # sort all queues by priority
         queues.sort(key=get_sort_key)
