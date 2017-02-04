@@ -79,7 +79,11 @@ def diff_queues(old_data=None, sort_by='name'):
         if waiting + delayed == 0:
             continue
         name, priority = q.hmget('name', 'priority')
-        priority = - int(priority or 0)  # `-` to sort easily
+        try:
+            priority = - int(priority or 0)  # `-` to sort easily
+        except ValueError:
+            priority = 0
+            q.priority.hset(0)
         new_queues[(name, priority)] = {
             'name': name,
             'priority': priority,
