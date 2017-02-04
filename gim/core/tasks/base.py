@@ -57,9 +57,23 @@ class Queue(LimpydQueue):
 
         ordered_names = dict([(name, index) for index, name in enumerate(names)])
 
+        cached_sort_key = {}
+
         def get_sort_key(queue):
-            name, priority = queue.hmget('name', 'priority')
-            return (-int(priority or 0), ordered_names.get(name, 999999))
+            pk = queue.pk.get()
+
+            if pk not in cached_sort_key:
+
+                name, priority = queue.hmget('name', 'priority')
+                try:
+                    priority = - int(priority or 0)  # `-` to sort easily
+                except ValueError:
+                    priority = 0
+                    queue.priority.hset(0)
+
+                cached_sort_key[pk] = (priority, ordered_names.get(name, 999999))
+
+            return cached_sort_key[pk]
 
         # sort all queues by priority
         queues.sort(key=get_sort_key)
