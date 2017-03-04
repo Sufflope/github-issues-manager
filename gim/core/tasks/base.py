@@ -101,6 +101,8 @@ class Error(LimpydError):
     # they are set by json.dumps
     gh_request = fields.InstanceHashField()
     gh_response = fields.InstanceHashField()
+    gh_request_headers = fields.InstanceHashField()
+    gh_response_headers = fields.InstanceHashField()
 
     def get_job(self):
         """Return the job that generated this error"""
@@ -138,6 +140,8 @@ class Worker(LimpydWorker):
         if isinstance(exception, ApiError):
             fields['gh_request'] = json.dumps(exception.request)
             fields['gh_response'] = json.dumps(exception.response)
+            fields['gh_request_headers'] = json.dumps(exception.request_headers)
+            fields['gh_response_headers'] = json.dumps(exception.response_headers)
 
         if isinstance(exception, DatabaseError):
             self.log('DatabaseError detected, force end', level='critical')

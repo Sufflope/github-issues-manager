@@ -198,7 +198,9 @@ class GitHub(object):
         except urllib2.HTTPError, e:
             is_json = self._process_resp(e.headers)
             if isinstance(response_headers, dict):
-                response_headers.update(e.headers.dict.copy())
+                response_headers.update(e.headers.dict)
+            if isinstance(request_headers, dict):
+                request_headers.update(request.headers)
             if logger.level > logging.DEBUG:
                 logger.info('==> %s', e.code)
             else:
@@ -210,8 +212,8 @@ class GitHub(object):
             req = JsonObject(method=method, url=url)
             resp = JsonObject(code=e.code, json=_json)
             if resp.code == 404:
-                raise ApiNotFoundError(url, req, resp)
-            raise ApiError(url, req, resp)
+                raise ApiNotFoundError(url, req, resp, request_headers, response_headers)
+            raise ApiError(url, req, resp, request_headers, response_headers)
 
     def _process_resp(self, headers):
         is_json = False
@@ -319,10 +321,12 @@ def _parse_json(jsonstr):
 
 class ApiError(Exception):
 
-    def __init__(self, url, request, response):
+    def __init__(self, url, request, response, request_headers, response_headers):
         super(ApiError, self).__init__(url)
         self.request = request
         self.response = response
+        self.request_headers = request_headers
+        self.response_headers = response_headers
         if response:
             try:
                 self.code = response['code']
