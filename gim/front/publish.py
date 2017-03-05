@@ -84,7 +84,7 @@ PUBLISHABLE = {
         'self': False,
         'parents': [
             ('Issue', 'issues',
-             lambda self: self.commit.issues.all().select_related('repository__owner'),
+             lambda self: self.commit.issues.all().select_related('repository__owner') if self.commit_id else [],
              lambda self, issue: {'url': str(self.get_absolute_url_for_issue(issue))}
              ),
         ],
@@ -218,6 +218,7 @@ def publish_update(instance, message_type, extra_data=None):
         for model_name, field_name, get_objects, more_data
         in conf.get('parents', [])
         for obj in get_objects(instance)
+        if obj
     ]
 
     to_publish = [
