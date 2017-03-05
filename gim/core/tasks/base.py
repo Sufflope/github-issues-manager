@@ -295,42 +295,37 @@ class Job(LimpydJob):
         if not token:
             self.status.hset(STATUSES.DELAYED)
 
-            if hasattr(self, 'delay_for_gh'):
-                # use the "delay_for_gh" attribute if any to delay the job for X seconds
-                self.delayed_until.hset(compute_delayed_until(delayed_for=self.delay_for_gh))
+            # check the first available gh
+            if permission == 'self':
+                if args:
+                    try:
+                        token_kwargs = {'token': args['access_token'], 'valid_scopes': 1}
+                        if use_graphql:
+                            token_kwargs['can_access_graphql_api'] = 1
+                        token = Token.get(**token_kwargs)
+                    except Token.DoesNotExist:
+                        token = Token.get_one_for_username(args['username'], available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
+            elif repository:
+                token = Token.get_one_for_repository(repository.pk, permission, available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
+            else:
+                token = Token.get_one(available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
+
+            # if we have a token, get it's delay before availability, and
+            # set it on the job for future use
+            if token:
+
+                remaining = token.get_remaining_seconds(use_graphql)
+                if remaining is not None and remaining >= 0:
+                    self.delayed_until.hset(compute_delayed_until(remaining))
+                else:
+                    self.delayed_until.delete()
+
+                self.gh = token.gh
 
             else:
-                # check the first available gh
-                if permission == 'self':
-                    if args:
-                        try:
-                            token_kwargs = {'token': args['access_token'], 'valid_scopes': 1}
-                            if use_graphql:
-                                token_kwargs['can_access_graphql_api'] = 1
-                            token = Token.get(**token_kwargs)
-                        except Token.DoesNotExist:
-                            token = Token.get_one_for_username(args['username'], available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
-                elif repository:
-                    token = Token.get_one_for_repository(repository.pk, permission, available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
-                else:
-                    token = Token.get_one(available=False, sort_by='rate_limit_reset', for_graphql=use_graphql)
-
-                # if we have a token, get it's delay before availability, and
-                # set it on the job for future use
-                if token:
-
-                    remaining = token.get_remaining_seconds(use_graphql)
-                    if remaining is not None and remaining >= 0:
-                        self.delayed_until.hset(compute_delayed_until(remaining))
-                    else:
-                        self.delayed_until.delete()
-
-                    self.gh = token.gh
-
-                else:
-                    # no token at all ? we may have no one for this permission !
-                    # so retry in 15mn
-                    self.delayed_until.hset(compute_delayed_until(delayed_for=60 * 15))
+                # no token at all ? we may have no one for this permission !
+                # so retry in 15mn
+                self.delayed_until.hset(compute_delayed_until(delayed_for=60 * 15))
 
             return None
 
