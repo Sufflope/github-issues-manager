@@ -93,6 +93,8 @@ class Token(lmodel.RedisModel):
         if username:
             self.username.hset(username)
 
+        is_for_token = gh._connection_args.get('access_token') == self.token.hget()
+
         is_graphql = path == '/graphql'
 
         if is_graphql:
@@ -102,7 +104,7 @@ class Token(lmodel.RedisModel):
             available_field = self.graphql_available
             default_limit = self.GRAPHQL_LIMIT
             max_expected = self.GRAPHQL_MAX_EXPECTED
-            min_alert = self.GRAPHQL_MIN_ALERT
+            min_alert_limit = self.GRAPHQL_MIN_ALERT
         else:
             rate_limit_remaining_field = self.rate_limit_remaining
             rate_limit_limit_field = self.rate_limit_limit
@@ -110,7 +112,7 @@ class Token(lmodel.RedisModel):
             available_field = self.available
             default_limit = self.LIMIT
             max_expected = self.MAX_EXPECTED
-            min_alert = self.MIN_ALERT
+            min_alert_limit = self.MIN_ALERT
 
         # save last calls
         now = datetime.utcnow()
@@ -126,11 +128,6 @@ class Token(lmodel.RedisModel):
             if hasattr(api_error, 'code'):
                 if api_error.code == 304 or (200 <= api_error.code < 300):
                     is_error = False
-
-        if not is_error:
-            self.last_call_ok.hset(str_now)
-        else:
-            self.last_call_ko.hset(str_now)
 
         # reset scopes (only if we have the header)
         if gh.x_oauth_scopes is not None:
@@ -162,37 +159,43 @@ class Token(lmodel.RedisModel):
             else:
                 available_field.hset(1)
 
-            is_min_alert = gh.x_ratelimit_remaining <= min_alert
+            is_min_alert = gh.x_ratelimit_remaining <= min_alert_limit
 
         self.set_compute_score(is_graphql)
 
-        if is_error or log_unavailability or is_min_alert:
-            json_data = {
-                'request': {
-                    'path': path,
-                    'method': method,
-                    'headers': request_headers,
-                    'args': kw,
-                },
-                'response': {
-                    'headers': response_headers,
-                },
-            }
-            if api_error:
-                if hasattr(api_error, 'code'):
-                    json_data['response']['code'] = api_error.code
-                if api_error.response and api_error.response.json:
-                    json_data['response']['content'] = api_error.response.json
-
-            json_data = json.dumps(json_data)
-            when = datetime_to_score(now)
-
+        if is_for_token:
             if is_error:
-                self.errors.zadd(when, json_data)
-            if log_unavailability:
-                self.unavailabilities.zadd(when, json_data)
-            if min_alert:
-                self.min_alerts.zadd(when, json_data)
+                self.last_call_ko.hset(str_now)
+            else:
+                self.last_call_ok.hset(str_now)
+
+            if is_error or log_unavailability or is_min_alert:
+                json_data = {
+                    'request': {
+                        'path': path,
+                        'method': method,
+                        'headers': request_headers,
+                        'args': kw,
+                    },
+                    'response': {
+                        'headers': response_headers,
+                    },
+                }
+                if api_error:
+                    if hasattr(api_error, 'code'):
+                        json_data['response']['code'] = api_error.code
+                    if api_error.response and api_error.response.json:
+                        json_data['response']['content'] = api_error.response.json
+
+                json_data = json.dumps(json_data)
+                when = datetime_to_score(now)
+
+                if is_error:
+                    self.errors.zadd(when, json_data)
+                if log_unavailability:
+                    self.unavailabilities.zadd(when, json_data)
+                if is_min_alert:
+                    self.min_alerts.zadd(when, json_data)
 
     def reset_flags(self, for_graphql=False):
         """
