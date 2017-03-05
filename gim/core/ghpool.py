@@ -65,6 +65,14 @@ class Connection(GitHub):
             self._connection_args['access_token'] = access_token
         super(Connection, self).__init__(username, password, access_token, client_id, client_secret, redirect_uri, scope)
 
+    @classmethod
+    def remove_token(cls, token):
+        cls.pool['user-token'].pop(token, None)
+
+    @classmethod
+    def remove_username(cls, username):
+        cls.pool['user-pwd'].pop(username, None)
+
     def _http(self, method, path, request_headers=None, response_headers=None, json_post=True, timeout=None, kw={}):
         api_error = None
         if response_headers is None:

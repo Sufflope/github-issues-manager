@@ -8,8 +8,10 @@ from django.apps import apps
 
 from limpyd import model as lmodel, fields as lfields
 from limpyd.contrib.collection import ExtendedCollectionManager
-from limpyd_jobs.utils import datetime_to_score
+from limpyd_jobs import STATUSES
+from limpyd_jobs.utils import datetime_to_score, import_class
 
+from gim.core.ghpool import Connection
 from gim.core import get_main_limpyd_database
 from gim.github import ApiError
 
@@ -434,6 +436,149 @@ class Token(lmodel.RedisModel):
     def check_graphql_accesses(cls):
         for token in cls.collection().instances():
             token.check_graphql_access()
+
+    def is_expired(self):
+        try:
+            self.gh.notifications.get(per_page=1)
+        except ApiError as exc:
+            if exc.code == 401:
+                return True
+
+        return False
+
+    @classmethod
+    def clean_if_expired(cls, access_token, dry_run=False):
+
+        clean_user = False
+        clean_token = False
+        token = None
+        username = None
+
+        try:
+            token = cls.get(token=access_token)
+        except cls.DoesNotExist:
+            clean_user = True
+        else:
+            clean_user = clean_token = token.is_expired()
+            username = token.username.hget()
+
+        if clean_token:
+            maintenance_logger.info('[token-cleaning] Deleted token `%s` for `%s`', access_token, username)
+            # we can delete the token
+            if not dry_run:
+                token.delete()
+            # then we have to delete entries in the connection pool using this token
+            if not dry_run:
+                Connection.remove_token(access_token)
+
+        if clean_user:
+            from gim.core.models import GithubUser
+            if token:
+                user = GithubUser.objects.filter(username=username).first()
+            else:
+                user = GithubUser.objects.filter(access_token=access_token).first()
+
+            if user:
+                # get another token for this user if we have it, or delete it
+                token = cls.get_one_for_username(user.username, available=False)
+                new_access_token = token.token.hget() if token else None
+                if not dry_run and new_access_token != user.token:
+                    user.token = new_access_token
+                    user.save(update_fields=['token'])
+
+                # no token anymore for this user, we need to cancel all pending jobs
+                if not token:
+                    maintenance_logger.info('[token-cleaning] No token left for user `%s`', username)
+
+                    repositories_ok = set()
+                    repositories_ko = set()
+
+                    from gim.core.tasks.base import Job, Queue
+                    for queue in Queue.collection().instances():
+
+                        for job_ident in list(queue.waiting.lmembers()) + list(queue.delayed.zmembers()):
+
+                            job_model_repr, job_pk = job_ident.split(':', 1)
+                            job_model = import_class(job_model_repr)
+
+                            if not hasattr(job_model, 'permission'):
+                                # not a job needing permission, nothing to do
+                                continue
+
+                            job = job_model(job_pk)
+
+                            gh_args = job.gh_args.hgetall()
+                            job_username = gh_args.get('username')
+
+                            if job_username and job_username != user.username:
+                                # already registered to another user, no need to check more
+                                continue
+
+                            if job.permission == 'self':
+                                # try to get the user for this job
+                                if not job_username:
+                                    try:
+                                        job_username = getattr(job, 'user', None).username
+                                    except Exception:
+                                        # no user or cannot get it
+                                        continue
+
+                                # job for user without token anymore, we can cancel the job
+                                if job_username == username:
+                                    maintenance_logger.info(
+                                        '[token-cleaning] Canceled job `%s` with "self" permission for user `%s`',
+                                        job_ident, username
+                                    )
+                                    if not dry_run:
+                                        job.status.hset(STATUSES.CANCELED)
+                                    continue
+
+                            # try to get the repository
+                            try:
+                                job_repository = getattr(job, 'repository')
+                            except Exception:
+                                continue
+                            if not job_repository:
+                                continue
+
+                            # nothing to do if repository is public
+                            if not job_repository.private:
+                                continue
+
+                            if job_repository.pk in repositories_ok:
+                                # we already determined it's ok for this repository, so we can abort
+                                continue
+
+                            permission = None
+                            if job_repository.pk not in repositories_ko:
+                                # first check for this repository
+
+                                # try to get a token for this repository
+                                permission = job.permission if job.permission in ('pull', 'push', 'admin') else 'pull'
+                                job_token = Token.get_one_for_repository(job_repository.pk, permission=permission, available=False)
+
+                                if job_token:
+                                    # we mark this repository as ok
+                                    repositories_ok.add(job_repository.pk)
+                                else:
+                                    # no token, nobody can access this private repository with enough permission
+                                    if not job_token:
+                                        # mark it as ko
+                                        repositories_ko.add(job_repository.pk)
+
+                            if job_repository.pk in repositories_ko:
+                                # we just marked the repository as ko or we knew it before: cancel the job
+
+                                if permission is None:
+                                    permission = job.permission if job.permission in ('pull', 'push', 'admin') else 'pull'
+
+                                maintenance_logger.info(
+                                    '[token-cleaning] Canceled job `%s` for repository `%s` with "%s" permission for user `%s`',
+                                    job_ident, job_repository.full_name, permission, username
+                                )
+                                if not dry_run:
+                                    job.status.hset(STATUSES.CANCELED)
+
 
 
 class DeletedInstance(lmodel.RedisModel):
