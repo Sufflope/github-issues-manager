@@ -37,6 +37,7 @@ class Token(lmodel.RedisModel):
     last_call_ko = lfields.InstanceHashField()  # last github call that was an error
     errors = lfields.SortedSetField()  # will store all errors
     unavailabilities = lfields.SortedSetField()  # will store all queries that set the token as unavailable
+    min_alerts = lfields.SortedSetField()  # will store all queries that receive a very low rate-limit-remaining
     can_access_graphql_api = lfields.InstanceHashField(indexable=True)  # if the user can access the githup graphql api
     graphql_rate_limit_remaining = lfields.StringField()  # expirable field
     graphql_rate_limit_limit = lfields.InstanceHashField()  # how much by hour
@@ -51,8 +52,10 @@ class Token(lmodel.RedisModel):
     # keep some to do post actions by users
     MAX_EXPECTED = 5000
     LIMIT = 500
+    MIN_ALERT = 60
     GRAPHQL_MAX_EXPECTED = 200
     GRAPHQL_LIMIT = 50
+    GRAPHQL_MIN_ALERT = 10
 
     @property
     def user(self):
@@ -99,6 +102,7 @@ class Token(lmodel.RedisModel):
             available_field = self.graphql_available
             default_limit = self.GRAPHQL_LIMIT
             max_expected = self.GRAPHQL_MAX_EXPECTED
+            min_alert = self.GRAPHQL_MIN_ALERT
         else:
             rate_limit_remaining_field = self.rate_limit_remaining
             rate_limit_limit_field = self.rate_limit_limit
@@ -106,6 +110,7 @@ class Token(lmodel.RedisModel):
             available_field = self.available
             default_limit = self.LIMIT
             max_expected = self.MAX_EXPECTED
+            min_alert = self.MIN_ALERT
 
         # save last calls
         now = datetime.utcnow()
@@ -113,6 +118,7 @@ class Token(lmodel.RedisModel):
         self.last_call.hset(str_now)
 
         log_unavailability = False
+        is_min_alert = False
 
         is_error = False
         if api_error:
@@ -156,9 +162,11 @@ class Token(lmodel.RedisModel):
             else:
                 available_field.hset(1)
 
+            is_min_alert = gh.x_ratelimit_remaining <= min_alert
+
         self.set_compute_score(is_graphql)
 
-        if is_error or log_unavailability:
+        if is_error or log_unavailability or is_min_alert:
             json_data = {
                 'request': {
                     'path': path,
@@ -183,6 +191,8 @@ class Token(lmodel.RedisModel):
                 self.errors.zadd(when, json_data)
             if log_unavailability:
                 self.unavailabilities.zadd(when, json_data)
+            if min_alert:
+                self.min_alerts.zadd(when, json_data)
 
     def reset_flags(self, for_graphql=False):
         """
