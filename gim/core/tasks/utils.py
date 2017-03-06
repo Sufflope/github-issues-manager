@@ -540,9 +540,9 @@ def maintenance(include_users_and_repositories=True):
     requeue_unqueued_delayed_jobs()
     maintenance_logger.info('    requeue_unqueued_errored_jobs...')
     requeue_unqueued_errored_jobs()
-    maintenance_logger.info('    delete_empty_queues...')
     maintenance_logger.info('    requeue standalone jobs...')
     requeue_standalone_jobs()
+    maintenance_logger.info('    delete_empty_queues...')
     delete_empty_queues()
     if include_users_and_repositories:
         maintenance_logger.info('    requeue_all_users...')
