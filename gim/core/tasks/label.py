@@ -19,6 +19,7 @@ class LabelJob(DjangoModelJob):
     """
     abstract = True
     model = Label
+    permission = 'self'
 
     @property
     def label(self):
@@ -38,8 +39,6 @@ class LabelEditJob(LabelJob):
     queue_name = 'edit-label'
 
     mode = fields.InstanceHashField()
-
-    permission = 'self'
 
     def run(self, queue):
         """

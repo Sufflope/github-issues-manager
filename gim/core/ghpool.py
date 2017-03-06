@@ -10,7 +10,10 @@ class Connection(GitHub):
     A subclass of the default GitHub object to handle a pool of connections,
     one for each username
     """
-    pool = {}
+    pool = {
+        'user-token': {},
+        'user-pwd': {},
+    }
     ApiError = ApiError
     ApiAuthError = ApiAuthError
     ApiNotFoundError = ApiNotFoundError
@@ -31,32 +34,22 @@ class Connection(GitHub):
 
         # we only accept username+access_token or username+password
         keys = set(auth.keys())
-        if keys not in (set(['username', 'access_token']), set(['username', 'password'])):
-            raise Connection.ApiAuthError(u"Unable to start authenticattion (Wrong auth parameters ?")
 
-        # we have a valid auth tuple, check if we have a matching one in
-        # the pool and return it, or create a new one
-
-        need_new = True
-
-        if auth['username'] not in cls.pool:
-            need_new = True
+        if keys == {'username', 'access_token'}:
+            pool = cls.pool['user-token']
+            pool_key = auth['access_token']
+        elif keys == {'username', 'password'}:
+            pool = cls.pool['user-pwd']
+            pool_key = auth['username']
         else:
-            con_auth = cls.pool[auth['username']]._authorization
-            if con_auth:
-                if 'access_token' in auth and not con_auth.startswith('token'):
-                    need_new = True
-                elif 'password' in auth and not con_auth.startswith('Basic'):
-                    need_new = True
-                else:
-                    need_new = False
+            raise Connection.ApiAuthError(u"Unable to start authentication (Wrong auth parameters)")
 
-        if need_new:
+        if pool_key not in pool:
             # create a new valid connection
-            cls.pool[auth['username']] = cls(**auth)
+            pool[pool_key] = cls(**auth)
 
         # return the old or new connection in the pool
-        return cls.pool[auth['username']]
+        return pool[pool_key]
 
     def __init__(self, username=None, password=None, access_token=None, client_id=None, client_secret=None, redirect_uri=None, scope=None):
         """
@@ -71,6 +64,14 @@ class Connection(GitHub):
         if access_token:
             self._connection_args['access_token'] = access_token
         super(Connection, self).__init__(username, password, access_token, client_id, client_secret, redirect_uri, scope)
+
+    @classmethod
+    def remove_token(cls, token):
+        cls.pool['user-token'].pop(token, None)
+
+    @classmethod
+    def remove_username(cls, username):
+        cls.pool['user-pwd'].pop(username, None)
 
     def _http(self, method, path, request_headers=None, response_headers=None, json_post=True, timeout=None, kw={}):
         api_error = None
