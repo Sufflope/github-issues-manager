@@ -83,9 +83,11 @@ class Hashable(object):
         hash_obj, hash_obj_created = Hash.get_or_connect(
                         type=self.model_name, obj_id=self.pk)
 
+        self.previous_hash = hash_obj.hash.hget()
+
         hash = self.hash
 
-        if not force_update and not hash_obj_created and str(hash) == hash_obj.hash.hget():
+        if not force_update and not hash_obj_created and str(hash) == self.previous_hash:
             return False
 
         # save the new hash
