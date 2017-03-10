@@ -72,6 +72,7 @@ class CardJob(DjangoModelJob):
     """
     abstract = True
     model = Card
+    permission = 'self'
 
     @property
     def card(self):
@@ -89,7 +90,6 @@ class CardJob(DjangoModelJob):
 class MoveCardJob(CardJob):
 
     queue_name = 'move-project-card'
-    permission = 'self'
     issue_id = fields.InstanceHashField(indexable=True)
     column_id = fields.InstanceHashField()
     position = fields.InstanceHashField()
@@ -286,6 +286,7 @@ class ColumnJob(DjangoModelJob):
     """
     abstract = True
     model = Column
+    permission = 'self'
 
     @property
     def column(self):
@@ -384,7 +385,6 @@ class ColumnEditJob(ColumnJob):
 
 class ColumnMoveJob(ColumnJob):
     queue_name = 'move-project-column'
-    permission = 'self'
 
     def run(self, queue):
         """
@@ -429,6 +429,7 @@ class ProjectJob(DjangoModelJob):
     """
     abstract = True
     model = Project
+    permission = 'self'
 
     @property
     def project(self):

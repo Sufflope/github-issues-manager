@@ -7,6 +7,7 @@ from limpyd_jobs import STATUSES
 
 from django.utils.termcolors import colorize
 
+from gim.core.limpyd_models import Token
 from gim.hooks.tasks import CheckRepositoryHook, CheckRepositoryEvents
 
 from ..models import GithubUser, Repository
@@ -494,6 +495,11 @@ def requeue_all_repositories():
     repositories
     """
     for repository in Repository.objects.filter(first_fetch_done=True):
+        # check if we can have a token for this repository
+        if repository.private and not Token.get_one_for_repository(repository.pk, permission='pull', available=False):
+            maintenance_logger.info('(no token for private repository %s)', repository.full_name)
+            continue
+        # we can have a token so we add the jobs
         CheckRepositoryEvents.add_job(repository.id)
         CheckRepositoryHook.add_job(repository.id, delayed_for=30)
         FetchForUpdate.add_job(repository.id)
@@ -534,9 +540,9 @@ def maintenance(include_users_and_repositories=True):
     requeue_unqueued_delayed_jobs()
     maintenance_logger.info('    requeue_unqueued_errored_jobs...')
     requeue_unqueued_errored_jobs()
-    maintenance_logger.info('    delete_empty_queues...')
     maintenance_logger.info('    requeue standalone jobs...')
     requeue_standalone_jobs()
+    maintenance_logger.info('    delete_empty_queues...')
     delete_empty_queues()
     if include_users_and_repositories:
         maintenance_logger.info('    requeue_all_users...')

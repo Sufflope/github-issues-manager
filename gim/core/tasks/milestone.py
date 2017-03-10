@@ -19,6 +19,7 @@ class MilestoneJob(DjangoModelJob):
     """
     abstract = True
     model = Milestone
+    permission = 'self'
 
     @property
     def milestone(self):
@@ -38,8 +39,6 @@ class MilestoneEditJob(MilestoneJob):
     queue_name = 'edit-milestone'
 
     mode = fields.InstanceHashField()
-
-    permission = 'self'
 
     def run(self, queue):
         """

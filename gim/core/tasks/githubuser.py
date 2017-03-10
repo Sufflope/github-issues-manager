@@ -328,6 +328,7 @@ class GithubNotificationEditJob(GithubNotificationJob):
 class FetchNotifications(UserJob):
 
     queue_name = 'fetch-notifications'
+    permission = 'self'
 
     def run(self, queue):
 
@@ -381,6 +382,7 @@ class CheckGraphQLAccesses(Job):
     """Update all github tokens to see if they can access the graqhql api"""
 
     queue_name = 'check-graphql-accesses'
+    permission = 'self'
 
     def run(self, queue):
         """Ask the Token class to do the checks"""
