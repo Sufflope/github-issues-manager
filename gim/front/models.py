@@ -281,7 +281,7 @@ class _LabelType(Hashable, models.Model):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        return hash((self.id, self.name, ))
+        return hash((str(self.id), self.name, ))
 
     def get_related_issues(self):
         """
@@ -300,8 +300,8 @@ class _Label(Hashable, FrontEditable):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        return hash((self.id, self.name, self.color,
-                     self.label_type.hash if self.label_type_id else None, ))
+        return hash((str(self.id), self.name, self.color or '',
+                     str(self.label_type.hash) if self.label_type_id else '', ))
 
     def get_related_issues(self):
         """
@@ -320,7 +320,7 @@ class _Milestone(Hashable, FrontEditable):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        return hash((self.id, self.title, self.state, ))
+        return hash((str(self.id), self.title, self.state, ))
 
     def get_related_issues(self):
         """
@@ -476,27 +476,35 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         know if we have to reset its cache
         """
 
-        hashable_fields = ('number', 'title', 'body', 'state', 'is_pull_request', 'updated_at')
+        str_hashable_fields = ('title', 'body', 'state')
+        non_str_hashable_fields = ('number', 'is_pull_request', 'updated_at')
+
         if self.is_pull_request:
-            hashable_fields += (
-                'base_sha', 'head_sha', 'merged', 'last_head_status', 'pr_review_state', 'pr_review_required'
+            str_hashable_fields += ('base_sha', 'head_sha', 'pr_review_state')
+            non_str_hashable_fields += (
+                'merged', 'last_head_status', 'pr_review_required'
             )
             if self.state == 'open' and not self.merged:
-                hashable_fields += ('mergeable', 'mergeable_state')
+                str_hashable_fields += ('mergeable_state', )
+                non_str_hashable_fields += ('mergeable', )
 
-        hash_values = tuple(getattr(self, field) for field in hashable_fields) + (
-            self.user_id,
-            self.closed_by_id,
+        hash_values = tuple(
+            getattr(self, field) or '' for field in str_hashable_fields
+        ) + tuple(
+            str(getattr(self, field) or '') for field in non_str_hashable_fields
+        ) + (
+            str(self.user_id or ''),
+            str(self.closed_by_id or ''),
             ','.join(map(str, sorted(self.assignees.values_list('pk', flat=True)))),
-            self.milestone_id,
-            self.total_comments_count or 0,
+            str(self.milestone_id or ''),
+            str(self.total_comments_count or 0),
             ','.join(map(str, sorted(self.labels.values_list('pk', flat=True)))),
             ','.join(sorted(['%s:%s' % c for c in self.cards.values_list('column_id', 'position')]))
         )
 
         if self.is_pull_request:
             commits_part = ','.join(sorted(self.related_commits.filter(deleted=False).values_list('commit__sha', flat=True)))
-            hash_values += (commits_part, self.repository.pr_reviews_activated, self.displayable_pr_reviews_count)
+            hash_values += (commits_part, str(self.repository.pr_reviews_activated), str(self.displayable_pr_reviews_count))
 
         return hash_values
 
@@ -1113,7 +1121,7 @@ class _PullRequestReview(Hashable, FrontEditable):
 
     @property
     def hash(self):
-        return hash((self.author_id, self.submitted_at, self.state))
+        return hash((str(self.author_id), str(self.submitted_at or ''), self.state))
 
     def get_related_issues(self):
         """
@@ -1267,7 +1275,7 @@ class _Column(Hashable, FrontEditable):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        return hash((self.name, self.position, ))
+        return hash((self.name, str(self.position or ''), ))
 
     def get_related_issues(self):
         """
@@ -1346,7 +1354,7 @@ class _Card(Hashable, FrontEditable):
         Hash for this object representing its state at the current time, used to
         know if we have to reset an issue's cache
         """
-        return hash((self.column_id, self.position, ))
+        return hash((str(self.column_id or ''), str(self.position or ''), ))
 
     def get_related_issues(self):
         """
