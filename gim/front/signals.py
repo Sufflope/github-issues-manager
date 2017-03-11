@@ -1,3 +1,7 @@
+from logging import getLogger
+
+logger = getLogger('gim.log')
+
 from gim.core import models as core_models
 
 from .publish import PUBLISHABLE_MODELS, publish_update, thread_data
@@ -105,13 +109,28 @@ def hash_check(sender, instance, created, **kwargs):
     if not instance.signal_hash_changed:
         return
 
+    if isinstance(instance, core_models.Issue):
+        issue_ids = [instance.id]
+        repository = instance.repository
+    else:
+        issue_ids = instance.get_related_issues().values_list('id', flat=True)
+        if hasattr(instance, 'repository_id'):
+            repository = instance.repository
+        else:
+            repository = core_models.Issue.objects.get(pk=issue_ids[0]).repository if issue_ids else None
+
+    logger.info(
+        'HASH CHANGED for %s #%s (repo %s): %s => %s',
+        instance.model_name, instance.pk, repository,
+        getattr(instance, 'previous_hash', None), instance.signal_hash_changed
+    )
+
     from gim.core.tasks.issue import UpdateIssueCacheTemplate
 
     if isinstance(instance, core_models.Issue):
         # if an issue, add a job to update its template
-        UpdateIssueCacheTemplate.add_job(instance.id)
-
+        UpdateIssueCacheTemplate.add_job(issue_ids[0])
     else:
         # if not an issue, add a job to update the templates of all related issues
-        for issue_id in instance.get_related_issues().values_list('id', flat=True):
+        for issue_id in issue_ids:
             UpdateIssueCacheTemplate.add_job(issue_id, force_regenerate=1)
