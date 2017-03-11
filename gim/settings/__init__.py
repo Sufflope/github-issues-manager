@@ -253,6 +253,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'gim.log': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     }
 }
 
