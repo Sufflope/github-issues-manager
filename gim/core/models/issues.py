@@ -398,6 +398,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self.fetch_pr(gh, force_fetch=force_fetch)
             self.fetch_pr_comments(gh, force_fetch=force_fetch)
             self.fetch_files(gh, force_fetch=force_fetch)
+            base_branch = self.pr_base_branch
+            if base_branch:
+                base_branch.fetch(gh, force_fetch=force_fetch)
 
     def get_head_commit(self, force=False):
         if not hasattr(self, '_head_commits'):
@@ -762,7 +765,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     def pr_base_branch(self):
         return self.branch_for_pr_label(self.base_label, simplified=self.simplified_base_label)
 
-    def github_url_for_pr_label(self, pr_label, pr_sha, simplified=models.NOT_PROVIDED, branch=models.NOT_PROVIDED):
+    def github_url_for_pr_label(self, pr_label, pr_sha, branch=models.NOT_PROVIDED):
         if not pr_label:
             return None
 
@@ -774,16 +777,13 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
                 return branch.github_url
             return self.repository.github_url + '/commits/%s' % pr_sha
 
-        if simplified is models.NOT_PROVIDED:
-            simplified = self.simplified_pr_label(pr_label)
-
-        if not simplified:
+        if not self.head_label:
             return None
 
         try:
-            owner_and_maybe_repo, branch_name = simplified.split(':')
+            owner_and_maybe_repo, branch_name = self.head_label.split(':')
         except ValueError:
-            owner_and_maybe_repo, branch_name = simplified, None
+            owner_and_maybe_repo, branch_name = self.head_label, None
 
         try:
             owner_username, repo_name = owner_and_maybe_repo.split('/')
@@ -799,11 +799,11 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     @cached_property
     def pr_head_github_url(self):
-        return self.github_url_for_pr_label(self.head_label, self.head_sha, self.simplified_head_label, self.pr_head_branch)
+        return self.github_url_for_pr_label(self.head_label, self.head_sha, self.pr_head_branch)
 
     @cached_property
     def pr_base_github_url(self):
-        return self.github_url_for_pr_label(self.base_label, self.base_sha, self.simplified_base_label, self.pr_base_branch)
+        return self.github_url_for_pr_label(self.base_label, self.base_sha, self.pr_base_branch)
 
     @cached_property
     def pr_base_uptodate(self):

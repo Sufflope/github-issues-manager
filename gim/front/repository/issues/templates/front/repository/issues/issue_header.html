@@ -148,6 +148,7 @@
             {% endif %}
             <div>
                 Pull request from
+                <em>
                 {% if current_issue.head_label %}
                     {% if current_issue.pr_head_github_url %}
                         <a href="{{ current_issue.pr_head_github_url }}" target="_blank" title="Click to view on Github">
@@ -157,14 +158,16 @@
                         <strong>{{ current_issue.simplified_head_label }}</strong>
                     {% endif %}
                 {% else %}
-                    <em>(unknown repository)</em>
+                    <strong class="text-closed">unknown repository</strong>
                 {% endif %}
+                </em>
                 for
+                <em>
                 {% if current_issue.base_label %}
                     {% if current_issue.pr_base_github_url %}
                         <a href="{{ current_issue.pr_base_github_url }}" target="_blank" title="Click to view on Github">
                             <strong>{{ current_issue.simplified_base_label }}</strong>
-                            {% if current_issue.base_sha and current_issue.pr_base_uptodate is not True %}
+                            {% if current_issue.state == 'open' and current_issue.base_sha and current_issue.pr_base_uptodate is not True%}
                                 ({{ current_issue.base_sha|short_sha }}, <strong class="text-closed">not up to date</strong>)
                             {% endif %}
                         </a>
@@ -173,8 +176,9 @@
                         {% if current_issue.base_sha %} ({{ current_issue.base_sha|short_sha }}){% endif %}
                     {% endif %}
                 {% else %}
-                    <em>(unknown branch)</em>
+                    <strong class="text-closed">unknown branch</strong>
                 {% endif %}
+                </em>
             </div>
             {% if current_issue.pr_fetched_at %}
                 {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid all_head_commits=current_issue.get_all_head_commits pr_reviews_uuid=new_uuid %}
