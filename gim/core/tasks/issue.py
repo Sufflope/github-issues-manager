@@ -3,6 +3,7 @@
 __all__ = [
     'FetchIssueByNumber',
     'UpdateIssueCacheTemplate',
+    'IssuePRBranchDeleteJob',
     'IssueEditStateJob',
     'IssueEditTitleJob',
     'IssueEditBodyJob',
@@ -188,6 +189,59 @@ class UpdateIssueCacheTemplate(IssueJob):
             return ' [forced=True, %s]' % msg
         else:
             return ' [%s]' % msg
+
+
+class IssuePRBranchDeleteJob(IssueJob):
+    queue_name = 'delete-pr-branch'
+    permission = 'push'
+
+    def run(self, queue):
+        super(IssuePRBranchDeleteJob, self).run(queue)
+
+        issue = self.issue
+
+        branch = issue.pr_head_branch
+
+        if branch:
+
+            gh = self.gh
+            if not gh:
+                return  # it's delayed !
+
+            try:
+                branch.dist_delete(gh)
+            except ApiNotFoundError:
+                # already deleted !
+                if branch.pk:
+                    branch.delete()
+
+            except ApiError, e:
+                message = None
+
+                if e.code == 422:
+
+                    if e.response.message == u'Reference does not exist':
+                        if branch.pk:
+                            branch.delete()
+                        return
+
+                    message = u'Github refused to delete the branch <strong>%s</strong> on <strong>%s</strong>' % (
+                        branch.ref, issue.repository.full_name)
+                    self.status.hset(STATUSES.CANCELED)
+
+                elif e.code in (401, 403):
+                    tries = self.tries.hget()
+                    if tries and int(tries) >= 5:
+                        message = u'You seem to not have the right to delete the branch <strong>%s</strong> on <strong>%s</strong>' % (
+                            branch.ref, issue.repository.full_name)
+                        self.status.hset(STATUSES.CANCELED)
+
+                if message:
+                    messages.error(self.gh_user, message)
+                    return None
+
+                else:
+                    raise
 
 
 class BaseIssueEditJob(IssueJob):

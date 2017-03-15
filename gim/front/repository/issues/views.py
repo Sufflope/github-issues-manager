@@ -9,20 +9,22 @@ from urlparse import unquote, urlparse, urlunparse
 from django.contrib import messages
 from django.core.urlresolvers import reverse, reverse_lazy, resolve, Resolver404
 from django.http import Http404, HttpResponseRedirect, HttpResponsePermanentRedirect
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.functional import cached_property
 from django.utils.http import is_safe_url
-from django.views.generic import UpdateView, CreateView, TemplateView, DetailView
+from django.views.generic import UpdateView, CreateView, TemplateView, DetailView, DeleteView
 
 from limpyd_jobs import STATUSES
 
 from gim.core.models import (Issue, GithubUser, Label, LabelType, Milestone,
                              IssueComment, PullRequestComment, CommitComment,
-                             GithubNotification, PullRequestReview)
+                             GithubNotification, PullRequestReview, GitHead)
 from gim.core.tasks.issue import (IssueEditStateJob, IssueEditTitleJob,
                                   IssueEditBodyJob, IssueEditMilestoneJob,
                                   IssueEditAssigneesJob, IssueEditLabelsJob, IssueEditProjectsJob,
-                                  IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate)
+                                  IssueCreateJob, FetchIssueByNumber, UpdateIssueCacheTemplate,
+                                  IssuePRBranchDeleteJob)
 from gim.core.tasks.comment import (IssueCommentEditJob, PullRequestCommentEditJob,
                                     CommitCommentEditJob, PullRequestReviewEditJob)
 
@@ -1410,6 +1412,36 @@ class BaseIssueEditViewSubscribed(LinkedToRepositoryFormViewMixin):
 
     def get_success_url(self):
         return self.object.get_absolute_url()
+
+
+class IssueDeletePRBranch(LinkedToRepositoryFormViewMixin, DeleteView):
+    model = GitHead
+    allowed_rights = SUBSCRIPTION_STATES.WRITE_RIGHTS
+    http_method_names = [u'post']
+    ajax_only = True
+    url_name = 'issue.delete-pr-branch'
+
+    @cached_property
+    def issue(self):
+        return get_object_or_404(
+            self.repository.issues.filter(is_pull_request=True),
+            number=self.kwargs['issue_number']
+        )
+
+    def get_object(self, queryset=None):
+        return self.issue.pr_head_branch
+
+    def delete(self, request, *args, **kwargs):
+
+        self.object = self.get_object()
+
+        if self.object:
+            self.object.github_status = self.object.GITHUB_STATUS_CHOICES.WAITING_DELETE
+            self.object.save(update_fields=['github_status'])
+
+            IssuePRBranchDeleteJob.add_job(self.issue.pk, gh=self.request.user.get_connection())
+
+        return HttpResponse('OK')
 
 
 class IssueEditFieldMixin(BaseIssueEditViewSubscribed, UpdateView):

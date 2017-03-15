@@ -1,6 +1,7 @@
 __all__ = [
     'Repository',
     'ProtectedBranch',
+    'GitHead',
 ]
 
 from datetime import datetime, timedelta
@@ -32,6 +33,7 @@ from ..limpyd_models import Token
 from ..managers import (
     MODE_ALL,
     MODE_UPDATE,
+    GitHeadManager,
     RepositoryManager,
     ProtectedBranchManager,
 )
@@ -87,6 +89,8 @@ class Repository(GithubObjectWithId):
     protected_branches_fetched_at = models.DateTimeField(blank=True, null=True)
     protected_branches_etag = models.CharField(max_length=64, blank=True, null=True)
     pr_reviews_activated = models.BooleanField(default=False)
+    git_heads_fetched_at = models.DateTimeField(blank=True, null=True)
+    git_heads_etag = models.CharField(max_length=64, blank=True, null=True)
 
     objects = RepositoryManager()
 
@@ -172,6 +176,12 @@ class Repository(GithubObjectWithId):
             'repos',
             self.owner.username,
             self.name,
+        ]
+
+    @property
+    def github_callable_identifiers_for_git_data(self):
+        return self.github_callable_identifiers + [
+            'git',
         ]
 
     @property
@@ -663,7 +673,7 @@ class Repository(GithubObjectWithId):
                                 },
                                 force_fetch=force_fetch,
                                 parameters=parameters,
-                                max_pages=None)  # we need them all to get all the positions
+                                max_pages=max_pages)
 
     def fetch_all_protected_branches(self, gh, force_fetch=False):
         # only admins can fetch protected branches :(
@@ -688,6 +698,23 @@ class Repository(GithubObjectWithId):
             self.save(update_fields=['protected_branches_fetched_at'])
             raise
 
+    @property
+    def github_callable_identifiers_for_git_heads(self):
+        return self.github_callable_identifiers_for_git_data + [
+            'refs',
+            'heads',
+        ]
+
+    def fetch_git_heads(self, gh, force_fetch=False, parameters=None, max_pages=None):
+        return self._fetch_many('git_heads', gh,
+                                defaults={
+                                    'fk': {'repository': self},
+                                    'related': {'*': {'fk': {'repository': self}}},
+                                },
+                                force_fetch=force_fetch,
+                                parameters=parameters,
+                                max_pages=max_pages)
+
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
             force_fetch = True
@@ -707,6 +734,7 @@ class Repository(GithubObjectWithId):
 
         self.fetch_minimal(gh, force_fetch=force_fetch)
         self.fetch_all_protected_branches(gh, force_fetch=force_fetch)
+        self.fetch_git_heads(gh, force_fetch=force_fetch)
 
         if two_steps:
             self.fetch_issues(gh, force_fetch=force_fetch, state='open')
@@ -1105,3 +1133,49 @@ class ProtectedBranch(GithubObject):
             # the branch is not protected anymore
             self.delete()
         return None
+
+
+class GitHead(GithubObject):
+    repository = models.ForeignKey('Repository', related_name='git_heads')
+    ref = models.TextField(db_index=True)  # without 'refs/heads/'
+    sha = models.CharField(max_length=40)
+    etag = models.CharField(max_length=64, blank=True, null=True)
+
+    github_identifiers = {'repository__github_id': ('repository', 'github_id'), 'ref': 'ref'}
+
+    class Meta:
+        app_label = 'core'
+
+    objects = GitHeadManager()
+
+    def __unicode__(self):
+        return u'%s' % self.ref
+
+    @property
+    def github_callable_identifiers(self):
+        return self.repository.github_callable_identifiers_for_git_heads + [
+            self.ref,
+        ]
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None, github_api_version=None):
+        if defaults is None:
+            defaults = {}
+        if not defaults.get('fk', {}):
+            defaults['fk'] = {}
+        if not defaults.get('repository'):
+            defaults['fk']['repository'] = self.repository
+        if not defaults.get('simple', {}):
+            defaults['simple'] = {}
+        if not defaults['simple'].get('ref'):
+            defaults['simple']['ref'] = self.ref
+
+        try:
+            return super(GitHead, self).fetch(gh, defaults, force_fetch, parameters, meta_base_name, github_api_version)
+        except ApiNotFoundError:
+            # the head doesn't exist anymore
+            self.delete()
+        return None
+
+    @property
+    def github_url(self):
+        return self.repository.github_url + '/tree/%s' % self.ref
