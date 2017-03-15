@@ -630,6 +630,10 @@ class DeletedInstance(lmodel.RedisModel):
 
     @classmethod
     def create_for_instance(cls, instance):
+        from gim.core.models.base import GithubObjectWithId
+        if not isinstance(instance, GithubObjectWithId):
+            # TODO: accept not only github_id
+            return
         return cls.create_for_model_and_id(instance.__class__, instance.github_id)
 
     @classmethod
