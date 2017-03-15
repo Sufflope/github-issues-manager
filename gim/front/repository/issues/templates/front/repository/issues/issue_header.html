@@ -1,4 +1,4 @@
-{% load issues_tags frontutils %}
+{% load issues_tags frontutils repository_tags %}
 <div class="area-top state-{{ current_issue.state }}">
     <header>
         <div class="repository-name">
@@ -146,7 +146,47 @@
                     <li class="label label-black" title="{{ current_issue.nb_changed_files }} changed file{{ current_issue.nb_changed_files|pluralize }}"><i class="fa fa-file-o"></i> {{ current_issue.nb_changed_files }}</li>
                 </ul>
             {% endif %}
-            <div>Pull request from <strong>{{ current_issue.simplified_head_label }}</strong> for <strong>{{ current_issue.simplified_base_label }}</strong></div>
+            <div>
+                Pull request from
+                <em>
+                {% if current_issue.head_label %}
+                    {% if current_issue.pr_head_github_url %}
+                        <a href="{{ current_issue.pr_head_github_url }}" target="_blank" title="Click to view on Github">
+                            <strong>{{ current_issue.simplified_head_label }}</strong>
+                        </a>
+                        {% if current_issue.state == 'closed' and current_issue.pr_head_branch %}
+                            {% if current_repository|can_user_write:user %}
+                                (<a class="text-closed pr-branch-deletion btn-loading" href="{{ current_issue.ajax_branch_deletion_url }}" title="Click here to delete this branch"><span>delete?</span><i class='fa fa-spinner fa-spin'> </i></a>)
+                            {% else %}
+                                <strong class="text-closed"> (not yet deleted)</strong>
+                            {% endif %}
+                        {% endif %}
+                    {% else %}
+                        <strong>{{ current_issue.simplified_head_label }}</strong>
+                    {% endif %}
+                {% else %}
+                    <strong class="text-closed">unknown repository</strong>
+                {% endif %}
+                </em>
+                for
+                <em>
+                {% if current_issue.base_label %}
+                    {% if current_issue.pr_base_github_url %}
+                        <a href="{{ current_issue.pr_base_github_url }}" target="_blank" title="Click to view on Github">
+                            <strong>{{ current_issue.simplified_base_label }}</strong>
+                            {% if current_issue.state == 'open' and current_issue.base_sha and current_issue.pr_base_uptodate is not True%}
+                                ({{ current_issue.base_sha|short_sha }}, <strong class="text-closed">not up to date</strong>)
+                            {% endif %}
+                        </a>
+                    {% else %}
+                        <strong>{{ current_issue.simplified_base_label }}</strong>
+                        {% if current_issue.base_sha %} ({{ current_issue.base_sha|short_sha }}){% endif %}
+                    {% endif %}
+                {% else %}
+                    <strong class="text-closed">unknown branch</strong>
+                {% endif %}
+                </em>
+            </div>
             {% if current_issue.pr_fetched_at %}
                 {% with STATUS_CHOICES=current_issue.GITHUB_COMMIT_STATUS_CHOICES statuses_uuid=new_uuid all_head_commits=current_issue.get_all_head_commits pr_reviews_uuid=new_uuid %}
                 <div class="pr-merge-status">

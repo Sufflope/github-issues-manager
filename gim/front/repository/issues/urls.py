@@ -13,6 +13,7 @@ from .views import (
     IssueCommentDeleteView, PullRequestCommentDeleteView, CommitCommentDeleteView,
     IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers, IssuesFilterMentioned,
     PullRequestReviewCreateView, PullRequestReviewView, PullRequestReviewEditView,
+    IssueDeletePRBranch,
 )
 
 urlpatterns = [
@@ -31,6 +32,7 @@ urlpatterns = [
         url(r'^(?P<issue_number>\d+)/summary/$', IssueSummaryView.as_view(), name=IssueSummaryView.url_name),
         url(r'^(?P<issue_number>\d+)/preview/$', IssuePreviewView.as_view(), name=IssuePreviewView.url_name),
         url(r'^(?P<issue_number>\d+)/ask-fetch/$', AskFetchIssueView.as_view(), name=AskFetchIssueView.url_name),
+        url(r'^(?P<issue_number>\d+)/base-branch/delete/$', IssueDeletePRBranch.as_view(), name=IssueDeletePRBranch.url_name),
 
         # parts
         url(r'^(?P<issue_number>\d+)/files/$', FilesAjaxIssueView.as_view(), name='issue.files'),

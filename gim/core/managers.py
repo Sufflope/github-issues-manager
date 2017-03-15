@@ -1926,3 +1926,28 @@ class PullRequestReviewManager(WithIssueManager):
         )
 
         return fields
+
+
+class GitHeadManager(WithRepositoryManager):
+
+    def get_object_fields_from_dict(self, data, defaults=None, saved_objects=None):
+
+        # Only for heads
+        if not data.get('ref', '').startswith('refs/heads/'):
+            return None
+
+        # Remove 'refs/heads/' prefix
+        data['ref'] = data['ref'][11:]
+
+        # Only if commits
+        if data.get('object', {}).get('type', '') != 'commit':
+            return None
+
+        # Extract the sha of the commit
+        data['sha'] = data['object']['sha']
+        if not data['sha']:
+            return None
+
+        del data['object']
+
+        return super(GitHeadManager, self).get_object_fields_from_dict(data, defaults, saved_objects)

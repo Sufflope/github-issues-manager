@@ -21,6 +21,7 @@ from django.utils.functional import cached_property
 
 from extended_choices import Choices
 
+from gim.core import GITHUB_HOST
 from gim.core.graphql_utils import (
     compose_query,
     encode_graphql_id_for_object,
@@ -397,6 +398,9 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             self.fetch_pr(gh, force_fetch=force_fetch)
             self.fetch_pr_comments(gh, force_fetch=force_fetch)
             self.fetch_files(gh, force_fetch=force_fetch)
+            base_branch = self.pr_base_branch
+            if base_branch:
+                base_branch.fetch(gh, force_fetch=force_fetch)
 
     def get_head_commit(self, force=False):
         if not hasattr(self, '_head_commits'):
@@ -718,23 +722,99 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
     def simplified_pr_label(self, pr_label):
         if not pr_label:
-            return self.repository.owner.username
-        else:
-            try:
-                owner_username, branch_name = pr_label.split(':')
-                if owner_username == self.repository.owner.username:
-                    return branch_name
-            except Exception:
-                pass
+            return None
+
+        try:
+            owner_and_maybe_repo, branch_name = pr_label.split(':')
+            if owner_and_maybe_repo in (self.repository.owner.username, self.repository.full_name):
+                return branch_name
+        except Exception:
+            pass
+
         return pr_label
 
-    @property
+    @cached_property
     def simplified_head_label(self):
         return self.simplified_pr_label(self.head_label)
 
-    @property
+    @cached_property
     def simplified_base_label(self):
         return self.simplified_pr_label(self.base_label)
+
+    def branch_for_pr_label(self, pr_label, simplified=models.NOT_PROVIDED):
+        if not pr_label:
+            return None
+
+        if simplified is models.NOT_PROVIDED:
+            simplified = self.simplified_pr_label(pr_label)
+
+        if not simplified:
+            return None
+
+        from .repositories import GitHead
+        try:
+            return self.repository.git_heads.get(ref=simplified)
+        except GitHead.DoesNotExist:
+            return None
+
+    @cached_property
+    def pr_head_branch(self):
+        return self.branch_for_pr_label(self.head_label, simplified=self.simplified_head_label)
+
+    @cached_property
+    def pr_base_branch(self):
+        return self.branch_for_pr_label(self.base_label, simplified=self.simplified_base_label)
+
+    def github_url_for_pr_label(self, pr_label, pr_sha, branch=models.NOT_PROVIDED):
+        if not pr_label:
+            return None
+
+        if branch is models.NOT_PROVIDED:
+            branch = self.branch_for_pr_label(pr_label)
+
+        if branch is not None:
+            if branch.sha == pr_sha:
+                return branch.github_url
+            return self.repository.github_url + '/commits/%s' % pr_sha
+
+        if not self.head_label:
+            return None
+
+        try:
+            owner_and_maybe_repo, branch_name = self.head_label.split(':')
+        except ValueError:
+            owner_and_maybe_repo, branch_name = self.head_label, None
+
+        try:
+            owner_username, repo_name = owner_and_maybe_repo.split('/')
+        except ValueError:
+            owner_username, repo_name = owner_and_maybe_repo, self.repository.name
+
+        repository_github_url = GITHUB_HOST + '%s/%s' % (owner_username, repo_name)
+
+        if branch_name:
+            return repository_github_url + '/tree/%s' % branch_name
+
+        return repository_github_url
+
+    @cached_property
+    def pr_head_github_url(self):
+        return self.github_url_for_pr_label(self.head_label, self.head_sha, self.pr_head_branch)
+
+    @cached_property
+    def pr_base_github_url(self):
+        return self.github_url_for_pr_label(self.base_label, self.base_sha, self.pr_base_branch)
+
+    @cached_property
+    def pr_base_uptodate(self):
+        if not self.base_sha:
+            return None
+
+        branch = self.pr_base_branch
+        if not branch:
+            return None
+
+        return branch.sha == self.base_sha
 
     def get_protected_base_branch(self):
         branch_name = self.simplified_base_label

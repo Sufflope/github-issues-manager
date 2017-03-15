@@ -3948,6 +3948,24 @@ $().ready(function() {
             return false;
         }), // IssueDetail__on_statuses_box_older_logs_toggled
 
+        on_branch_deletion_clicked: (function IssueDetail__on_branch_deletion_clicked () {
+            var $link = $(this);
+            if ($link.hasClass('loading') || $link.hasClass('text-open')) { return false; }
+            $link.addClass('loading').children('span').text('deleting');
+            $.post($link.attr('href'),  {csrfmiddlewaretoken: $body.data('csrf')})
+                .done($.proxy(IssueDetail.on_branch_deletion_done, {$link: $link}))
+                .fail($.proxy(IssueDetail.on_branch_deletion_failed, {$link: $link}));
+            return false;
+        }), // IssueDetail__on_branch_deletion_clicked
+
+        on_branch_deletion_done: (function IssueDetail__on_branch_deletion_done () {
+            this.$link.removeClass('loading text-closed').addClass('text-open').children('span').text('deleted');
+        }), // IssueDetail__on_branch_deletion_done
+
+        on_branch_deletion_failed: (function IssueDetail__on_branch_deletion_done () {
+            this.$link.removeClass('loading').children('span').text('delete?');
+        }), // IssueDetail__on_branch_deletion_done
+
         is_modal: (function IssueDetail__is_modal ($node) {
             return !!$node.data('$modal');
         }), // is_modal
@@ -5406,6 +5424,9 @@ $().ready(function() {
             $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-reviews-detail, .pr-commit-statuses .box-content', IssueDetail.on_statuses_or_review_box_toggled);
             $document.on('click', '.pr-commit-statuses .logs-toggler', Ev.stop_event_decorate(IssueDetail.on_statuses_box_logs_toggled));
             $document.on('click', '.pr-commit-statuses dl > a', Ev.stop_event_decorate(IssueDetail.on_statuses_box_older_logs_toggled));
+
+            // branch deletion
+            $document.on('click', '.pr-branch-deletion', Ev.stop_event_decorate(IssueDetail.on_branch_deletion_clicked));
 
             // only one of status details or review details
             $document.on('show.collapse', '.pr-commits-statuses', function(ev) {
