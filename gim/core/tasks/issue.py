@@ -220,7 +220,7 @@ class IssuePRBranchDeleteJob(IssueJob):
 
                 if e.code == 422:
 
-                    if e.response.message == u'Reference does not exist':
+                    if e.response.get('json', {}).get('message', '') == u'Reference does not exist':
                         if branch.pk:
                             branch.delete()
                         return
