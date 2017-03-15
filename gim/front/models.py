@@ -458,6 +458,10 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                                                            kwargs=kwargs)
         return self._commit_comment_create_url
 
+    def ajax_branch_deletion_url(self):
+        from gim.front.repository.issues.views import IssueDeletePRBranch
+        return self.get_view_url(IssueDeletePRBranch.url_name)
+
     @property
     def type(self):
         return 'pull request' if self.is_pull_request else 'issue'
