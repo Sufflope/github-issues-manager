@@ -10,6 +10,7 @@ from datetime import datetime
 from urlparse import urlparse
 
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 
 from ..managers import (
     CommitManager,
@@ -56,6 +57,7 @@ class Commit(WithRepositoryMixin, GithubObject):
 
     commit_statuses_fetched_at = models.DateTimeField(blank=True, null=True)
     commit_statuses_etag = models.CharField(max_length=64, blank=True, null=True)
+    parents = ArrayField(models.CharField(max_length=40), blank=True, null=True)
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
 
@@ -80,7 +82,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         'deletions': 'nb_deletions',
     })
     github_ignore = GithubObject.github_ignore + ('deleted', 'comments_count',
-        'nb_additions', 'nb_deletions') + ('url', 'parents', 'comments_url',
+        'nb_additions', 'nb_deletions') + ('url', 'comments_url',
         'html_url', 'commit', 'last_status')
 
     @property

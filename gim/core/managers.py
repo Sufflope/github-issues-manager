@@ -1063,6 +1063,11 @@ class CommitManager(WithRepositoryManager):
                 if field in data['stats']:
                     data[field] = data['stats'][field]
 
+        if 'parents' in data:
+            data['parents'] = [parent['sha'] for parent in data['parents']]
+        else:
+            data['parents'] = []
+
         return super(CommitManager, self).get_object_fields_from_dict(
                                                 data, defaults, saved_objects)
 
