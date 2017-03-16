@@ -1083,8 +1083,10 @@ class CommitManager(WithRepositoryManager):
             data, modes, defaults,fetched_at_field, etag_field, saved_objects, force_update,
             etag, ignore_github_status=True)  # True because can only be created remotely
 
+        only_commits = defaults and defaults.get('context', {}).get('only_commits', False)
+
         # We got commits from the list of commits of a PR, so we don't have files and comments
-        if obj and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
+        if obj and not only_commits and (not obj.files_fetched_at or not obj.commit_comments_fetched_at):
             kwargs = {}
             if not obj.files_fetched_at:
                 kwargs['force_fetch'] = 1

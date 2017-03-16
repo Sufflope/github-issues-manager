@@ -101,6 +101,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
     commits_fetched_at = models.DateTimeField(blank=True, null=True)
     commits_etag = models.CharField(max_length=64, blank=True, null=True)
     commits = models.ManyToManyField('Commit', related_name='issues', through='IssueCommits')
+    commits_parents_fetched = models.BooleanField(default=False)
     files_fetched_at = models.DateTimeField(blank=True, null=True)
     files_etag = models.CharField(max_length=64, blank=True, null=True)
     user_mentions = models.ManyToManyField('GithubUser', related_name='issues_mentioned',
@@ -351,11 +352,12 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
             'files'
         ]
 
-    def fetch_commits(self, gh, force_fetch=False, parameters=None):
+    def fetch_commits(self, gh, force_fetch=False, parameters=None, only_commits=False):
         return self._fetch_many('commits', gh,
                                 defaults={
                                     'fk': {'repository': self.repository},
                                     'related': {'*': {'fk': {'repository': self.repository}}},
+                                    'context': {'only_commits': bool(only_commits)}
                                 },
                                 parameters=parameters,
                                 force_fetch=force_fetch)
@@ -498,6 +500,11 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
             if self.update_last_head_status(self.last_head_commit, save=False):
                 fields_to_update.add('last_head_status')
+
+        if not self.pk and self.is_pull_request:
+            # For new PRs, we know commits parents are fetched
+            self.commits_parents_fetched = True
+            fields_to_update.add('commits_parents_fetched')
 
         if update_fields is not None:
             update_fields.update(fields_to_update)

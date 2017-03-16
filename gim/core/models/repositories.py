@@ -310,10 +310,12 @@ class Repository(GithubObjectWithId):
             from gim.core.tasks.repository import FetchClosedIssuesWithNoClosedBy
             FetchClosedIssuesWithNoClosedBy.add_job(self.id, limit=20)
 
-        from gim.core.tasks.repository import FetchUpdatedPullRequests, FetchUpdatedReviews
+        from gim.core.tasks.repository import FetchUpdatedPullRequests, FetchUpdatedReviews, FetchPullRequestsCommitsParents
         FetchUpdatedPullRequests.add_job(self.id, limit=20)
         if self.pr_reviews_activated:
             FetchUpdatedReviews.add_job(self.id, limit=10)
+        if self.issues.filter(is_pull_request=True, commits_parents_fetched=False).count():
+            FetchPullRequestsCommitsParents.add_job(self.id, limit=20, priority=-20)
 
         return count
 
@@ -404,6 +406,47 @@ class Repository(GithubObjectWithId):
             pr.fetch_files(gh)
 
         return self._fetch_some_prs(filter, action, gh=gh, limit=limit)
+
+    def fetch_prs_commits_parents(self, gh, limit=20):
+
+        from gim.front.publish import thread_data
+        thread_data.skip_publish = True
+        try:
+
+            filter = self.issues.filter(is_pull_request=True, commits_parents_fetched=False)
+            more_data = {'nb_commits': 0}
+
+            def action(gh, pr):
+                pr.fetch_commits(gh, force_fetch=True, only_commits=True)
+
+                issue_commits = pr.related_commits.filter(
+                        deleted=True, commit__deleted=False, commit__parents__isnull=True
+                ).select_related('commit')[:100]
+
+                for issue_commit in issue_commits:
+                    more_data['nb_commits'] += 1
+                    commit = issue_commit.commit
+                    commit.fetched_at = datetime.utcnow()
+                    try:
+                        # commit.fetch(gh, force_fetch=True, only_commits=True)
+                        data = gh.repos(self.owner.username)(self.name).commits(commit.sha).get()
+                    except ApiNotFoundError:
+                        # the commit doesn't exist anymore !
+                        commit.deleted = True
+                        commit.save(update_fields=['fetched_at', 'deleted'])
+                    else:
+                        commit.parents = [parent['sha'] for parent in data.get('parents', [])]
+                        commit.save(update_fields=['fetched_at', 'parents'])
+
+                if len(issue_commits) < 100:
+                    pr.commits_parents_fetched = True
+                    pr.save(update_fields=['commits_parents_fetched'])
+
+            return self._fetch_some_prs(filter, action, gh=gh, limit=limit) + (more_data['nb_commits'], )
+
+        finally:
+            thread_data.skip_publish = False
+
 
     def fetch_unmerged_prs(self, gh, limit=20, start_date=None):
         """
