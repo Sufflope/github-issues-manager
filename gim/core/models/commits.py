@@ -6,7 +6,7 @@ __all__ = [
 ]
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 from urlparse import urlparse
 
 from django.db import models
@@ -60,6 +60,8 @@ class Commit(WithRepositoryMixin, GithubObject):
     parents = ArrayField(models.CharField(max_length=40), blank=True, null=True)
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
+
+    OLD_DELTA = timedelta(days=30)
 
     objects = CommitManager()
 
@@ -279,7 +281,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         from gim.core.tasks.commit import FetchCommitStatuses
 
         FetchCommitStatuses.add_job(self.pk, delayed_for=delayed_for,
-                                             force_requeue=force_requeue,
+                                             force_requeue=1 if force_requeue else 0,
                                              force_fetch=force_fetch)
 
     def get_head_pull_requests(self):

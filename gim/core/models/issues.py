@@ -428,7 +428,7 @@ class Issue(WithRepositoryMixin, GithubObjectWithId):
 
         if not already_fetched:
             # On the first time, we may not have any statuses yet, they may come later
-            head_commit.delay_fetch_pending_statuses(delayed_for=60, force_requeue=1, force_fetch=force_fetch)
+            head_commit.delay_fetch_pending_statuses(delayed_for=60, force_requeue=True, force_fetch=force_fetch)
 
         # If it's the first fetch, don't refetch if pending statuses because we just did it
         # We had to do this because the first job for an identifier defines the arguments,
