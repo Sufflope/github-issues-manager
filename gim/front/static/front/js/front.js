@@ -5183,11 +5183,11 @@ $().ready(function() {
             return false;
         }), // on_link_to_review_comment
 
-        on_deleted_commits_toggle_change: (function IssueDetail__on_deleted_commits_toggle_change () {
+        on_outdated_commits_toggle_change: (function IssueDetail__on_outdated_commits_toggle_change () {
             var $input = $(this),
                 $parent = $input.closest('.issue-commits');
-                $parent.toggleClass('view-deleted', $input.is(':checked'))
-        }), // on_deleted_commits_toggle_change
+                $parent.toggleClass('view-outdated', $input.is(':checked'))
+        }), // on_outdated_commits_toggle_change
 
         on_commit_click: (function IssueDetail__on_commit_click (e) {
             var $link = $(e.target),
@@ -5389,7 +5389,7 @@ $().ready(function() {
             }
 
             // commits options
-            $document.on('change', '.deleted-commits-toggler input', IssueDetail.on_deleted_commits_toggle_change);
+            $document.on('change', '.outdated-commits-toggler input', IssueDetail.on_outdated_commits_toggle_change);
             $document.on('click', '.commit-link', Ev.stop_event_decorate(IssueDetail.on_commit_click));
 
             // files list summary

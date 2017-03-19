@@ -1451,11 +1451,10 @@ $repo-name-height: 20px;
         line-height: 20px !important;
         overflow: auto;
     }
-    .deleted-commits-toggler {
+    .outdated-commits-toggler {
         font-size: inherit;
         display: inline-block;
         float: right;
-        line-height: i;
         vertical-align: middle;
         margin: 0;
         position: relative;
@@ -1470,17 +1469,12 @@ $repo-name-height: 20px;
             vertical-align: middle;
         }
     }
-    .all-commits {
+    .outdated-commits {
         display: none;
     }
-    &.view-deleted {
-        .all-commits {
+    &.view-outdated {
+        .outdated-commits {
             display: block;
-            padding-top: 15px;
-            margin-top: 0;
-        }
-        .active-commits {
-            display: none;
         }
     }
 }

@@ -3,7 +3,8 @@
 import json
 import re
 from collections import Counter, OrderedDict
-from operator import attrgetter
+from itertools import chain, product
+from operator import attrgetter, itemgetter
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -20,7 +21,7 @@ from pymdownx.github import GithubExtension
 
 from gim.core import models as core_models, get_main_limpyd_database
 from gim.core.models.base import GithubObject
-from gim.core.utils import cached_method
+from gim.core.utils import cached_method, graph_from_edges, dfs_topsort_traversal, stop_after_seconds, TimeoutException
 from gim.events.models import EventPart
 from gim.subscriptions import models as subscriptions_models
 from gim.ws import publisher
@@ -582,11 +583,91 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             qs = qs.filter(**filters)
 
         result = []
-        for c in qs:
-            c.commit.relation_deleted = c.deleted
-            result.append(c.commit)
+        for ic in qs:
+            ic.commit.relation_deleted = ic.deleted
+            ic.commit.pull_request_head_at = ic.pull_request_head_at
+            result.append(ic.commit)
 
         return result
+
+    def get_regrouped_commits(self):
+
+        if self.commits_parents_fetched:
+            with stop_after_seconds(2):
+                try:
+                    groups = self.regroup_commits()
+                except Exception:
+                    pass
+                else:
+                    if groups and (len(groups) > 1 or not self.nb_deleted_commits):
+                        return groups
+
+        # we had a problem, create two groups: deleted and not deleted
+        groups = []
+        if self.nb_deleted_commits:
+            deleted_commits = [c for c in self.all_commits(True, True, True) if c.relation_deleted]
+            if deleted_commits:
+                head_commit = deleted_commits[-1]
+                groups.append({
+                    'head_sha': head_commit.sha,
+                    'outdated': True,
+                    'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                    'commits': deleted_commits,
+                })
+
+        non_deleted_commits = self.all_commits(False, True, True)
+        if non_deleted_commits:
+            head_commit = non_deleted_commits[-1]
+            groups.append({
+                'head_sha': head_commit.sha,
+                'outdated': False,
+                'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'commits': non_deleted_commits,
+            })
+
+        return groups
+
+
+    def regroup_commits(self):
+
+        commits = self.all_commits(True, False, False)
+
+        by_sha = {c.sha: c for c in commits}
+
+        edges = list(chain.from_iterable([
+            product(
+                [c.sha],
+                c.parents or []
+            )
+            for c in commits
+        ]))
+
+        graph = graph_from_edges(edges)
+
+        # get all base commits
+        bases = [sha for sha, parents in graph.items() if not parents]
+
+        # remove them from the graph
+        graph = {sha: [parent for parent in parents if parent not in bases] for sha, parents in graph.items() if sha not in bases}
+
+        # get all head commits
+        head_shas = set(graph.keys()) ^ set(chain.from_iterable(graph.values()))
+
+        # make one group by head
+        groups = []
+        for head_sha in head_shas:
+            head_commit = by_sha[head_sha]
+            commits = [by_sha[sha] for sha in (dfs_topsort_traversal(graph, head_sha))]
+            groups.append({
+                'head_sha': head_sha,
+                'outdated': head_commit.relation_deleted,
+                'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'commits': commits,
+            })
+
+        groups.sort(key=itemgetter('head_at'))
+
+        return groups
 
     @property
     def all_entry_points(self):
