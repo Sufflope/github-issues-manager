@@ -23,10 +23,10 @@
                     <i>Commit not fetched yet</i>
                 {% else %}
                     {% with message=commit.splitted_message %}
-                        <p>{{ message.0|strip }} {% if message.1|length %}<span data-toggle="collapse" data-target="#{{ id_prefix }}commit-more-{{ commit.sha }}">…</span>{% endif %}</p>
+                        <p>{{ message.0|strip }} {% if message.1|length %}<span data-toggle="collapse" data-target="#{{ id_prefix }}-commit-more-{{ commit.sha }}">…</span>{% endif %}</p>
                         {% with next=message.1|strip %}
                             {% if next|length %}
-                                <p class="collapse" id="{{ id_prefix }}commit-more-{{ commit.sha }}">{{ next }}</p>
+                                <p class="collapse" id="{{ id_prefix }}-commit-more-{{ commit.sha }}">{{ next }}</p>
                             {% endif %}
                         {% endwith %}
                     {% endwith %}

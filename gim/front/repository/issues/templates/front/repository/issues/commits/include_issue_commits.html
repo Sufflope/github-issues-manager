@@ -39,7 +39,7 @@
                     </ul>
                 </div>
                 <div class="box-content collapse{% if not group.outdated %}in{% endif %}" id="{{ id_prefix }}-commits-group-{{ group.head_sha }}">
-                    {% include "./include_commits.html" with commits=group.commits %}
+                    {% include "./include_commits.html" with commits=group.commits id_prefix=id_prefix|concat:'-group'|concat:forloop.counter %}
                 </div>
             </div>
         </li>

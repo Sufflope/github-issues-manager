@@ -6,6 +6,8 @@ from collections import Counter, OrderedDict
 from itertools import chain, product
 from operator import attrgetter, itemgetter
 
+from dateutil.parser import parse
+
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.urlresolvers import reverse, reverse_lazy
@@ -14,6 +16,7 @@ from django.db.models import FieldDoesNotExist
 from django.template import loader
 from django.template.defaultfilters import date as convert_date, escape
 from django.utils.functional import cached_property
+
 from limpyd import model as lmodel, fields as lfields
 from markdown import markdown
 from markdown.extensions.codehilite import CodeHiliteExtension
@@ -21,7 +24,7 @@ from pymdownx.github import GithubExtension
 
 from gim.core import models as core_models, get_main_limpyd_database
 from gim.core.models.base import GithubObject
-from gim.core.utils import cached_method, graph_from_edges, dfs_topsort_traversal, stop_after_seconds, TimeoutException
+from gim.core.utils import cached_method, graph_from_edges, dfs_topsort_traversal, stop_after_seconds, JSONField
 from gim.events.models import EventPart
 from gim.subscriptions import models as subscriptions_models
 from gim.ws import publisher
@@ -386,10 +389,14 @@ class WithFiles(object):
 
 
 class _Issue(WithFiles, Hashable, FrontEditable):
+
+    pr_grouped_commits = JSONField(blank=True, null=True)
+
     class Meta:
         abstract = True
 
     RENDERER_IGNORE_FIELDS = {'state', 'merged'}
+    PR_GROUPED_COMMITS_VERSION = 1
 
     def get_reverse_kwargs(self):
         """
@@ -590,7 +597,42 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         return result
 
+    def save_regrouped_commits(self, groups):
+        self.pr_grouped_commits = {
+            'version': self.PR_GROUPED_COMMITS_VERSION,
+            'head_sha': self.head_sha,
+            'groups': [
+                {
+                    'head_sha': group['head_sha'],
+                    'outdated': group['outdated'],
+                    'head_at': str(group['head_at']),
+                    'commits_shas': [c.sha for c in group['commits']],
+                }
+                for group in groups
+            ]
+        }
+
+        self.save(update_fields=['pr_grouped_commits'])
+
     def get_regrouped_commits(self):
+
+        try:
+            stored = self.pr_grouped_commits
+            if stored and stored['head_sha'] == self.head_sha and stored['version'] == self.PR_GROUPED_COMMITS_VERSION:
+                commits = self.all_commits(True, False, False)
+                by_sha = {c.sha: c for c in commits}
+                return [
+                    {
+                        'head_sha': group['head_sha'],
+                        'outdated': group['outdated'],
+                        'head_at': parse(group['head_at']),
+                        'commits': [by_sha[sha] for sha in group['commits_shas']],
+                    }
+                    for group in stored['groups']
+                ]
+        except Exception:
+            # we'll recompute if we couldn't use stored data
+            pass
 
         if self.commits_parents_fetched:
             with stop_after_seconds(2):
@@ -600,6 +642,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                     pass
                 else:
                     if groups and (len(groups) > 1 or not self.nb_deleted_commits):
+                        self.save_regrouped_commits(groups)
                         return groups
 
         # we had a problem, create two groups: deleted and not deleted
@@ -625,8 +668,8 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 'commits': non_deleted_commits,
             })
 
+        self.save_regrouped_commits(groups)
         return groups
-
 
     def regroup_commits(self):
 
