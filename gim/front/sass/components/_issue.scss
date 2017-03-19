@@ -1701,14 +1701,24 @@ table.commits-list {
             }
         }
         &.cell-sha {
-            width: 10ex;
+            width: 14ex;
             text-align: center;
             font-family: $monoFontFamily;
+            padding-top: 5px;
+            > a {
+                position: relative;
+                top: 1px;
+            }
+            > button {
+                padding: 0 5px;
+                margin-left: 5px;
+            }
         }
         &.cell-stats {
             white-space: nowrap;
             text-align: right;
             border-left: none;
+            padding-top: 5px;
             li:not(:first-child) {
                 margin-left: 2px;
             }

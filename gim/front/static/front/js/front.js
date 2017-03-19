@@ -7936,5 +7936,12 @@ $().ready(function() {
         ev.preventDefault();
     });
 
+    if (typeof window.Clipboard != 'undefined') {
+        var clipboard = new Clipboard('.copy-to-clipboard');
+        clipboard.on('success', function(e) {
+            MessagesManager.add_messages([MessagesManager.make_message('Copied to clipboard!', 'info')]);
+        });
+    }
+
 });
 
