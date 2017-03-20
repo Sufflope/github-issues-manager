@@ -916,12 +916,12 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if not hasattr(self, '_prefetched_objects_cache'):
             self._prefetched_objects_cache = {}
-        self._prefetched_objects_cache['cards'] =  list(self.cards.select_related(
+        self._prefetched_objects_cache['cards'] =  self.cards.select_related(
             'column__project'
         ).order_by(
             'column__project__number'
-        ))
-        return self._prefetched_objects_cache['cards']
+        )
+        return list(self._prefetched_objects_cache['cards'])
 
     def user_can_add_pr_review(self, user):
         if not self.is_pull_request:
