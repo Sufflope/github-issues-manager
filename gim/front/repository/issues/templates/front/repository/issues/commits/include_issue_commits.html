@@ -33,6 +33,7 @@
                         {% else %}
                             <strong>Actual pull request state</strong>
                         {% endif %}
+                        ({{ group.nb_commits }} commit{{ group.nb_commits|pluralize }})
                     </div>
                     <ul class="box-toolbar">
                         <li class="time" title="{{ group.head_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.head_at|ago }}{% else %}{{ group.head_at|date:"DATETIME_FORMAT" }}{% endif %}</li>

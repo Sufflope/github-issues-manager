@@ -626,6 +626,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                         'head_sha': group['head_sha'],
                         'outdated': group['outdated'],
                         'head_at': parse(group['head_at']),
+                        'nb_commits': len(group['commits_shas']),
                         'commits_by_day': GroupedCommits.group_by_day([by_sha[sha] for sha in group['commits_shas']], include_without_dates=True),
                     }
                     for group in stored['groups']
@@ -657,6 +658,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                     'head_sha': head_commit.sha,
                     'outdated': True,
                     'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                    'nb_commits': len(deleted_commits),
                     'commits_by_day': GroupedCommits.group_by_day(deleted_commits, include_without_dates=True),
                 })
 
@@ -667,6 +669,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 'head_sha': head_commit.sha,
                 'outdated': False,
                 'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'nb_commits': len(non_deleted_commits),
                 'commits_by_day': GroupedCommits.group_by_day(non_deleted_commits, include_without_dates=True),
             })
 
@@ -708,6 +711,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 'head_sha': head_sha,
                 'outdated': head_commit.relation_deleted,
                 'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'nb_commits': len(commits),
                 'commits': commits,
             })
 
