@@ -1016,12 +1016,32 @@ $repo-name-height: 20px;
             }
         }
     }
-    .pr-commits-group .box-header {
-        > .title, > .box-toolbar > li {
-            font-size: 13px;
+    .pr-commits-group {
+        .box-header {
+            > .title, > .box-toolbar > li {
+                font-size: 13px;
+            }
+            > .title {
+                font-weight: normal;
+            }
         }
-        > .title {
-            font-weight: normal;
+        &.box-section {
+            padding: 0;
+            .box-header {
+                .title {
+                    padding: 2px 10px;
+                    font-size: 11px;
+                }
+                .box-toolbar .time {
+                    line-height: 18px;
+                    padding: 2px 10px;
+                    font-size: 11px;
+                    .fa {
+                        height: 20px;
+                        line-height: 20px;
+                    }
+                }
+            }
         }
     }
 

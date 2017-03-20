@@ -626,7 +626,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                         'head_sha': group['head_sha'],
                         'outdated': group['outdated'],
                         'head_at': parse(group['head_at']),
-                        'commits': [by_sha[sha] for sha in group['commits_shas']],
+                        'commits_by_day': GroupedCommits.group_by_day([by_sha[sha] for sha in group['commits_shas']], include_without_dates=True),
                     }
                     for group in stored['groups']
                 ]
@@ -643,6 +643,8 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 else:
                     if groups and (len(groups) > 1 or not self.nb_deleted_commits):
                         self.save_regrouped_commits(groups)
+                        for group in groups:
+                            group['commits_by_day'] = GroupedCommits.group_by_day(group.pop('commits'), include_without_dates=True)
                         return groups
 
         # we had a problem, create two groups: deleted and not deleted
@@ -655,7 +657,7 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                     'head_sha': head_commit.sha,
                     'outdated': True,
                     'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
-                    'commits': deleted_commits,
+                    'commits_by_day': GroupedCommits.group_by_day(deleted_commits, include_without_dates=True),
                 })
 
         non_deleted_commits = self.all_commits(False, True, True)
@@ -665,10 +667,11 @@ class _Issue(WithFiles, Hashable, FrontEditable):
                 'head_sha': head_commit.sha,
                 'outdated': False,
                 'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
-                'commits': non_deleted_commits,
+                'commits_by_day': GroupedCommits.group_by_day(non_deleted_commits, include_without_dates=True),
             })
 
-        self.save_regrouped_commits(groups)
+        if self.commits_parents_fetched:
+            self.save_regrouped_commits(groups)
         return groups
 
     def regroup_commits(self):
@@ -976,21 +979,27 @@ class GroupedItems(list):
         return final_activity
 
     @classmethod
-    def group_by_day(cls, entries):
+    def group_by_day(cls, entries, include_without_dates=False):
         if not len(entries):
             return []
 
         groups = []
+        waiting = []
 
         for entry in entries:
             entry_datetime = getattr(entry, cls.date_field)
             if not entry_datetime:
+                if include_without_dates:
+                    waiting.append(entry)
                 continue
             entry_date = entry_datetime.date()
             if not groups or entry_date != groups[-1].start_date:
                 groups.append(cls())
                 groups[-1].start_date = entry_date
                 groups[-1].created_at = entry_datetime
+            if waiting:
+                groups[-1] += waiting
+                waiting = []
             groups[-1].append(entry)
 
         return groups
@@ -1051,6 +1060,8 @@ class GroupedCommits(GroupedItems):
 class _Commit(WithFiles, models.Model):
     class Meta:
         abstract = True
+
+    date_field = 'committed_at'
 
     @property
     def splitted_message(self):

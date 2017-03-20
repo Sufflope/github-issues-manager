@@ -38,8 +38,8 @@
                         <li class="time" title="{{ group.head_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.head_at|ago }}{% else %}{{ group.head_at|date:"DATETIME_FORMAT" }}{% endif %}</li>
                     </ul>
                 </div>
-                <div class="box-content collapse{% if not group.outdated %}in{% endif %}" id="{{ id_prefix }}-commits-group-{{ group.head_sha }}">
-                    {% include "./include_commits.html" with commits=group.commits id_prefix=id_prefix|concat:'-group'|concat:forloop.counter %}
+                <div class="box-content collapse{% if not group.outdated %} in{% endif %}" id="{{ id_prefix }}-commits-group-{{ group.head_sha }}">
+                    {% include "./include_commits_groups.html" with groups=group.commits_by_day id_prefix=id_prefix|concat:'-group'|concat:forloop.counter inside_box=True%}
                 </div>
             </div>
         </li>
