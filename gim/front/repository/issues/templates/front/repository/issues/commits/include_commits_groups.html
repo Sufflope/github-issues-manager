@@ -19,7 +19,7 @@
                         added <strong>{{ group|length }} commit{{ group|length|pluralize }}</strong>
                     </div>
                     <ul class="box-toolbar">
-                        <li class="time" title="{{ group.created_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.created_at|ago }}{% else %}{{ group.created_at|date:"DATETIME_FORMAT" }}{% endif %}</li>
+                        <li class="time" title="Committed: {{ group.created_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.created_at|ago }}{% else %}{{ group.created_at|date:"DATETIME_FORMAT" }}{% endif %}</li>
                     </ul>
                 </div>
                 <div class="box-content collapse{% if not collapsed %} in{% endif %}" id="{{ id_prefix }}-commits-group-{{ group.0.sha }}">

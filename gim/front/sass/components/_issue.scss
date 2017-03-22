@@ -1025,6 +1025,9 @@ $repo-name-height: 20px;
                 font-weight: normal;
             }
         }
+        .box-content.in {
+            overflow: visible;
+        }
         &.box-section {
             padding: 0;
             .box-header {
@@ -1679,20 +1682,21 @@ table.commits-list {
         padding: 4px;
         vertical-align: top;
         &.cell-author {
-            width: 16ex;
-            white-space: nowrap;
-            font-weight: bold;
-            span {
-                overflow: hidden;
-                @include ellipsis();
-                vertical-align: middle;
-                display: inline-block;
-                width: 12ex;
-                margin-left: 3px;
+            padding-left: 32px;
+            position: relative;
+            > img {
+                position: absolute;
+                top: 4px;
+                left: 4px;
+            }
+            span.author {
+                font-weight: bold;
+            }
+            span.authored-at {
+                font-size: 12px;
             }
         }
         &.cell-message {
-            border-right: none;
             .label {
                 float: left;
                 margin-right: 4px;
@@ -1721,7 +1725,7 @@ table.commits-list {
             }
         }
         &.cell-sha {
-            width: 14ex;
+            width: 15ex;
             text-align: center;
             font-family: $monoFontFamily;
             padding-top: 5px;
@@ -1731,8 +1735,9 @@ table.commits-list {
             }
             > button {
                 padding: 0 5px;
-                margin-left: 5px;
+                margin-left: 4px;
             }
+            white-space: nowrap;
         }
         &.cell-stats {
             white-space: nowrap;
@@ -1746,6 +1751,21 @@ table.commits-list {
         .comments-count {
             color: white;
             font-weight: normal;
+        }
+    }
+    tr.row-message {
+        background: inherit;
+        border-top: 0;
+        td {
+            border-top: 0;
+            padding: 0 1px 0 28px;
+            div {
+                background: #F3F4F8;;
+                padding: 4px;
+                .btn-group {
+                    padding-left: 0;
+                }
+            }
         }
     }
 } // table.commits-list
