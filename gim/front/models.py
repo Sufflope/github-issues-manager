@@ -452,10 +452,23 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         return self.get_view_url('issue.review')
 
     def ajax_commit_base_url(self):
-        kwargs = self.get_reverse_kwargs()
-        kwargs['commit_sha'] = '0' * 40
-        from gim.front.repository.issues.views import CommitAjaxIssueView
-        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name, kwargs=kwargs)
+        if not hasattr(self, '_ajax_commit_base_url'):
+            kwargs = self.get_reverse_kwargs()
+            kwargs['commit_sha'] = '0' * 40
+            from gim.front.repository.issues.views import CommitAjaxIssueView
+            self._ajax_commit_base_url = reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name,
+                                                      kwargs=kwargs)
+        return self._ajax_commit_base_url
+
+    def ajax_commit_compare_base_url(self):
+        if not hasattr(self, '_ajax_commit_compare_base_url'):
+            kwargs = self.get_reverse_kwargs()
+            kwargs['commit_sha'] = '0' * 40
+            kwargs['other_commit_sha'] = '1' * 40
+            from gim.front.repository.issues.views import CommitAjaxCompareView
+            self._ajax_commit_compare_base_url = reverse_lazy('front:repository:%s' % CommitAjaxCompareView.url_name,
+                                                              kwargs=kwargs)
+        return self._ajax_commit_compare_base_url
 
     def commit_comment_create_url(self):
         if not hasattr(self, '_commit_comment_create_url'):
@@ -718,6 +731,38 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         groups.sort(key=itemgetter('head_at'))
 
         return groups
+
+    def get_diffable_commits(self):
+        if not self.nb_deleted_commits:
+            return {}
+
+        all_commits = self.all_commits(True, False, False)
+
+        by_authored_at = {}
+        for commit in all_commits:
+            by_authored_at.setdefault(commit.authored_at, []).append(commit)
+
+        result = {}
+        for authored_at, commits in by_authored_at.items():
+            unique_commits = set(commits)
+            if len(unique_commits) < 2:
+                continue
+            result[authored_at] = []
+            for commit in unique_commits:
+                for other_commit in unique_commits:
+                    if commit.sha == other_commit.sha:
+                        continue
+                    if commit.committed_at < other_commit.committed_at:
+                        ordered = [commit, other_commit]
+                    else:
+                        ordered = [other_commit, commit]
+                    result[authored_at].append({
+                        'commit': commit,
+                        'other_commit': other_commit,
+                        'ordered_commits': ordered,
+                    })
+
+        return result
 
     @property
     def all_entry_points(self):
@@ -1046,7 +1091,7 @@ class GroupedCommitComments(GroupedItems):
 
 class GroupedCommits(GroupedItems):
     model = core_models.Commit
-    date_field = 'authored_at'
+    date_field = 'committed_at'
     author_field = 'author'
     is_commits_group = True  # for template
 

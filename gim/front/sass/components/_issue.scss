@@ -794,6 +794,31 @@ $repo-name-height: 20px;
             }
         }
     }
+    + .vs-label {
+        background: transparent;
+        display: block;
+        text-align: center;
+        margin-top: -20px;
+        z-index: 1;
+        position: relative;
+        top: -5px;
+        font-weight: bold;
+        span {
+            background: #ddd;
+            color: #888;
+            padding: 5px 6px;
+            border-radius: 50%;
+            text-align: center;
+            border: solid 1px #ccc;
+        }
+        + .commit-details {
+            margin-top: -13px;
+            padding-top: 20px;
+        }
+    }
+    .commit-compare &:first-child {
+        padding-bottom: 9px;
+    }
 }
 
 @media (min-width: 1023px) {
@@ -849,6 +874,12 @@ $repo-name-height: 20px;
                         &:before {
                             content: "•";
                         }
+                    }
+                }
+                + .vs-label {
+                    top: 10px;
+                    + .commit-details {
+                        margin-top: 2px;
                     }
                 }
             }
@@ -1763,8 +1794,11 @@ table.commits-list {
             div {
                 background: #F3F4F8;;
                 padding: 4px;
-                .btn-group {
+                .diffable-commits {
                     padding-left: 0;
+                    li a {
+                        font-weight: normal;
+                    }
                 }
             }
         }

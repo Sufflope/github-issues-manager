@@ -5226,12 +5226,17 @@ $().ready(function() {
                     .attr('style', null);
 
                 $tab.find('a').attr('href', '#' + tab_name + '-files');
-                $tab.find('strong').text(sha.substring(0, 7));
+                $tab.find('strong').text($holder.data('short-sha') || sha.substring(0, 7));
 
-                nb_files = parseInt($holder.data('files-count'), 10);
+                nb_files = $holder.data('files-count');
                 $label_node = $tab.find('.fa-file-o');
-                $label_node.next().text(nb_files);
-                $label_node.parent().attr('title', nb_files + ' changed file' + (nb_files > 1 ? 's' : '' ));
+                if (nb_files) {
+                    nb_files = parseInt(nb_files, 10);
+                    $label_node.next().text(nb_files);
+                    $label_node.parent().attr('title', nb_files + ' changed file' + (nb_files > 1 ? 's' : '' ));
+                } else {
+                    $label_node.parent().remove();
+                }
 
                 nb_comments = $holder.data('comments-count');
                 $label_node = $tab.find('.fa-comments-o');

@@ -273,7 +273,7 @@ def parse_diff(diff, reduce=False):
 
 @register.filter
 def parse_diff_for_file(file, reduce=False):
-    return _parse_diff(file.patch, reduce, file.hunk_shas, file.reviewed_hunks_locally)
+    return _parse_diff(file.patch, reduce, file.hunk_shas, getattr(file, 'reviewed_hunks_locally', {}))
 
 
 @register.filter

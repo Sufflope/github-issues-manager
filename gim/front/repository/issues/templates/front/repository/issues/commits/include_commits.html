@@ -47,6 +47,37 @@
                             {% endif %}
                         {% endwith %}
                     {% endwith %}
+                    {% if all_diffable_commits %}
+                        {% with diffable_commits=all_diffable_commits|dict_item:commit.authored_at %}
+                            {% if diffable_commits %}
+                                <div class="btn-group diffable-commits">
+                                    <a class="btn btn-mini btn-default dropdown-toggle" data-toggle="dropdown"  href="#" title="This commit seems to have been fixed-up. You can compare it to other versions of the same commit.">
+                                        Compare with
+                                        <span class="caret"></span>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        {% for diffable_commit in diffable_commits %}
+                                            {% if diffable_commit.commit.sha == commit.sha %}
+                                                {% with replace_sha='0000000000000000000000000000000000000000:'|concat:diffable_commit.ordered_commits.0.sha replace_other_sha='1111111111111111111111111111111111111111:'|concat:diffable_commit.ordered_commits.1.sha %}
+                                                <li class="commit-link-holder" data-repository="{{ commit.repository.full_name }}" data-repository-id="{{ commit.repository.id }}" data-sha="{{ diffable_commit.ordered_commits.0.sha }}VS{{ diffable_commit.ordered_commits.1.sha }}" data-short-sha="{{ diffable_commit.ordered_commits.0.sha|slice:":7" }} vs {{ diffable_commit.ordered_commits.1.sha|slice:":7" }}" data-url="{{ current_issue.ajax_commit_compare_base_url|replace:replace_sha|replace:replace_other_sha }}" >
+                                                    <a href="#" class="commit-link">
+                                                        <strong>{{ diffable_commit.other_commit.sha|short_sha }}</strong>
+                                                        {% if diffable_commit.other_commit.relation_deleted %}
+                                                            <em> (<span class="text-closed">outdated</span>)</em>
+                                                        {% else %}
+                                                            <em> (<strong class="text-open">actual</strong>)</em>
+                                                        {% endif %}
+                                                        commited on <strong>{{ diffable_commit.other_commit.committed_at }}</strong>
+                                                    </a>
+                                                </li>
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
                 {% endif %}
                 </div>
             </td>

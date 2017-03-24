@@ -1,2 +1,2 @@
 {% load frontutils repository_tags %}
-{% include "./include_files.html" with files=current_issue|files_enhanced_for_user:view.request.user id_prefix='issue-'|concat:current_issue.pk nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions %}
+{% include "./include_files.html" with files=current_issue|files_enhanced_for_user:view.request.user id_prefix='issue-'|concat:current_issue.pk nb_additions=current_issue.nb_additions nb_deletions=current_issue.nb_deletions can_add_new_entry_point=True can_mark_reviewed=True %}

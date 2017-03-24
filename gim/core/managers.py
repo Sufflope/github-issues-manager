@@ -1,8 +1,13 @@
 import logging
+import hashlib
+import os
 import re
-from collections import OrderedDict
+import subprocess
+from collections import Counter, OrderedDict
 from datetime import datetime
+from tempfile import NamedTemporaryFile
 from time import sleep
+from uuid import uuid4
 
 from django.contrib.auth.models import UserManager
 from django.contrib.contenttypes.models import ContentType
@@ -1099,6 +1104,114 @@ class CommitManager(WithRepositoryManager):
             FetchCommitBySha.add_job( '%s#%s' % (obj.repository_id, obj.sha), **kwargs)
 
         return obj
+
+    def diff(self, first, second, as_files=False):
+
+        first_files, second_files = [
+            dict(commit.files.values_list('path', 'patch'))
+            for commit in (first, second)
+        ]
+
+        all_paths = sorted(set(first_files.keys()) | set(second_files.keys()))
+
+        by_paths = {}
+
+        for path in all_paths:
+
+            try:
+                status = None
+
+                if path in first_files and path not in second_files:
+                    status = 'restored'
+                elif path not in first_files and path in second_files:
+                    status = 'added'
+
+                patches = [files.get(path, '') for files in first_files, second_files]
+                patches = [patch + '\n' if not patch.endswith('\n') else patch for patch in patches]
+                shas = [hashlib.sha1(patch.encode('utf-8')).hexdigest() for patch in patches]
+
+                if shas[0] == shas[1]:
+                    if not status:
+                        status = 'same'
+
+                if not status:
+                    status =  'modified'
+
+                by_paths[path] = {
+                    'status': status,
+                    'shas': shas,
+                }
+
+                if status == 'same':
+                    continue
+
+                patch = ''
+                type_count = {}
+
+                if status == 'added':
+                    patch = patches[1]
+                    lines = patch.split('\n')
+                    type_count = Counter(line[0] for line in lines if line)
+
+                else:
+                    intro = '--- %(path)s\n+++ %(path)s\n' % {'path': path}
+
+                    tmp_files = []
+                    for patch in patches:
+                        tmp_file = NamedTemporaryFile(delete=False)
+                        tmp_file.write(intro)
+                        tmp_file.write(patch)
+                        tmp_file.close()
+
+                        tmp_files.append(tmp_file.name)
+
+                    try:
+                        output = subprocess.check_output(['interdiff', tmp_files[0], tmp_files[1]])
+                    except subprocess.CalledProcessError:
+                        by_paths[path]['error'] = True
+                    else:
+                        lines = output.split('\n')[3:]
+                        type_count = Counter(line[0] for line in lines if line)
+                        patch = '\n'.join(lines)
+
+                    finally:
+                        for tmp_file in tmp_files:
+                            os.unlink(tmp_file)
+
+                if patch:
+                    by_paths[path].update({
+                        'patch': patch or '',
+                        'nb_additions': type_count.get('+', 0),
+                        'nb_deletions': type_count.get('-', 0),
+                    })
+
+            except Exception:
+                by_paths.setdefault(path, {})['error'] = True
+
+        if not as_files:
+            return by_paths
+
+        files = []
+        from gim.core.models.files import FileMixin
+        for path in sorted(by_paths):
+            file_info = by_paths[path]
+            status = file_info.get('status', 'modified')
+            if status == 'same':
+                continue
+            random_sha = uuid4().hex
+            random_sha += random_sha[:8]
+            file = FileMixin(
+                path=path,
+                status=status,
+                nb_additions=file_info.get('nb_additions', 0),
+                nb_deletions=file_info.get('nb_deletions', 0),
+                patch=file_info.get('patch', ''),
+                sha=random_sha,
+            )
+            file.hunk_shas = file.compute_hunk_shas()
+            files.append(file)
+
+        return files
 
 
 class WithCommitManager(WithRepositoryManager):

@@ -7,7 +7,7 @@
                 </table>
             </div>
         {% endif %}
-        <div class="box-header diff-hunk-header{% if hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}
+        <div class="box-header diff-hunk-header{% if can_mark_reviewed and hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}
 "{% endif %}>
             <div class="title">{{ code }}</div>
             {% with nb_comments=comments_count_by_hunk_position|dict_item:position %}
@@ -17,7 +17,7 @@
                 </span>
                 {% endif %}
             {% endwith %}
-            {% if hunk_sha and hunk_reviewed is not None %}
+            {% if can_mark_reviewed and toggle_locally_reviewed_url and hunk_sha and hunk_reviewed is not None %}
                 <ul class="box-toolbar">
                     <li class="toolbar-link">
                         <a class="locally-reviewed is-{{ hunk_reviewed|yesno:",not-" }}reviewed" title="By marking a hunk as reviewed, the diff will be dimmed until it changes" data-url="{{ toggle_locally_reviewed_url }}{{ hunk_sha }}/">
@@ -28,9 +28,9 @@
                 </ul>
             {% endif %}
         </div>
-        <div class="diff-hunk-content{% if hunk_sha %} collapse {% if hunk_reviewed %}is-reviewed{% else %}in{% endif %}{% endif %}"{% if hunk_sha %}  data-hunk-sha="{{ hunk_sha }}"{% endif %}>
+        <div class="diff-hunk-content{% if hunk_sha %} collapse {% if can_mark_reviewed and hunk_reviewed %}is-reviewed{% else %}in{% endif %}{% endif %}"{% if hunk_sha %}  data-hunk-sha="{{ hunk_sha }}"{% endif %}>
             <table class="table table-normal diff" data-path="{{ path }}" data-sha="{{ sha }}">
-                <tbody{% if hunk_reviewed %} class="is-reviewed"{% endif %}>
+                <tbody{% if can_mark_reviewed and hunk_reviewed %} class="is-reviewed"{% endif %}>
     {% else %}{% spaceless %}
         <tr class="{{ class }}" data-position="{{ position }}">
             <td class="line-number" data-line-number="{{ old }}"><span>{{ old }}</span></td>
