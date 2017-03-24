@@ -841,9 +841,10 @@ $repo-name-height: 20px;
             .commit-details {
                 margin: 0;
                 max-height: 50%;
-                &.multi > p:first-child > span {
+                min-height: 100px;
+                &.multi > p.commit-details-intro > span {
                     display: block;
-                    &:not(:first-child) {
+                    &.commit-user {
                         margin-left: 1em;
                         &:before {
                             content: "•";
