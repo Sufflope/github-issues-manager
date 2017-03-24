@@ -4923,18 +4923,57 @@ $().ready(function() {
             if (!is_empty) {
                 $node.trigger('loaded.tab.' + tab_type);
             }
+
+            var tabs_history = $tabs_holder.data('tabs-history');
+            if (!tabs_history || !tabs_history.length) {
+                tabs_history = ['issue-discussion']
+            }
+            tabs_history.push($tab_pane.attr('id'));
+            $tabs_holder.data('tabs-history', tabs_history);
+
         }), // load_tab
 
         close_tab: (function IssueDetail__close_tab (ev) {
             var $tab = $(ev.target).closest('li'),
                 $tab_link = $tab.children('a'),
                 $tab_pane = $($tab_link.attr('href')),
+                tab_id = $tab_pane.attr('id'),
                 is_active = $tab.hasClass('active'),
-                $prev_tab = is_active ? $tab.prev(':visible').children('a') : null,
-                $node = is_active ? null : $tab.closest('.issue-container');
+                $node = $tab.closest('.issue-container'),
+                $tabs_holder, tabs_history, prev_tab_id, $prev_tab;
+
+            if (is_active) {
+                $tabs_holder = $node.find('.issue-tabs');
+                tabs_history = $tabs_holder.data('tabs-history');
+                // remove the one we just closed
+                tabs_history.pop();
+                while (tabs_history.length) {
+                    // get the one to set active (it will be added back)
+                    prev_tab_id = tabs_history.pop();
+                    // don't stay on the current tab
+                    if (prev_tab_id == tab_id) {
+                        continue;
+                    }
+                    // find the new tab
+                    $prev_tab = $tabs_holder.find('a[data-toggle=tab][href=#' + prev_tab_id + ']');
+                    if ($prev_tab.length) {
+                        // ok found it, we'll select it later
+                        break;
+                    } else {
+                        // hum, not found, we'll get the previous one in the history
+                        $prev_tab = null;
+                        prev_tab_id = null;
+                    }
+                }
+                $tabs_holder.data('tabs-history', tabs_history);
+                if (!prev_tab_id) {
+                    $prev_tab = $tab.prev(':visible').children('a');
+                }
+            }
 
             $tab.remove();
-            if ($prev_tab) {
+
+            if (is_active) {
                 $prev_tab.tab('show');
             } else {
                 IssueDetail.scroll_tabs($node, true);
