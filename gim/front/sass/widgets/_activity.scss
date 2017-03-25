@@ -231,6 +231,12 @@
         }
     }
 
+    .model-IssueCommits .copy-to-clipboard {
+        position: relative;
+        top: -2px;
+        margin-left: 5px;
+    }
+
     &.hide-model-Event-create .model-Event-create,
     &.hide-model-Event-update .model-Event-update,
     &.hide-model-IssueEvent-closed .model-IssueEvent-closed,
