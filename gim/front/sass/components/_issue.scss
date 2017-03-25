@@ -833,7 +833,7 @@ $repo-name-height: 20px;
 @media (min-width: 1023px) {
     .issue-container.big-issue .code-files {
         position: relative;
-        min-height: 245px;
+        min-height: 400px;
         .files-list-sticky-wrapper {
             height: auto !important;
         }
@@ -895,6 +895,9 @@ $repo-name-height: 20px;
         }
         .issue-activity {
             margin-left: $file-list-width;
+            &.empty-area {
+                padding-top: 100px;
+            }
         }
     }
 }
@@ -1672,6 +1675,9 @@ $repo-name-height: 20px;
         margin-top: 100px;
         i {
             font-size: inherit;
+        }
+        &.issue-activity {
+            margin-top: 0;
         }
     }
     .global-comments > .divider {

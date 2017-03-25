@@ -94,6 +94,7 @@
         </table>
     </div>
 </div>
+{% if files %}
 <ul class="unstyled chat-box timeline issue-activity">
 {% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url:view.request.user %}
     <li>
@@ -160,5 +161,8 @@
     </li>
 {% endwith %}{% endfor %}
 </ul>
+{% else %}
+    <p class="issue-activity empty-area">{{ empty_text|default:"Nothing to show" }}</p>
+{% endif %}
 {% endwith %}
 {% endspaceless_except_pre %}
