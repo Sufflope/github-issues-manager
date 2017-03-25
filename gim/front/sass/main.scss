@@ -9,6 +9,11 @@
 @import "core-admin-widgets";
 @import "widgets/diff";
 
+// we used `code` but know `code-fork` is available so we use its code
+.fa-code:before {
+    content: "\f126" !important;
+}
+
 del {
     text-decoration: line-through;
 }

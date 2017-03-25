@@ -137,12 +137,20 @@ class FetchCommitStatuses(CommitJob):
         if not gh:
             return  # it's delayed !
 
+        commit = self.commit
+
         force_fetch = self.force_fetch.hget() == '1'
         force_requeue = self.force_requeue.hget() == '1'
 
-        count = self.commit.fetch_commit_statuses(gh=gh, force_fetch=force_fetch, refetch_for_pending=False)
+        is_recent_commit = bool(
+            not commit.deleted
+            and commit.committed_at
+            and commit.committed_at > datetime.utcnow() - commit.OLD_DELTA
+        )
 
-        return count, force_requeue or self.commit.has_pending_statuses()
+        count = commit.fetch_commit_statuses(gh=gh, force_fetch=force_fetch, refetch_for_pending=False)
+
+        return count, is_recent_commit and (force_requeue or commit.has_pending_statuses())
 
     def on_success(self, queue, result):
         """

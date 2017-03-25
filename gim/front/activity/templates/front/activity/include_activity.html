@@ -154,6 +154,7 @@
                             {% endif %}
                             <em>{{ commit.sha|short_sha }}</em>
                         </a>
+                        <button class="btn btn-mini btn-default copy-to-clipboard" data-clipboard-text="{{ commit.sha }}" title="Copy full sha1 to clipboard"><i class="fa fa-clipboard"> </i></button>
                         {% if commit.deleted %}
                             (deleted or in another repository)
                         {% endif %}

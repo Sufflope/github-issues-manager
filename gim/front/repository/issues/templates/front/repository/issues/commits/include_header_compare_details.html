@@ -1,0 +1,4 @@
+{% load frontutils %}
+{% include "./include_header_details.html" with current_commit=current_commit id_prefix=id_prefix|concat:"-current" link_to_commit_tab=True %}
+<div class="vs-label"><span>VS</span></div>
+{% include "./include_header_details.html" with current_commit=other_commit id_prefix=id_prefix|concat:"-other" link_to_commit_tab=True %}

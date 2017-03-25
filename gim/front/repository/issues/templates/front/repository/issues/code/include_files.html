@@ -30,7 +30,7 @@
                             --><li class="horizontal-2"><a href="#" class="go-to-previous-file-comment"><i class="fa fa-chevron-up fa-fw" title="Previous commented line"> </i></a></li><li class="horizontal-2"><a href="#" class="go-to-next-file-comment"><!--
                             --><i class="fa fa-chevron-down fa-fw" title="Next commented line"> </i></a></li>
                         {% endif %}
-                        {% if nb_changed_files > 1 %}
+                        {% if can_mark_reviewed and nb_changed_files > 1 %}
                             <li class="divider"></li>
                             <li><a href="#" class="toggle-reviewed"><i class="fa fa-check-square-o"> </i> Show reviewed files</a></li>
                             <li><a href="#" class="mark-visible-as-reviewed">Mark all filtered files as reviewed</a></li>
@@ -64,10 +64,10 @@
     <div class="collapse in code-files-list" id="{{ id_prefix }}-files-list">
         <table class="table table-condensed">
         {% for file in files %}
-            <tr class="{% if forloop.first %} active{% endif %}{% if file.reviewed_locally %} is-reviewed{% endif %}" data-pos="{{ forloop.counter }}">
-                <td class="status-{{ file.status }}"><i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% else %}file-o{% endif %}"> </i></td>
+            <tr class="{% if forloop.first %} active{% endif %}{% if can_mark_reviewed and file.reviewed_locally %} is-reviewed{% endif %}" data-pos="{{ forloop.counter }}">
+                <td class="status-{{ file.status }}"><i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% elif file.status == 'restored'%}undo{% else %}file-o{% endif %}"> </i></td>
                 <td title="{{ file.path }}">
-                    <a class="path" href="#code-file-{{ file.id }}-target">{{ file.path|split:'/'|join:'/<wbr/>' }}&nbsp;{% if file.reviewed_locally %}<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>{% endif %}</a>
+                    <a class="path" href="#code-file-{{ file.id }}-target">{{ file.path|split:'/'|join:'/<wbr/>' }}&nbsp;{% if can_mark_reviewed and file.reviewed_locally %}<i class="fa fa-check" title="You marked this file as locally reviewed"> </i>{% endif %}</a>
                 </td>
                 <td>
                     <ul class="unstyled">
@@ -97,13 +97,13 @@
 <ul class="unstyled chat-box timeline issue-activity">
 {% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url:view.request.user %}
     <li>
-        <div class="box code-file{% if file.reviewed_locally %} is-reviewed{% endif %}" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
+        <div class="box code-file{% if can_mark_reviewed and file.reviewed_locally %} is-reviewed{% endif %}" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
             <div class="box-header" data-toggle="collapse" data-target="#code-file-{{ file.id }}-content" title="Click to collapse/expand">
                 <div class="title">
                     <a href="#" id="code-file-{{ file.id }}" class="path">{{ file.path }}</a>
                     <span class="subtitle">
                         <span class="status-{{ file.status }}">
-                            <i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% else %}file-o{% endif %}"> </i>
+                            <i class="fa fa-{% if file.status == 'added' %}plus{% elif file.status == 'removed'%}times{% elif file.status == 'renamed' %}arrows-h{% elif file.status == 'modified' %}pencil{% elif file.status == 'restored'%}undo{% else %}file-o{% endif %}"> </i>
                         </span>
                         {{ file.status }}
                         <ul class="unstyled">
@@ -116,7 +116,7 @@
                     </span>
                 </div>
                 <ul class="box-toolbar">
-                    {% if file.reviewed_locally is not None %}
+                    {% if can_mark_reviewed and toggle_locally_reviewed_url and file.reviewed_locally is not None %}
                         <li class="toolbar-link">
                             <a class="locally-reviewed is-{{ file.reviewed_locally|yesno:",not-" }}reviewed" title="By marking a file as reviewed, it will be collapsed by default until it changes" data-url="{{ toggle_locally_reviewed_url }}">
                                 <span>
@@ -126,17 +126,21 @@
                             </a>
                         </li>
                     {% endif %}
-                    <li class="toolbar-link">
-                        <a href="{{ file.github_url }}" target='_blank' title="View file @{{ file.tree|short_sha }} on Github">
-                            <span><i class="fa fa-github"> </i> @{{ file.tree|short_sha }}</span>
-                        </a>
-                    </li>
+                    {% with github_url=file.github_url %}
+                        {% if github_url %}
+                            <li class="toolbar-link">
+                                <a href="{{ github_url }}" target='_blank' title="View file @{{ file.tree|short_sha }} on Github">
+                                    <span><i class="fa fa-github"> </i> @{{ file.tree|short_sha }}</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endwith %}
                 </ul>
             </div>
-            <div class="box-content collapse {% if file.reviewed_locally %}is-reviewed{% else %}in{% endif %}" id="code-file-{{ file.id }}-content">
+            <div class="box-content collapse {% if can_mark_reviewed and file.reviewed_locally %}is-reviewed{% else %}in{% endif %}" id="code-file-{{ file.id }}-content">
                 {% if file.patch %}
                     <div class="box-section code-diff">
-                        {% include "./include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url can_add_new_entry_point=True %}
+                        {% include "./include_diff.html" with parsed_diff=file|parse_diff_for_file entry_points=entry_points_dict|dict_item:file.path path=file.path sha=file.tree toggle_locally_reviewed_url=toggle_locally_reviewed_url %}
                     </div>
                 {% else %}
                     <div class="box-section no-diff">

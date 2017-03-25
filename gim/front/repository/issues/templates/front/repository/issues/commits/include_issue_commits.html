@@ -1,3 +1,5 @@
+{% load frontutils %}
+{% with grouped_commits=current_issue.get_regrouped_commits all_diffable_commits=current_issue.get_diffable_commits %}
 <div class="content">
     <span>
     <strong>{{ current_issue.nb_commits }} commit{{ current_issue.nb_commits|pluralize }}</strong>
@@ -7,10 +9,11 @@
     {% endwith %}
     </span>
     {% if current_issue.nb_deleted_commits %}
-        <label class='deleted-commits-toggler'>
+        <label class='outdated-commits-toggler'>
             <input type='checkbox' />
             <span>
                 View {{ current_issue.nb_deleted_commits }} outdated commit{{ current_issue.nb_deleted_commits|pluralize }}
+                {% with nb_outdated_groups=grouped_commits|length|add:-1 %} in {{ nb_outdated_groups }} previous pull request state{{ nb_outdated_groups|pluralize }}{% endwith %}
                 {% if current_issue.nb_comments_in_deleted_commits_comments %}
                 <strong>(including {{ current_issue.nb_comments_in_deleted_commits_comments }} comment{{ current_issue.nb_comments_in_deleted_commits_comments|pluralize }})</strong>
                 {% endif %}
@@ -18,11 +21,30 @@
         </label>
     {% endif %}
 </div>
-<ul class="unstyled chat-box timeline issue-activity active-commits">
-    {% include "./include_commits_groups.html" with groups=current_issue.get_commits_per_day id_prefix="pr-comm-" repository_source=current_issue.repository collapsed=False %}
+{% with id_prefix='pr-'|concat:current_issue.pk %}
+<ul class="unstyled chat-box timeline issue-activity">
+    {% for group in grouped_commits %}
+        <li class="{% if group.outdated %}outdated-commits{% else %}actual-commits{% endif %}">
+            <div class="box pr-commits-group">
+                <div class="box-header{% if group.outdated %} collapsed{% endif %}" data-toggle="collapse" data-target="#{{ id_prefix }}-commits-group-{{ group.head_sha}}" title="Click to collapse/expand">
+                    <div class="title">
+                        {% if group.outdated %}
+                            Old pull request state #{{ forloop.counter }}
+                        {% else %}
+                            <strong>Actual pull request state</strong>
+                        {% endif %}
+                        ({{ group.nb_commits }} commit{{ group.nb_commits|pluralize }})
+                    </div>
+                    <ul class="box-toolbar">
+                        <li class="time" title="{{ group.head_at|date:"DATETIME_FORMAT" }}"><i class="fa fa-clock-o"></i> {% if with_ago %}{{ group.head_at|ago }}{% else %}{{ group.head_at|date:"DATETIME_FORMAT" }}{% endif %}</li>
+                    </ul>
+                </div>
+                <div class="box-content collapse{% if not group.outdated %} in{% endif %}" id="{{ id_prefix }}-commits-group-{{ group.head_sha }}">
+                    {% include "./include_commits_groups.html" with groups=group.commits_by_day id_prefix=id_prefix|concat:'-group'|concat:forloop.counter inside_box=True all_diffable_commits=all_diffable_commits%}
+                </div>
+            </div>
+        </li>
+    {% endfor %}
 </ul>
-{% if current_issue.nb_deleted_commits %}
-    <ul class="unstyled chat-box timeline issue-activity all-commits">
-        {% include "./include_commits_groups.html" with groups=current_issue.get_all_commits_per_day id_prefix="pr-all-comm-" repository_source=current_issue.repository collapsed=False %}
-    </ul>
-{% endif %}
+{% endwith %}
+{% endwith %}

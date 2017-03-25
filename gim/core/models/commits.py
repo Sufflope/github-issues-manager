@@ -6,10 +6,11 @@ __all__ = [
 ]
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 from urlparse import urlparse
 
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 
 from ..managers import (
     CommitManager,
@@ -56,8 +57,11 @@ class Commit(WithRepositoryMixin, GithubObject):
 
     commit_statuses_fetched_at = models.DateTimeField(blank=True, null=True)
     commit_statuses_etag = models.CharField(max_length=64, blank=True, null=True)
+    parents = ArrayField(models.CharField(max_length=40), blank=True, null=True)
 
     GITHUB_COMMIT_STATUS_CHOICES = GITHUB_COMMIT_STATUS_CHOICES
+
+    OLD_DELTA = timedelta(days=30)
 
     objects = CommitManager()
 
@@ -80,7 +84,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         'deletions': 'nb_deletions',
     })
     github_ignore = GithubObject.github_ignore + ('deleted', 'comments_count',
-        'nb_additions', 'nb_deletions') + ('url', 'parents', 'comments_url',
+        'nb_additions', 'nb_deletions') + ('url', 'comments_url',
         'html_url', 'commit', 'last_status')
 
     @property
@@ -101,10 +105,11 @@ class Commit(WithRepositoryMixin, GithubObject):
         return self.authored_at
 
     def fetch(self, gh, defaults=None, force_fetch=False, parameters=None,
-                                                        meta_base_name=None):
+                                                        meta_base_name=None, only_commits=False):
         if defaults is None:
             defaults = {}
         defaults.setdefault('related', {}).setdefault('*', {}).setdefault('fk', {})['commit'] = self
+        defaults['context'] = {'only_commits': bool(only_commits)}
         return super(Commit, self).fetch(gh, defaults, force_fetch, parameters, meta_base_name)
 
     def save(self, *args, **kwargs):
@@ -276,7 +281,7 @@ class Commit(WithRepositoryMixin, GithubObject):
         from gim.core.tasks.commit import FetchCommitStatuses
 
         FetchCommitStatuses.add_job(self.pk, delayed_for=delayed_for,
-                                             force_requeue=force_requeue,
+                                             force_requeue=1 if force_requeue else 0,
                                              force_fetch=force_fetch)
 
     def get_head_pull_requests(self):
