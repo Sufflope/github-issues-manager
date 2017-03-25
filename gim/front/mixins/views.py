@@ -829,6 +829,12 @@ class BaseIssuesView(object):
     def get_base_queryset(self):
         raise NotImplementedError
 
+    def get_distinct(self, order_by):
+        result = ['id']
+        if order_by and not self.needs_only_queryset:
+            result = [field[1:] if field.startswith('-') else field for field in order_by] + result
+        return result
+
     def get_queryset(self, base_queryset, filters, order_by):
 
         queryset = base_queryset
@@ -859,13 +865,10 @@ class BaseIssuesView(object):
                             for value in values:
                                 queryset = queryset.exclude(**{key: value})
 
-        distinct = ['id']
-
         if order_by and not self.needs_only_queryset:
             queryset = queryset.order_by(*order_by)
-            distinct = [field[1:] if field.startswith('-') else field for field in order_by] + distinct
 
-        return queryset.distinct(*distinct)
+        return queryset.distinct(*self.get_distinct(order_by))
 
     def get_issues_for_context(self, context):
         """

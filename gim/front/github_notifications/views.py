@@ -2,6 +2,8 @@ import json
 from collections import OrderedDict
 
 from async_messages import messages
+
+from django.db import models
 from django.core.urlresolvers import reverse
 from django.http.response import HttpResponse, HttpResponseRedirect
 from django.utils.dateformat import format
@@ -255,6 +257,12 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
 
         return issues, total_count, limit_reached, original_queryset
 
+    def get_distinct(self, order_by):
+        result = super(GithubNotifications, self).get_distinct(order_by)
+        if not self.needs_only_queryset:
+            result.append('ordering')
+        return result
+
     def get_queryset(self, base_queryset, filters, order_by):
 
         queryset = base_queryset
@@ -297,11 +305,22 @@ class GithubNotifications(BaseIssuesView, GithubNotificationsFilters, TemplateVi
 
         if not self.needs_only_queryset:
             # http://blog.mathieu-leplatre.info/django-create-a-queryset-from-a-list-preserving-order.html
-            extra_clauses = ' '.join(['WHEN core_issue.id=%s THEN %s' % (pk, i) for i, pk in enumerate(filters['id__in'])])
-            extra_ordering = 'CASE %s END' % extra_clauses
-            queryset = queryset.extra(select={'ordering': extra_ordering}, order_by=order_by + ['ordering'])
+            queryset = queryset.annotate(
+                ordering=models.Case(
+                    *[
+                        models.When(id=pk, then=models.Value(i))
+                        for i, pk
+                        in enumerate(filters['id__in'])
+                    ],
+                    **dict(
+                        default=models.Value(0),
+                        output_field=models.IntegerField(),
+                    )
+                )
+            )
+            order_by += ['ordering']
 
-        return super(GithubNotifications, self).get_queryset(queryset, filters, [])
+        return super(GithubNotifications, self).get_queryset(queryset, filters, order_by)
 
     def get_context_data(self, **kwargs):
         """

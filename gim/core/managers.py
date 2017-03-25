@@ -1,5 +1,4 @@
 import logging
-import hashlib
 import os
 import re
 import subprocess
@@ -1126,20 +1125,17 @@ class CommitManager(WithRepositoryManager):
                 elif path not in first_files and path in second_files:
                     status = 'added'
 
-                patches = [files.get(path, '') for files in first_files, second_files]
+                patches = [files.get(path, '') or '' for files in first_files, second_files]
                 patches = [patch + '\n' if not patch.endswith('\n') else patch for patch in patches]
-                shas = [hashlib.sha1(patch.encode('utf-8')).hexdigest() for patch in patches]
 
-                if shas[0] == shas[1]:
-                    if not status:
-                        status = 'same'
+                if not status and patches[0] == patches[1]:
+                    status = 'same'
 
                 if not status:
                     status =  'modified'
 
                 by_paths[path] = {
                     'status': status,
-                    'shas': shas,
                 }
 
                 if status == 'same':
