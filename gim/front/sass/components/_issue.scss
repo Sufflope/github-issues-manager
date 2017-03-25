@@ -1511,6 +1511,7 @@ $repo-name-height: 20px;
     }
 }
 .issue-commits {
+    margin-bottom: 30px;
     > .content {
         line-height: 20px !important;
         overflow: auto;
@@ -1807,11 +1808,21 @@ table.commits-list {
                     li a {
                         font-weight: normal;
                     }
+                    .dropdown-menu {
+                        max-height: 100px;
+                        overflow: auto;
+                    }
                 }
             }
         }
     }
 } // table.commits-list
+
+// open menu of diffable commits for the last row on top of the buton and not on bottom
+.actual-commits .pr-commits-group:last-child .row-message:last-child .diffable-commits .dropdown-menu {
+    top: auto;
+    bottom: 100%;
+}
 
 .files-navigator {
     width: 20em;
