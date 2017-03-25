@@ -1774,9 +1774,8 @@ table.commits-list {
                 position: relative;
                 top: 1px;
             }
-            > button {
-                padding: 0 5px;
-                margin-left: 4px;
+            > .copy-to-clipboard {
+                margin-left: 3px;
             }
             white-space: nowrap;
         }

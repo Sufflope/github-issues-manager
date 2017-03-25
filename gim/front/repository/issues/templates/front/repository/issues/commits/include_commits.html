@@ -19,7 +19,7 @@
             {% endwith %}
             <td class="cell-sha">
                 <a class="commit-link" href="{{ commit.github_url }}" target='_blank' title="View commit{% if commit.comments_count %} with comments{% endif %}">{{ commit.sha|short_sha }}</a>
-                <button class="btn btn-small btn-default copy-to-clipboard" data-clipboard-text="{{ commit.sha }}" title="Copy full sha1 to clipboard"><i class="fa fa-clipboard"> </i></button>
+                <button class="btn btn-mini btn-default copy-to-clipboard" data-clipboard-text="{{ commit.sha }}" title="Copy full sha1 to clipboard"><i class="fa fa-clipboard"> </i></button>
             </td>
         </tr>
         <tr class="row-message">
