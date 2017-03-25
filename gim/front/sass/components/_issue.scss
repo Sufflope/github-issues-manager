@@ -833,7 +833,7 @@ $repo-name-height: 20px;
 @media (min-width: 1023px) {
     .issue-container.big-issue .code-files {
         position: relative;
-        min-height: 245px;
+        min-height: 400px;
         .files-list-sticky-wrapper {
             height: auto !important;
         }
@@ -895,6 +895,9 @@ $repo-name-height: 20px;
         }
         .issue-activity {
             margin-left: $file-list-width;
+            &.empty-area {
+                padding-top: 100px;
+            }
         }
     }
 }
@@ -1511,6 +1514,7 @@ $repo-name-height: 20px;
     }
 }
 .issue-commits {
+    margin-bottom: 30px;
     > .content {
         line-height: 20px !important;
         overflow: auto;
@@ -1672,6 +1676,9 @@ $repo-name-height: 20px;
         i {
             font-size: inherit;
         }
+        &.issue-activity {
+            margin-top: 0;
+        }
     }
     .global-comments > .divider {
         margin-top: 15px;
@@ -1807,11 +1814,21 @@ table.commits-list {
                     li a {
                         font-weight: normal;
                     }
+                    .dropdown-menu {
+                        max-height: 100px;
+                        overflow: auto;
+                    }
                 }
             }
         }
     }
 } // table.commits-list
+
+// open menu of diffable commits for the last row on top of the buton and not on bottom
+.actual-commits .pr-commits-group:last-child .row-message:last-child .diffable-commits .dropdown-menu {
+    top: auto;
+    bottom: 100%;
+}
 
 .files-navigator {
     width: 20em;
