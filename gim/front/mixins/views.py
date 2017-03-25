@@ -859,10 +859,13 @@ class BaseIssuesView(object):
                             for value in values:
                                 queryset = queryset.exclude(**{key: value})
 
+        distinct = ['id']
+
         if order_by and not self.needs_only_queryset:
             queryset = queryset.order_by(*order_by)
+            distinct = [field[1:] if field.startswith('-') else field for field in order_by] + distinct
 
-        return queryset.distinct()
+        return queryset.distinct(*distinct)
 
     def get_issues_for_context(self, context):
         """

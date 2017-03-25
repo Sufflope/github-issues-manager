@@ -1371,7 +1371,6 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
 
     def get_context_data(self, **kwargs):
         context = super(CommitAjaxIssueView, self).get_context_data(**kwargs)
-        context['current_commit'] = self.commit
 
         entry_points = self.commit.all_entry_points
 
@@ -1392,6 +1391,27 @@ class CommitAjaxIssueView(CommitViewMixin, SimpleAjaxIssueView):
         context['commit_comment_create_url'] = \
             context['current_issue'].commit_comment_create_url().replace('0' * 40, self.commit.sha)
 
+        return context
+
+
+class CommitAjaxCompareView(CommitViewMixin, SimpleAjaxIssueView):
+    url_name = 'issue.commit.compare'
+    ajax_template_name = 'front/repository/issues/code/include_commit_compare.html'
+
+    issue_related_name = 'commit__issues'
+    repository_related_name = 'commit__issues__repository'
+
+    @cached_property
+    def other_commit(self):
+        return get_object_or_404(self.repository.commits, sha=self.kwargs['other_commit_sha'])
+
+    def get_context_data(self, **kwargs):
+        from gim.core.models import Commit
+        context = super(CommitAjaxCompareView, self).get_context_data(**kwargs)
+        context['other_commit'] = self.other_commit
+        context['commit_diff_files'] = Commit.objects.diff(self.commit, self.other_commit, True)
+        context['nb_additions'] = sum(file.nb_additions for file in context['commit_diff_files'])
+        context['nb_deletions'] = sum(file.nb_deletions for file in context['commit_diff_files'])
         return context
 
 

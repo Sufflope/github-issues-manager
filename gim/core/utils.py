@@ -1,4 +1,7 @@
 import gc
+import signal
+from collections import defaultdict
+from contextlib import contextmanager
 from functools import wraps
 
 from django.contrib.postgres import fields
@@ -163,3 +166,48 @@ class SavedObjects(dict):
 
     def set_object(self, model, filters, obj, saved=False):
         self.setdefault(model, {})[tuple(sorted(filters.items()))] = obj
+
+
+def graph_from_edges(edges):
+    # copied from digraphtools (without casting values into list)
+    graph = defaultdict(set)
+    for a,b in edges:
+        graph[a].add(b)
+        graph[b]
+    return graph
+
+
+def dfs_topsort_traversal(graph, root, seen=None):
+    # optimized version of digraphtools.dfs_topsort_traversal
+    if seen is None:
+        seen = set()
+    for n in graph[root]:
+        if n in seen:
+            continue
+        for traversed in dfs_topsort_traversal(graph, n, seen):
+            yield traversed
+            seen.add(traversed)
+        seen.add(n)
+    if root not in seen:
+        yield root
+        seen.add(root)
+
+
+class TimeoutException(Exception):
+    pass
+
+
+def stop_after_seconds_timeout_handler(signum, frame):
+    import ipdb; ipdb.set_trace()
+    raise TimeoutException('Timeout')
+
+signal.signal(signal.SIGALRM, stop_after_seconds_timeout_handler)
+
+
+@contextmanager
+def stop_after_seconds(seconds):
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)

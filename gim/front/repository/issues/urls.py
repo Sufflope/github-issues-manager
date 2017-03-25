@@ -13,7 +13,7 @@ from .views import (
     IssueCommentDeleteView, PullRequestCommentDeleteView, CommitCommentDeleteView,
     IssuesFilterCreators, IssuesFilterAssigned, IssuesFilterClosers, IssuesFilterMentioned,
     PullRequestReviewCreateView, PullRequestReviewView, PullRequestReviewEditView,
-    IssueDeletePRBranch,
+    IssueDeletePRBranch, CommitAjaxCompareView,
 )
 
 urlpatterns = [
@@ -71,6 +71,7 @@ urlpatterns = [
             url(r'^(?P<issue_number>\d+)/code-comment/(?P<comment_pk>\d+)/delete/$', PullRequestCommentDeleteView.as_view(), name=PullRequestCommentDeleteView.url_name),
 
         # commits
+        url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/compare/(?P<other_commit_sha>[a-f0-9]{40})/$', CommitAjaxCompareView.as_view(), name=CommitAjaxCompareView.url_name),
         url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/add/$', CommitCommentCreateView.as_view(), name=CommitCommentCreateView.url_name),
             url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/(?P<comment_pk>\d+)/$', CommitCommentView.as_view(), name=CommitCommentView.url_name),
             url(r'^(?P<issue_number>\d+)/commit/(?P<commit_sha>[a-f0-9]{40})/comment/(?P<comment_pk>\d+)/edit/$', CommitCommentEditView.as_view(), name=CommitCommentEditView.url_name),

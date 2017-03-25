@@ -2,6 +2,7 @@
 __all__ = [
     'FetchClosedIssuesWithNoClosedBy',
     'FetchUpdatedPullRequests',
+    'FetchPullRequestsCommitsParents',
     'FetchUpdatedReviews',
     'FetchUnmergedPullRequests',
     'FetchCollaborators',
@@ -143,6 +144,40 @@ class FetchUpdatedPullRequests(RepositoryJob):
         Display the count of updated pull requests
         """
         return ' [fetched=%d, deleted=%s, errors=%s, todo=%s]' % result
+
+
+class FetchPullRequestsCommitsParents(RepositoryJob):
+    queue_name = 'fetch-commits-parents'
+
+    limit = fields.InstanceHashField()
+    count = fields.InstanceHashField()
+    errors = fields.InstanceHashField()
+    nb_commits = fields.InstanceHashField()
+
+    permission = 'read'
+    clonable_fields = ('limit', )
+
+    def run(self, queue):
+        super(FetchPullRequestsCommitsParents, self).run(queue)
+
+        gh = self.gh
+        if not gh:
+            return  # it's delayed !
+
+        count, deleted, errors, todo, nb_commits = \
+            self.repository.fetch_prs_commits_parents(limit=int(self.limit.hget() or 20), gh=gh)
+
+        self.hmset(count=count, errors=errors, nb_commits=nb_commits)
+
+        return count, deleted, errors, todo, nb_commits
+
+    def on_success(self, queue, result):
+        todo = result[3]
+        if todo:
+            self.clone(priority=-20, delayed_for=60)
+
+    def success_message_addon(self, queue, result):
+        return ' [fetched=%d, deleted=%s, errors=%s, todo=%s, nb_commits=%s]' % result
 
 
 class FetchUpdatedReviews(RepositoryJob):

@@ -1,20 +1,23 @@
 {% load frontutils %}
 <div class='area-top commit-details{% if not current_commit.committer_is_author %} multi{% endif %}'>
-    <p>
+    <p class="commit-details-intro">
         <span>
             Commit
             <a href="{{ current_commit.github_url }}" target='_blank' title="View commit on Github"><strong>{{ current_commit.sha|short_sha }}</strong></a>
         </span>
-        <span>
-            {% if not current_commit.committer_is_author %}
-            authored
+        <span class="commit-user">
+            {% if not current_commit.committer_is_author or current_commit.authored_at != current_commit.committed_at %}
+                authored
             {% endif %}
             by
             <img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_commit.author.full_avatar_url|avatar_size:24 }}" alt="{{ current_commit.real_author_name }}">&nbsp;<span title="{{ current_commit.real_author_name }}">{{ current_commit.real_author_name }}</span>
             on {{ current_commit.authored_at|date:"DATETIME_FORMAT" }}
+            {% if current_commit.committer_is_author and current_commit.authored_at != current_commit.committed_at %}
+                (committed on {{ current_commit.committed_at|date:"DATETIME_FORMAT" }})
+            {% endif %}
         </span>
         {% if not current_commit.committer_is_author %}
-            <span>
+            <span class="commit-user">
                 commited by
                 <img class="avatar-tiny img-circle lazyload" src="{{ default_avatar }}" data-src="{{ current_commit.committer.full_avatar_url|avatar_size:24 }}" alt="{{ current_commit.real_committer_name }}">&nbsp;<span title="{{ current_commit.real_committer_name }}">{{ current_commit.real_committer_name }}</span>
                 {% if current_commit.authored_at != current_commit.committed_at %}

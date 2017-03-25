@@ -794,6 +794,31 @@ $repo-name-height: 20px;
             }
         }
     }
+    + .vs-label {
+        background: transparent;
+        display: block;
+        text-align: center;
+        margin-top: -20px;
+        z-index: 1;
+        position: relative;
+        top: -5px;
+        font-weight: bold;
+        span {
+            background: #ddd;
+            color: #888;
+            padding: 5px 6px;
+            border-radius: 50%;
+            text-align: center;
+            border: solid 1px #ccc;
+        }
+        + .commit-details {
+            margin-top: -13px;
+            padding-top: 20px;
+        }
+    }
+    .commit-compare &:first-child {
+        padding-bottom: 9px;
+    }
 }
 
 @media (min-width: 1023px) {
@@ -841,13 +866,20 @@ $repo-name-height: 20px;
             .commit-details {
                 margin: 0;
                 max-height: 50%;
-                &.multi > p:first-child > span {
+                min-height: 100px;
+                &.multi > p.commit-details-intro > span {
                     display: block;
-                    &:not(:first-child) {
+                    &.commit-user {
                         margin-left: 1em;
                         &:before {
                             content: "•";
                         }
+                    }
+                }
+                + .vs-label {
+                    top: 10px;
+                    + .commit-details {
+                        margin-top: 2px;
                     }
                 }
             }
@@ -1016,12 +1048,35 @@ $repo-name-height: 20px;
             }
         }
     }
-    .pr-commits-group .box-header {
-        > .title, > .box-toolbar > li {
-            font-size: 13px;
+    .pr-commits-group {
+        .box-header {
+            > .title, > .box-toolbar > li {
+                font-size: 13px;
+            }
+            > .title {
+                font-weight: normal;
+            }
         }
-        > .title {
-            font-weight: normal;
+        .box-content.in {
+            overflow: visible;
+        }
+        &.box-section {
+            padding: 0;
+            .box-header {
+                .title {
+                    padding: 2px 10px;
+                    font-size: 11px;
+                }
+                .box-toolbar .time {
+                    line-height: 18px;
+                    padding: 2px 10px;
+                    font-size: 11px;
+                    .fa {
+                        height: 20px;
+                        line-height: 20px;
+                    }
+                }
+            }
         }
     }
 
@@ -1451,11 +1506,10 @@ $repo-name-height: 20px;
         line-height: 20px !important;
         overflow: auto;
     }
-    .deleted-commits-toggler {
+    .outdated-commits-toggler {
         font-size: inherit;
         display: inline-block;
         float: right;
-        line-height: i;
         vertical-align: middle;
         margin: 0;
         position: relative;
@@ -1470,17 +1524,12 @@ $repo-name-height: 20px;
             vertical-align: middle;
         }
     }
-    .all-commits {
+    .outdated-commits {
         display: none;
     }
-    &.view-deleted {
-        .all-commits {
+    &.view-outdated {
+        .outdated-commits {
             display: block;
-            padding-top: 15px;
-            margin-top: 0;
-        }
-        .active-commits {
-            display: none;
         }
     }
 }
@@ -1665,20 +1714,21 @@ table.commits-list {
         padding: 4px;
         vertical-align: top;
         &.cell-author {
-            width: 16ex;
-            white-space: nowrap;
-            font-weight: bold;
-            span {
-                overflow: hidden;
-                @include ellipsis();
-                vertical-align: middle;
-                display: inline-block;
-                width: 12ex;
-                margin-left: 3px;
+            padding-left: 32px;
+            position: relative;
+            > img {
+                position: absolute;
+                top: 4px;
+                left: 4px;
+            }
+            span.author {
+                font-weight: bold;
+            }
+            span.authored-at {
+                font-size: 12px;
             }
         }
         &.cell-message {
-            border-right: none;
             .label {
                 float: left;
                 margin-right: 4px;
@@ -1707,14 +1757,25 @@ table.commits-list {
             }
         }
         &.cell-sha {
-            width: 10ex;
+            width: 15ex;
             text-align: center;
             font-family: $monoFontFamily;
+            padding-top: 5px;
+            > a {
+                position: relative;
+                top: 1px;
+            }
+            > button {
+                padding: 0 5px;
+                margin-left: 4px;
+            }
+            white-space: nowrap;
         }
         &.cell-stats {
             white-space: nowrap;
             text-align: right;
             border-left: none;
+            padding-top: 5px;
             li:not(:first-child) {
                 margin-left: 2px;
             }
@@ -1722,6 +1783,24 @@ table.commits-list {
         .comments-count {
             color: white;
             font-weight: normal;
+        }
+    }
+    tr.row-message {
+        background: inherit;
+        border-top: 0;
+        td {
+            border-top: 0;
+            padding: 0 1px 0 28px;
+            div {
+                background: #F3F4F8;;
+                padding: 4px;
+                .diffable-commits {
+                    padding-left: 0;
+                    li a {
+                        font-weight: normal;
+                    }
+                }
+            }
         }
     }
 } // table.commits-list

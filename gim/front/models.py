@@ -3,7 +3,10 @@
 import json
 import re
 from collections import Counter, OrderedDict
-from operator import attrgetter
+from itertools import chain, product
+from operator import attrgetter, itemgetter
+
+from dateutil.parser import parse
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -13,6 +16,7 @@ from django.db.models import FieldDoesNotExist
 from django.template import loader
 from django.template.defaultfilters import date as convert_date, escape
 from django.utils.functional import cached_property
+
 from limpyd import model as lmodel, fields as lfields
 from markdown import markdown
 from markdown.extensions.codehilite import CodeHiliteExtension
@@ -20,7 +24,7 @@ from pymdownx.github import GithubExtension
 
 from gim.core import models as core_models, get_main_limpyd_database
 from gim.core.models.base import GithubObject
-from gim.core.utils import cached_method
+from gim.core.utils import cached_method, graph_from_edges, dfs_topsort_traversal, stop_after_seconds, JSONField
 from gim.events.models import EventPart
 from gim.subscriptions import models as subscriptions_models
 from gim.ws import publisher
@@ -385,10 +389,14 @@ class WithFiles(object):
 
 
 class _Issue(WithFiles, Hashable, FrontEditable):
+
+    pr_grouped_commits = JSONField(blank=True, null=True)
+
     class Meta:
         abstract = True
 
     RENDERER_IGNORE_FIELDS = {'state', 'merged'}
+    PR_GROUPED_COMMITS_VERSION = 1
 
     def get_reverse_kwargs(self):
         """
@@ -444,10 +452,23 @@ class _Issue(WithFiles, Hashable, FrontEditable):
         return self.get_view_url('issue.review')
 
     def ajax_commit_base_url(self):
-        kwargs = self.get_reverse_kwargs()
-        kwargs['commit_sha'] = '0' * 40
-        from gim.front.repository.issues.views import CommitAjaxIssueView
-        return reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name, kwargs=kwargs)
+        if not hasattr(self, '_ajax_commit_base_url'):
+            kwargs = self.get_reverse_kwargs()
+            kwargs['commit_sha'] = '0' * 40
+            from gim.front.repository.issues.views import CommitAjaxIssueView
+            self._ajax_commit_base_url = reverse_lazy('front:repository:%s' % CommitAjaxIssueView.url_name,
+                                                      kwargs=kwargs)
+        return self._ajax_commit_base_url
+
+    def ajax_commit_compare_base_url(self):
+        if not hasattr(self, '_ajax_commit_compare_base_url'):
+            kwargs = self.get_reverse_kwargs()
+            kwargs['commit_sha'] = '0' * 40
+            kwargs['other_commit_sha'] = '1' * 40
+            from gim.front.repository.issues.views import CommitAjaxCompareView
+            self._ajax_commit_compare_base_url = reverse_lazy('front:repository:%s' % CommitAjaxCompareView.url_name,
+                                                              kwargs=kwargs)
+        return self._ajax_commit_compare_base_url
 
     def commit_comment_create_url(self):
         if not hasattr(self, '_commit_comment_create_url'):
@@ -582,9 +603,164 @@ class _Issue(WithFiles, Hashable, FrontEditable):
             qs = qs.filter(**filters)
 
         result = []
-        for c in qs:
-            c.commit.relation_deleted = c.deleted
-            result.append(c.commit)
+        for ic in qs:
+            ic.commit.relation_deleted = ic.deleted
+            ic.commit.pull_request_head_at = ic.pull_request_head_at
+            result.append(ic.commit)
+
+        return result
+
+    def save_regrouped_commits(self, groups):
+        self.pr_grouped_commits = {
+            'version': self.PR_GROUPED_COMMITS_VERSION,
+            'head_sha': self.head_sha,
+            'groups': [
+                {
+                    'head_sha': group['head_sha'],
+                    'outdated': group['outdated'],
+                    'head_at': str(group['head_at']),
+                    'commits_shas': [c.sha for c in group['commits']],
+                }
+                for group in groups
+            ]
+        }
+
+        self.save(update_fields=['pr_grouped_commits'])
+
+    def get_regrouped_commits(self):
+
+        try:
+            stored = self.pr_grouped_commits
+            if stored and stored['head_sha'] == self.head_sha and stored['version'] == self.PR_GROUPED_COMMITS_VERSION:
+                commits = self.all_commits(True, False, False)
+                by_sha = {c.sha: c for c in commits}
+                return [
+                    {
+                        'head_sha': group['head_sha'],
+                        'outdated': group['outdated'],
+                        'head_at': parse(group['head_at']),
+                        'nb_commits': len(group['commits_shas']),
+                        'commits_by_day': GroupedCommits.group_by_day([by_sha[sha] for sha in group['commits_shas']], include_without_dates=True),
+                    }
+                    for group in stored['groups']
+                ]
+        except Exception:
+            # we'll recompute if we couldn't use stored data
+            pass
+
+        if self.commits_parents_fetched:
+            with stop_after_seconds(2):
+                try:
+                    groups = self.regroup_commits()
+                except Exception:
+                    pass
+                else:
+                    if groups and (len(groups) > 1 or not self.nb_deleted_commits):
+                        self.save_regrouped_commits(groups)
+                        for group in groups:
+                            group['commits_by_day'] = GroupedCommits.group_by_day(group.pop('commits'), include_without_dates=True)
+                        return groups
+
+        # we had a problem, create two groups: deleted and not deleted
+        groups = []
+        if self.nb_deleted_commits:
+            deleted_commits = [c for c in self.all_commits(True, True, True) if c.relation_deleted]
+            if deleted_commits:
+                head_commit = deleted_commits[-1]
+                groups.append({
+                    'head_sha': head_commit.sha,
+                    'outdated': True,
+                    'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                    'nb_commits': len(deleted_commits),
+                    'commits_by_day': GroupedCommits.group_by_day(deleted_commits, include_without_dates=True),
+                })
+
+        non_deleted_commits = self.all_commits(False, True, True)
+        if non_deleted_commits:
+            head_commit = non_deleted_commits[-1]
+            groups.append({
+                'head_sha': head_commit.sha,
+                'outdated': False,
+                'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'nb_commits': len(non_deleted_commits),
+                'commits_by_day': GroupedCommits.group_by_day(non_deleted_commits, include_without_dates=True),
+            })
+
+        if self.commits_parents_fetched:
+            self.save_regrouped_commits(groups)
+        return groups
+
+    def regroup_commits(self):
+
+        commits = self.all_commits(True, False, False)
+
+        by_sha = {c.sha: c for c in commits}
+
+        edges = list(chain.from_iterable([
+            product(
+                [c.sha],
+                c.parents or []
+            )
+            for c in commits
+        ]))
+
+        graph = graph_from_edges(edges)
+
+        # get all base commits
+        bases = [sha for sha, parents in graph.items() if not parents]
+
+        # remove them from the graph
+        graph = {sha: [parent for parent in parents if parent not in bases] for sha, parents in graph.items() if sha not in bases}
+
+        # get all head commits
+        head_shas = set(graph.keys()) ^ set(chain.from_iterable(graph.values()))
+
+        # make one group by head
+        groups = []
+        for head_sha in head_shas:
+            head_commit = by_sha[head_sha]
+            commits = [by_sha[sha] for sha in (dfs_topsort_traversal(graph, head_sha))]
+            groups.append({
+                'head_sha': head_sha,
+                'outdated': head_commit.relation_deleted,
+                'head_at': head_commit.pull_request_head_at or head_commit.committed_at,
+                'nb_commits': len(commits),
+                'commits': commits,
+            })
+
+        groups.sort(key=itemgetter('head_at'))
+
+        return groups
+
+    def get_diffable_commits(self):
+        if not self.nb_deleted_commits:
+            return {}
+
+        all_commits = self.all_commits(True, False, False)
+
+        by_authored_at = {}
+        for commit in all_commits:
+            by_authored_at.setdefault(commit.authored_at, []).append(commit)
+
+        result = {}
+        for authored_at, commits in by_authored_at.items():
+            unique_commits = set(commits)
+            if len(unique_commits) < 2:
+                continue
+            result[authored_at] = []
+            for commit in unique_commits:
+                for other_commit in unique_commits:
+                    if commit.sha == other_commit.sha:
+                        continue
+                    if commit.committed_at < other_commit.committed_at:
+                        ordered = [commit, other_commit]
+                    else:
+                        ordered = [other_commit, commit]
+                    result[authored_at].append({
+                        'commit': commit,
+                        'other_commit': other_commit,
+                        'ordered_commits': ordered,
+                    })
 
         return result
 
@@ -785,12 +961,12 @@ class _Issue(WithFiles, Hashable, FrontEditable):
 
         if not hasattr(self, '_prefetched_objects_cache'):
             self._prefetched_objects_cache = {}
-        self._prefetched_objects_cache['cards'] =  list(self.cards.select_related(
+        self._prefetched_objects_cache['cards'] =  self.cards.select_related(
             'column__project'
         ).order_by(
             'column__project__number'
-        ))
-        return self._prefetched_objects_cache['cards']
+        )
+        return list(self._prefetched_objects_cache['cards'])
 
     def user_can_add_pr_review(self, user):
         if not self.is_pull_request:
@@ -852,21 +1028,27 @@ class GroupedItems(list):
         return final_activity
 
     @classmethod
-    def group_by_day(cls, entries):
+    def group_by_day(cls, entries, include_without_dates=False):
         if not len(entries):
             return []
 
         groups = []
+        waiting = []
 
         for entry in entries:
             entry_datetime = getattr(entry, cls.date_field)
             if not entry_datetime:
+                if include_without_dates:
+                    waiting.append(entry)
                 continue
             entry_date = entry_datetime.date()
             if not groups or entry_date != groups[-1].start_date:
                 groups.append(cls())
                 groups[-1].start_date = entry_date
                 groups[-1].created_at = entry_datetime
+            if waiting:
+                groups[-1] += waiting
+                waiting = []
             groups[-1].append(entry)
 
         return groups
@@ -909,7 +1091,7 @@ class GroupedCommitComments(GroupedItems):
 
 class GroupedCommits(GroupedItems):
     model = core_models.Commit
-    date_field = 'authored_at'
+    date_field = 'committed_at'
     author_field = 'author'
     is_commits_group = True  # for template
 
@@ -927,6 +1109,8 @@ class GroupedCommits(GroupedItems):
 class _Commit(WithFiles, models.Model):
     class Meta:
         abstract = True
+
+    date_field = 'committed_at'
 
     @property
     def splitted_message(self):

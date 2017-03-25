@@ -4923,18 +4923,57 @@ $().ready(function() {
             if (!is_empty) {
                 $node.trigger('loaded.tab.' + tab_type);
             }
+
+            var tabs_history = $tabs_holder.data('tabs-history');
+            if (!tabs_history || !tabs_history.length) {
+                tabs_history = ['issue-discussion']
+            }
+            tabs_history.push($tab_pane.attr('id'));
+            $tabs_holder.data('tabs-history', tabs_history);
+
         }), // load_tab
 
         close_tab: (function IssueDetail__close_tab (ev) {
             var $tab = $(ev.target).closest('li'),
                 $tab_link = $tab.children('a'),
                 $tab_pane = $($tab_link.attr('href')),
+                tab_id = $tab_pane.attr('id'),
                 is_active = $tab.hasClass('active'),
-                $prev_tab = is_active ? $tab.prev(':visible').children('a') : null,
-                $node = is_active ? null : $tab.closest('.issue-container');
+                $node = $tab.closest('.issue-container'),
+                $tabs_holder, tabs_history, prev_tab_id, $prev_tab;
+
+            if (is_active) {
+                $tabs_holder = $node.find('.issue-tabs');
+                tabs_history = $tabs_holder.data('tabs-history');
+                // remove the one we just closed
+                tabs_history.pop();
+                while (tabs_history.length) {
+                    // get the one to set active (it will be added back)
+                    prev_tab_id = tabs_history.pop();
+                    // don't stay on the current tab
+                    if (prev_tab_id == tab_id) {
+                        continue;
+                    }
+                    // find the new tab
+                    $prev_tab = $tabs_holder.find('a[data-toggle=tab][href=#' + prev_tab_id + ']');
+                    if ($prev_tab.length) {
+                        // ok found it, we'll select it later
+                        break;
+                    } else {
+                        // hum, not found, we'll get the previous one in the history
+                        $prev_tab = null;
+                        prev_tab_id = null;
+                    }
+                }
+                $tabs_holder.data('tabs-history', tabs_history);
+                if (!prev_tab_id) {
+                    $prev_tab = $tab.prev(':visible').children('a');
+                }
+            }
 
             $tab.remove();
-            if ($prev_tab) {
+
+            if (is_active) {
                 $prev_tab.tab('show');
             } else {
                 IssueDetail.scroll_tabs($node, true);
@@ -5183,11 +5222,11 @@ $().ready(function() {
             return false;
         }), // on_link_to_review_comment
 
-        on_deleted_commits_toggle_change: (function IssueDetail__on_deleted_commits_toggle_change () {
+        on_outdated_commits_toggle_change: (function IssueDetail__on_outdated_commits_toggle_change () {
             var $input = $(this),
                 $parent = $input.closest('.issue-commits');
-                $parent.toggleClass('view-deleted', $input.is(':checked'))
-        }), // on_deleted_commits_toggle_change
+                $parent.toggleClass('view-outdated', $input.is(':checked'))
+        }), // on_outdated_commits_toggle_change
 
         on_commit_click: (function IssueDetail__on_commit_click (e) {
             var $link = $(e.target),
@@ -5226,12 +5265,17 @@ $().ready(function() {
                     .attr('style', null);
 
                 $tab.find('a').attr('href', '#' + tab_name + '-files');
-                $tab.find('strong').text(sha.substring(0, 7));
+                $tab.find('strong').text($holder.data('short-sha') || sha.substring(0, 7));
 
-                nb_files = parseInt($holder.data('files-count'), 10);
+                nb_files = $holder.data('files-count');
                 $label_node = $tab.find('.fa-file-o');
-                $label_node.next().text(nb_files);
-                $label_node.parent().attr('title', nb_files + ' changed file' + (nb_files > 1 ? 's' : '' ));
+                if (nb_files) {
+                    nb_files = parseInt(nb_files, 10);
+                    $label_node.next().text(nb_files);
+                    $label_node.parent().attr('title', nb_files + ' changed file' + (nb_files > 1 ? 's' : '' ));
+                } else {
+                    $label_node.parent().remove();
+                }
 
                 nb_comments = $holder.data('comments-count');
                 $label_node = $tab.find('.fa-comments-o');
@@ -5389,7 +5433,7 @@ $().ready(function() {
             }
 
             // commits options
-            $document.on('change', '.deleted-commits-toggler input', IssueDetail.on_deleted_commits_toggle_change);
+            $document.on('change', '.outdated-commits-toggler input', IssueDetail.on_outdated_commits_toggle_change);
             $document.on('click', '.commit-link', Ev.stop_event_decorate(IssueDetail.on_commit_click));
 
             // files list summary
@@ -7935,6 +7979,13 @@ $().ready(function() {
     $document.on('click', '[data-toggle=collapse] a[href=#]', function(ev) {
         ev.preventDefault();
     });
+
+    if (typeof window.Clipboard != 'undefined') {
+        var clipboard = new Clipboard('.copy-to-clipboard');
+        clipboard.on('success', function(e) {
+            MessagesManager.add_messages([MessagesManager.make_message('Copied to clipboard!', 'info')]);
+        });
+    }
 
 });
 
