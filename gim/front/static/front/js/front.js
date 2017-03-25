@@ -147,6 +147,8 @@ $().ready(function() {
     }; // Favicon
 
     var Ev = {
+        input_focused: false,
+
         stop_event_decorate: (function stop_event_decorate(callback) {
             /* Return a function to use as a callback for an event
                Call the callback and if it returns false (strictly), the
@@ -193,7 +195,7 @@ $().ready(function() {
                (strictly), the event propagation is stopped
             */
             var decorator = function(e) {
-                if ($(e.target).is(':input')) { return; }
+                if (Ev.input_focused) { return; }
                 return callback(e);
             };
             return Ev.stop_event_decorate(decorator);
@@ -222,13 +224,20 @@ $().ready(function() {
                     $node.focus();
                 }
             }
-        }) // set_focus
+        }), // set_focus
+
+        init: (function init() {
+            $document.on('focus', ':input', function() { Ev.input_focused = true; });
+            $document.on('blur', ':input', function() { Ev.input_focused = false; });
+        }) // init
     };
+    Ev.init();
     AppGlobal.Ev = Ev;
 
 
     // globally manage escape key to close modal
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
+        if (Ev.input_focused) { return; }
         if (ev.which != 27) { return; }
         var $modal = $('.modal.in');
         if (!$modal.data('modal').options.keyboard) { return; }
