@@ -1126,7 +1126,7 @@ class CommitManager(WithRepositoryManager):
                 elif path not in first_files and path in second_files:
                     status = 'added'
 
-                patches = [files.get(path, '') for files in first_files, second_files]
+                patches = [files.get(path, '') or '' for files in first_files, second_files]
                 patches = [patch + '\n' if not patch.endswith('\n') else patch for patch in patches]
                 shas = [hashlib.sha1(patch.encode('utf-8')).hexdigest() for patch in patches]
 
