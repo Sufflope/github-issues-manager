@@ -1,9 +1,9 @@
 {% load frontutils %}
 <div class='area-top commit-details{% if not current_commit.committer_is_author %} multi{% endif %}'>
     <p class="commit-details-intro">
-        <span>
+        <span{% if link_to_commit_tab %}{% with replace_sha='0000000000000000000000000000000000000000:'|concat:current_commit.sha %} class="commit-link-holder" data-repository="{{ current_repository.full_name }}" data-repository-id="{{ current_repository.id }}" data-sha="{{ current_commit.sha }}" data-url="{{ current_issue.ajax_commit_base_url|replace:replace_sha }}" data-comments-count="{{ current_commit.comments_count|default:0 }}" data-files-count="{{ current_commit.nb_changed_files }}"{% endwith %}{% endif %}>
             Commit
-            <a href="{{ current_commit.github_url }}" target='_blank' title="View commit on Github"><strong>{{ current_commit.sha|short_sha }}</strong></a>
+            <a href="{{ current_commit.github_url }}" target='_blank' {% if link_to_commit_tab %}title="Open in new tab in this pull request" class="commit-link"{% else %}title="View commit on Github"{% endif %}><strong>{{ current_commit.sha|short_sha }}</strong></a>
         </span>
         <span class="commit-user">
             {% if not current_commit.committer_is_author or current_commit.authored_at != current_commit.committed_at %}
