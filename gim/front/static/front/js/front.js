@@ -148,6 +148,7 @@ $().ready(function() {
 
     var Ev = {
         input_focused: false,
+        protected_textarea: null,
 
         stop_event_decorate: (function stop_event_decorate(callback) {
             /* Return a function to use as a callback for an event
@@ -226,9 +227,66 @@ $().ready(function() {
             }
         }), // set_focus
 
+        protect_textarea: function(ev) {
+            if (!Ev.protected_textarea) { return; }
+
+            var textarea = Ev.protected_textarea;
+
+            if (ev.target.nodeName == 'TEXTAREA') {
+                // another textearea, or the same, it's ok
+                return;
+            }
+
+            if (!document.contains(textarea)) {
+                // not in the dom anymore, it's ok
+                Ev.stop_protecting_textarea();
+                return;
+            }
+
+            // No content, we let the event happen
+            if (!textarea.value.trim()) {
+                Ev.stop_protecting_textarea();
+                return;
+            }
+
+            if (textarea.form) {
+                // if we are in the same form, we let the event happen
+                var $target_form = $(ev.target).closest('form');
+                if ($target_form.length && $target_form[0] == textarea.form) {
+                    return;
+                }
+            }
+
+            if (!window.confirm('You have text in a textarea, you may lose it. Continue anyway?')) {
+                // click "no", so we cancel the event and focus back on the textarea
+                ev.preventDefault();
+                ev.stopPropagation();
+                textarea.focus();
+                return false;
+            }
+
+            Ev.stop_protecting_textarea();
+
+        }, // protect_textarea
+
+        stop_protecting_textarea: function(textarea) {
+            if (!textarea || Ev.protected_textarea == textarea) {
+                Ev.protected_textarea = null;
+            }
+        }, // stop_protecting_textarea
+
+        on_textarea_focus: function(ev) {
+            Ev.input_focused = true;
+            if (ev.target.nodeName == 'TEXTAREA') {
+                Ev.protected_textarea = ev.target;
+            }
+        }, // on_textarea_focus
+
         init: (function init() {
-            $document.on('focus', ':input', function() { Ev.input_focused = true; });
+            $document.on('focus', ':input', Ev.on_textarea_focus);
             $document.on('blur', ':input', function() { Ev.input_focused = false; });
+            // capturing mode to start at the document levele to be able to cancel the event
+            document.addEventListener('click', Ev.protect_textarea, true);
         }) // init
     };
     Ev.init();
