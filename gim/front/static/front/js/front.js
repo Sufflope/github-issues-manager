@@ -17,6 +17,28 @@ $().ready(function() {
         document.head.appendChild(script);
     }; // loadScript
 
+    // https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
+    if (window.Element && !Element.prototype.closest) {
+        Element.prototype.closest =
+        function(s) {
+            var matches = (this.document || this.ownerDocument).querySelectorAll(s),
+                i,
+                el = this;
+            do {
+                i = matches.length;
+                while (--i >= 0 && matches.item(i) !== el) {};
+            } while ((i < 0) && (el = el.parentElement));
+            return el;
+        };
+    }
+    if (window.Element && !Element.prototype.parents) {
+        Element.prototype.parents = function(s) {
+            var el = this, parents = [];
+            while (el = el.parentElement.closest(s)) {if (el) { parents.push(el); }}
+            return parents;
+        }
+    }
+
     var UUID = (function() {
         /**
          * Fast UUID generator, RFC4122 version 4 compliant.
@@ -253,6 +275,16 @@ $().ready(function() {
                 // if we are in the same form, we let the event happen
                 var $target_form = $(ev.target).closest('form');
                 if ($target_form.length && $target_form[0] == textarea.form) {
+                    return;
+                }
+            }
+
+            // are we in the same safe area ? Get intersection of safe parents
+            var textarea_safe_elements = textarea.parents('.tp-safe'),
+                target_safe_elements = ev.target.parents('.tp-safe');
+            if (textarea_safe_elements.filter(function(n) { return target_safe_elements.indexOf(n) !== -1;}).length) {
+                // we share the same safe are, we let the event happen if we are not in an unsafe are
+                if (!ev.target.closest('.tp-unsafe')) {
                     return;
                 }
             }
@@ -529,7 +561,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class=""ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class="ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
             Favicon.set_val('×');
             WS.connection.close();
             WS.end_reconcile();
@@ -4162,7 +4194,7 @@ $().ready(function() {
                 $marker = $holder.children('.updated-marker');
 
             if (!$marker.length) {
-                $marker = $('<a class="updated-marker refresh-issue" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
+                $marker = $('<a class="updated-marker refresh-issue tp-unsafe" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
                 $holder.prepend($marker);
             }
         }), // IssueDetail__mark_container_as_updated
@@ -5913,7 +5945,7 @@ $().ready(function() {
 
         selector: '#messages',
         $node: null,
-        template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
+        template: '<li class="%(classes)s"><button type="button" class="close tp-safe" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
         extract: (function MessagesManager__extract ($node) {
             // Will extract message from ajax requests to put them

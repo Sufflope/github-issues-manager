@@ -28,7 +28,7 @@
                     {% if user and user.is_authenticated %}
                         {% with github_notifications_count=user.unread_notifications_count %}
                         <li class="dropdown user-avatar">
-                            <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                            <a href="#" role="button" class="dropdown-toggle tp-safe" data-toggle="dropdown">
                                 <span>
                                     <img src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:36 }}" class="img-rounded menu-avatar avatar lazyload" />
                                     <span>
