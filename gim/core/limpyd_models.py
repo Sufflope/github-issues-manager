@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 import json
 import logging
 
@@ -13,7 +14,7 @@ from limpyd_jobs.utils import datetime_to_score, import_class
 
 from gim.core.ghpool import Connection
 from gim.core import get_main_limpyd_database
-from gim.github import ApiError
+from gim.github import ApiError, ApiNotFoundError
 
 
 maintenance_logger = logging.getLogger('gim.maintenance')
@@ -588,6 +589,26 @@ class Token(lmodel.RedisModel):
                                 if not dry_run:
                                     job.status.hset(STATUSES.CANCELED)
 
+    @staticmethod
+    @contextmanager
+    def manage_gh_if_404(gh):
+        try:
+            yield
+        except ApiNotFoundError:
+            # Maybe the user doesn't have access anymore so we'll ask for an update
+            # of its available repositories. A job calling this method will
+            # be requeued because of the error, but when called later, the check of the
+            # repository for `gh` won't be ok so another token will be used
+            from gim.core.models import GithubUser
+            try:
+                user = GithubUser.objects.get(username=gh._connection_args['username'])
+            except Exception:
+                pass
+            else:
+                from core.tasks import FetchAvailableRepositoriesJob
+                FetchAvailableRepositoriesJob.add_job(user.id, prepend=True)
+
+            raise
 
 
 class DeletedInstance(lmodel.RedisModel):
