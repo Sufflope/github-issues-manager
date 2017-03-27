@@ -5682,6 +5682,23 @@ ol.errorlist, ul.errorlist {
   display: none !important;
 }
 
+/* line 485, ../../../sass/main.scss */
+#tp-confirm .modal-body p {
+  font-weight: bold;
+}
+/* line 489, ../../../sass/main.scss */
+#tp-confirm .modal-footer .row-fluid > :first-child {
+  text-align: left;
+  float: left;
+  font-weight: bold;
+  line-height: 30px;
+}
+/* line 495, ../../../sass/main.scss */
+#tp-confirm .modal-footer .row-fluid > :last-child {
+  text-align: right;
+  float: right;
+}
+
 @media (max-width: 1023px) {
   /* line 4, ../../../sass/_responsive.scss */
   .navbar-fixed-top .user-avatar .dropdown-toggle {

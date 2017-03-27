@@ -170,7 +170,6 @@ $().ready(function() {
 
     var Ev = {
         input_focused: false,
-        protected_textarea: null,
 
         stop_event_decorate: (function stop_event_decorate(callback) {
             /* Return a function to use as a callback for an event
@@ -249,76 +248,133 @@ $().ready(function() {
             }
         }), // set_focus
 
-        protect_textarea: function(ev) {
-            if (!Ev.protected_textarea) { return; }
+        textarea_protection: {
+            element: null,
+            $confirm: $('#tp-confirm'),
+            confirm_copy_element: document.getElementById('tp-confirm-copy'),
+            last_element: null,
+            last_event: null,
+            last_event_dispatched: false,
 
-            var textarea = Ev.protected_textarea;
-
-            if (ev.target.nodeName == 'TEXTAREA') {
-                // another textearea, or the same, it's ok
-                return;
-            }
-
-            if (!document.contains(textarea)) {
-                // not in the dom anymore, it's ok
-                Ev.stop_protecting_textarea();
-                return;
-            }
-
-            // No content, we let the event happen
-            if (!textarea.value.trim()) {
-                Ev.stop_protecting_textarea();
-                return;
-            }
-
-            if (textarea.form) {
-                // if we are in the same form, we let the event happen
-                var $target_form = $(ev.target).closest('form');
-                if ($target_form.length && $target_form[0] == textarea.form) {
+            protect_if_needed: function (ev) {
+                if (!Ev.textarea_protection.element) {
                     return;
                 }
-            }
 
-            // are we in the same safe area ? Get intersection of safe parents
-            var textarea_safe_elements = textarea.parents('.tp-safe'),
-                target_safe_elements = ev.target.parents('.tp-safe');
-            if (textarea_safe_elements.filter(function(n) { return target_safe_elements.indexOf(n) !== -1;}).length) {
-                // we share the same safe are, we let the event happen if we are not in an unsafe are
-                if (!ev.target.closest('.tp-unsafe')) {
+                var textarea = Ev.textarea_protection.element;
+
+                if (ev.target.nodeName == 'TEXTAREA') {
+                    // another textearea, or the same, it's ok
                     return;
                 }
-            }
 
-            if (!window.confirm('You have text in a textarea, you may lose it. Continue anyway?')) {
-                // click "no", so we cancel the event and focus back on the textarea
+                if (!document.contains(textarea)) {
+                    // not in the dom anymore, it's ok
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                // No content, we let the event happen
+                if (!textarea.value.trim()) {
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                if (textarea.form) {
+                    // if we are in the same form, we let the event happen
+                    var $target_form = $(ev.target).closest('form');
+                    if ($target_form.length && $target_form[0] == textarea.form) {
+                        return;
+                    }
+                }
+
+                // are we in the same safe area ? Get intersection of safe parents
+                var textarea_safe_elements = textarea.parents('.tp-safe'),
+                    target_safe_elements = ev.target.parents('.tp-safe');
+                if (textarea_safe_elements.filter(function (n) {
+                        return target_safe_elements.indexOf(n) !== -1;
+                    }).length) {
+                    // we share the same safe are, we let the event happen if we are not in an unsafe are
+                    if (!ev.target.closest('.tp-unsafe')) {
+                        return;
+                    }
+                }
+
+                Ev.textarea_protection.last_event = {
+                    target: ev.target,
+                    event: new MouseEvent('click', ev)
+                };
+
                 ev.preventDefault();
                 ev.stopPropagation();
-                textarea.focus();
-                return false;
-            }
 
-            Ev.stop_protecting_textarea();
+                Ev.textarea_protection.last_event_dispatched = false;
 
-        }, // protect_textarea
+                Ev.textarea_protection.last_element = textarea;
+                Ev.textarea_protection.stop();
 
-        stop_protecting_textarea: function(textarea) {
-            if (!textarea || Ev.protected_textarea == textarea) {
-                Ev.protected_textarea = null;
-            }
-        }, // stop_protecting_textarea
+                Ev.textarea_protection.$confirm.modal('show');
+                Ev.textarea_protection.confirm_copy_element.value = textarea.value;
+                window.setTimeout(function () {
+                    Ev.textarea_protection.confirm_copy_element.select();
+                    Ev.textarea_protection.confirm_copy_element.focus();
+                }, 400);
 
-        on_textarea_focus: function(ev) {
-            Ev.input_focused = true;
-            if (ev.target.nodeName == 'TEXTAREA') {
-                Ev.protected_textarea = ev.target;
-            }
-        }, // on_textarea_focus
+
+            }, // protect
+
+            stop: function (textarea) {
+                if (!textarea || Ev.textarea_protection.element == textarea) {
+                    Ev.textarea_protection.element = null;
+                }
+            }, // stop_protecting_textarea
+
+            on_confirm_continue: function() {
+                if (!Ev.textarea_protection.last_event) {
+                    return;
+                }
+                Ev.textarea_protection.last_element = null;
+                Ev.textarea_protection.last_event_dispatched = true;
+                var ev = Ev.textarea_protection.last_event;
+                Ev.textarea_protection.last_event = null;
+                Ev.textarea_protection.$confirm.modal('hide');
+                setTimeout(function() {
+                    ev.target.dispatchEvent(ev.event);
+                }, 500);
+            },
+
+            on_confirm_hidden: function() {
+                if (Ev.textarea_protection.last_event_dispatched) { return; }
+                if (!Ev.textarea_protection.last_element) { return; }
+                if ($(Ev.textarea_protection.last_element).is(':visible')) {
+                    Ev.textarea_protection.last_element.focus();
+                } else {
+                    Ev.textarea_protection.element = Ev.textarea_protection.last_element;
+                    Ev.textarea_protection.last_element = null;
+                }
+            },
+
+            on_textarea_focus: function(ev) {
+                if (!ev.target.classList.contains('no-tp')) {
+                    Ev.textarea_protection.element = ev.target;
+                }
+            }, // on_textarea_focus
+
+            init: function() {
+                $document.on('focus', 'textarea', Ev.textarea_protection.on_textarea_focus);
+                // capturing mode to start at the document level to be able to cancel the event
+                document.addEventListener('click', Ev.textarea_protection.protect_if_needed, true);
+
+                Ev.textarea_protection.$confirm.find('button.submit').on('click', Ev.textarea_protection.on_confirm_continue);
+                Ev.textarea_protection.$confirm.on('hidden.modal', Ev.textarea_protection.on_confirm_hidden);
+            } // init
+
+        }, // textarea_protection
 
         init: (function init() {
-            $document.on('focus', ':input', Ev.on_textarea_focus);
+            $document.on('focus', ':input', function() { Ev.input_focused = true; });
             $document.on('blur', ':input', function() { Ev.input_focused = false; });
-            // capturing mode to start at the document levele to be able to cancel the event
-            document.addEventListener('click', Ev.protect_textarea, true);
+            Ev.textarea_protection.init();
         }) // init
     };
     Ev.init();

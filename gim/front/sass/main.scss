@@ -481,5 +481,22 @@ ol, ul {
     display: none !important;
 }
 
+#tp-confirm {
+    .modal-body p {
+        font-weight: bold;
+    }
+    .modal-footer .row-fluid > {
+        :first-child {
+            text-align: left;
+            float: left;
+            font-weight: bold;
+            line-height: 30px;
+        }
+        :last-child {
+            text-align: right;
+            float: right;
+        }
+    }
+}
 
 @import "responsive";
