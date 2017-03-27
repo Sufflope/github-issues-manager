@@ -271,32 +271,6 @@ blockquote p:last-child {
   cursor: pointer;
 }
 
-/* line 114, ../../../sass/_bootstrap-correct.scss */
-.modal-backdrop ~ .modal-backdrop {
-  z-index: 1060;
-}
-/* line 116, ../../../sass/_bootstrap-correct.scss */
-.modal-backdrop ~ .modal-backdrop ~ .modal-backdrop {
-  z-index: 1080;
-}
-/* line 118, ../../../sass/_bootstrap-correct.scss */
-.modal-backdrop ~ .modal-backdrop ~ .modal-backdrop ~ .modal-backdrop {
-  z-index: 1100;
-}
-
-/* line 123, ../../../sass/_bootstrap-correct.scss */
-.modal.in ~ .modal.in {
-  z-index: 1070;
-}
-/* line 125, ../../../sass/_bootstrap-correct.scss */
-.modal.in ~ .modal.in ~ .modal.in {
-  z-index: 1090;
-}
-/* line 127, ../../../sass/_bootstrap-correct.scss */
-.modal.in ~ .modal.in ~ .modal.in ~ .modal.in {
-  z-index: 1110;
-}
-
 /* line 3, ../../../sass/widgets/_avatar.scss */
 .avatar img {
   display: inline-block;
@@ -5680,6 +5654,23 @@ ol.errorlist, ul.errorlist {
 /* line 480, ../../../sass/main.scss */
 .hidden {
   display: none !important;
+}
+
+/* line 485, ../../../sass/main.scss */
+#tp-confirm .modal-body p {
+  font-weight: bold;
+}
+/* line 489, ../../../sass/main.scss */
+#tp-confirm .modal-footer .row-fluid > :first-child {
+  text-align: left;
+  float: left;
+  font-weight: bold;
+  line-height: 30px;
+}
+/* line 495, ../../../sass/main.scss */
+#tp-confirm .modal-footer .row-fluid > :last-child {
+  text-align: right;
+  float: right;
 }
 
 @media (max-width: 1023px) {

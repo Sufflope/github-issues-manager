@@ -1,5 +1,5 @@
 {% load issues_tags %}
 <div class="content issue-body{% if not current_issue.body %} empty{% endif %} edit-place" data-field="body">
     {% if current_issue.body %}{{ current_issue.html_content|safe }}{% else %}No description for this {{ current_issue.type }} !{% endif %}
-    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'body' }}" class="issue-edit-btn issue-edit-btn-body btn-loading" data-field="body" title="Edit the body"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'body' }}" class="issue-edit-btn issue-edit-btn-body btn-loading" data-field="body" title="Edit the body"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
 </div>

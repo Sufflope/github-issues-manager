@@ -28,7 +28,7 @@
                     {% if user and user.is_authenticated %}
                         {% with github_notifications_count=user.unread_notifications_count %}
                         <li class="dropdown user-avatar">
-                            <a href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">
+                            <a href="#" role="button" class="dropdown-toggle tp-safe" data-toggle="dropdown">
                                 <span>
                                     <img src="{{ default_avatar }}" data-src="{{ user.full_avatar_url|avatar_size:36 }}" class="img-rounded menu-avatar avatar lazyload" />
                                     <span>
@@ -67,7 +67,31 @@
 
     {% include "./messages.html" with force_container=True %}
 
-    {% block modal-windows %}{% endblock %}
+    {% block modal-windows %}
+        <div id="tp-confirm" class="modal fancy hide fade">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" title="Close" aria-hidden="true">&times;</button>
+                <h6>Textarea protection</h6>
+            </div>
+            <div class="modal-body">
+                <p>You currently have text in a textarea.</p>
+                <p>By continuing you may lost it.</p>
+                <form class="fill-up">
+                    <label for="tp-confirm-copy">By convenience here is the text. You can copy it:</label>
+                    <textarea readonly id="tp-confirm-copy" class="no-tp" rows="10"></textarea>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="row-fluid auto-align">
+                    <div class="span8">Do you want to continue anyway?</div>
+                    <div class="span4">
+                        <button class="btn btn-blue btn-cancel" data-dismiss="modal" type="button">No</button>
+                        <button class="btn btn-danger submit">Yes, continue</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endblock %}
     <main id="main" class="container-fluid">
         {% block main %}{% endblock main %}
     </main>
