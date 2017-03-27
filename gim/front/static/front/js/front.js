@@ -280,12 +280,15 @@ $().ready(function() {
                     return;
                 }
 
-                if (textarea.form) {
+                if (textarea.form && ev.target.closest('form') == textarea.form) {
                     // if we are in the same form, we let the event happen
-                    var $target_form = $(ev.target).closest('form');
-                    if ($target_form.length && $target_form[0] == textarea.form) {
-                        return;
-                    }
+                    return;
+                }
+
+                if (textarea.closest('.modal:not(.in)')) {
+                    // if we are in a closed modal, ignore
+                    Ev.textarea_protection.stop();
+                    return;
                 }
 
                 // are we in the same safe area ? Get intersection of safe parents
