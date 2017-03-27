@@ -385,7 +385,7 @@ $().ready(function() {
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
         if (Ev.input_focused) { return; }
         if (ev.which != 27) { return; }
-        var $modal = $('.modal.in');
+        var $modal = $('.modal.in').last();
         if (!$modal.data('modal').options.keyboard) { return; }
         $modal.modal('hide');
     }));
@@ -8133,6 +8133,16 @@ $().ready(function() {
     // if a link is "fake" and in a collapse header, deactivate the real click
     $document.on('click', '[data-toggle=collapse] a[href=#]', function(ev) {
         ev.preventDefault();
+    });
+
+    // when a modal is shown, move it at the end of all modals
+    $document.on('show.modal', '.modal', function(ev) {
+        var $modal = $(this),
+            $last_modal = $('body > .modal').last();
+        if ($modal[0] != $last_modal[0]) {
+            $last_modal.after($modal);
+            $modal.css('zIndex', parseInt($last_modal.css('zIndex') || 1050, 10) + 1);
+        }
     });
 
     if (typeof window.Clipboard != 'undefined') {
