@@ -322,6 +322,15 @@ class Token(lmodel.RedisModel):
         else:
             return token
 
+    def is_available_for_repository(self, repository_pk, permission):
+        if permission == 'admin':
+            return self.repos_admin.sismember(repository_pk)
+        if permission == 'push':
+            return self.repos_push.sismember(repository_pk)
+        if permission == 'pull':
+            return self.repos_pull.sismember(repository_pk)
+        return True
+
     @classmethod
     def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission, min_remaining=None):
         if min_remaining is None:
