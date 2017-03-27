@@ -7488,7 +7488,7 @@ $().ready(function() {
         selector: '.hoverable-issue',
         abort_selector: '.not-hoverable',
         activated: true,
-        delay_enter: 500,
+        delay_enter: 1000,
         popover_options: null,  // defined in init
 
         extract_issue_ident: function ($node) {
