@@ -265,16 +265,16 @@ $().ready(function() {
             last_event: null,
             last_event_dispatched: false,
 
-
-
             protect_if_needed: function (ev) {
-                if (!Ev.textarea_protection.element) {
+
+                var textarea = Ev.textarea_protection.element,
+                    target = ev.target;
+
+                if (!textarea) {
                     return;
                 }
 
-                var textarea = Ev.textarea_protection.element;
-
-                if (ev.target.nodeName == 'TEXTAREA') {
+                if (target.nodeName == 'TEXTAREA') {
                     // another textearea, or the same, it's ok
                     return;
                 }
@@ -291,7 +291,7 @@ $().ready(function() {
                     return;
                 }
 
-                if (textarea.form && ev.target.closest('form') == textarea.form) {
+                if (textarea.form && target.closest('form') == textarea.form) {
                     // if we are in the same form, we let the event happen
                     return;
                 }
@@ -302,25 +302,25 @@ $().ready(function() {
                     return;
                 }
 
-                if (ev.target.closest('#select2-drop')) {
+                if (target.closest('#select2-drop')) {
                     // we clicked on a select2 list, we can assume it was it the sane form
                     return;
                 }
 
                 // are we in the same safe area ? Get intersection of safe parents
                 var textarea_safe_elements = textarea.parents('.tp-safe'),
-                    target_safe_elements = ev.target.parents('.tp-safe');
+                    target_safe_elements = target.parents('.tp-safe');
                 if (textarea_safe_elements.filter(function (n) {
                         return target_safe_elements.indexOf(n) !== -1;
                     }).length) {
                     // we share the same safe are, we let the event happen if we are not in an unsafe are
-                    if (!ev.target.closest('.tp-unsafe')) {
+                    if (!target.closest('.tp-unsafe')) {
                         return;
                     }
                 }
 
                 Ev.textarea_protection.last_event = {
-                    target: ev.target,
+                    target: target,
                     event: new MouseEvent('click', ev)
                 };
 
@@ -346,7 +346,7 @@ $().ready(function() {
                 if (!textarea || Ev.textarea_protection.element == textarea) {
                     Ev.textarea_protection.element = null;
                 }
-            }, // stop_protecting_textarea
+            }, // stop
 
             on_confirm_continue: function() {
                 if (!Ev.textarea_protection.last_event) {
@@ -379,6 +379,35 @@ $().ready(function() {
                 }
             }, // on_textarea_focus
 
+            on_before_unload: function(ev) {
+
+                var textarea = Ev.textarea_protection.element;
+
+                if (!textarea) {
+                    return;
+                }
+
+                if (!document.contains(textarea)) {
+                    // not in the dom anymore, it's ok
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                // No content, it's ok
+                if (!textarea.value.trim()) {
+                    return;
+                }
+
+                if (textarea.closest('.modal:not(.in)')) {
+                    // if we are in a closed modal, ignore
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                ev.returnValue = 'You currently have text in a textarea.';
+
+            }, // on_before_unload
+
             init: function() {
                 $document.on('focus', 'textarea', Ev.textarea_protection.on_textarea_focus);
                 // capturing mode to start at the document level to be able to cancel the event
@@ -386,6 +415,9 @@ $().ready(function() {
 
                 Ev.textarea_protection.$confirm.find('button.submit').on('click', Ev.textarea_protection.on_confirm_continue);
                 Ev.textarea_protection.$confirm.on('hidden.modal', Ev.textarea_protection.on_confirm_hidden);
+
+                window.addEventListener("beforeunload", Ev.textarea_protection.on_before_unload);
+
             } // init
 
         }, // textarea_protection
