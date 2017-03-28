@@ -265,6 +265,8 @@ $().ready(function() {
             last_event: null,
             last_event_dispatched: false,
 
+
+
             protect_if_needed: function (ev) {
                 if (!Ev.textarea_protection.element) {
                     return;
@@ -5845,19 +5847,21 @@ $().ready(function() {
 
     // select the issue given in the url's hash, or an active one in the html,
     // or the first item of the current list
-    if (IssuesList.all.length) {
+    if (IssueDetail.$modal.length) {
         (function () {
-            IssuesList.all[0].set_current();
+            if (IssuesList.all.length) {
+                IssuesList.all[0].set_current();
+            }
             var done = false;
 
             if (window.location.hash && HistoryManager.re_hash.test(window.location.hash)) {
                 var re_result = HistoryManager.re_hash.exec(window.location.hash),
                     issue_id = re_result[2],
-                    is_modal = !!re_result[1];
+                    is_modal = !!re_result[1] || !IssuesList.all.length;
                 HistoryManager.add_history(null, issue_id, is_modal, false);
                 IssueDetail.open_issue_by_id(issue_id, is_modal);
                 done = true;
-            } else {
+            } else if (IssuesList.all.length) {
                 var $issue_to_select = $(IssuesListIssue.selector + '.active');
                 if ($issue_to_select.length) {
                     $issue_to_select.removeClass('active');
@@ -5865,7 +5869,7 @@ $().ready(function() {
                     done = true;
                 }
             }
-            if (!done) {
+            if (!done && IssuesList.all.length) {
                 IssuesList.current.go_to_next_item();
             }
         })();
