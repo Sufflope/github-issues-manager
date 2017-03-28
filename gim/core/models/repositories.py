@@ -225,8 +225,6 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_milestones(self, gh, force_fetch=False, parameters=None):
-        if not self.has_issues:
-            return 0
         with Token.manage_gh_if_404(gh):
             return self._fetch_many('milestones', gh,
                                     vary={'state': ('open', 'closed')},
