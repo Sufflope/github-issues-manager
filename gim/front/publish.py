@@ -125,7 +125,7 @@ PUBLISHABLE = {
                 'is_new': getattr(self.issue, 'is_new', False),
                 'is_pr': self.issue.is_pull_request,
                 'number': self.issue.number,
-            } if self.issue_id else None,
+            } if self.issue_id and self.issue.number else None,
         }
     },
     core_models.Column: {

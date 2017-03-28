@@ -52,6 +52,7 @@ class Repository(GithubObjectWithId):
     private = models.BooleanField(default=False)
     is_fork = models.BooleanField(default=False)
     has_issues = models.BooleanField(default=False)
+    has_projects = models.BooleanField(default=True)
     default_branch = models.TextField(blank=True, null=True)
 
     first_fetch_done = models.BooleanField(default=False)
@@ -666,7 +667,10 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_projects(self, gh, force_fetch=False, parameters=None, max_pages=None):
-        return self._fetch_many('projects', gh,
+        had_projects = self.has_projects
+        has_projects = None
+
+        result = self._fetch_many('projects', gh,
                                 defaults={
                                     'fk': {'repository': self},
                                     'related': {'*': {'fk': {'repository': self}}},
@@ -675,6 +679,40 @@ class Repository(GithubObjectWithId):
                                 parameters=parameters,
                                 max_pages=None)  # we need them all to get all the positions
 
+        # no projects, are they activated?
+        if not self.projects.exists():
+            try:
+                from gim.core.models import Project
+                Repository.objects.get_github_callable(
+                    gh, self.github_callable_identifiers_for_projects
+                ).get(
+                    per_page=1,
+                    request_headers={'Accept': 'application/vnd.github.%s' % Project.github_api_version}
+                )
+            except ApiError as e:
+                if e.code in (404, 410):
+                    self.projects_fetched_at = datetime.utcnow()
+                    updated_fields = ['projects_fetched_at']
+                    if had_projects:
+                        self.has_projects = False
+                        updated_fields.append('has_projects')
+                    self.save(update_fields=updated_fields)
+                    return result
+                else:
+                    # another error? should have happened in _fetch_many, but still, raise it
+                    raise
+            else:
+                has_projects = True
+
+        else:
+            has_projects = True
+
+        if has_projects and not had_projects :
+            self.has_projects = True
+            self.save(update_fields=['has_projects'])
+
+        return result
+
     def fetch_all_projects(self, gh, force_fetch=False):
         if not force_fetch:
             if not self.projects_fetched_at:
@@ -682,19 +720,20 @@ class Repository(GithubObjectWithId):
         now = datetime.utcnow()
         try:
             self.fetch_projects(gh, force_fetch=force_fetch)
-            # we must always fetch each projects to get the order if changed
-            for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
-                if not project.fetch_columns(gh, force_fetch=force_fetch):
-                    # we have no new/updated columns
-                    continue
-                for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
-                    if force_fetch or column.fetched_at > now:
-                        try:
-                            column.fetch_cards(gh, force_fetch=force_fetch)
-                        except ApiError:
-                            # Currently Github raise a 500 when asking for the second page of cards
-                            # We want to continue to fetch cards of other columns
-                            pass
+            if self.has_projects:
+                # we must always fetch each projects to get the order if changed
+                for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                    if not project.fetch_columns(gh, force_fetch=force_fetch):
+                        # we have no new/updated columns
+                        continue
+                    for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                        if force_fetch or column.fetched_at > now:
+                            try:
+                                column.fetch_cards(gh, force_fetch=force_fetch)
+                            except ApiError:
+                                # Currently Github raise a 500 when asking for the second page of cards
+                                # We want to continue to fetch cards of other columns
+                                pass
         except Exception:
             # Next time we'll refetch all. Else we won't be able to get new data if
             # the error occured for example while fetching cards: the fetch of the
@@ -840,13 +879,13 @@ class Repository(GithubObjectWithId):
         return counts
 
     @cached_property
-    def has_projects(self):
-        return self.projects.exists()
+    def has_some_projects(self):
+        return self.has_projects and self.projects.exists()
 
     @property
-    def has_projects_with_issues(self):
+    def has_some_projects_with_issues(self):
         from .projects import CARDTYPE
-        return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
+        return self.has_projects and self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
 
     GRAPHQL_FETCH_REVIEWS = compose_query("""
         query RepositoryPullRequestsReviews($nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {

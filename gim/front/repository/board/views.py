@@ -143,7 +143,7 @@ class BoardMixin(object):
                 del boards[column_name]
 
         # Add projects
-        if self.repository.has_projects:
+        if self.repository.has_some_projects:
             if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
                 projects = self.projects_including_empty
             else:

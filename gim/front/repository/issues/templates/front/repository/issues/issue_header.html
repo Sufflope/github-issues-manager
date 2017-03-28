@@ -50,7 +50,7 @@
                 {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'milestone' }}" class="issue-edit-btn issue-edit-btn-milestone btn-loading" data-field="milestone" title="Edit the milestone"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
             </div>
         {% endif %}
-        {% if current_issue.repository.has_projects %}
+        {% if current_issue.repository.has_some_projects %}
             {% with cards=current_issue.ordered_cards %}
                 {% if cards or current_issue_edit_level == 'full' %}
                     <div class="issue-projects{% if not cards %} no-projects{% endif %} edit-place" data-field="projects">

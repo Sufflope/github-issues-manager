@@ -53,7 +53,7 @@ from gim.front.utils import make_querystring, forge_request, get_metric, get_met
 
 from .forms import (IssueStateForm, IssueTitleForm, IssueBodyForm,
                     IssueMilestoneForm, IssueAssigneesForm, IssueLabelsForm, IssueProjectsForm,
-                    IssueCreateForm, IssueCreateFormFull,
+                    IssueCreateForm, IssueCreateFormFull, IssueCreateFormFullWithoutProjects,
                     IssueCommentCreateForm, PullRequestCommentCreateForm, CommitCommentCreateForm,
                     IssueCommentEditForm, PullRequestCommentEditForm, CommitCommentEditForm,
                     IssueCommentDeleteForm, PullRequestCommentDeleteForm, CommitCommentDeleteForm,
@@ -560,7 +560,7 @@ class IssuesFilters(BaseIssuesFilters):
 
     def get_context_data(self, **kwargs):
 
-        if self.repository.has_projects_with_issues:
+        if self.repository.has_some_projects_with_issues:
             self.allowed_group_by = self.allowed_group_by.copy()
             for name in ('project', 'project_column'):
                 self.allowed_group_by[name] = GROUP_BY_CHOICES[name][1]
@@ -1714,7 +1714,10 @@ class IssueCreateView(LinkedToUserFormViewMixin, BaseIssueEditViewSubscribed, Cr
         Not the same form depending of the rights
         """
         if self.subscription.state in SUBSCRIPTION_STATES.WRITE_RIGHTS:
-            return IssueCreateFormFull
+            if self.repository.has_some_projects:
+                return IssueCreateFormFull
+            else:
+                return IssueCreateFormFullWithoutProjects
         return IssueCreateForm
 
     def get_success_url(self):
