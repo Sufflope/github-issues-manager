@@ -300,6 +300,11 @@ $().ready(function() {
                     return;
                 }
 
+                if (ev.target.closest('#select2-drop')) {
+                    // we clicked on a select2 list, we can assume it was it the sane form
+                    return;
+                }
+
                 // are we in the same safe area ? Get intersection of safe parents
                 var textarea_safe_elements = textarea.parents('.tp-safe'),
                     target_safe_elements = ev.target.parents('.tp-safe');
