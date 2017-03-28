@@ -169,7 +169,7 @@ $().ready(function() {
     }; // Favicon
 
     var Ev = {
-        input_focused: false,
+        focused_input: null,
 
         stop_event_decorate: (function stop_event_decorate(callback) {
             /* Return a function to use as a callback for an event
@@ -217,7 +217,7 @@ $().ready(function() {
                (strictly), the event propagation is stopped
             */
             var decorator = function(e) {
-                if (Ev.input_focused) { return; }
+                if (Ev.is_one_input_focused()) { return; }
                 return callback(e);
             };
             return Ev.stop_event_decorate(decorator);
@@ -247,6 +247,15 @@ $().ready(function() {
                 }
             }
         }), // set_focus
+
+        is_one_input_focused: function() {
+            if (!Ev.focused_input) { return false; }
+            if (!document.contains(Ev.focused_input)) {
+                Ev.focused_input = null;
+                return false;
+            }
+            return true;
+        }, // is_one_input_focused
 
         textarea_protection: {
             element: null,
@@ -288,6 +297,11 @@ $().ready(function() {
                 if (textarea.closest('.modal:not(.in)')) {
                     // if we are in a closed modal, ignore
                     Ev.textarea_protection.stop();
+                    return;
+                }
+
+                if (ev.target.closest('#select2-drop')) {
+                    // we clicked on a select2 list, we can assume it was it the sane form
                     return;
                 }
 
@@ -375,8 +389,9 @@ $().ready(function() {
         }, // textarea_protection
 
         init: (function init() {
-            $document.on('focus', ':input', function() { Ev.input_focused = true; });
-            $document.on('blur', ':input', function() { Ev.input_focused = false; });
+            var inputs_selector = 'input:not([type=button]):not([type=image]):not([type=submit]):not([type=reset]), textarea, select';
+            $document.on('focus', inputs_selector, function(ev) { Ev.focused_input = ev.target; });
+            $document.on('blur', inputs_selector, function() { Ev.focused_input = null; });
             Ev.textarea_protection.init();
         }) // init
     };
@@ -386,7 +401,7 @@ $().ready(function() {
 
     // globally manage escape key to close modal
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
-        if (Ev.input_focused) { return; }
+        if (Ev.is_one_input_focused()) { return; }
         if (ev.which != 27) { return; }
         var $modal = $('.modal.in').last();
         if (!$modal.data('modal').options.keyboard) { return; }
