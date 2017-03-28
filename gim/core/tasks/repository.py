@@ -174,7 +174,7 @@ class FetchPullRequestsCommitsParents(RepositoryJob):
     def on_success(self, queue, result):
         todo = result[3]
         if todo:
-            self.clone(priority=-20, delayed_for=300)
+            self.clone(priority=-20, delayed_for=600)
 
     def success_message_addon(self, queue, result):
         return ' [fetched=%d, deleted=%s, errors=%s, todo=%s, nb_commits=%s]' % result
