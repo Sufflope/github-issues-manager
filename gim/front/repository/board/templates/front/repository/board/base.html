@@ -32,7 +32,9 @@
                     {% endfor %}
                     {% if current_subscription.state in current_subscription.STATES.WRITE_RIGHTS %}
                         <option value="labels-editor" data-url="{{ labels_editor_url }}">Edit boards from groups of labels</option>
-                        <option value="project-creator" data-url="{{ current_repository.get_create_project_url }}">Create a project</option>
+                        {% if current_repository.has_projects %}
+                            <option value="project-creator" data-url="{{ current_repository.get_create_project_url }}">Create a project</option>
+                        {% endif %}
                     {% endif %}
                     </select>
                 {% endblock board-header %}

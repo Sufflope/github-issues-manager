@@ -8,6 +8,7 @@ from django.db import models
 
 from gim.core import models as core_models
 from gim.core.ghpool import prepare_fetch_headers, ApiError, Connection
+from gim.core.limpyd_models import Token
 from gim.core.managers import MODE_ALL
 from gim.core.tasks.issue import FetchIssueByNumber
 from gim.core.utils import SavedObjects
@@ -134,13 +135,14 @@ class _Repository(models.Model):
         issues_to_fetch = set()
         event_manager = None
 
-        code, events, updated_fields = self.simple_list_fetch(
-                    gh=gh,
-                    meta_base_name='events',
-                    identifiers=self.github_callable_identifiers_for_events,
-                    force_fetch=force,
-                    response_headers=response_headers,
-                )
+        with Token.manage_gh_if_404(gh):
+            code, events, updated_fields = self.simple_list_fetch(
+                        gh=gh,
+                        meta_base_name='events',
+                        identifiers=self.github_callable_identifiers_for_events,
+                        force_fetch=force,
+                        response_headers=response_headers,
+                    )
 
         if code != 304 and events:
             event_manager = EventManager(repository=self)

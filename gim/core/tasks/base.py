@@ -242,6 +242,14 @@ class Job(LimpydJob):
 
         token = None
 
+        repository = None
+        # if not job for current user only, we may have a repository
+        if permission != 'self':
+            # force correct permission if repository is private
+            repository = getattr(self, 'repository', None)
+            if repository and repository.private and permission not in ('admin', 'push', 'pull'):
+                permission = 'pull'
+
         # we have connection args: get the token if available
         if args:
             try:
@@ -268,10 +276,11 @@ class Job(LimpydJob):
                 # final check on remaining api calls
                 rate_limit_remaining_field = token.graphql_rate_limit_remaining if use_graphql else token.rate_limit_remaining
                 if int(rate_limit_remaining_field.get() or 0):
-                    return token.gh
+                    # ensure the token is still valid for this repository
+                    if permission == 'self' or not repository or not repository.private or token.is_available_for_repository(repository.pk, permission):
+                        return token.gh
 
         # no token, try to get one...
-        repository = None
 
         if permission == 'self':
             # forced to use the current one, but not available...
@@ -279,11 +288,7 @@ class Job(LimpydJob):
         else:
 
             # if we have a repository, get one following permission
-            repository = getattr(self, 'repository', None)
             if repository:
-                if repository.private and permission not in ('admin', 'push', 'pull'):
-                    # force correct permission if repository is private
-                    permission = 'pull'
                 token = Token.get_one_for_repository(repository.pk, permission, for_graphql=use_graphql)
 
             # no repository, not "self", but want one ? don't know why but ok...

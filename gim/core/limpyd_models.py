@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 import json
 import logging
 
@@ -13,7 +14,7 @@ from limpyd_jobs.utils import datetime_to_score, import_class
 
 from gim.core.ghpool import Connection
 from gim.core import get_main_limpyd_database
-from gim.github import ApiError
+from gim.github import ApiError, ApiNotFoundError
 
 
 maintenance_logger = logging.getLogger('gim.maintenance')
@@ -312,15 +313,17 @@ class Token(lmodel.RedisModel):
             collection.filter(repos_push=repository_pk)
         elif permission == 'pull':
             collection.filter(repos_pull=repository_pk)
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, sort_by=sort_by)
+
+    def is_available_for_repository(self, repository_pk, permission):
+        if permission == 'admin':
+            return self.repos_admin.sismember(repository_pk)
+        if permission == 'push':
+            return self.repos_push.sismember(repository_pk)
+        if permission == 'pull':
+            return self.repos_pull.sismember(repository_pk)
+        return True
 
     @classmethod
     def ensure_graphql_gh_for_repository(cls, gh, repository_pk, permission, min_remaining=None):
@@ -354,6 +357,25 @@ class Token(lmodel.RedisModel):
         return token.gh
 
     @classmethod
+    def extract_from_collection(self, collection, limit=None, sort_by=None):
+        try:
+            if sort_by is None:
+                token = choice(collection.instances(skip_exist_test=True))
+            else:
+                if not limit:
+                    tokens = collection.sort(by=sort_by).instances(skip_exist_test=True)
+                    limit = max(int(len(tokens)/10), 3)
+                    token = choice(tokens[:limit])
+                elif limit == 1:
+                    token = collection.sort(by=sort_by).instances(skip_exist_test=True)[0]
+                else:
+                    token = choice(collection.sort(by=sort_by).instances(skip_exist_test=True)[:limit])
+        except IndexError:
+            return None
+        else:
+            return token
+
+    @classmethod
     def get_one(cls, available=True, sort_by='-rate_limit_score', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
@@ -368,15 +390,8 @@ class Token(lmodel.RedisModel):
                     sort_by = 'graphql_' + sort_by
                 elif sort_by.startswith('-rate_limit'):
                     sort_by = '-graphql_' + sort_by[1:]
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, sort_by=sort_by)
 
     @classmethod
     def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_score', for_graphql=False):
@@ -393,15 +408,8 @@ class Token(lmodel.RedisModel):
                     sort_by = 'graphql_' + sort_by
                 elif sort_by.startswith('-rate_limit'):
                     sort_by = '-graphql_' + sort_by[1:]
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, limit=1, sort_by=sort_by)
 
     @property
     def gh(self):
@@ -579,6 +587,26 @@ class Token(lmodel.RedisModel):
                                 if not dry_run:
                                     job.status.hset(STATUSES.CANCELED)
 
+    @staticmethod
+    @contextmanager
+    def manage_gh_if_404(gh):
+        try:
+            yield
+        except ApiNotFoundError:
+            # Maybe the user doesn't have access anymore so we'll ask for an update
+            # of its available repositories. A job calling this method will
+            # be requeued because of the error, but when called later, the check of the
+            # repository for `gh` won't be ok so another token will be used
+            from gim.core.models import GithubUser
+            try:
+                user = GithubUser.objects.get(username=gh._connection_args['username'])
+            except Exception:
+                pass
+            else:
+                from core.tasks import FetchAvailableRepositoriesJob
+                FetchAvailableRepositoriesJob.add_job(user.id, prepend=True)
+
+            raise
 
 
 class DeletedInstance(lmodel.RedisModel):

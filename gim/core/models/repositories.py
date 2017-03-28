@@ -52,6 +52,7 @@ class Repository(GithubObjectWithId):
     private = models.BooleanField(default=False)
     is_fork = models.BooleanField(default=False)
     has_issues = models.BooleanField(default=False)
+    has_projects = models.BooleanField(default=True)
     default_branch = models.TextField(blank=True, null=True)
 
     first_fetch_done = models.BooleanField(default=False)
@@ -209,13 +210,14 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_labels(self, gh, force_fetch=False, parameters=None):
-        return self._fetch_many('labels', gh,
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                force_fetch=force_fetch,
-                                parameters=parameters)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('labels', gh,
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    force_fetch=force_fetch,
+                                    parameters=parameters)
 
     @property
     def github_callable_identifiers_for_milestones(self):
@@ -224,16 +226,15 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_milestones(self, gh, force_fetch=False, parameters=None):
-        if not self.has_issues:
-            return 0
-        return self._fetch_many('milestones', gh,
-                                vary={'state': ('open', 'closed')},
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                force_fetch=force_fetch,
-                                parameters=parameters)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('milestones', gh,
+                                    vary={'state': ('open', 'closed')},
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    force_fetch=force_fetch,
+                                    parameters=parameters)
 
     @property
     def github_callable_identifiers_for_issues(self):
@@ -268,16 +269,17 @@ class Repository(GithubObjectWithId):
             if parameters:
                 final_issues_parameters.update(parameters)
 
-            count = self._fetch_many('issues', gh,
-                                    vary=vary,
-                                    defaults={
-                                        'fk': {'repository': self},
-                                        'related': {'*': {'fk': {'repository': self}}},
-                                    },
-                                    parameters=final_issues_parameters,
-                                    remove_missing=remove_missing,
-                                    force_fetch=force_fetch,
-                                    max_pages=max_pages)
+            with Token.manage_gh_if_404(gh):
+                count = self._fetch_many('issues', gh,
+                                        vary=vary,
+                                        defaults={
+                                            'fk': {'repository': self},
+                                            'related': {'*': {'fk': {'repository': self}}},
+                                        },
+                                        parameters=final_issues_parameters,
+                                        remove_missing=remove_missing,
+                                        force_fetch=force_fetch,
+                                        max_pages=max_pages)
 
         # now fetch pull requests to have more informations for them (only
         # ones that already exist as an issue, not the new ones)
@@ -289,20 +291,21 @@ class Repository(GithubObjectWithId):
         if parameters_prs:
             final_prs_parameters.update(parameters_prs)
 
-        pr_count = self._fetch_many('issues', gh,
-                        vary=vary,
-                        defaults={
-                            'fk': {'repository': self},
-                            'related': {'*': {'fk': {'repository': self}}},
-                            'simple': {'is_pull_request': True},
-                            'mergeable_state': 'checking',
-                        },
-                        parameters=final_prs_parameters,
-                        remove_missing=False,
-                        force_fetch=force_fetch,
-                        meta_base_name='prs',
-                        modes=MODE_UPDATE if self.has_issues else MODE_ALL,
-                        max_pages=max_pages)
+        with Token.manage_gh_if_404(gh):
+            pr_count = self._fetch_many('issues', gh,
+                            vary=vary,
+                            defaults={
+                                'fk': {'repository': self},
+                                'related': {'*': {'fk': {'repository': self}}},
+                                'simple': {'is_pull_request': True},
+                                'mergeable_state': 'checking',
+                            },
+                            parameters=final_prs_parameters,
+                            remove_missing=False,
+                            force_fetch=force_fetch,
+                            meta_base_name='prs',
+                            modes=MODE_UPDATE if self.has_issues else MODE_ALL,
+                            max_pages=max_pages)
 
         count += pr_count
 
@@ -587,14 +590,15 @@ class Repository(GithubObjectWithId):
         if parameters:
             final_parameters.update(parameters)
 
-        return self._fetch_many('comments', gh,
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                parameters=final_parameters,
-                                force_fetch=force_fetch,
-                                max_pages=max_pages)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('comments', gh,
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    parameters=final_parameters,
+                                    force_fetch=force_fetch,
+                                    max_pages=max_pages)
 
     def fetch_pr_comments(self, gh, force_fetch=False, parameters=None,
                                                                 max_pages=None):
@@ -607,14 +611,15 @@ class Repository(GithubObjectWithId):
         if parameters:
             final_parameters.update(parameters)
 
-        return self._fetch_many('pr_comments', gh,
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                parameters=final_parameters,
-                                force_fetch=force_fetch,
-                                max_pages=max_pages)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('pr_comments', gh,
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    parameters=final_parameters,
+                                    force_fetch=force_fetch,
+                                    max_pages=max_pages)
 
     @property
     def github_callable_identifiers_for_commits(self):
@@ -662,7 +667,10 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_projects(self, gh, force_fetch=False, parameters=None, max_pages=None):
-        return self._fetch_many('projects', gh,
+        had_projects = self.has_projects
+        has_projects = None
+
+        result = self._fetch_many('projects', gh,
                                 defaults={
                                     'fk': {'repository': self},
                                     'related': {'*': {'fk': {'repository': self}}},
@@ -671,6 +679,40 @@ class Repository(GithubObjectWithId):
                                 parameters=parameters,
                                 max_pages=None)  # we need them all to get all the positions
 
+        # no projects, are they activated?
+        if not self.projects.exists():
+            try:
+                from gim.core.models import Project
+                Repository.objects.get_github_callable(
+                    gh, self.github_callable_identifiers_for_projects
+                ).get(
+                    per_page=1,
+                    request_headers={'Accept': 'application/vnd.github.%s' % Project.github_api_version}
+                )
+            except ApiError as e:
+                if e.code in (404, 410):
+                    self.projects_fetched_at = datetime.utcnow()
+                    updated_fields = ['projects_fetched_at']
+                    if had_projects:
+                        self.has_projects = False
+                        updated_fields.append('has_projects')
+                    self.save(update_fields=updated_fields)
+                    return result
+                else:
+                    # another error? should have happened in _fetch_many, but still, raise it
+                    raise
+            else:
+                has_projects = True
+
+        else:
+            has_projects = True
+
+        if has_projects and not had_projects :
+            self.has_projects = True
+            self.save(update_fields=['has_projects'])
+
+        return result
+
     def fetch_all_projects(self, gh, force_fetch=False):
         if not force_fetch:
             if not self.projects_fetched_at:
@@ -678,19 +720,20 @@ class Repository(GithubObjectWithId):
         now = datetime.utcnow()
         try:
             self.fetch_projects(gh, force_fetch=force_fetch)
-            # we must always fetch each projects to get the order if changed
-            for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
-                if not project.fetch_columns(gh, force_fetch=force_fetch):
-                    # we have no new/updated columns
-                    continue
-                for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
-                    if force_fetch or column.fetched_at > now:
-                        try:
-                            column.fetch_cards(gh, force_fetch=force_fetch)
-                        except ApiError:
-                            # Currently Github raise a 500 when asking for the second page of cards
-                            # We want to continue to fetch cards of other columns
-                            pass
+            if self.has_projects:
+                # we must always fetch each projects to get the order if changed
+                for project in self.projects.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                    if not project.fetch_columns(gh, force_fetch=force_fetch):
+                        # we have no new/updated columns
+                        continue
+                    for column in project.columns.exclude(github_status__in=self.GITHUB_STATUS_CHOICES.NOT_READY):
+                        if force_fetch or column.fetched_at > now:
+                            try:
+                                column.fetch_cards(gh, force_fetch=force_fetch)
+                            except ApiError:
+                                # Currently Github raise a 500 when asking for the second page of cards
+                                # We want to continue to fetch cards of other columns
+                                pass
         except Exception:
             # Next time we'll refetch all. Else we won't be able to get new data if
             # the error occured for example while fetching cards: the fetch of the
@@ -709,14 +752,15 @@ class Repository(GithubObjectWithId):
         if parameters is None:
             parameters = {}
         parameters['protected'] = 1
-        return self._fetch_many('protected_branches', gh,
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                force_fetch=force_fetch,
-                                parameters=parameters,
-                                max_pages=max_pages)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('protected_branches', gh,
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    force_fetch=force_fetch,
+                                    parameters=parameters,
+                                    max_pages=max_pages)
 
     def fetch_all_protected_branches(self, gh, force_fetch=False):
         # only admins can fetch protected branches :(
@@ -749,14 +793,15 @@ class Repository(GithubObjectWithId):
         ]
 
     def fetch_git_heads(self, gh, force_fetch=False, parameters=None, max_pages=None):
-        return self._fetch_many('git_heads', gh,
-                                defaults={
-                                    'fk': {'repository': self},
-                                    'related': {'*': {'fk': {'repository': self}}},
-                                },
-                                force_fetch=force_fetch,
-                                parameters=parameters,
-                                max_pages=max_pages)
+        with Token.manage_gh_if_404(gh):
+            return self._fetch_many('git_heads', gh,
+                                    defaults={
+                                        'fk': {'repository': self},
+                                        'related': {'*': {'fk': {'repository': self}}},
+                                    },
+                                    force_fetch=force_fetch,
+                                    parameters=parameters,
+                                    max_pages=max_pages)
 
     def fetch_minimal(self, gh, force_fetch=False, **kwargs):
         if not self.fetch_minimal_done:
@@ -767,6 +812,10 @@ class Repository(GithubObjectWithId):
         if not self.fetch_minimal_done:
             self.fetch_minimal_done = True
             self.save(update_fields=['fetch_minimal_done'])
+
+    def fetch(self, gh, defaults=None, force_fetch=False, parameters=None, meta_base_name=None, github_api_version=None):
+        with Token.manage_gh_if_404(gh):
+            return super(Repository, self).fetch(gh, defaults, force_fetch, parameters, meta_base_name, github_api_version)
 
     def fetch_all(self, gh, force_fetch=False, **kwargs):
         """
@@ -830,13 +879,13 @@ class Repository(GithubObjectWithId):
         return counts
 
     @cached_property
-    def has_projects(self):
-        return self.projects.exists()
+    def has_some_projects(self):
+        return self.has_projects and self.projects.exists()
 
     @property
-    def has_projects_with_issues(self):
+    def has_some_projects_with_issues(self):
         from .projects import CARDTYPE
-        return self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
+        return self.has_projects and self.projects.filter(columns__cards__type=CARDTYPE.ISSUE).exists()
 
     GRAPHQL_FETCH_REVIEWS = compose_query("""
         query RepositoryPullRequestsReviews($nbReviewsToRetrieve: Int = 30, $nextReviewsPageCursor: String) {

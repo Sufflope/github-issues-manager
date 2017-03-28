@@ -17,6 +17,28 @@ $().ready(function() {
         document.head.appendChild(script);
     }; // loadScript
 
+    // https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
+    if (window.Element && !Element.prototype.closest) {
+        Element.prototype.closest =
+        function(s) {
+            var matches = (this.document || this.ownerDocument).querySelectorAll(s),
+                i,
+                el = this;
+            do {
+                i = matches.length;
+                while (--i >= 0 && matches.item(i) !== el) {};
+            } while ((i < 0) && (el = el.parentElement));
+            return el;
+        };
+    }
+    if (window.Element && !Element.prototype.parents) {
+        Element.prototype.parents = function(s) {
+            var el = this, parents = [];
+            while (el = el.parentElement.closest(s)) {if (el) { parents.push(el); }}
+            return parents;
+        }
+    }
+
     var UUID = (function() {
         /**
          * Fast UUID generator, RFC4122 version 4 compliant.
@@ -147,6 +169,8 @@ $().ready(function() {
     }; // Favicon
 
     var Ev = {
+        input_focused: false,
+
         stop_event_decorate: (function stop_event_decorate(callback) {
             /* Return a function to use as a callback for an event
                Call the callback and if it returns false (strictly), the
@@ -193,7 +217,7 @@ $().ready(function() {
                (strictly), the event propagation is stopped
             */
             var decorator = function(e) {
-                if ($(e.target).is(':input')) { return; }
+                if (Ev.input_focused) { return; }
                 return callback(e);
             };
             return Ev.stop_event_decorate(decorator);
@@ -222,15 +246,149 @@ $().ready(function() {
                     $node.focus();
                 }
             }
-        }) // set_focus
+        }), // set_focus
+
+        textarea_protection: {
+            element: null,
+            $confirm: $('#tp-confirm'),
+            confirm_copy_element: document.getElementById('tp-confirm-copy'),
+            last_element: null,
+            last_event: null,
+            last_event_dispatched: false,
+
+            protect_if_needed: function (ev) {
+                if (!Ev.textarea_protection.element) {
+                    return;
+                }
+
+                var textarea = Ev.textarea_protection.element;
+
+                if (ev.target.nodeName == 'TEXTAREA') {
+                    // another textearea, or the same, it's ok
+                    return;
+                }
+
+                if (!document.contains(textarea)) {
+                    // not in the dom anymore, it's ok
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                // No content, we let the event happen
+                if (!textarea.value.trim()) {
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                if (textarea.form && ev.target.closest('form') == textarea.form) {
+                    // if we are in the same form, we let the event happen
+                    return;
+                }
+
+                if (textarea.closest('.modal:not(.in)')) {
+                    // if we are in a closed modal, ignore
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                // are we in the same safe area ? Get intersection of safe parents
+                var textarea_safe_elements = textarea.parents('.tp-safe'),
+                    target_safe_elements = ev.target.parents('.tp-safe');
+                if (textarea_safe_elements.filter(function (n) {
+                        return target_safe_elements.indexOf(n) !== -1;
+                    }).length) {
+                    // we share the same safe are, we let the event happen if we are not in an unsafe are
+                    if (!ev.target.closest('.tp-unsafe')) {
+                        return;
+                    }
+                }
+
+                Ev.textarea_protection.last_event = {
+                    target: ev.target,
+                    event: new MouseEvent('click', ev)
+                };
+
+                ev.preventDefault();
+                ev.stopPropagation();
+
+                Ev.textarea_protection.last_event_dispatched = false;
+
+                Ev.textarea_protection.last_element = textarea;
+                Ev.textarea_protection.stop();
+
+                Ev.textarea_protection.$confirm.modal('show');
+                Ev.textarea_protection.confirm_copy_element.value = textarea.value;
+                window.setTimeout(function () {
+                    Ev.textarea_protection.confirm_copy_element.select();
+                    Ev.textarea_protection.confirm_copy_element.focus();
+                }, 400);
+
+
+            }, // protect
+
+            stop: function (textarea) {
+                if (!textarea || Ev.textarea_protection.element == textarea) {
+                    Ev.textarea_protection.element = null;
+                }
+            }, // stop_protecting_textarea
+
+            on_confirm_continue: function() {
+                if (!Ev.textarea_protection.last_event) {
+                    return;
+                }
+                Ev.textarea_protection.last_element = null;
+                Ev.textarea_protection.last_event_dispatched = true;
+                var ev = Ev.textarea_protection.last_event;
+                Ev.textarea_protection.last_event = null;
+                Ev.textarea_protection.$confirm.modal('hide');
+                setTimeout(function() {
+                    ev.target.dispatchEvent(ev.event);
+                }, 500);
+            },
+
+            on_confirm_hidden: function() {
+                if (Ev.textarea_protection.last_event_dispatched) { return; }
+                if (!Ev.textarea_protection.last_element) { return; }
+                if ($(Ev.textarea_protection.last_element).is(':visible')) {
+                    Ev.textarea_protection.last_element.focus();
+                } else {
+                    Ev.textarea_protection.element = Ev.textarea_protection.last_element;
+                    Ev.textarea_protection.last_element = null;
+                }
+            },
+
+            on_textarea_focus: function(ev) {
+                if (!ev.target.classList.contains('no-tp')) {
+                    Ev.textarea_protection.element = ev.target;
+                }
+            }, // on_textarea_focus
+
+            init: function() {
+                $document.on('focus', 'textarea', Ev.textarea_protection.on_textarea_focus);
+                // capturing mode to start at the document level to be able to cancel the event
+                document.addEventListener('click', Ev.textarea_protection.protect_if_needed, true);
+
+                Ev.textarea_protection.$confirm.find('button.submit').on('click', Ev.textarea_protection.on_confirm_continue);
+                Ev.textarea_protection.$confirm.on('hidden.modal', Ev.textarea_protection.on_confirm_hidden);
+            } // init
+
+        }, // textarea_protection
+
+        init: (function init() {
+            $document.on('focus', ':input', function() { Ev.input_focused = true; });
+            $document.on('blur', ':input', function() { Ev.input_focused = false; });
+            Ev.textarea_protection.init();
+        }) // init
     };
+    Ev.init();
     AppGlobal.Ev = Ev;
 
 
     // globally manage escape key to close modal
     $document.on('keyup.dismiss.modal', Ev.key_decorate(function(ev) {
+        if (Ev.input_focused) { return; }
         if (ev.which != 27) { return; }
-        var $modal = $('.modal.in');
+        var $modal = $('.modal.in').last();
         if (!$modal.data('modal').options.keyboard) { return; }
         $modal.modal('hide');
     }));
@@ -462,7 +620,7 @@ $().ready(function() {
             if (!error_message) {
                 error_message = 'There was a problem synchronizing data sent when you were offline.';
             }
-            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class=""ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
+            WS.alert(error_message + '<p>Real-time capabilities are disabled.</p><p>Please <a href="#" class="ws-refresh-link">refresh the page</a>.</p>', 'ko', null, true);
             Favicon.set_val('×');
             WS.connection.close();
             WS.end_reconcile();
@@ -4095,7 +4253,7 @@ $().ready(function() {
                 $marker = $holder.children('.updated-marker');
 
             if (!$marker.length) {
-                $marker = $('<a class="updated-marker refresh-issue" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
+                $marker = $('<a class="updated-marker refresh-issue tp-unsafe" href="#" title="' + 'This ' + issue_type + ' was updated. Click to reload.' + '"><span>[</span>updated<span>]</span></a>');
                 $holder.prepend($marker);
             }
         }), // IssueDetail__mark_container_as_updated
@@ -5846,7 +6004,7 @@ $().ready(function() {
 
         selector: '#messages',
         $node: null,
-        template: '<li class="%(classes)s"><button type="button" class="close" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
+        template: '<li class="%(classes)s"><button type="button" class="close tp-safe" title="Close" data-dismiss="alert">×</button>%(content)s</li>',
 
         extract: (function MessagesManager__extract ($node) {
             // Will extract message from ajax requests to put them
@@ -7333,7 +7491,7 @@ $().ready(function() {
         selector: '.hoverable-issue',
         abort_selector: '.not-hoverable',
         activated: true,
-        delay_enter: 500,
+        delay_enter: 1000,
         popover_options: null,  // defined in init
 
         extract_issue_ident: function ($node) {
@@ -7978,6 +8136,16 @@ $().ready(function() {
     // if a link is "fake" and in a collapse header, deactivate the real click
     $document.on('click', '[data-toggle=collapse] a[href=#]', function(ev) {
         ev.preventDefault();
+    });
+
+    // when a modal is shown, move it at the end of all modals
+    $document.on('show.modal', '.modal', function(ev) {
+        var $modal = $(this),
+            $last_modal = $('body > .modal').last();
+        if ($modal[0] != $last_modal[0]) {
+            $last_modal.after($modal);
+            $modal.css('zIndex', parseInt($last_modal.css('zIndex') || 1050, 10) + 1);
+        }
     });
 
     if (typeof window.Clipboard != 'undefined') {

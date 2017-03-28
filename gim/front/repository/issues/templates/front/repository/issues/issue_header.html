@@ -25,7 +25,7 @@
                 {{ current_issue.title }}
             </span>
             {% if current_issue.number %}</a>{% endif %}
-            {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'title' }}" class="issue-edit-btn issue-edit-btn-title btn-loading" data-field="title" title="Edit the title"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+            {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'title' }}" class="issue-edit-btn issue-edit-btn-title btn-loading" data-field="title" title="Edit the title"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
         </h3>
     </header>
     <section>
@@ -47,10 +47,10 @@
                 {% else %}
                     <i class="fa fa-tasks"> </i>&nbsp;No milestone
                 {% endif %}
-                {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'milestone' }}" class="issue-edit-btn issue-edit-btn-milestone btn-loading" data-field="milestone" title="Edit the milestone"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+                {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'milestone' }}" class="issue-edit-btn issue-edit-btn-milestone btn-loading" data-field="milestone" title="Edit the milestone"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
             </div>
         {% endif %}
-        {% if current_issue.repository.has_projects %}
+        {% if current_issue.repository.has_some_projects %}
             {% with cards=current_issue.ordered_cards %}
                 {% if cards or current_issue_edit_level == 'full' %}
                     <div class="issue-projects{% if not cards %} no-projects{% endif %} edit-place" data-field="projects">
@@ -63,7 +63,7 @@
                                 <li><i class="fa fa-align-left fa-rotate-90"> </i>&nbsp;No projects</li>
                             {% endif %}
                         </ul>
-                       {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'projects' }}" class="issue-edit-btn issue-edit-btn-projects btn-loading" data-field="projects" title="Edit the projects"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+                       {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'projects' }}" class="issue-edit-btn issue-edit-btn-projects btn-loading" data-field="projects" title="Edit the projects"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
                     </div>
                 {% endif %}
             {% endwith %}
@@ -86,7 +86,7 @@
                     {% else %}
                         <i class="fa fa-hand-o-right"> </i> No one assigned
                     {% endif %}
-                    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'assignees' }}" class="issue-edit-btn issue-edit-btn-assignees btn-loading" data-field="assignees" title="Edit the assignees"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+                    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'assignees' }}" class="issue-edit-btn issue-edit-btn-assignees btn-loading" data-field="assignees" title="Edit the assignees"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
                 </div>
             {% endif %}
         {% endwith %}
@@ -111,7 +111,7 @@
                             <li style="border: none">No labels</li>
                         {% endif %}
                     </ul>
-                    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'labels' }}" class="issue-edit-btn issue-edit-btn-labels btn-loading" data-field="labels" title="Edit the labels"><i class="fa fa-edit"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
+                    {% if current_issue_edit_level %}<a href="{{ current_issue|edit_field_url:'labels' }}" class="issue-edit-btn issue-edit-btn-labels btn-loading" data-field="labels" title="Edit the labels"><i class="fa fa-edit tp-unsafe"> </i><i class='fa fa-spinner fa-spin'> </i></a>{% endif %}
                 </div>
             {% endif %}
         {% endwith %}

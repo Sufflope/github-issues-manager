@@ -2,7 +2,7 @@
 
     {% include view.filters_and_list_template_name %}
 
-    <section id='main-issue-container' class="span7 issue-container"{% if current_issue %} data-issue-number="{{ current_issue.number }}" data-issue-id="{{ current_issue.id }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}"{% endif %}>
+    <section id='main-issue-container' class="span7 issue-container tp-safe"{% if current_issue %} data-issue-number="{{ current_issue.number }}" data-issue-id="{{ current_issue.id }}" data-repository="{{ current_issue.repository.full_name }}" data-repository-id="{{ current_issue.repository.id }}"{% endif %}>
         {% include "front/repository/issues/issue.html" %}
     </section>
 

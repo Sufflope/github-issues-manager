@@ -984,8 +984,9 @@
         if (this.isShown && this.options.backdrop) {
           var doAnimate = $.support.transition && animate
 
-          this.$backdrop = $('<div class="modal-backdrop ' + animate + '" />')
-            .appendTo(document.body)
+          this.$backdrop = $('<div class="modal-backdrop ' + animate + '" />');
+          this.$element.before(this.$backdrop);
+          this.$backdrop.css('zIndex', parseInt(this.$element.css('zIndex') || 1050, 10));
 
           this.$backdrop.click(
             this.options.backdrop == 'static' ?
