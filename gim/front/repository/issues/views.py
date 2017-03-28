@@ -560,7 +560,7 @@ class IssuesFilters(BaseIssuesFilters):
 
     def get_context_data(self, **kwargs):
 
-        if self.repository.has_projects_with_issues:
+        if self.repository.has_some_projects_with_issues:
             self.allowed_group_by = self.allowed_group_by.copy()
             for name in ('project', 'project_column'):
                 self.allowed_group_by[name] = GROUP_BY_CHOICES[name][1]
