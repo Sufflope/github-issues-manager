@@ -440,13 +440,16 @@ class IssueCreateForm(IssueTitleFormPart, IssueBodyFormPart,
         return super(IssueCreateForm, self).save(commit)
 
 
-class IssueCreateFormFull(IssueMilestoneFormPart, IssueAssigneesFormPart,
-                          IssueLabelsFormPart, IssueProjectsFormPart, IssueCreateForm):
-
-    columns = IssueProjectsFormPart.columns  # will be at the end by default
+class IssueCreateFormFullWithoutProjects(IssueMilestoneFormPart, IssueAssigneesFormPart,
+                          IssueLabelsFormPart, IssueCreateForm):
 
     class Meta(IssueCreateForm.Meta):
         fields = ['title', 'body', 'milestone', 'assignees', 'labels', 'front_uuid']
+
+
+class IssueCreateFormFull(IssueCreateFormFullWithoutProjects, IssueProjectsFormPart, IssueCreateForm):
+
+    columns = IssueProjectsFormPart.columns  # will be at the end by default
 
 
 class BaseCommentEditForm(LinkedToUserFormMixin, LinkedToIssueFormMixin):
