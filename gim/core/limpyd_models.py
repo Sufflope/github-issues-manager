@@ -313,15 +313,8 @@ class Token(lmodel.RedisModel):
             collection.filter(repos_push=repository_pk)
         elif permission == 'pull':
             collection.filter(repos_pull=repository_pk)
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, sort_by=sort_by)
 
     def is_available_for_repository(self, repository_pk, permission):
         if permission == 'admin':
@@ -364,6 +357,25 @@ class Token(lmodel.RedisModel):
         return token.gh
 
     @classmethod
+    def extract_from_collection(self, collection, limit=None, sort_by=None):
+        try:
+            if sort_by is None:
+                token = choice(collection.instances(skip_exist_test=True))
+            else:
+                if not limit:
+                    tokens = collection.sort(by=sort_by).instances(skip_exist_test=True)
+                    limit = max(int(len(tokens)/10), 3)
+                    token = choice(tokens[:limit])
+                elif limit == 1:
+                    token = collection.sort(by=sort_by).instances(skip_exist_test=True)[0]
+                else:
+                    token = choice(collection.sort(by=sort_by).instances(skip_exist_test=True)[:limit])
+        except IndexError:
+            return None
+        else:
+            return token
+
+    @classmethod
     def get_one(cls, available=True, sort_by='-rate_limit_score', for_graphql=False):
         collection = cls.collection(valid_scopes=1)
         if available:
@@ -378,15 +390,8 @@ class Token(lmodel.RedisModel):
                     sort_by = 'graphql_' + sort_by
                 elif sort_by.startswith('-rate_limit'):
                     sort_by = '-graphql_' + sort_by[1:]
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, sort_by=sort_by)
 
     @classmethod
     def get_one_for_username(cls, username, available=True, sort_by='-rate_limit_score', for_graphql=False):
@@ -403,15 +408,8 @@ class Token(lmodel.RedisModel):
                     sort_by = 'graphql_' + sort_by
                 elif sort_by.startswith('-rate_limit'):
                     sort_by = '-graphql_' + sort_by[1:]
-        try:
-            if sort_by is None:
-                token = choice(collection.instances())
-            else:
-                token = collection.sort(by=sort_by).instances()[0]
-        except IndexError:
-            return None
-        else:
-            return token
+
+        return cls.extract_from_collection(collection, limit=1, sort_by=sort_by)
 
     @property
     def gh(self):
