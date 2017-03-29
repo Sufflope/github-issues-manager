@@ -107,7 +107,8 @@ PUBLISHABLE = {
     core_models.Issue: {
         'self': True,
         'pre_publish_action': lambda self: setattr(self, 'signal_hash_changed', self.hash_changed()),
-        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number}
+        'more_data': lambda self: {'is_pr': self.is_pull_request, 'number': self.number},
+        'publish_created': True,
     },
     core_models.Card: {
         'self': True,
@@ -221,29 +222,36 @@ def publish_update(instance, message_type, extra_data=None):
         if obj
     ]
 
-    to_publish = [
-        (
-            'front.Repository.%(repository_id)s.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
-            'front.model.%(message_type)s.isRelatedTo.%(parent_model)s.%(parent_id)s',
-            dict(
-                parent_model=parent_model,
-                parent_id=parent_id,
-                parent_field=parent_field,
-                **parent_data
-            )
-        )
-        for (parent_model, parent_id, parent_field, parent_data)
-        in parents
-    ]
 
-    if conf.get('self'):
+    types = [message_type]
+    if message_type == 'updated' and conf.get('publish_created') and getattr(instance, 'is_new', False):
+        types.append('created')
+
+    to_publish = []
+    for type in types:
         to_publish += [
             (
-                'front.Repository.%(repository_id)s.model.%(message_type)s.is.%(model)s.%(id)s',
-                'front.model.%(message_type)s.is.%(model)s.%(id)s',
-                base_data
+                'front.Repository.%(repository_id)s.model.' + type + '.isRelatedTo.%(parent_model)s.%(parent_id)s',
+                'front.model.' + type + '.isRelatedTo.%(parent_model)s.%(parent_id)s',
+                dict(
+                    parent_model=parent_model,
+                    parent_id=parent_id,
+                    parent_field=parent_field,
+                    **parent_data
+                )
             )
+            for (parent_model, parent_id, parent_field, parent_data)
+            in parents
         ]
+
+        if conf.get('self'):
+            to_publish += [
+                (
+                    'front.Repository.%(repository_id)s.model.' + type + '.is.%(model)s.%(id)s',
+                    'front.model.' + type + '.is.%(model)s.%(id)s',
+                    base_data
+                )
+            ]
 
     for topic_with_repo, topic_without_repo, data in to_publish:
         message_repository_id = repository_id

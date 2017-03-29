@@ -897,6 +897,7 @@ $repo-name-height: 20px;
             margin-left: $file-list-width;
             &.empty-area {
                 padding-top: 100px;
+                margin-top: 0 !important;
             }
         }
     }
