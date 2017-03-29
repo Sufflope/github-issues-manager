@@ -4,6 +4,7 @@ __all__ = [
     'FetchIssueByNumber',
     'UpdateIssueCacheTemplate',
     'IssuePRBranchDeleteJob',
+    'IssueCreateJob',
     'IssueEditStateJob',
     'IssueEditTitleJob',
     'IssueEditBodyJob',

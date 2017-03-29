@@ -60,7 +60,7 @@ $().ready(function() {
             return uuid
         };
         self.exists = function(uuid) {
-            return typeof states[uuid] !== 'undefined';
+            return !!uuid && typeof states[uuid] !== 'undefined';
         };
         self.set_state = function(uuid, state) {
             states[uuid] = state;
@@ -266,13 +266,15 @@ $().ready(function() {
             last_event_dispatched: false,
 
             protect_if_needed: function (ev) {
-                if (!Ev.textarea_protection.element) {
+
+                var textarea = Ev.textarea_protection.element,
+                    target = ev.target;
+
+                if (!textarea) {
                     return;
                 }
 
-                var textarea = Ev.textarea_protection.element;
-
-                if (ev.target.nodeName == 'TEXTAREA') {
+                if (target.nodeName == 'TEXTAREA') {
                     // another textearea, or the same, it's ok
                     return;
                 }
@@ -289,7 +291,7 @@ $().ready(function() {
                     return;
                 }
 
-                if (textarea.form && ev.target.closest('form') == textarea.form) {
+                if (textarea.form && target.closest('form') == textarea.form) {
                     // if we are in the same form, we let the event happen
                     return;
                 }
@@ -300,25 +302,25 @@ $().ready(function() {
                     return;
                 }
 
-                if (ev.target.closest('#select2-drop')) {
+                if (target.closest('#select2-drop')) {
                     // we clicked on a select2 list, we can assume it was it the sane form
                     return;
                 }
 
                 // are we in the same safe area ? Get intersection of safe parents
                 var textarea_safe_elements = textarea.parents('.tp-safe'),
-                    target_safe_elements = ev.target.parents('.tp-safe');
+                    target_safe_elements = target.parents('.tp-safe');
                 if (textarea_safe_elements.filter(function (n) {
                         return target_safe_elements.indexOf(n) !== -1;
                     }).length) {
                     // we share the same safe are, we let the event happen if we are not in an unsafe are
-                    if (!ev.target.closest('.tp-unsafe')) {
+                    if (!target.closest('.tp-unsafe')) {
                         return;
                     }
                 }
 
                 Ev.textarea_protection.last_event = {
-                    target: ev.target,
+                    target: target,
                     event: new MouseEvent('click', ev)
                 };
 
@@ -344,7 +346,7 @@ $().ready(function() {
                 if (!textarea || Ev.textarea_protection.element == textarea) {
                     Ev.textarea_protection.element = null;
                 }
-            }, // stop_protecting_textarea
+            }, // stop
 
             on_confirm_continue: function() {
                 if (!Ev.textarea_protection.last_event) {
@@ -377,6 +379,35 @@ $().ready(function() {
                 }
             }, // on_textarea_focus
 
+            on_before_unload: function(ev) {
+
+                var textarea = Ev.textarea_protection.element;
+
+                if (!textarea) {
+                    return;
+                }
+
+                if (!document.contains(textarea)) {
+                    // not in the dom anymore, it's ok
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                // No content, it's ok
+                if (!textarea.value.trim()) {
+                    return;
+                }
+
+                if (textarea.closest('.modal:not(.in)')) {
+                    // if we are in a closed modal, ignore
+                    Ev.textarea_protection.stop();
+                    return;
+                }
+
+                ev.returnValue = 'You currently have text in a textarea.';
+
+            }, // on_before_unload
+
             init: function() {
                 $document.on('focus', 'textarea', Ev.textarea_protection.on_textarea_focus);
                 // capturing mode to start at the document level to be able to cancel the event
@@ -384,6 +415,9 @@ $().ready(function() {
 
                 Ev.textarea_protection.$confirm.find('button.submit').on('click', Ev.textarea_protection.on_confirm_continue);
                 Ev.textarea_protection.$confirm.on('hidden.modal', Ev.textarea_protection.on_confirm_hidden);
+
+                window.addEventListener("beforeunload", Ev.textarea_protection.on_before_unload);
+
             } // init
 
         }, // textarea_protection
@@ -1576,7 +1610,7 @@ $().ready(function() {
                 MessagesManager.add_messages([MessagesManager.make_message($message, 'info')]);
             }
 
-        } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+        } else if (kwargs.is_new && front_uuid_exists) {
             IssueDetail.refresh_created_issue(kwargs.front_uuid);
         }
     }); // IssuesListIssue__finalize_alert
@@ -1632,7 +1666,7 @@ $().ready(function() {
             front_uuid_exists = UUID.exists(kwargs.front_uuid);
 
         if (!kwargs.hash || kwargs.hash == existing_hash) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -1686,7 +1720,7 @@ $().ready(function() {
             }
         }).always(function() {
             message_conf.on_list_done();
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -2503,7 +2537,7 @@ $().ready(function() {
         var js_id = issue_kwargs.js_id || issue_kwargs.id;
         if (typeof IssuesList.updating_ids[js_id] != 'undefined' || issue_kwargs.front_uuid && UUID.exists(issue_kwargs.front_uuid) && UUID.has_state(issue_kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
-                IssuesList[method](topic, args, kwargs);
+                method(topic, args, kwargs);
             }, 100);
             return false;
         }
@@ -2519,7 +2553,7 @@ $().ready(function() {
         kwargs.issue.model = 'Issue';
         kwargs.issue.front_uuid = kwargs.front_uuid;
 
-        if (!IssuesList.can_update_on_alert(kwargs.issue, 'on_update_card_alert', topic, args, kwargs)) {
+        if (!IssuesList.can_update_on_alert(kwargs.issue, IssuesList.on_update_card_alert, topic, args, kwargs)) {
             return;
         }
 
@@ -2575,7 +2609,7 @@ $().ready(function() {
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
         if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
 
-        if (!IssuesList.can_update_on_alert(kwargs, 'on_update_alert', topic, args, kwargs)) {
+        if (!IssuesList.can_update_on_alert(kwargs, IssuesList.on_update_alert, topic, args, kwargs)) {
             return;
         }
 
@@ -2590,7 +2624,7 @@ $().ready(function() {
                 message_conf.count ++;
                 if (message_conf.count == message_conf.expected_count) {
                     var front_uuid_exists = UUID.exists(kwargs.front_uuid);
-                    if (!message_conf.done && (!kwargs.front_uuid || !front_uuid_exists)) {
+                    if (!message_conf.done) {
                         // the issue is not in a list, so we fetch it again to display the msg
                         $.get(kwargs.url).done(function (data) {
                             var $data = $(data);
@@ -2710,12 +2744,12 @@ $().ready(function() {
 
             IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'added', message_conf);
 
-            if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+            if (kwargs.is_new && front_uuid_exists) {
                 $data.removeClass('recent');
             }
         }).always(function() {
             message_conf.on_list_done();
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -5845,19 +5879,21 @@ $().ready(function() {
 
     // select the issue given in the url's hash, or an active one in the html,
     // or the first item of the current list
-    if (IssuesList.all.length) {
+    if (IssueDetail.$modal.length) {
         (function () {
-            IssuesList.all[0].set_current();
+            if (IssuesList.all.length) {
+                IssuesList.all[0].set_current();
+            }
             var done = false;
 
             if (window.location.hash && HistoryManager.re_hash.test(window.location.hash)) {
                 var re_result = HistoryManager.re_hash.exec(window.location.hash),
                     issue_id = re_result[2],
-                    is_modal = !!re_result[1];
+                    is_modal = !!re_result[1] || !IssuesList.all.length;
                 HistoryManager.add_history(null, issue_id, is_modal, false);
                 IssueDetail.open_issue_by_id(issue_id, is_modal);
                 done = true;
-            } else {
+            } else if (IssuesList.all.length) {
                 var $issue_to_select = $(IssuesListIssue.selector + '.active');
                 if ($issue_to_select.length) {
                     $issue_to_select.removeClass('active');
@@ -5865,7 +5901,7 @@ $().ready(function() {
                     done = true;
                 }
             }
-            if (!done) {
+            if (!done && IssuesList.all.length) {
                 IssuesList.current.go_to_next_item();
             }
         })();
@@ -6851,7 +6887,8 @@ $().ready(function() {
 
         // UPDATE COMMENTS FROM WEBSOCKET
         on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+            var front_uuid_exists = UUID.exists(kwargs.front_uuid);
+            if (front_uuid_exists && UUID.has_state(kwargs.front_uuid, 'waiting')) {
                 setTimeout(function() {
                     IssueEditor.on_update_alert(topic, args, kwargs);
                 }, 100);
@@ -6872,13 +6909,14 @@ $().ready(function() {
                     });
                 }
             }
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_update_alert
 
         on_delete_alert: (function IssueEditor__on_delete_alert (topic, args, kwargs) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+            var front_uuid_exists = UUID.exists(kwargs.front_uuid);
+            if (front_uuid_exists && UUID.has_state(kwargs.front_uuid, 'waiting')) {
                 setTimeout(function() {
                     IssueEditor.on_update_alert(topic, args, kwargs);
                 }, 100);
@@ -6896,7 +6934,7 @@ $().ready(function() {
                     IssueEditor.remove_comment($nodes);
                 }
             }
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_delete_alert
@@ -6911,6 +6949,7 @@ $().ready(function() {
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
             url: $body.data('create-issue-url'),
+            subscribed_to_created_alert: false,
 
             get_form: function() {
                 return $('#issue-create-form');
@@ -6961,6 +7000,31 @@ $().ready(function() {
                 FormTools.load_select2(select2_callback);
             }), // update_form
 
+            subscribe_to_create_alert: (function IssueEditor__create__subscribe_to_create_alert() {
+                if (IssueEditor.create.subscribed_to_created_alert) { return; }
+                IssueEditor.create.subscribed_to_created_alert = true;
+                if (WS.subscriptions['gim.front.Repository.' + main_repository_id + '.model.updated.is.Issue.']) {
+                    return;
+                }
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.created.is.Issue.',
+                    'IssueEditor_create__on_create_alert',
+                    IssueEditor.create.on_create_alert,
+                    'prefix'
+                );
+
+            }), // subscribe_to_create_alert
+
+            on_create_alert: (function IssueEditor_create__on_create_alert(topic, args, kwargs) {
+                if (!IssuesList.can_update_on_alert(kwargs, IssueEditor.create.on_create_alert, topic, args, kwargs)) {
+                    return;
+                }
+                if (UUID.exists(kwargs.front_uuid)) {
+                    IssueDetail.refresh_created_issue(kwargs.front_uuid);
+                }
+
+            }), // on_create_alert
+
             on_form_submit: (function IssueEditor_create__on_form_submit (ev) {
                 Ev.cancel(ev);
                 var $form = IssueEditor.create.get_form();
@@ -6968,7 +7032,8 @@ $().ready(function() {
                 FormTools.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                var front_uuid = UUID.generate('waiting'), context = {'front_uuid': front_uuid};
+                IssueEditor.create.subscribe_to_create_alert();
+                var front_uuid = UUID.generate('waiting'), context = {'uuid': front_uuid};
                 FormTools.post_form_with_uuid($form, context,
                     IssueEditor.create.on_submit_done,
                     IssueEditor.create.on_submit_failed
@@ -6987,7 +7052,7 @@ $().ready(function() {
                     IssueEditor.create.$modal_submit.removeClass('loading');
                 } else {
                     // no error, we display the issue
-                    IssueEditor.create.display_created_issue(data, this.front_uuid);
+                    IssueEditor.create.display_created_issue(data, this.uuid);
                 }
             }), // on_submit_done
 
