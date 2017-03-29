@@ -60,7 +60,7 @@ $().ready(function() {
             return uuid
         };
         self.exists = function(uuid) {
-            return typeof states[uuid] !== 'undefined';
+            return !!uuid && typeof states[uuid] !== 'undefined';
         };
         self.set_state = function(uuid, state) {
             states[uuid] = state;
@@ -1610,7 +1610,7 @@ $().ready(function() {
                 MessagesManager.add_messages([MessagesManager.make_message($message, 'info')]);
             }
 
-        } else if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+        } else if (kwargs.is_new && front_uuid_exists) {
             IssueDetail.refresh_created_issue(kwargs.front_uuid);
         }
     }); // IssuesListIssue__finalize_alert
@@ -1666,7 +1666,7 @@ $().ready(function() {
             front_uuid_exists = UUID.exists(kwargs.front_uuid);
 
         if (!kwargs.hash || kwargs.hash == existing_hash) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -1720,7 +1720,7 @@ $().ready(function() {
             }
         }).always(function() {
             message_conf.on_list_done();
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -2537,7 +2537,7 @@ $().ready(function() {
         var js_id = issue_kwargs.js_id || issue_kwargs.id;
         if (typeof IssuesList.updating_ids[js_id] != 'undefined' || issue_kwargs.front_uuid && UUID.exists(issue_kwargs.front_uuid) && UUID.has_state(issue_kwargs.front_uuid, 'waiting')) {
             setTimeout(function() {
-                IssuesList[method](topic, args, kwargs);
+                method(topic, args, kwargs);
             }, 100);
             return false;
         }
@@ -2553,7 +2553,7 @@ $().ready(function() {
         kwargs.issue.model = 'Issue';
         kwargs.issue.front_uuid = kwargs.front_uuid;
 
-        if (!IssuesList.can_update_on_alert(kwargs.issue, 'on_update_card_alert', topic, args, kwargs)) {
+        if (!IssuesList.can_update_on_alert(kwargs.issue, IssuesList.on_update_card_alert, topic, args, kwargs)) {
             return;
         }
 
@@ -2609,7 +2609,7 @@ $().ready(function() {
     IssuesList.on_update_alert = (function IssuesList_on_update_alert (topic, args, kwargs) {
         if (!kwargs.model || kwargs.model != 'Issue' || !kwargs.id || !kwargs.url) { return; }
 
-        if (!IssuesList.can_update_on_alert(kwargs, 'on_update_alert', topic, args, kwargs)) {
+        if (!IssuesList.can_update_on_alert(kwargs, IssuesList.on_update_alert, topic, args, kwargs)) {
             return;
         }
 
@@ -2624,7 +2624,7 @@ $().ready(function() {
                 message_conf.count ++;
                 if (message_conf.count == message_conf.expected_count) {
                     var front_uuid_exists = UUID.exists(kwargs.front_uuid);
-                    if (!message_conf.done && (!kwargs.front_uuid || !front_uuid_exists)) {
+                    if (!message_conf.done) {
                         // the issue is not in a list, so we fetch it again to display the msg
                         $.get(kwargs.url).done(function (data) {
                             var $data = $(data);
@@ -2744,12 +2744,12 @@ $().ready(function() {
 
             IssuesListIssue.finalize_alert(issue.$node, kwargs, front_uuid_exists, $data, $containers, 'added', message_conf);
 
-            if (kwargs.front_uuid && kwargs.is_new && front_uuid_exists) {
+            if (kwargs.is_new && front_uuid_exists) {
                 $data.removeClass('recent');
             }
         }).always(function() {
             message_conf.on_list_done();
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
             delete IssuesList.updating_ids[kwargs.id];
@@ -6887,7 +6887,8 @@ $().ready(function() {
 
         // UPDATE COMMENTS FROM WEBSOCKET
         on_update_alert: (function IssueEditor__on_update_alert (topic, args, kwargs) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+            var front_uuid_exists = UUID.exists(kwargs.front_uuid);
+            if (front_uuid_exists && UUID.has_state(kwargs.front_uuid, 'waiting')) {
                 setTimeout(function() {
                     IssueEditor.on_update_alert(topic, args, kwargs);
                 }, 100);
@@ -6908,13 +6909,14 @@ $().ready(function() {
                     });
                 }
             }
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_update_alert
 
         on_delete_alert: (function IssueEditor__on_delete_alert (topic, args, kwargs) {
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid) && UUID.has_state(kwargs.front_uuid, 'waiting')) {
+            var front_uuid_exists = UUID.exists(kwargs.front_uuid);
+            if (front_uuid_exists && UUID.has_state(kwargs.front_uuid, 'waiting')) {
                 setTimeout(function() {
                     IssueEditor.on_update_alert(topic, args, kwargs);
                 }, 100);
@@ -6932,7 +6934,7 @@ $().ready(function() {
                     IssueEditor.remove_comment($nodes);
                 }
             }
-            if (kwargs.front_uuid && UUID.exists(kwargs.front_uuid)) {
+            if (front_uuid_exists) {
                 UUID.set_state(kwargs.front_uuid, '');
             }
         }), // on_delete_alert
@@ -6947,6 +6949,7 @@ $().ready(function() {
             $modal_repository_placeholder: null,
             modal_issue_body: '<div class="modal-body"><div class="issue-container"></div></div>',
             url: $body.data('create-issue-url'),
+            subscribed_to_created_alert: false,
 
             get_form: function() {
                 return $('#issue-create-form');
@@ -6997,6 +7000,31 @@ $().ready(function() {
                 FormTools.load_select2(select2_callback);
             }), // update_form
 
+            subscribe_to_create_alert: (function IssueEditor__create__subscribe_to_create_alert() {
+                if (IssueEditor.create.subscribed_to_created_alert) { return; }
+                IssueEditor.create.subscribed_to_created_alert = true;
+                if (WS.subscriptions['gim.front.Repository.' + main_repository_id + '.model.updated.is.Issue.']) {
+                    return;
+                }
+                WS.subscribe(
+                    'gim.front.Repository.' + main_repository_id + '.model.created.is.Issue.',
+                    'IssueEditor_create__on_create_alert',
+                    IssueEditor.create.on_create_alert,
+                    'prefix'
+                );
+
+            }), // subscribe_to_create_alert
+
+            on_create_alert: (function IssueEditor_create__on_create_alert(topic, args, kwargs) {
+                if (!IssuesList.can_update_on_alert(kwargs, IssueEditor.create.on_create_alert, topic, args, kwargs)) {
+                    return;
+                }
+                if (UUID.exists(kwargs.front_uuid)) {
+                    IssueDetail.refresh_created_issue(kwargs.front_uuid);
+                }
+
+            }), // on_create_alert
+
             on_form_submit: (function IssueEditor_create__on_form_submit (ev) {
                 Ev.cancel(ev);
                 var $form = IssueEditor.create.get_form();
@@ -7004,7 +7032,8 @@ $().ready(function() {
                 FormTools.disable_form($form);
                 IssueEditor.create.$modal_submit.addClass('loading');
                 IssueEditor.create.$modal_footer.find('.alert').remove();
-                var front_uuid = UUID.generate('waiting'), context = {'front_uuid': front_uuid};
+                IssueEditor.create.subscribe_to_create_alert();
+                var front_uuid = UUID.generate('waiting'), context = {'uuid': front_uuid};
                 FormTools.post_form_with_uuid($form, context,
                     IssueEditor.create.on_submit_done,
                     IssueEditor.create.on_submit_failed
@@ -7023,7 +7052,7 @@ $().ready(function() {
                     IssueEditor.create.$modal_submit.removeClass('loading');
                 } else {
                     // no error, we display the issue
-                    IssueEditor.create.display_created_issue(data, this.front_uuid);
+                    IssueEditor.create.display_created_issue(data, this.uuid);
                 }
             }), // on_submit_done
 
