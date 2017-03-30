@@ -325,7 +325,9 @@ class GithubUser(GithubObjectWithId, AbstractUser):
                                 parameters=parameters,
                                 defaults=defaults,
                                 # mark all not fetched as read if we know all entries are fetched
-                                remove_missing=force_fetch)
+                                remove_missing=force_fetch,
+                                max_pages=20,
+                                do_remove_if_max_pages_raised=True)
 
     def fetch_all(self, gh=None, force_fetch=False, **kwargs):
         # FORCE GH
