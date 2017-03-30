@@ -1332,14 +1332,6 @@ class _PullRequestReview(Hashable, FrontEditable):
         return self.author
 
     @property
-    def repository_id(self):
-        return self.issue.repository_id
-
-    @property
-    def repository(self):
-        return self.issue.repository
-
-    @property
     def html_content(self):
         return html_content(self)
 

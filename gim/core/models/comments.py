@@ -753,3 +753,11 @@ class PullRequestReview(GithubObjectWithId):
     @property
     def github_url(self):
         return self.issue.github_url + '#pullrequestreview-%s' % self.github_id
+
+    @property
+    def repository_id(self):
+        return self.issue.repository_id
+
+    @property
+    def repository(self):
+        return self.issue.repository
