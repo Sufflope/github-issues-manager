@@ -203,6 +203,7 @@ GROUP_BY_CHOICES = dict(BaseIssuesFilters.GROUP_BY_CHOICES, **{group_by[0]: grou
     }),
     ('milestone', {
         'field': 'milestone',
+        'db_field': 'milestone__number',
         'name': 'milestone',
         'description': u'milestone the issue is in',
     }),
