@@ -186,7 +186,8 @@ class GithubObject(models.Model):
     def _fetch_many(self, field_name, gh, vary=None, defaults=None,
                     parameters=None, remove_missing=True, force_fetch=False,
                     meta_base_name=None, modes=MODE_ALL, max_pages=None,
-                    filter_queryset=None, github_api_version=None):
+                    filter_queryset=None, github_api_version=None,
+                    do_remove_if_max_pages_raised=False):
         """
         Fetch data from github for the given m2m or related field.
         If defined, "vary" is a dict of list of parameters to fetch. For each
@@ -458,7 +459,7 @@ class GithubObject(models.Model):
             do_remove = (remove_missing
                      and not cache_hit
                      and modes == MODE_ALL
-                     and not max_pages_raised
+                     and (not max_pages_raised or do_remove_if_max_pages_raised)
                      and started_at_first_page
                 )
             save_etags_and_fetched_at = started_at_first_page

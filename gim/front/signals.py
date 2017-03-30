@@ -1,28 +1,53 @@
+from datetime import datetime, timedelta
 from logging import getLogger
 
 logger = getLogger('gim.log')
 
 from gim.core import models as core_models
 
-from .publish import PUBLISHABLE_MODELS, publish_update, thread_data
+from .publish import PUBLISHABLE, PUBLISHABLE_MODELS, publish_update, thread_data
+
+PUBLISHABLE_MAX_AGE = timedelta(hours=1)
 
 
-def publish_github_updated(sender, instance, created, **kwargs):
-    """Publish a message each time a github object is created/updated."""
+def can_instance_be_published(instance, take_age_into_account=True):
 
     # Only for objects we care about
     if not isinstance(instance, PUBLISHABLE_MODELS):
-        return
-
-    # That we got from github
-    if not getattr(instance, 'skip_status_check_to_publish', False) and \
-            getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
-        return
+        return False
 
     # Only if we didn't specifically say to not publish
     if getattr(thread_data, 'skip_publish', False):
         return
     if getattr(instance, 'skip_publish', False):
+        return
+
+    # For published repository
+    try:
+        if not instance.repository.fetch_minimal_done:
+            return False
+    except AttributeError:
+        pass
+
+    # And not too old
+    if take_age_into_account:
+        date_field = PUBLISHABLE[instance.__class__].get('date_field_for_age', 'updated_at')
+        updated_at = getattr(instance, date_field, None)
+        if not updated_at or updated_at < datetime.utcnow() - PUBLISHABLE_MAX_AGE:
+            return False
+
+    return True
+
+
+def publish_github_updated(sender, instance, created, **kwargs):
+    """Publish a message each time a github object is created/updated."""
+
+    if not can_instance_be_published(instance):
+        return
+
+    # That we got from github
+    if not getattr(instance, 'skip_status_check_to_publish', False) and \
+            getattr(instance, 'github_status', instance.GITHUB_STATUS_CHOICES.FETCHED) != instance.GITHUB_STATUS_CHOICES.FETCHED:
         return
 
     # Ignore some cases
@@ -61,12 +86,7 @@ def publish_github_updated(sender, instance, created, **kwargs):
 def publish_github_deleted(sender, instance, **kwargs):
     """Publish a message each time a github object is deleted."""
 
-    # Only for objects we care about
-    if not isinstance(instance, PUBLISHABLE_MODELS):
-        return
-
-    # Only if we didn't specifically say to not publish
-    if getattr(thread_data, 'skip_publish', False):
+    if not can_instance_be_published(instance, take_age_into_account=False):
         return
 
     # That we are not currently deleting before creating from github

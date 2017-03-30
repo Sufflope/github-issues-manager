@@ -94,6 +94,7 @@ PUBLISHABLE = {
         'parents': [
             ('Issue', 'issue', lambda self: [self.issue_id], None),
         ],
+        'date_field_for_age': 'submitted_at',
     },
     # core_models.Commit: {
     #     'self': False,
