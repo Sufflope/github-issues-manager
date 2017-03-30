@@ -827,3 +827,11 @@ class Mention(models.Model):
         return u'`%s` mentioned in `%s` (in %s %d)' % (
             self.user if self.user_id else self.username,
             self.issue, self.get_position_display(), self.object_id)
+
+    @property
+    def repository_id(self):
+        return self.issue.repository_id
+
+    @property
+    def repository(self):
+        return self.issue.repository
