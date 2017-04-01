@@ -2,6 +2,7 @@
 __all__ = [
     'CommitFile',
     'LocallyReviewedHunk',
+    'LocalHunkSplit',
     'PullRequestFile',
 ]
 
@@ -42,6 +43,19 @@ class LocallyReviewedHunk(models.Model):
         app_label = 'core'
         unique_together = [
             ('repository', 'author', 'path', 'patch_sha'),
+        ]
+
+
+class LocalHunkSplit(models.Model):
+    repository = models.ForeignKey('Repository', related_name='local_hunks_splits')
+    author = models.ForeignKey('GithubUser', related_name='local_hunks_splits')
+    path = models.TextField(blank=True, null=True)
+    line = models.TextField(blank=True, null=True)
+
+    class Meta:
+        app_label = 'core'
+        unique_together = [
+            ('repository', 'author', 'path', 'line'),
         ]
 
 
@@ -170,6 +184,17 @@ class FileMixin(models.Model):
                         self.unmark_locally_reviewed_by_user(user, hunk_sha, propagate=False)
                 else:
                     self.unmark_locally_reviewed_by_user(user, propagate=False)
+
+    def get_split_lines_filters_for_user(self, user):
+        return {
+            'repository': self.repository,
+            'author': user,
+            'path': self.path,
+        }
+
+    def get_split_lines_for_user(self, user):
+        filters = self.get_split_lines_filters_for_user(user)
+        return LocalHunkSplit.objects.filter(**filters).values_list('line', flat=True)
 
 
 class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):
