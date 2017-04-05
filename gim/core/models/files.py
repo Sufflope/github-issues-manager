@@ -15,7 +15,7 @@ from ..managers import (
 )
 
 from ..diffutils import (
-    get_encoded_hunks,
+    get_encoded_hunks_from_patch,
     encode_hunk,
 )
 from ..utils import JSONField
@@ -58,6 +58,9 @@ class LocalHunkSplit(models.Model):
             ('repository', 'author', 'path', 'line'),
         ]
 
+    @staticmethod
+    def can_split_on_line(line, index, diff_len):
+        return (2 <= index < diff_len - 2) and len(line.strip()) > 5
 
 class FileMixin(models.Model):
     path = models.TextField(blank=True, null=True, db_index=True)
@@ -87,7 +90,7 @@ class FileMixin(models.Model):
             self.patch_sha = patch_sha
             if update_fields and 'patch_sha' not in update_fields:
                 update_fields = list(update_fields) + ['patch_sha']
-            hunk_shas = list(get_encoded_hunks(self.patch).keys())
+            hunk_shas = list(get_encoded_hunks_from_patch(self.patch).keys())
             if hunk_shas != self.hunk_shas and (hunk_shas or self.hunk_shas):  # avoid changing if one is None and the other []
                 self.hunk_shas = hunk_shas
                 if update_fields and 'hunk_shas' not in update_fields:

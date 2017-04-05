@@ -29,7 +29,19 @@ HUNK_HEADER_TEMPLATE = u'@@ -%s,%s +%s,%s @@%s'
 HUNK_HEADER_START = u'@@'
 
 
-def split_patch_into_hunks(patch, as_strings=True):
+def hunk_as_string(hunk):
+    if isinstance(hunk, basestring):
+        return hunh
+    return '\n'.join(hunk)
+
+
+def hunk_as_lines(hunk, mas_lines=-1):
+    if isinstance(hunk, basestring):
+        return hunk.encode('utf-8').split('\n')
+    return hunk
+
+
+def split_patch_into_hunks(patch):
     if not patch or not patch.startswith(HUNK_HEADER_START):
         return []
     hunks = []
@@ -38,49 +50,69 @@ def split_patch_into_hunks(patch, as_strings=True):
             hunks.append([])
         hunks[-1].append(l)
 
-    if as_strings:
-        return ['\n'.join(hunk) for hunk in hunks]
-    else:
-        return hunks
+    return hunks
 
 
 def encode_hunk(hunk):
+
     try:
-        return hashlib.sha1(
-            '\n'.join(
-                HUNK_HEADER_START if l.startswith(HUNK_HEADER_START) else l
-                for l in hunk.encode('utf-8').split('\n')
-            )
-        ).hexdigest()
+
+        if not isinstance(hunk, basestring):
+            header = hunk[0]
+            rest = hunk_as_string(hunk[1:])
+            if header.startswith(HUNK_HEADER_START):
+                header = HUNK_HEADER_START
+
+        else:
+
+            header, rest = hunk_as_lines(hunk, 1)
+            if header.startswith(HUNK_HEADER_START):
+                header = HUNK_HEADER_START
+
+        return hashlib.sha1(header + '\n' + rest).hexdigest()
+
     except:
         # ignore patch sha that cannot be computed
         return None
 
 
-def get_encoded_hunks(patch):
+def get_encoded_hunks(hunks):
     hunk_shas = {}
 
-    if patch:
+    if hunks:
         hunk_shas = OrderedDict(
             (encode_hunk(hunk), hunk)
             for hunk
-            in split_patch_into_hunks(patch)
+            in hunks
         )
 
     return hunk_shas
 
 
+def get_encoded_hunks_from_patch(patch):
+    return get_encoded_hunks(split_patch_into_hunks(patch))
+
+
 def parse_hunk(hunk, sha, position, is_reviewed):
 
-    result = [['comment', u'…', u'…', hunk[0], position, sha, is_reviewed]]
+    hunk = hunk_as_lines(hunk)
+
+    from gim.core.models import LocalHunkSplit
+
+    is_manual = hunk[0].endswith(MANUAL_HUNK_SPLIT_NOTE)
+
+    result = [['comment', u'…', u'…', hunk[0], position, sha, is_reviewed, is_manual, False]]
 
     diff = whatthepatch.parse_patch(hunk).next()  # only one file = only one diff
 
-    if hunk[0].endswith(MANUAL_HUNK_SPLIT_NOTE):
+    if is_manual:
         # manual hunks are not included in position as seen by github
         position -= 1
 
-    for old, new, text in diff.changes:
+    len_changes = len(diff.changes)
+
+    for index, change in enumerate(diff.changes):
+        old, new, text = change
         position += 1
         mode = ' ' if old and new else '-' if old else '+'
         result.append([
@@ -91,6 +123,8 @@ def parse_hunk(hunk, sha, position, is_reviewed):
             position,
             sha,
             is_reviewed,
+            is_manual,
+            LocalHunkSplit.can_split_on_line(text, index, len_changes),
         ])
 
     return result
@@ -101,17 +135,19 @@ def increment_line_count(line, start_from, start_to):
     return start_from + incrementer[0], start_to + incrementer[1]
 
 
-def compute_hunk_header(lines, start_from, start_to):
-    if lines[0].startswith(HUNK_HEADER_START):
-        header = lines[0]
+def compute_hunk_header(hunk, start_from, start_to):
+    hunk = hunk_as_lines(hunk)
+
+    if hunk[0].startswith(HUNK_HEADER_START):
+        header = hunk[0]
         start_from, start_to, text = \
             whatthepatch.patch.unified_hunk_start.match(header).groups()[::2]
-        lines = lines[1:]
+        hunk = hunk[1:]
     else:
         text = MANUAL_HUNK_SPLIT_NOTE
 
     count_from, count_to = 0, 0
-    for line in lines:
+    for line in hunk:
         count_from, count_to = increment_line_count(line, count_from, count_to)
 
     return HUNK_HEADER_TEMPLATE % (
@@ -120,6 +156,9 @@ def compute_hunk_header(lines, start_from, start_to):
 
 
 def split_hunks(hunks, split_lines):
+
+    from gim.core.models import LocalHunkSplit
+
     split_lines = set(split_lines)
 
     final_hunks = []
@@ -136,23 +175,23 @@ def split_hunks(hunks, split_lines):
         final_hunks.append(lines)
 
     for hunk in hunks:
-        lines = hunk.split('\n')
+        hunk = hunk_as_lines(hunk)
 
-        header = lines[0]
+        header = hunk.pop(0)
 
         start_from, start_to = (
             int(val or 0) for val
-            in whatthepatch.patch.unified_hunk_start.match(header).groups()[:4:2]
+            in extract_hunk_header_starts(header)
         )
-        line_from, line_to = start_from - 1, start_to - 1
+        line_from, line_to = max(start_from - 1, 0), max(start_to - 1, 0)
 
         current_hunk_lines = [header]
 
-        len_lines = len(lines)
-        for index, line in enumerate(lines[1:], start=1):
+        len_lines = len(hunk)
+        for index, line in enumerate(hunk):
             line_from, line_to = increment_line_count(line, line_from, line_to)
 
-            if 2 < index < len_lines - 2 and line[1:] in split_lines:
+            if LocalHunkSplit.can_split_on_line(line[1:], index, len_lines) and line[1:] in split_lines:
                 push_hunk(current_hunk_lines, start_from, start_to)
                 current_hunk_lines = []
                 start_from, start_to = line_from, line_to

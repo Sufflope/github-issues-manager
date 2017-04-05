@@ -388,7 +388,8 @@ class WithFiles(object):
                 hunks = split_hunks(original_hunks, split_lines)
                 if len(hunks) != len(original_hunks):
                     file.patch = '\n'.join(chain.from_iterable(hunks))
-                    file.hunk_shas = list(get_encoded_hunks(file.patch).keys())
+                    file.hunk_shas = list(get_encoded_hunks(hunks).keys())
+                file.hunks = hunks
 
             file.repository = self.repository
             file.nb_comments = counts.get(file.path, 0)

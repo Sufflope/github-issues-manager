@@ -15,7 +15,7 @@ from django import template
 from django.conf import settings
 from django.template import TemplateSyntaxError
 
-from gim.core.diffutils import split_patch_into_hunks, parse_hunk
+from gim.core.diffutils import split_patch_into_hunks, parse_hunk, hunk_as_lines
 
 register = template.Library()
 
@@ -210,7 +210,7 @@ def append(alist, item):
     return alist + [item]
 
 
-def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
+def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None, hunks=None):
 
     if not diff or diff == 'u\n':
         diff = u'@@ -1,0 +1,0 @@ EMPTY DIFF\n- %s was not able to retrieve this diff :(' % settings.BRAND_SHORT_NAME
@@ -218,7 +218,7 @@ def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
     if not diff.startswith(u'@@'):
         diff = u'@@ -1,0 +1,0 @@\n' + diff
 
-    hunks = split_patch_into_hunks(diff, as_strings=False)
+    hunks = split_patch_into_hunks(diff) if hunks is None else hunks
 
     results = []
     position = 0
@@ -228,6 +228,7 @@ def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
 
     # parse each hunk
     for hunk_index, hunk in enumerate(hunks):
+        hunk = hunk_as_lines(hunk)
         hunk_sha = None
         is_reviewed = None
         if hunk_shas:
@@ -253,7 +254,10 @@ def parse_diff(diff, reduce=False):
 
 @register.filter
 def parse_diff_for_file(file, reduce=False):
-    return _parse_diff(file.patch, reduce, file.hunk_shas, getattr(file, 'reviewed_hunks_locally', {}))
+    hunks = getattr(file, 'hunks', None)
+    if hunks is not None:
+        hunks = [hunk_as_lines(hunk) for hunk in hunks]
+    return _parse_diff(file.patch, reduce, file.hunk_shas, getattr(file, 'reviewed_hunks_locally', {}), hunks)
 
 
 @register.filter
