@@ -8,14 +8,14 @@ from datetime import datetime
 import time
 import re
 
-import whatthepatch
-
 from pytimeago.english import english as english_ago
 from pytimeago.english_short import english_short as english_short_ago
 
 from django import template
 from django.conf import settings
 from django.template import TemplateSyntaxError
+
+from gim.core.diffutils import split_patch_into_hunks, parse_hunk, extract_hunk_header_starts as extract, hunk_as_lines
 
 register = template.Library()
 
@@ -210,15 +210,7 @@ def append(alist, item):
     return alist + [item]
 
 
-DIFF_LINE_TYPES = {
-    '@': 'comment',
-    '+': 'added',
-    '-': 'removed',
-    ' ': '',
-}
-
-
-def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
+def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None, hunks=None):
 
     if not diff or diff == 'u\n':
         diff = u'@@ -1,0 +1,0 @@ EMPTY DIFF\n- %s was not able to retrieve this diff :(' % settings.BRAND_SHORT_NAME
@@ -226,8 +218,7 @@ def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
     if not diff.startswith(u'@@'):
         diff = u'@@ -1,0 +1,0 @@\n' + diff
 
-    from gim.core.models import LocallyReviewedHunk
-    hunks = LocallyReviewedHunk.split_patch_into_hunks(diff, as_strings=False)
+    hunks = split_patch_into_hunks(diff) if hunks is None else hunks
 
     results = []
     position = 0
@@ -237,26 +228,16 @@ def _parse_diff(diff, reduce=False, hunk_shas=None, hunk_shas_reviewed=None):
 
     # parse each hunk
     for hunk_index, hunk in enumerate(hunks):
+        hunk = hunk_as_lines(hunk)
         hunk_sha = None
         is_reviewed = None
         if hunk_shas:
             hunk_sha = hunk_shas[hunk_index]
             is_reviewed = hunk_shas_reviewed and hunk_shas_reviewed.get(hunk_sha, False)
-        result = [['comment', u'…', u'…', hunk[0], position, hunk_sha, is_reviewed]]
-        diff = whatthepatch.parse_patch(hunk).next()  # only one file = only one diff
-        for old, new, text in diff.changes:
-            position += 1
-            mode = ' ' if old and new else '-' if old else '+'
-            result.append([
-                DIFF_LINE_TYPES[mode],
-                old or '',
-                new or '',
-                mode + text,
-                position,
-                hunk_sha,
-                is_reviewed,
-            ])
-        position += 1
+
+        result = parse_hunk(hunk, hunk_sha, position, is_reviewed)
+        position += len(result)
+
         if reduce:
             result = result[0:1] + result[1:][-12:]
 
@@ -273,7 +254,10 @@ def parse_diff(diff, reduce=False):
 
 @register.filter
 def parse_diff_for_file(file, reduce=False):
-    return _parse_diff(file.patch, reduce, file.hunk_shas, getattr(file, 'reviewed_hunks_locally', {}))
+    hunks = getattr(file, 'hunks', None)
+    if hunks is not None:
+        hunks = [hunk_as_lines(hunk) for hunk in hunks]
+    return _parse_diff(file.patch, reduce, file.hunk_shas, getattr(file, 'reviewed_hunks_locally', {}), hunks)
 
 
 @register.filter
@@ -510,3 +494,6 @@ def user_can_add_pr_review(issue, user):
         return False
     return issue.user_can_add_pr_review(user)
 
+@register.filter
+def extract_hunk_header_starts(header_text):
+    return '[%s,%s]' % extract(header_text)

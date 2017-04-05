@@ -15,6 +15,7 @@ from django.db.models import FieldDoesNotExist
 from django.db.models import Max, Q
 
 from .ghpool import Connection, ApiError
+from .diffutils import get_encoded_hunks_from_patch
 from .utils import queryset_iterator, SavedObjects
 
 MODE_CREATE = {'create'}
@@ -1204,7 +1205,7 @@ class CommitManager(WithRepositoryManager):
                 patch=file_info.get('patch', ''),
                 sha=random_sha,
             )
-            file.hunk_shas = file.compute_hunk_shas()
+            file.hunk_shas = list(get_encoded_hunks_from_patch(file.patch).keys())
             files.append(file)
 
         return files

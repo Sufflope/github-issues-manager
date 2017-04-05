@@ -36,6 +36,14 @@ $space-around-code-comments: (15px * 2 + 1px * 2 + 15px * 2 + $scrollbar-width +
                 a {
                     @include box-sizing(border-box);
                     width: 9em;
+                    &.manual-split-remove {
+                        width: auto;
+                        i {
+                            position: relative;
+                            top: 2px;
+                            font-size: 15px;
+                        }
+                    }
                     height: 22px;
                     line-height: 22px;
                     text-align: center;
@@ -146,8 +154,10 @@ table.table-normal.diff {
                     background: $table-row-hover-background-color !important;
                     td {
                         background: transparent !important;
-                        &.code .btn-comment {
-                            display: inline-block;
+                        &.code {
+                            .btn-comment, .btn-split {
+                                display: inline-block;
+                            }
                         }
                     }
                 }
@@ -166,9 +176,12 @@ table.table-normal.diff {
                     }
                     &.code {
                         vertical-align: baseline;
-                        .btn-comment {
+                        .btn-comment, .btn-split {
                             position: absolute;
                             left: 1px;
+                            &.btn-split {
+                                left: 28px;
+                            }
                             padding: 3px 6px;
                             cursor: pointer;
                             display: none;
