@@ -24,6 +24,7 @@ from pymdownx.github import GithubExtension
 
 from gim.core import models as core_models, get_main_limpyd_database
 from gim.core.models.base import GithubObject
+from gim.core.diffutils import get_encoded_hunks, split_hunks, split_patch_into_hunks
 from gim.core.utils import cached_method, graph_from_edges, dfs_topsort_traversal, stop_after_seconds, JSONField
 from gim.events.models import EventPart
 from gim.subscriptions import models as subscriptions_models
@@ -380,6 +381,16 @@ class WithFiles(object):
         files = list(self.files.all())
 
         for file in files:
+
+            split_lines = file.get_split_lines_for_user(user)
+            if split_lines:
+                original_hunks = split_patch_into_hunks(file.patch)
+                hunks = split_hunks(original_hunks, split_lines)
+                if len(hunks) != len(original_hunks):
+                    file.patch = '\n'.join(chain.from_iterable(hunks))
+                    file.hunk_shas = list(get_encoded_hunks(hunks).keys())
+                file.hunks = hunks
+
             file.repository = self.repository
             file.nb_comments = counts.get(file.path, 0)
             file.reviewed_hunks_locally = file.get_hunks_locally_reviewed_by_user(user)

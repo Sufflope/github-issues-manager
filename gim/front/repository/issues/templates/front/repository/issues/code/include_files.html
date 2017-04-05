@@ -96,9 +96,9 @@
 </div>
 {% if files %}
 <ul class="unstyled chat-box timeline issue-activity">
-{% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url:view.request.user %}
+{% for file in files %}{% with toggle_locally_reviewed_url=file|file_toggle_locally_reviewed_url toggle_local_split_url=file|file_toggle_local_split_url %}
     <li>
-        <div class="box code-file{% if can_mark_reviewed and file.reviewed_locally %} is-reviewed{% endif %}" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}">
+        <div class="box code-file{% if can_mark_reviewed and file.reviewed_locally %} is-reviewed{% endif %}" id="code-file-{{ file.id }}-target" data-pos="{{ forloop.counter }}" data-add-local-split-url="{{ file|file_toggle_local_split_url:'split' }}" data-remove-local-split-url="{{ file|file_toggle_local_split_url:'unsplit' }}">
             <div class="box-header" data-toggle="collapse" data-target="#code-file-{{ file.id }}-content" title="Click to collapse/expand">
                 <div class="title">
                     <a href="#" id="code-file-{{ file.id }}" class="path">{{ file.path }}</a>

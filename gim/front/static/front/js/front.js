@@ -3738,9 +3738,11 @@ $().ready(function() {
             if (!$mask.length) {
                 $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
                 $node.append($mask);
+                window.requestAnimationFrame(function() { $mask.addClass('loaded'); });
             } else {
-                $mask.removeClass('no-spinner');
+                $mask.removeClass('no-spinner loaded');
                 $mask.show();
+                window.requestAnimationFrame(function() { $mask.addClass('loaded'); });
             }
             return $mask;
         }), // add_waiting
@@ -4920,6 +4922,277 @@ $().ready(function() {
            return false;
         }), // toggle_reviewed
 
+        on_split_diff_click: (function IssueDetail__on_split_diff_click () {
+            var $tr = $(this).closest('tr'),
+                $file_node = $tr.closest('.code-file'),
+                $current_hunk_content, $current_hunk_header,
+                $new_hunk_content, $new_hunk_header,
+                $hunk_lines, len_lines,
+                position, i, $line, line_position, is_comment, found=false;
+
+            IssuesFilters.add_waiting($file_node);
+
+            $current_hunk_content = $tr.closest('.diff-hunk-content');
+            $current_hunk_header = $current_hunk_content.prev('.diff-hunk-header');
+
+            $new_hunk_content = $current_hunk_content.clone();
+            $new_hunk_header = $current_hunk_header.clone();
+
+            $new_hunk_header.removeAttr('data-position');
+            $new_hunk_header.find('.title').html('Manual split <i class="fa fa-spinner fa-spin"> </i>');
+
+            position = $tr.data('position');
+
+            // remove lines on the new hunk that we keep on the current hunk
+            $hunk_lines = $new_hunk_content.find('tr[data-position], tr.diff-comments');
+            len_lines = $hunk_lines.length;
+            for (i = 0; i < len_lines; i++) {
+                $line = $($hunk_lines[i]);
+                is_comment = $line.hasClass('.diff-comments');
+                line_position = is_comment ? 0 : parseInt($line.data('position'), 10);
+                if (line_position < position) {
+                    $line.remove();
+                } else {
+                    break;
+                }
+            }
+            // no split on two first lines of the new hunk
+            $hunk_lines = $new_hunk_content.find('tr[data-position]');
+            len_lines = $hunk_lines.length;
+            for (i = 0; i < 2; i++) {
+                if (i == len_lines - 2) { break; } // no split on two last lines from current hunk
+                $($hunk_lines[i]).find('.btn-split').remove();
+            }
+
+            // remove lines on the current hunk that we keep on the new hunk
+            $hunk_lines = $current_hunk_content.find('tr[data-position], tr.diff-comments');
+            len_lines = $hunk_lines.length;
+            for (i = 0; i < len_lines; i++) {
+                $line = $($hunk_lines[i]);
+                is_comment = $line.hasClass('.diff-comments');
+                line_position = is_comment ? 0 : parseInt($line.data('position'), 10);
+                if (line_position >= position) {
+                    found = true;
+                }
+                if (found) {
+                    $line.remove();
+                }
+            }
+            // no split on two last lines of the current hunk
+            $hunk_lines = $current_hunk_content.find('tr[data-position], tr.diff-comments');
+            len_lines = $hunk_lines.length;
+            for (i = len_lines-1; i > len_lines -3; i--) {
+                if (i == 1) { break; }  // alreay no split on two first lines
+                $($hunk_lines[i]).find('.btn-split').remove();
+            }
+
+            // add trash button if not copied from previous hunk header
+            if (!$new_hunk_header.find('.manual-split-remove').length) {
+                $new_hunk_header.find('.title').after('<ul class="box-toolbar"><li class="toolbar-link"><a class="manual-split-remove" title="Remove this manual split"><i class="fa fa-trash-o"></i></a></li></ul>');
+            }
+
+            $current_hunk_content.after($new_hunk_header);
+            $new_hunk_header.after($new_hunk_content);
+
+            IssueDetail.post_toggle_diff_split($tr, true, $file_node, $current_hunk_header);
+
+        }), // on_split_diff_click
+
+        on_split_diff_remove_click: (function IssueDetail__on_split_diff_remove_click () {
+            var $current_hunk_header = $(this).closest('.diff-hunk-header'),
+                $file_node = $current_hunk_header.closest('.code-file'),
+                $current_hunk_content, $previous_hunk_content, $previous_hunk_header,
+                $lines, $previous_lines_holder, boundary_lines, $line, i, $comment_btn,
+                split_button;
+
+            IssuesFilters.add_waiting($file_node);
+
+            $current_hunk_content = $current_hunk_header.next('.diff-hunk-content');
+            $previous_hunk_content = $current_hunk_header.prev('.diff-hunk-content');
+            $previous_hunk_header = $previous_hunk_content.prev('.diff-hunk-header');
+            $previous_lines_holder = $previous_hunk_content.find('table.diff tbody');
+
+            // move lines from current content to previous content
+            $lines = $current_hunk_content.find('tr[data-position], tr.diff-comments');
+            $previous_lines_holder.append($lines);
+
+            // mark splittable old first two lines of current and old last two lines of previous
+            boundary_lines = $lines.toArray().slice(0, 2);
+            if (boundary_lines.length) {
+                $line = $(boundary_lines[0]).prev();
+                if ($line.length) {
+                    boundary_lines.unshift($line[0]);
+                    $line = $line.prev();
+                    if ($line.length) {
+                        boundary_lines.unshift($line[0]);
+                    }
+                }
+            }
+
+            split_button = '<span class="label label-green btn-split" title="Split on this line"><i class="fa fa-exchange"></i></span>';
+            for (i = 0; i < boundary_lines.length; i++) {
+                $line = $(boundary_lines[i]).find('.code');
+                if ($line.text().substr(1).trim().length <= 5) {
+                    continue;
+                }
+                $comment_btn = $line.find('.btn-comment');
+                if ($comment_btn.length) {
+                    $comment_btn.after(split_button);
+                } else {
+                    $line.prepend(split_button);
+                }
+            }
+
+            // remove current hunk
+            $current_hunk_content.remove();
+            $current_hunk_header.remove();
+
+            IssueDetail.post_toggle_diff_split($($lines[0]), false, $file_node, $previous_hunk_header);
+
+            return false;
+        }), // on_split_diff_remove_click
+
+        post_toggle_diff_split: (function IssueDetail__post_toggle_diff_split($tr, toggle, $file_node, $previous_hunk_header) {
+            var url = $file_node.data(toggle ? 'add-local-split-url' : 'remove-local-split-url'),
+                data = {
+                    csrfmiddlewaretoken: $body.data('csrf'),
+                    line: $tr.find('.code').text().substr(1)
+                },
+                context = {
+                    toggle: toggle,
+                    $previous_hunk_header: $previous_hunk_header,
+                    $file_node: $file_node,
+                };
+
+            $.post(url, data)
+                .done($.proxy(IssueDetail.on_diff_split_toggled_done, context))
+                .fail(IssueDetail.on_diff_split_toggled_failed);
+
+        }), // post_toggle_diff_split
+
+        on_diff_split_toggled_done: (function IssueDetail__on_diff_split_toggled_done(data) {
+            var $hunk_header = this.$previous_hunk_header,
+                hunk_counts = this.$file_node.find('.diff-hunk-header').length,
+                header_starts, i, hunk_info, found = false, $number_cells;
+
+            if (hunk_counts != data.hunks.length) {
+                return IssueDetail.reload_diff_file(this.$file_node);
+            }
+
+            header_starts = $hunk_header.data('header-starts');
+
+            for (i = 0; i < data.hunks.length; i++) {
+                hunk_info = data.hunks[i];
+                if (hunk_info.starts[0] == header_starts[0] && hunk_info.starts[1] == header_starts[1]) {
+                    IssueDetail.update_hunk_header($hunk_header, hunk_info);
+                    IssueDetail.toggle_locally_reviewed_hunk(this.$file_node, $hunk_header.find('.locally-reviewed'), hunk_info.sha, hunk_info.locally_reviewed);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                return IssueDetail.reload_diff_file(this.$file_node);
+            }
+
+            if (this.toggle) {
+                // work on new manual hunk
+                if (i >= data.hunks.length - 1) {
+                    // no more hunks!
+                    return IssueDetail.reload_diff_file(this.$file_node);
+                }
+                hunk_info = data.hunks[i+1];
+                $hunk_header = $hunk_header.next('.diff-hunk-content').next('.diff-hunk-header');
+                if (!$hunk_header.length) {
+                    return IssueDetail.reload_diff_file(this.$file_node);
+                }
+                header_starts = [];
+                $number_cells = $hunk_header.next('.diff-hunk-content').find('tr[data-position]:first-child td.line-number');
+                header_starts[0] = $($number_cells[0]).data('line-number');
+                header_starts[1] = $($number_cells[1]).data('line-number');
+                if ((header_starts[0] && header_starts[0] != hunk_info.starts[0]) || (header_starts[1] && header_starts[1] != hunk_info.starts[1])) {
+                    return IssueDetail.reload_diff_file(this.$file_node);
+                }
+                IssueDetail.update_hunk_header($hunk_header, hunk_info);
+                $hunk_header.attr('data-header-starts', '[' + hunk_info.starts.toString() + ']'); // manual to-json
+                $hunk_header.data('header-starts', hunk_info.starts); // auto to-json
+                IssueDetail.toggle_locally_reviewed_hunk(this.$file_node, $hunk_header.find('.locally-reviewed'), hunk_info.sha, hunk_info.locally_reviewed);
+            }
+
+            IssuesFilters.remove_waiting(this.$file_node);
+        }), // on_diff_split_toggled_done
+
+        update_hunk_header: (function IssueDetail__update_hunk_header($hunk_header, hunk_info) {
+            var old_sha = $hunk_header.data('hunk-sha');
+            $hunk_header.attr('data-hunk-sha', hunk_info.sha);
+            $hunk_header.data('hunk-sha', hunk_info.sha);
+
+            var target = $hunk_header.data('target').replace(old_sha, hunk_info.sha);
+            $hunk_header.attr('data-target', target);
+            $hunk_header.data('target', target);
+
+            $hunk_header.find('.title').text(hunk_info.title);
+
+            var $link = $hunk_header.find('.locally-reviewed');
+            var url = $link.data('url').replace(old_sha, hunk_info.sha);
+            $link.attr('data-url', url);
+            $link.data('url', url);
+
+            var $hunk_content = $hunk_header.next('.diff-hunk-content');
+            $hunk_content.attr('data-hunk-sha', hunk_info.sha);
+            $hunk_content.data('hunk-sha', hunk_info.sha);
+        }), // update_hunk_header
+
+        on_diff_split_toggled_failed: (function IssueDetail__on_diff_split_toggled_failed() {
+            window.alert('Code split failed. You must reload the issue :(  (hint: close this alert then press "r")');
+            return false;
+        }), // on_diff_split_toggled_failed
+
+        reload_diff_file: (function IssueDetail__reload_diff_file ($file_node) {
+            var $tab_pane = $file_node.closest('.tab-pane'),
+                id = $file_node.attr('id'),
+                $hunk_headers = $file_node.find('.diff-hunk-header'),
+                collapsed_headers = {}, i, header_starts, $hunk_header, $hunk_content;
+
+            // keep reference of collapsed hunks
+            for (i = 0; i < $hunk_headers.length; i++) {
+                $hunk_header = $($hunk_headers[i]);
+                header_starts = $hunk_header.data('header-starts');
+                if (!header_starts) { continue; }
+                $hunk_content = $hunk_header.next('.diff-hunk-content');
+                if ($hunk_content.hasClass('in')) { continue; }
+                collapsed_headers[header_starts.toString()] = true;
+            }
+
+            $.get($tab_pane.data('url'))
+                .done(function(data) {
+                    var $new_file_node = $(data).find('#' + id);
+                    if (!$new_file_node.length) {
+                        return IssueDetail.on_diff_split_toggled_failed();
+                    }
+
+                    // collapse hunks that where collapsed
+                    $hunk_headers = $new_file_node.find('.diff-hunk-header');
+                    for (i = 0; i < $hunk_headers.length; i++) {
+                        $hunk_header = $($hunk_headers[i]);
+                        $hunk_content = $hunk_header.next('.diff-hunk-content');
+                        header_starts = $hunk_header.data('header-starts');
+                        if (!header_starts || !collapsed_headers[header_starts.toString()]) {
+                            $hunk_content.addClass('in');
+                        } else {
+                            $hunk_content.removeClass('in');
+                            $hunk_header.addClass('collapsed');
+                        }
+                    }
+
+                    // now replace with this new node
+                    $file_node.replaceWith($new_file_node);
+                })
+                .fail(IssueDetail.on_diff_split_toggled_failed);
+
+            return false;
+        }), // reload_diff_file
+
         before_load_tab: (function IssueDetail__before_load_tab (ev) {
             if (!ev.relatedTarget) { return; }
             var $previous_tab = $(ev.relatedTarget),
@@ -5670,6 +5943,10 @@ $().ready(function() {
             $document.on('click', 'li:not(.disabled) a.go-to-next-review-comment', Ev.stop_event_decorate(IssueDetail.go_to_next_review_comment));
             jwerty.key('p/k/shift+p/shift+k', IssueDetail.on_review_key_event('go_to_previous_review_comment'));
             jwerty.key('n/j/shift+n/shift+j', IssueDetail.on_review_key_event('go_to_next_review_comment'));
+
+            // hunk spliting
+            $document.on('click', 'td.code span.btn-split', IssueDetail.on_split_diff_click);
+            $document.on('click', 'a.manual-split-remove', Ev.stop_event_decorate(IssueDetail.on_split_diff_remove_click));
 
             // toggling statuses and review details
             $document.on('shown.collapse hidden.collapse', '.pr-commits-statuses, .pr-reviews-detail, .pr-commit-statuses .box-content', IssueDetail.on_statuses_or_review_box_toggled);

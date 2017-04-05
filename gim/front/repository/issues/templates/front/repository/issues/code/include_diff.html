@@ -1,14 +1,13 @@
 {% load frontutils %}
 {% with comments_count_by_hunk_position=parsed_diff|count_comments_by_hunk_position:entry_points %}
-{% for class, old, new, code, position, hunk_sha, hunk_reviewed in parsed_diff %}
+{% for class, old, new, code, position, hunk_sha, hunk_reviewed, manual_hunk, can_split_line in parsed_diff %}
     {% if class == 'comment' %}
         {% if not forloop.first %}
                     </tbody>
                 </table>
             </div>
         {% endif %}
-        <div class="box-header diff-hunk-header{% if can_mark_reviewed and hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}
-"{% endif %}>
+        <div class="box-header diff-hunk-header{% if can_mark_reviewed and hunk_reviewed %} is-reviewed{% endif %}"{% if hunk_sha %} data-toggle="collapse" data-target=".diff-hunk-content[data-hunk-sha={{ hunk_sha }}]" data-hunk-sha="{{ hunk_sha }}"{% endif %}{% if not manual_hunk %} data-position="{{ position }}"{% endif %} data-header-starts="{{ code|extract_hunk_header_starts }}">
             <div class="title">{{ code }}</div>
             {% with nb_comments=comments_count_by_hunk_position|dict_item:position %}
                 {% if nb_comments %}
@@ -17,6 +16,13 @@
                 </span>
                 {% endif %}
             {% endwith %}
+            {% if can_split_lines and manual_hunk %}
+                <ul class="box-toolbar">
+                    <li class="toolbar-link">
+                        <a class="manual-split-remove" title="Remove this manual split" ><i class="fa fa-trash-o"> </i></a>
+                    </li>
+                </ul>
+            {% endif %}
             {% if can_mark_reviewed and toggle_locally_reviewed_url and hunk_sha and hunk_reviewed is not None %}
                 <ul class="box-toolbar">
                     <li class="toolbar-link">
@@ -35,7 +41,7 @@
         <tr class="{{ class }}" data-position="{{ position }}">
             <td class="line-number" data-line-number="{{ old }}"><span>{{ old }}</span></td>
             <td class="line-number" data-line-number="{{ new }}"><span>{{ new }}</span></td>
-            <td class="code">{% if can_add_new_entry_point %}<span class="label label-blue btn-comment" title="Comment this line"><i class="fa fa-comment"></i></span>{% endif %}{{ code }}</td>
+            <td class="code">{% if can_add_new_entry_point %}<span class="label label-blue btn-comment" title="Comment this line"><i class="fa fa-comment"></i></span>{% endif %}{% if can_split_lines and can_split_line %}<span class="label label-green btn-split" title="Split on this line"><i class="fa fa-exchange"></i></span>{% endif %}{{ code }}</td>
         {% endspaceless %}</tr>
     {% endif %}
     {% if entry_points %}

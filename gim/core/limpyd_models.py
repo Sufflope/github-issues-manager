@@ -603,7 +603,7 @@ class Token(lmodel.RedisModel):
             except Exception:
                 pass
             else:
-                from core.tasks import FetchAvailableRepositoriesJob
+                from gim.core.tasks import FetchAvailableRepositoriesJob
                 FetchAvailableRepositoriesJob.add_job(user.id, prepend=True)
 
             raise
