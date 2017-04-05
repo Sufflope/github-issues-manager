@@ -3738,9 +3738,11 @@ $().ready(function() {
             if (!$mask.length) {
                 $mask = $('<div class="loading-mask"><p class="empty-area"><i class="fa fa-spinner fa-spin"> </i></p></div>');
                 $node.append($mask);
+                window.requestAnimationFrame(function() { $mask.addClass('loaded'); });
             } else {
-                $mask.removeClass('no-spinner');
+                $mask.removeClass('no-spinner loaded');
                 $mask.show();
+                window.requestAnimationFrame(function() { $mask.addClass('loaded'); });
             }
             return $mask;
         }), // add_waiting
