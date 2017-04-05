@@ -503,4 +503,9 @@ ol, ul {
     }
 }
 
+.tab-pane > *:not(.sticky-wrapper) {
+    @include backface-visibility(hidden);
+    @include transform(translateZ(0));
+}
+
 @import "responsive";
