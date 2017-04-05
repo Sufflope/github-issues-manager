@@ -155,6 +155,10 @@ def compute_hunk_header(hunk, start_from, start_to):
     )
 
 
+def extract_hunk_header_starts(header_text):
+    return whatthepatch.patch.unified_hunk_start.match(header_text).groups()[:4:2]
+
+
 def split_hunks(hunks, split_lines):
 
     from gim.core.models import LocalHunkSplit

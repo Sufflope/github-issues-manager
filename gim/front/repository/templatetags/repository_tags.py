@@ -31,7 +31,7 @@ def files_enhanced_for_user(obj, user):
 
 
 @register.filter
-def file_toggle_locally_reviewed_url(file, user):
+def file_toggle_locally_reviewed_url(file):
     from gim.front.repository.views import ToggleLocallyReviewedCommitFile, ToggleLocallyReviewedPullRequestFile
     from gim.core.models import CommitFile, PullRequestFile
 
@@ -47,3 +47,25 @@ def file_toggle_locally_reviewed_url(file, user):
     url = reverse('front:repository:%s' % url_name, kwargs=kwargs)
 
     return url.replace('/set/', '/%s/')
+
+
+@register.filter
+def file_toggle_local_split_url(file, split=None):
+    from gim.front.repository.views import ToggleLocalSplitCommitFile, ToggleLocalSplitPullRequestFile
+    from gim.core.models import CommitFile, PullRequestFile
+
+    if isinstance(file, CommitFile):
+        url_name = ToggleLocalSplitCommitFile.url_name
+    elif isinstance(file, PullRequestFile):
+        url_name = ToggleLocalSplitPullRequestFile.url_name
+    else:
+        return ''
+
+    kwargs = dict(file.repository.get_reverse_kwargs(), file_pk=file.pk, split_or_unsplit=split or 'split')
+
+    url = reverse('front:repository:%s' % url_name, kwargs=kwargs)
+
+    if not split:
+        url.replace('/split/', '/%s/')
+
+    return url

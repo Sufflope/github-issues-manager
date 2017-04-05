@@ -15,7 +15,7 @@ from django import template
 from django.conf import settings
 from django.template import TemplateSyntaxError
 
-from gim.core.diffutils import split_patch_into_hunks, parse_hunk, hunk_as_lines
+from gim.core.diffutils import split_patch_into_hunks, parse_hunk, extract_hunk_header_starts as extract, hunk_as_lines
 
 register = template.Library()
 
@@ -494,3 +494,6 @@ def user_can_add_pr_review(issue, user):
         return False
     return issue.user_can_add_pr_review(user)
 
+@register.filter
+def extract_hunk_header_starts(header_text):
+    return '[%s,%s]' % extract(header_text)

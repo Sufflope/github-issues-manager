@@ -188,16 +188,39 @@ class FileMixin(models.Model):
                 else:
                     self.unmark_locally_reviewed_by_user(user, propagate=False)
 
-    def get_split_lines_filters_for_user(self, user):
-        return {
+    def get_split_lines_filters_for_user(self, user, line=None):
+        filters = {
             'repository': self.repository,
             'author': user,
             'path': self.path,
         }
+        if line is not None:
+            filters['line'] = line
+        return filters
 
     def get_split_lines_for_user(self, user):
         filters = self.get_split_lines_filters_for_user(user)
         return LocalHunkSplit.objects.filter(**filters).values_list('line', flat=True)
+
+    def add_split_for_user(self, user, line):
+        try:
+            LocalHunkSplit.objects.create(
+                **self.get_split_lines_filters_for_user(user, line)
+            )
+        except IntegrityError:
+            return False
+        else:
+            return True
+
+    def remove_split_for_user(self, user, line):
+        try:
+            LocalHunkSplit.objects.get(
+                **self.get_split_lines_filters_for_user(user, line)
+            ).delete()
+        except LocalHunkSplit.DoesNotExist:
+            return False
+        else:
+            return True
 
 
 class PullRequestFile(FileMixin, WithIssueMixin, GithubObject):

@@ -1157,6 +1157,7 @@ $repo-name-height: 20px;
     }
 
     .code-file {
+        position: relative;
         > .box-header {
             .subtitle {
                 span:first-child {
