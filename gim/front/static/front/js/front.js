@@ -279,6 +279,12 @@ $().ready(function() {
                     return;
                 }
 
+                if (textarea.readOnly) {
+                    // a readonly textarea is not written by the user so it's safe (used by copy-paste plugin)
+                    Ev.textarea_protection.stop();
+                    return ;
+                }
+
                 if (!document.contains(textarea)) {
                     // not in the dom anymore, it's ok
                     Ev.textarea_protection.stop();
@@ -374,9 +380,11 @@ $().ready(function() {
             },
 
             on_textarea_focus: function(ev) {
-                if (!ev.target.classList.contains('no-tp')) {
-                    Ev.textarea_protection.element = ev.target;
+                if (ev.target.readOnly) {
+                    // a readonly textarea is not written by the user so it's safe (used by copy-paste plugin)
+                    return;
                 }
+                Ev.textarea_protection.element = ev.target;
             }, // on_textarea_focus
 
             on_before_unload: function(ev) {
